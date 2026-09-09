@@ -6,10 +6,11 @@ Sistema ERP multiempresa con arquitectura hexagonal y suite de automatización d
 
 **[Ver el último reporte de pruebas](https://rafarars.github.io/nexora-erp/)**
 
-## Levantar el sistema
+## Empezar
 
 ```bash
-docker compose up -d --build
+make install   # dependencias
+make up        # levanta db + api + web
 ```
 
 | Servicio | Dirección |
@@ -18,11 +19,20 @@ docker compose up -d --build
 | API | http://localhost:3001 |
 | Estado del sistema | http://localhost:3001/health |
 
+`make help` lista todos los comandos disponibles.
+
 ## Pruebas
 
 ```bash
-pnpm test:unit   # dominio, sin base de datos
-pnpm test:e2e    # Playwright: API, interfaz y resiliencia
+make test-unit      # dominio, sin base de datos
+make test-e2e       # Playwright: API, interfaz y resiliencia
+make verify         # todo lo que corre el CI
+make verify-clean   # igual, simulando un clon limpio
 ```
+
+`make verify` antes de cada push. `make verify-clean` cuando toques Dockerfiles,
+dependencias o configuración de compilación: borra todo el código generado y
+reconstruye las imágenes sin caché, que es lo único que reproduce de verdad lo
+que hace el CI sobre un repositorio recién clonado.
 
 > Documentación completa en construcción. Plan del proyecto en [`docs/PLAN.md`](docs/PLAN.md).

@@ -1,9 +1,13 @@
 import 'dotenv/config';
 import { NestFactory } from '@nestjs/core';
+import { ConfigService } from '@nestjs/config';
 import { AppModule } from './app.module.js';
+import type { Env } from './shared/config/env.schema.js';
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
-  await app.listen(process.env.PORT ?? 3001);
+  const config = app.get(ConfigService<Env, true>);
+
+  await app.listen(config.get('PORT', { infer: true }));
 }
 await bootstrap();

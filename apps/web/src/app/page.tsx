@@ -1,3 +1,5 @@
+import { getEnv } from "@/env";
+
 // En cada peticion: el estado no puede servirse cacheado.
 export const dynamic = "force-dynamic";
 
@@ -11,10 +13,12 @@ type HealthResult =
   | { reachable: false; error: string };
 
 async function fetchHealth(): Promise<HealthResult> {
-  const apiUrl = process.env.API_URL ?? "http://localhost:3001";
+  const { API_URL } = getEnv();
 
   try {
-    const response = await fetch(`${apiUrl}/health`, { cache: "no-store" });
+    const response = await fetch(`${API_URL}/health`, {
+      cache: "no-store",
+    });
     return {
       reachable: true,
       httpStatus: response.status,
