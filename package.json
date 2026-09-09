@@ -1,0 +1,9 @@
+{
+  "name": "nexora-erp",
+  "version": "0.0.0",
+  "private": true,
+  "packageManager": "pnpm@12.3.4",
+  "engines": {
+    "node": ">=22"
+  }
+}
