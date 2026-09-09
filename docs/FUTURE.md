@@ -43,6 +43,41 @@ Un endpoint a la medida de una pantalla ensucia un contrato público.
 **Cómo:** una capa delgada que compone llamadas para la interfaz, **sin duplicar
 lógica**, apoyándose en los mismos casos de uso. Se añade cuando el problema exista.
 
+### Extraer un manual de arranque reutilizable
+
+**Por qué:** este proyecto está estableciendo un método —fases, convenciones, reglas de
+calidad— que **no depende del stack**. La idea es poder decir *"quiero arrancar un
+proyecto con Laravel y Vue"* y que cualquier asistente sepa qué hacer y en qué orden.
+
+**Dos capas, no una:**
+
+| Capa | Contenido | ¿Cambia con el stack? |
+|---|---|---|
+| **Método** | Fases, principios y puertas de calidad | **No** |
+| **Stack** | Sintaxis, comandos y librerías | Sí |
+
+Lo que transfiere: CI desde el día uno antes que las funcionalidades; el repositorio
+debe reconstruirse solo; fallar en cerrado; explícito sobre automático; verificar que
+las guardas saltan, no solo que el camino feliz funciona; el código derivado se
+regenera con enganches; ningún secreto en el repositorio y configuración validada al
+arrancar; un comando que reproduzca el CI; autorización que deniega por defecto.
+
+**Cuándo:** al cerrar el H1, junto con las skills, y **extraído de lo que funcionó**, no
+inventado por adelantado.
+
+**Dónde:** como skill invocable, sincronizada a `~/.claude/skills/`, `~/.gemini/skills/`
+y valorando aportarla a la base de conocimiento del equipo.
+
+**Límite honesto:** un manual hace reproducibles el andamiaje, las convenciones y las
+puertas de calidad. **No** convierte una instrucción en un ERP: el modelado del dominio
+sigue exigiendo pensar.
+
+### Permiso de plataforma
+
+Crear una empresa no pertenece a ninguna empresa: es una operación de otro alcance. En
+el H1 se resuelve con la semilla. Cuando haga falta un endpoint, será un permiso de
+plataforma explícito, nunca un `if` que salte el guardián de inquilino.
+
 ---
 
 ## Infraestructura y despliegue

@@ -211,11 +211,44 @@ completo funcionando desde el día uno** con una prueba de humo de punta a punta
 funcionalidades.
 
 ### H1 — Multiempresa y acceso
-Inquilinos (empresas), usuarios, roles y permisos. Autenticación con token. Guardián de inquilino
-aplicado a toda consulta.
-*Pruebas:* **aislamiento entre empresas** (la empresa A intenta leer, editar y borrar datos de la
-empresa B y rebota en los tres casos), guardas de permisos por endpoint, sesión en E2E, POM de login
-reutilizable por toda la suite.
+
+**Modelo de acceso (decidido el 09-sep-2026)**
+
+- El `tenantId` viaja **dentro del token**, nunca en una cabecera ni en la ruta. Cambiar
+  de empresa es un endpoint que verifica pertenencia y **reemite el token**
+- `User` **no** lleva `tenantId`: una persona es una cuenta con correo único global. Lo
+  que la ata a una empresa es una **membresía**, y los roles se asignan a la membresía
+- **Permisos**: catálogo global, identificados por su **código** (`sales.invoices.create`).
+  El código es su identidad natural: único, estable y legible. Un identificador
+  artificial obligaría a buscarlo en la base cada vez que se declara uno
+- **Roles**: por empresa. Cada una agrupa permisos como quiera
+- **Rol de administrador con `grantsAll`**, en vez de listar sus permisos: así los
+  permisos que se creen en el futuro quedan cubiertos sin actualizar nada
+- **Superusuario sin atajos**: membresía en todas las empresas con rol de administrador.
+  Ningún `if` que salte el guardián. `grantsAll` concede todos los permisos **dentro de
+  su empresa**; no cruza el aislamiento
+- **Guardián declarativo que deniega por defecto**: cada endpoint declara su permiso con
+  un decorador; **un endpoint sin permiso declarado se deniega**. Olvidarlo cierra el
+  sistema, nunca lo abre
+
+**Fases**
+
+- [x] **0. Convención** — `docs/ARCHITECTURE.md` y primitivas de `shared/domain`
+- [ ] **1. Modelo y migración** — `Tenant`, `User`, `Membership`, `Role`, `Permission`
+- [ ] **2. Dominio** — entidades, value objects y puertos. Pruebas sin base de datos
+- [ ] **3. Aplicación** — casos de uso con repositorios en memoria. Pruebas sin base de datos
+- [ ] **4. Infraestructura** — repositorios Prisma y **pruebas de contrato de puerto**
+- [ ] **5. Autenticación** — Argon2, emisión de token, `/auth/login` y `/auth/switch-tenant`
+- [ ] **6. Guardianes** — inquilino y permisos, más la **prueba que recorre todas las rutas**
+      y verifica que cada una declara un permiso o es explícitamente pública
+- [ ] **7. Frontend** — login, cookie `httpOnly`, ruta protegida
+- [ ] **8. E2E** — POM de login y **aislamiento entre empresas** (404, no 403)
+- [ ] **9. Semillas** — dos empresas y el superusuario
+- [ ] **10. Cierre** — ajustar la convención y extraer las skills
+
+*Pruebas:* **aislamiento entre empresas** (la empresa A intenta leer, editar y borrar
+datos de la empresa B y rebota en los tres casos), guardas de permisos por endpoint,
+sesión en E2E, POM de login reutilizable por toda la suite.
 
 ### H2 — Catálogo
 Productos, categorías, unidades de medida, almacenes.
