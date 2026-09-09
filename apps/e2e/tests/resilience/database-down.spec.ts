@@ -1,6 +1,10 @@
 import { expect, test } from '@playwright/test';
 import { SystemStatusPage } from '../../pages/system-status.page.js';
-import { startDatabase, stopDatabase } from '../../support/infrastructure.js';
+import {
+  startDatabase,
+  stopDatabase,
+  waitForHealthyDatabase,
+} from '../../support/infrastructure.js';
 
 const API_URL = process.env.API_URL ?? 'http://localhost:3001';
 
@@ -13,8 +17,9 @@ test.describe('Resilience: the database goes down', () => {
   });
 
   // El entorno se restaura aunque las pruebas fallen.
-  test.afterAll(() => {
+  test.afterAll(async () => {
     startDatabase();
+    await waitForHealthyDatabase();
   });
 
   test('the API returns 503 and reports the database as down', async ({
