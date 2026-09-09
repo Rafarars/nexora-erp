@@ -45,6 +45,8 @@ jobs:
   e2e:
     name: End-to-end tests
     runs-on: ubuntu-latest
+    outputs:
+      has-report: ${{ steps.report.outputs.exists }}
     steps:
       - uses: actions/checkout@v4
       - uses: pnpm/action-setup@v4
@@ -59,12 +61,22 @@ jobs:
       - run: docker compose up -d --build
       - run: pnpm --filter e2e test
 
+      - name: Check report
+        id: report
+        if: always()
+        run: |
+          if [ -d apps/e2e/playwright-report ] && [ -n "$(ls -A apps/e2e/playwright-report)" ]; then
+            echo "exists=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "exists=false" >> "$GITHUB_OUTPUT"
+          fi
+
       - name: Docker logs
         if: failure()
         run: docker compose logs --no-color > docker-logs.txt
 
       - uses: actions/upload-artifact@v4
-        if: always()
+        if: always() && steps.report.outputs.exists == 'true'
         with:
           name: playwright-report
           path: apps/e2e/playwright-report
@@ -80,8 +92,10 @@ jobs:
   publish-report:
     name: Publish report
     needs: [e2e]
-    # Se publica aunque las pruebas fallen: un reporte en rojo tambien informa.
-    if: always() && github.ref == 'refs/heads/main'
+    # Se publica aunque las pruebas fallen (un reporte en rojo tambien informa),
+    # pero solo si el reporte existe: si el sistema ni siquiera arranco, se
+    # conserva publicado el ultimo reporte valido.
+    if: always() && github.ref == 'refs/heads/main' && needs.e2e.outputs.has-report == 'true'
     runs-on: ubuntu-latest
     permissions:
       pages: write

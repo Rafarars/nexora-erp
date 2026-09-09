@@ -10,3 +10,4 @@
 .git
 .github
 docs
+**/src/generated

@@ -1,22 +1,24 @@
 # Contexto de construccion: la RAIZ del monorepo, no esta carpeta.
-# El lockfile y la definicion del workspace viven alli.
 FROM node:22-alpine AS base
 RUN corepack enable
 WORKDIR /app
 
 FROM base AS build
 COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
-COPY apps/api/package.json ./apps/api/
+# Todo lo que necesita el postinstall (`prisma generate`) va ANTES del install.
+# tsconfig.json incluido: el generador lo lee para decidir la extension de los
+# imports del cliente (.js con nodenext). Sin el emite .ts y la imagen no arranca.
+COPY apps/api/package.json apps/api/tsconfig.json apps/api/prisma7.config.ts ./apps/api/
+COPY apps/api/prisma ./apps/api/prisma
 RUN pnpm install --frozen-lockfile --filter api...
 COPY apps/api ./apps/api
-RUN pnpm --filter api exec prisma generate
 RUN pnpm --filter api build
 
-# Instalacion aparte solo con dependencias de ejecucion.
 FROM base AS prod-deps
 COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
 COPY apps/api/package.json ./apps/api/
-RUN pnpm install --frozen-lockfile --prod --filter api...
+# Sin scripts: aqui no se genera nada y el CLI de prisma no esta (es de desarrollo).
+RUN pnpm install --frozen-lockfile --prod --filter api... --ignore-scripts
 # @prisma/client declara `prisma` y `typescript` como pares OPCIONALES, y pnpm
 # los resuelve por estar en el workspace. Con driver adapter no se usan en
 # ejecucion: fuera, junto con su arbol.
