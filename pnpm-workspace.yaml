@@ -2,6 +2,7 @@ packages:
   - "apps/*"
   - "packages/*"
 allowBuilds:
+  sharp: false
   '@prisma/engines': true
   esbuild: true
   prisma: true
