@@ -64,6 +64,50 @@ en el H0 por no tener sistema que observar ni recolector a donde enviar.
 
 ---
 
+## Requisitos del despliegue
+
+No son mejoras lejanas: **hay que resolverlos antes o durante el primer despliegue**,
+porque el enlace del portafolio depende de ellos.
+
+### Límite de peticiones
+
+Se despliega en planes gratuitos, que tienen cuota. Un bot rastreador o un integrador
+con un bucle mal escrito puede **agotarla**, y entonces el enlace del CV cae justo el
+día que un reclutador lo abre. No cuesta dinero, cuesta un módulo y unas líneas.
+
+### Mantener los servicios despiertos
+
+| Plataforma | Comportamiento |
+|---|---|
+| Render (gratis) | Se duerme tras **15 min** sin peticiones; despertar tarda ~1 min |
+| Supabase (gratis) | Pausa el proyecto tras inactividad; reactivarlo es **manual** |
+| Vercel | No se duerme |
+
+**Render da 750 horas de instancia al mes por espacio de trabajo, y un mes tiene ~730.**
+Mantener un servicio despierto 24/7 consume casi toda la bolsa y deja ~20 horas de
+margen: cualquier segundo servicio la agota y el servicio queda **suspendido**, no solo
+lento.
+
+Plan: **ping por ventana horaria, no 24/7.** Cada 10 minutos entre las 7:00 y las 23:00
+son unas 490 h/mes, con ~260 h de colchón. Fuera de esa franja se acepta el arranque en
+frío — a las tres de la mañana no hay reclutadores mirando.
+
+Para Supabase basta un ping diario para evitar la pausa del proyecto.
+
+El cron puede vivir en un workflow programado de GitHub Actions (gratis en repos
+públicos), recordando que **esos workflows se desactivan solos tras ~2 meses sin
+actividad en el repositorio**.
+
+> **Red de seguridad ya existente:** el entregable principal es el reporte de CI en
+> GitHub Pages, que es estático y nunca se duerme. Aunque el ping falle o se agoten las
+> horas, el enlace del CV sigue vivo. La app desplegada es el bonus.
+
+### Verificar las cuotas reales antes de desplegar
+
+Las condiciones de los planes gratuitos cambian seguido. **Consultar la documentación
+oficial de Render, Supabase y Vercel en el momento del despliegue**, no fiarse de estas
+notas.
+
 ## Calidad y seguridad
 
 ### Fijar las imágenes por huella digital
