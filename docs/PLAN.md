@@ -37,6 +37,15 @@ bajo prueba. Se construye bien —hexagonal, SOLID, ATDD, dockerizado, desplegad
 serio permite pruebas serias, y porque saber construir refuerza el perfil de SDET. Pero ningún
 módulo se considera terminado hasta que su suite está en verde.
 
+**Regla de alcance (definida el 09-sep-2026): profundidad máxima en los cimientos, módulos los que
+dé el tiempo.** El valor del portafolio no está en cuántos módulos tenga el ERP, sino en la base:
+multitenencia, permisos, hexagonal bien hecha, la pirámide de pruebas completa, el CI y el
+despliegue. Eso es lo que no se improvisa y lo que un revisor técnico reconoce. Los módulos son
+carpintería repetida: una vez que inventario está hecho con dominio, puertos, adaptadores, pruebas
+en cinco niveles y su E2E, ventas es el mismo trabajo otra vez. Tres módulos impecables valen más
+que siete a medio probar. Como cada hito cierra en verde, se puede parar en cualquier punto sin
+quedar a medias.
+
 ---
 
 ## 3. Stack
@@ -137,6 +146,26 @@ providers: [{ provide: PRODUCT_REPOSITORY, useClass: PrismaProductRepository }]
 **Regla dura:** la carpeta `domain/` no importa nada de NestJS, ni de Prisma, ni de HTTP.
 Si lo hace, la hexagonal es de mentira.
 
+### Multitenencia (decidida el 09-sep-2026)
+
+El sistema es **multiempresa desde el H1**, con **multitenencia por fila**: una columna `tenantId`
+en cada tabla del negocio, más un guardián que la aplica en toda consulta.
+
+Por qué por fila y no un esquema de base de datos por empresa: la segunda opción se ve mejor en un
+diagrama y es un dolor en migraciones, siembra de datos, pruebas y despliegue. La primera es la que
+usan los SaaS reales.
+
+Por qué desde el H1 y no después: añadirla al principio cuesta una columna y un guardián; añadirla
+después obliga a tocar cada tabla, cada consulta, cada endpoint y cada prueba del sistema. Es la
+decisión que no se puede posponer.
+
+Por qué importa para el portafolio: la prueba que demuestra que **la empresa A no puede ver, editar
+ni borrar los datos de la empresa B** es el tipo de prueba que separa a un tester de formularios de
+alguien que entiende autorización y límites de seguridad. Vale más que veinte pruebas de CRUD.
+
+Son dos guardianes distintos y cada uno con sus propias pruebas: **inquilino** (a qué empresa
+perteneces) y **permiso** (qué puedes hacer dentro de ella).
+
 ---
 
 ## 5. Estrategia de pruebas
@@ -181,9 +210,12 @@ completo funcionando desde el día uno** con una prueba de humo de punta a punta
 *Salida:* pipeline verde con una prueba trivial. La infraestructura de pruebas existe antes que las
 funcionalidades.
 
-### H1 — Acceso
-Usuarios, roles y permisos. Autenticación con token.
-*Pruebas:* guardas de permisos por endpoint, sesión en E2E, POM de login reutilizable por toda la suite.
+### H1 — Multiempresa y acceso
+Inquilinos (empresas), usuarios, roles y permisos. Autenticación con token. Guardián de inquilino
+aplicado a toda consulta.
+*Pruebas:* **aislamiento entre empresas** (la empresa A intenta leer, editar y borrar datos de la
+empresa B y rebota en los tres casos), guardas de permisos por endpoint, sesión en E2E, POM de login
+reutilizable por toda la suite.
 
 ### H2 — Catálogo
 Productos, categorías, unidades de medida, almacenes.
@@ -247,7 +279,32 @@ No es un instructivo de instalación. Es el argumento. Debe contener:
 
 ---
 
-## 9. Riesgos asumidos
+## 9. Skills del proyecto (decidido el 09-sep-2026)
+
+Se escriben **al cerrar el H1**, no antes. Una skill se **extrae, no se inventa**: escrita antes,
+codifica suposiciones; escrita después del primer contexto completo (dominio, puertos, adaptadores,
+controlador, migración y sus pruebas), codifica lo que realmente funcionó, con los tropiezos ya
+resueltos. Es como nacieron las skills de Flexio.
+
+**No se adaptan las skills de Flexio.** Se toma su estructura como referencia porque está bien
+armada, pero el contenido se escribe de cero: aquellas codifican Symfony, Eloquent, Phinx y Behat;
+aquí es NestJS, Prisma y Vitest. Adaptarlas sería más lento y arrastraría modismos de PHP.
+
+| Skill | Alcance | Por qué así |
+|---|---|---|
+| `nest-hexagonal` | Dominio, aplicación, infraestructura **y controladores** | El controlador NO va en skill aparte: en hexagonal es solo un adaptador de entrada. Separarlo duplicaría contexto y sugeriría que es una capa propia, que es el error conceptual a evitar |
+| `frontend-hexagonal` | Organización por módulos en React/Next | Skill aparte. El frontend tiene reglas propias; mezclarlo daría una skill enorme que se carga entera para cualquier tarea |
+| `nexora-testing` | La pirámide completa: dominio, aplicación, contrato de puerto, API, E2E y Gherkin | Una sola: los niveles se eligen juntos, no por separado |
+| Migraciones | **Ninguna nueva** | Ya está instalada `prisma-cli` (global, en Claude y agy). Como mucho, un apartado con convenciones propias dentro de `nest-hexagonal` |
+
+**Separación en dos capas, pensando en reutilizar esto para otro ERP (p. ej. Laravel + Vue):** una
+skill de **método** (cómo se piensa la hexagonal y la pirámide de pruebas — independiente del
+lenguaje) y skills **finas por stack** que solo aporten sintaxis. Así, al cambiar de stack se
+reescribe lo delgado y se conserva lo valioso.
+
+---
+
+## 10. Riesgos asumidos
 
 | Riesgo | Mitigación |
 |---|---|
@@ -259,9 +316,8 @@ No es un instructivo de instalación. Es el argumento. Debe contener:
 
 ---
 
-## 10. Decisiones pendientes
+## 11. Decisiones pendientes
 
-- Nombre del repositorio y del ERP
 - Si se envían las 7 postulaciones de QA al cerrar H3 o al terminar todos los hitos
 - Servicio final para la API (Render vs Koyeb) y para la base de datos (Supabase vs Neon),
   verificando condiciones vigentes al momento del despliegue
