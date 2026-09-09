@@ -76,6 +76,8 @@ jobs:
 
       # El mismo compose que se usa en local: si funciona alli, funciona aqui.
       - run: docker compose up -d --build
+      # La base del runner nace vacia: sin esto, las tablas no existen.
+      - run: make migrate
       - run: pnpm --filter e2e test
 
       - name: Check report

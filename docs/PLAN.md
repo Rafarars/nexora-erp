@@ -234,7 +234,7 @@ funcionalidades.
 **Fases**
 
 - [x] **0. Convención** — `docs/ARCHITECTURE.md` y primitivas de `shared/domain`
-- [ ] **1. Modelo y migración** — `Tenant`, `User`, `Membership`, `Role`, `Permission`
+- [x] **1. Modelo y migración** — `Tenant`, `User`, `Membership`, `Role`, `Permission`
 - [ ] **2. Dominio** — entidades, value objects y puertos. Pruebas sin base de datos
 - [ ] **3. Aplicación** — casos de uso con repositorios en memoria. Pruebas sin base de datos
 - [ ] **4. Infraestructura** — repositorios Prisma y **pruebas de contrato de puerto**

@@ -1,7 +1,6 @@
-// This is your Prisma schema file,
-// learn more about it in the docs: https://pris.ly/d/prisma-schema
-
-// Get a free hosted Postgres database in seconds: `npx create-db`
+// Nombres de tablas y columnas en snake_case, que es la convencion de PostgreSQL:
+// asi el SQL crudo se lee natural. Los identificadores NO tienen valor por defecto en
+// la base: los genera el dominio a traves del puerto IdGenerator.
 
 generator client {
   provider = "prisma-client"
@@ -10,4 +9,105 @@ generator client {
 
 datasource db {
   provider = "postgresql"
+}
+
+model Tenant {
+  id        String   @id @db.Uuid
+  name      String
+  slug      String   @unique
+  isActive  Boolean  @default(true) @map("is_active")
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  memberships Membership[]
+  roles       Role[]
+
+  @@map("tenants")
+}
+
+/// Una persona: una cuenta, un correo unico global. NO lleva tenantId — lo que la ata
+/// a una empresa es una membresia.
+model User {
+  id           String   @id @db.Uuid
+  email        String   @unique
+  passwordHash String   @map("password_hash")
+  name         String
+  isActive     Boolean  @default(true) @map("is_active")
+  createdAt    DateTime @default(now()) @map("created_at")
+  updatedAt    DateTime @updatedAt @map("updated_at")
+
+  memberships Membership[]
+
+  @@map("users")
+}
+
+/// Vincula una persona con una empresa. Los roles se asignan AQUI, no al usuario:
+/// se puede ser administrador en una empresa y solo lectura en otra.
+model Membership {
+  id        String   @id @db.Uuid
+  userId    String   @map("user_id") @db.Uuid
+  tenantId  String   @map("tenant_id") @db.Uuid
+  isActive  Boolean  @default(true) @map("is_active")
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  user   User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  tenant Tenant           @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  roles  MembershipRole[]
+
+  @@unique([userId, tenantId])
+  @@index([tenantId])
+  @@map("memberships")
+}
+
+/// Los roles son POR EMPRESA: cada una agrupa permisos como quiera.
+/// `grantsAll` concede todos los permisos DENTRO de su empresa, sin saltar el
+/// aislamiento. Evita tener que actualizar una lista cada vez que nace un permiso.
+model Role {
+  id        String   @id @db.Uuid
+  tenantId  String   @map("tenant_id") @db.Uuid
+  name      String
+  grantsAll Boolean  @default(false) @map("grants_all")
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  tenant      Tenant           @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  permissions RolePermission[]
+  memberships MembershipRole[]
+
+  @@unique([tenantId, name])
+  @@map("roles")
+}
+
+/// Catalogo global. El CODIGO es la identidad: unico, estable y legible.
+/// Declarar un permiso nuevo es insertar una fila, sin buscar identificadores.
+model Permission {
+  code        String @id
+  description String
+
+  roles RolePermission[]
+
+  @@map("permissions")
+}
+
+model RolePermission {
+  roleId         String @map("role_id") @db.Uuid
+  permissionCode String @map("permission_code")
+
+  role       Role       @relation(fields: [roleId], references: [id], onDelete: Cascade)
+  permission Permission @relation(fields: [permissionCode], references: [code], onDelete: Cascade)
+
+  @@id([roleId, permissionCode])
+  @@map("role_permissions")
+}
+
+model MembershipRole {
+  membershipId String @map("membership_id") @db.Uuid
+  roleId       String @map("role_id") @db.Uuid
+
+  membership Membership @relation(fields: [membershipId], references: [id], onDelete: Cascade)
+  role       Role       @relation(fields: [roleId], references: [id], onDelete: Cascade)
+
+  @@id([membershipId, roleId])
+  @@map("membership_roles")
 }

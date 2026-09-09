@@ -3,7 +3,10 @@ SHELL := /bin/bash
 
 GITLEAKS := zricethezav/gitleaks:v8.18.4
 
-.PHONY: help install up down restart ps logs lint typecheck test-unit test-e2e secrets verify verify-clean clean report
+# Por defecto apunta al Postgres del compose. Se sobreescribe desde el entorno.
+DATABASE_URL ?= postgresql://nexora:nexora@localhost:5432/nexora?schema=public
+
+.PHONY: help install up down restart ps logs migrate lint typecheck test-unit test-e2e secrets verify verify-clean clean report
 
 help: ## Muestra los comandos disponibles
 	@echo ""
@@ -18,8 +21,9 @@ help: ## Muestra los comandos disponibles
 install: ## Instala dependencias (genera el cliente de Prisma)
 	pnpm install
 
-up: ## Levanta el sistema completo (db + api + web)
+up: ## Levanta el sistema completo (db + api + web) y aplica migraciones
 	docker compose up -d --build
+	$(MAKE) --no-print-directory migrate
 	@echo ""
 	@echo "  web    http://localhost:3000"
 	@echo "  api    http://localhost:3001/health"
@@ -34,6 +38,9 @@ ps: ## Estado de los servicios
 
 logs: ## Sigue los registros de todos los servicios
 	docker compose logs -f
+
+migrate: ## Aplica las migraciones pendientes
+	DATABASE_URL="$(DATABASE_URL)" pnpm --filter api exec prisma migrate deploy
 
 # ---------------------------------------------------------------- checks
 
