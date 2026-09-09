@@ -4,18 +4,61 @@ services:
     container_name: nexora-db
     restart: unless-stopped
     environment:
-      POSTGRES_USER: nexora
-      POSTGRES_PASSWORD: nexora
-      POSTGRES_DB: nexora
+      POSTGRES_USER: ${POSTGRES_USER:-nexora}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-nexora}
+      POSTGRES_DB: ${POSTGRES_DB:-nexora}
     ports:
-      - "5432:5432"
+      - "${DB_PORT:-5432}:5432"
     volumes:
       - pgdata:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U nexora -d nexora"]
+      test:
+        - CMD-SHELL
+        - pg_isready -U ${POSTGRES_USER:-nexora} -d ${POSTGRES_DB:-nexora}
       interval: 5s
       timeout: 5s
       retries: 10
+
+  api:
+    build:
+      context: .
+      dockerfile: apps/api/Dockerfile
+    container_name: nexora-api
+    restart: unless-stopped
+    environment:
+      # `db` es el nombre del servicio, resuelto por el DNS interno del compose.
+      DATABASE_URL: postgresql://${POSTGRES_USER:-nexora}:${POSTGRES_PASSWORD:-nexora}@db:5432/${POSTGRES_DB:-nexora}?schema=public
+      PORT: 3001
+    ports:
+      - "${API_PORT:-3001}:3001"
+    depends_on:
+      db:
+        condition: service_healthy
+    healthcheck:
+      # Se ejecuta dentro del contenedor: aqui localhost es el propio servicio.
+      test:
+        - CMD
+        - node
+        - -e
+        - "fetch('http://localhost:3001/health').then(r => process.exit(r.ok ? 0 : 1)).catch(() => process.exit(1))"
+      interval: 10s
+      timeout: 5s
+      retries: 6
+      start_period: 15s
+
+  web:
+    build:
+      context: .
+      dockerfile: apps/web/Dockerfile
+    container_name: nexora-web
+    restart: unless-stopped
+    environment:
+      API_URL: http://api:3001
+    ports:
+      - "${WEB_PORT:-3000}:3000"
+    depends_on:
+      api:
+        condition: service_healthy
 
 volumes:
   pgdata:
