@@ -1,0 +1,11 @@
+node_modules
+dist
+
+# Mantener las variables de entorno fuera del control de versiones
+.env
+
+# Cliente generado por Prisma: se regenera con `prisma generate`
+/src/generated/prisma
+
+# Artefactos de compilacion incremental
+*.tsbuildinfo
