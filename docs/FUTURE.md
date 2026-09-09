@@ -62,11 +62,17 @@ las guardas saltan, no solo que el camino feliz funciona; el código derivado se
 regenera con enganches; ningún secreto en el repositorio y configuración validada al
 arrancar; un comando que reproduzca el CI; autorización que deniega por defecto.
 
-**Cuándo:** al cerrar el H1, junto con las skills, y **extraído de lo que funcionó**, no
-inventado por adelantado.
+**Estado (09-sep-2026): creado** en `github.com/Rafarars/engineering-playbook`, con el
+método del H0 ya probado (arranque, puertas de calidad, diagnóstico, plantillas y notas
+del stack). La carpeta `patterns/` está vacía a propósito: los patrones de arquitectura
+se extraen **al cerrar el H1**, cuando estén construidos y no solo escritos.
 
-**Dónde:** como skill invocable, sincronizada a `~/.claude/skills/`, `~/.gemini/skills/`
-y valorando aportarla a la base de conocimiento del equipo.
+**Criterio de reparto:** el playbook guarda el **patrón**; cada proyecto guarda su
+**instancia**. `docs/ARCHITECTURE.md` se queda aquí porque quien abra este repositorio no
+debería tener que ir a otro para entender la arquitectura.
+
+**Pendiente:** exponerlo también como skill invocable, sincronizada a `~/.claude/skills/`
+y `~/.gemini/skills/`.
 
 **Límite honesto:** un manual hace reproducibles el andamiaje, las convenciones y las
 puertas de calidad. **No** convierte una instrucción en un ERP: el modelado del dominio
