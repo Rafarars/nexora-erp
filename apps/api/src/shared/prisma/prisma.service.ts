@@ -11,7 +11,7 @@ export class PrismaService
     const connectionString = process.env.DATABASE_URL;
 
     if (!connectionString) {
-      throw new Error('La variable de entorno DATABASE_URL no está definida.');
+      throw new Error('The DATABASE_URL environment variable is not set.');
     }
 
     super({ adapter: new PrismaPg({ connectionString }) });

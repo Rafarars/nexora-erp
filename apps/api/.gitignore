@@ -1,7 +1,7 @@
 node_modules
 dist
 
-# Mantener las variables de entorno fuera del control de versiones
+# Variables de entorno fuera del control de versiones
 .env
 
 # Cliente generado por Prisma: se regenera con `prisma generate`
