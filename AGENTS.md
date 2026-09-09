@@ -100,6 +100,11 @@ pasos sueltos del pipeline ni instrucciones en un README.
 |---|---|
 | `docs/PLAN.md` | Objetivo, hitos, estrategia de pruebas y decisiones de fondo |
 | `docs/ENVIRONMENT.md` | Cada variable de entorno, despliegue y funcionamiento del CI |
+| `docs/FUTURE.md` | Mejoras diferidas, con su porqué |
 | `README.md` | Portada del portafolio |
 
 Las decisiones con su porqué se guardan además en Engram, proyecto `nexora-erp`.
+
+**Toda idea de futuro se anota en `docs/FUTURE.md`** con qué es, por qué y qué haría
+falta. Nada se construye antes de que exista la necesidad, pero nada se pierde por no
+haberlo escrito.
