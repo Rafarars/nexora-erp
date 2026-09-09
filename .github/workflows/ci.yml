@@ -55,7 +55,24 @@ jobs:
           node-version: 22
           cache: pnpm
       - run: pnpm install --frozen-lockfile
-      - run: pnpm --filter e2e exec playwright install --with-deps chromium
+      # Los binarios pesan ~114 MB y solo cambian al subir de version de Playwright.
+      - uses: actions/cache@v4
+        with:
+          path: ~/.cache/ms-playwright
+          key: playwright-${{ runner.os }}-${{ hashFiles('pnpm-lock.yaml') }}
+
+      # `--with-deps` instala librerias del sistema con apt y depende de repos
+      # externos: falla de forma transitoria. Se reintenta en vez de tumbar el CI.
+      - name: Install Playwright browsers
+        run: |
+          for attempt in 1 2 3; do
+            if pnpm --filter e2e exec playwright install --with-deps chromium; then
+              exit 0
+            fi
+            echo "Intento $attempt fallido; reintentando en 15s"
+            sleep 15
+          done
+          exit 1
 
       # El mismo compose que se usa en local: si funciona alli, funciona aqui.
       - run: docker compose up -d --build
