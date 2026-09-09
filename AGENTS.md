@@ -48,6 +48,9 @@ comprueba en todos.
 
 ## Arquitectura
 
+Convención completa en **[`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md)**. Leerla antes
+de crear cualquier contexto, caso de uso o adaptador. Resumen:
+
 Hexagonal por contextos delimitados en `apps/api/src/contexts/<contexto>/`, cada uno
 con `domain/`, `application/` e `infrastructure/`.
 
@@ -100,6 +103,7 @@ pasos sueltos del pipeline ni instrucciones en un README.
 |---|---|
 | `docs/PLAN.md` | Objetivo, hitos, estrategia de pruebas y decisiones de fondo |
 | `docs/ENVIRONMENT.md` | Cada variable de entorno, despliegue y funcionamiento del CI |
+| `docs/ARCHITECTURE.md` | Convención hexagonal: estructura, nombres y reglas |
 | `docs/FUTURE.md` | Mejoras diferidas, con su porqué |
 | `README.md` | Portada del portafolio |
 
