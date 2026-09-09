@@ -8,9 +8,13 @@
     "test:api": "playwright test --project=api",
     "test:ui": "playwright test --project=ui",
     "test:resilience": "playwright test --project=resilience",
-    "report": "playwright show-report"
+    "report": "playwright show-report",
+    "typecheck": "tsc --noEmit",
+    "lint": "echo 'sin linter propio'"
   },
   "devDependencies": {
-    "@playwright/test": "^1.63.0"
+    "@playwright/test": "^1.63.0",
+    "@types/node": "^26.5.0",
+    "typescript": "5.9.3"
   }
 }

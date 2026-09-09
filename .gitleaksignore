@@ -1,0 +1,6 @@
+# Falsos positivos aceptados. Cada linea es la huella que reporta gitleaks.
+# Revisar uno por uno antes de anadirlo: esta lista es la puerta trasera del escaner.
+
+# Insignia de CircleCI del README que genera NestJS ("?token=..." en una URL publica).
+# El archivo ya se elimino, pero permanece en el historial.
+27586ec19c83bb528a0b88f2490df56674cec924:apps/api/README.md:generic-api-key:5
