@@ -22,14 +22,15 @@ de ninguna conversación anterior**.
 |---|---|
 | Repositorio | github.com/Rafarars/nexora-erp |
 | Reporte de pruebas | https://rafarars.github.io/nexora-erp/ |
-| Pruebas | 14 unitarias · 10 end-to-end |
+| Pruebas | 123 unitarias · 10 end-to-end |
 | **H0 — Fundación** | **Completado** |
-| **H1 — Multiempresa y acceso** | Fases 0 y 1 hechas; **siguiente: fase 2** |
+| **H1 — Multiempresa y acceso** | Fases 0 a 2 hechas; **siguiente: fase 3** |
 
 Lo que ya funciona: monorepo con API, frontend y suite E2E; PostgreSQL en Docker;
 endpoint de salud que verifica la base; CI con cuatro trabajos publicando el reporte;
 configuración validada al arrancar; Makefile con `verify` y `verify-clean`; convención
-de arquitectura escrita; primitivas de dominio; y el esquema de acceso con su migración.
+de arquitectura escrita; primitivas de dominio; el esquema de acceso con su migración; y
+el dominio del contexto de acceso completo, con sus reglas de negocio probadas.
 
 ---
 
@@ -63,29 +64,28 @@ Cada una tiene su razonamiento completo en Engram.
 
 ## Fases restantes del H1
 
-### Fase 2 — Dominio
+### Fase 2 — Dominio ✅
 
-```
-contexts/access/domain/
-├── tenant/      Tenant, TenantId, TenantRepository
-├── user/        User, UserId, Email, PasswordHash, UserRepository
-├── membership/  Membership, MembershipId, MembershipRepository
-├── role/        Role, RoleId, PermissionCode, RoleRepository
-└── errors/
-```
+Hecha. `contexts/access/domain/` con `tenant/`, `user/`, `membership/`, `role/`, `errors/`,
+los servicios `SignInPolicy` y `PermissionChecker`, y los cuatro puertos.
 
-Reglas de negocio que deben vivir en el dominio, cada una con su prueba:
+Dos pruebas verifican propiedades del sistema, no funcionalidades:
 
-- Un correo tiene que ser un correo — validado en el value object, no en un `if` suelto
-- Una membresía inactiva no autentica
-- Una empresa inactiva bloquea a todos sus miembros
-- Un rol con `grantsAll` concede cualquier permiso **de su empresa**
+- `domain-purity.spec.ts` recorre todos los archivos de `domain/` y exige que cada
+  `import` apunte a código propio. Es el criterio de cierre, automatizado
+- `errors/error-categories.spec.ts` comprueba que cada error hereda de su categoría; sin
+  ella, un error mal heredado saldría **500 en vez de 404** sin que nadie lo notara
 
-Entidades con `create()`, `fromPrimitives()`, `toPrimitives()` y `changeX()`. Nunca
-`new` público. Puertos como interfaz más token `Symbol`.
+Decisiones que conviene no volver a discutir:
 
-**Criterio de cierre:** las pruebas corren **sin base de datos, sin Docker y sin NestJS**.
-Verificar que `domain/` no tiene ni un import externo.
+- `PasswordHash` valida **que esté hasheado, no que sea Argon2**: el `$` inicial es el
+  estándar del *Modular Crypt Format*. Cambiar de algoritmo no debe tocar el dominio
+- `UserRepository` es el **único puerto sin `TenantId`**, porque la persona no pertenece
+  a una empresa. Para los usuarios *de* una empresa se pasa por `MembershipRepository`
+- `PermissionChecker` comprueba **primero de qué empresa es el rol** y después qué
+  concede, para que `grantsAll` no cruce empresas
+- Las pruebas van **junto a su código**, no en un árbol espejo: es lo que Vitest descubre
+  de fábrica y lo que ya hacía el H0
 
 ### Fase 3 — Aplicación
 
