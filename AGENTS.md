@@ -103,6 +103,7 @@ pasos sueltos del pipeline ni instrucciones en un README.
 |---|---|
 | `docs/PLAN.md` | Objetivo, hitos, estrategia de pruebas y decisiones de fondo |
 | `docs/ENVIRONMENT.md` | Cada variable de entorno, despliegue y funcionamiento del CI |
+| `docs/RETOMAR.md` | **Empezar aquí**: estado actual y siguientes pasos |
 | `docs/ARCHITECTURE.md` | Convención hexagonal: estructura, nombres y reglas |
 | `docs/FUTURE.md` | Mejoras diferidas, con su porqué |
 | `README.md` | Portada del portafolio |
