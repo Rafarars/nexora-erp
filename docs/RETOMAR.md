@@ -22,15 +22,16 @@ de ninguna conversación anterior**.
 |---|---|
 | Repositorio | github.com/Rafarars/nexora-erp |
 | Reporte de pruebas | https://rafarars.github.io/nexora-erp/ |
-| Pruebas | 123 unitarias · 10 end-to-end |
+| Pruebas | 253 unitarias · 10 end-to-end |
 | **H0 — Fundación** | **Completado** |
-| **H1 — Multiempresa y acceso** | Fases 0 a 2 hechas; **siguiente: fase 3** |
+| **H1 — Multiempresa y acceso** | Fases 0 a 3 hechas; **siguiente: fase 4** |
 
 Lo que ya funciona: monorepo con API, frontend y suite E2E; PostgreSQL en Docker;
 endpoint de salud que verifica la base; CI con cuatro trabajos publicando el reporte;
 configuración validada al arrancar; Makefile con `verify` y `verify-clean`; convención
 de arquitectura escrita; primitivas de dominio; el esquema de acceso con su migración; y
-el dominio del contexto de acceso completo, con sus reglas de negocio probadas.
+el dominio del contexto de acceso completo, con sus reglas de negocio probadas; y los
+cinco casos de uso del acceso, probados sin base de datos.
 
 ---
 
@@ -87,15 +88,34 @@ Decisiones que conviene no volver a discutir:
 - Las pruebas van **junto a su código**, no en un árbol espejo: es lo que Vitest descubre
   de fábrica y lo que ya hacía el H0
 
-### Fase 3 — Aplicación
+### Fase 3 — Aplicación ✅
 
-Casos de uso en `application/<accion>/`, con repositorios **en memoria** en las pruebas.
-Nombres por acción: `UserAuthenticator`, `TenantCreator`, `UserFinder`. Método único `run()`.
+Hecha. `contexts/access/application/` con `authenticate-user/`, `switch-tenant/`,
+`create-user/`, `assign-role/`, `search-tenant-users/` y `session/` (la respuesta que
+comparten iniciar sesión y cambiar de empresa).
 
-Casos de uso del H1: autenticar, cambiar de empresa, crear usuario, asignar rol, listar
-usuarios de una empresa.
+Los dobles viven en `infrastructure/testing/`: cuatro repositorios en memoria, un hasher
+falso, un reloj congelado y un generador de identificadores predecible. **Guardan
+primitivas, no entidades**, para comportarse como una base de verdad — en la fase 4 son
+la mitad de las pruebas de contrato.
 
-**Criterio de cierre:** también sin base de datos.
+Decisiones que conviene no volver a discutir:
+
+- **Las reglas de negocio no viven en los casos de uso.** `RoleFinder`, `UserRegistrar` y
+  `MemberEnroller` son servicios de dominio con nombre de negocio; la capa de aplicación
+  solo ordena. `UserCreator` pasó de 7 dependencias y 100 líneas a 4 y 39
+- `UserAuthenticator` **no usa los finders** a propósito: lanzan `NotFoundError`, y el
+  login debe responder siempre `InvalidCredentialsError` para no revelar qué existe
+- Se verifica la contraseña **aunque el usuario no exista**: cortar antes revelaría por
+  el tiempo de respuesta qué correos están registrados
+- Una membresía revocada responde `InvalidCredentialsError` si no se pidió empresa, y
+  `InactiveMembershipError` si se pidió por slug: quien ya sabe que la empresa existe
+  merece saber que le revocaron el acceso
+- La respuesta **no menciona token ni JWT**: emitirlo es cosa de infraestructura
+
+`architecture.spec.ts` sustituye a la prueba de pureza y añade la dirección de las
+dependencias: la aplicación no alcanza infraestructura, y el dominio no conoce a ninguna
+de las dos.
 
 ### Fase 4 — Infraestructura
 
