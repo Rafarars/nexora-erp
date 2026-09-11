@@ -24,6 +24,8 @@ import { UserFinder } from '../domain/user/find/user-finder.js';
 import { PASSWORD_HASHER, PasswordHasher } from '../domain/user/password-hasher.js';
 import { UserRegistrar } from '../domain/user/register/user-registrar.js';
 import { USER_REPOSITORY, UserRepository } from '../domain/user/user.repository.js';
+import { PasswordChanger } from '../application/change-password/password-changer.js';
+import { ProfileUpdater } from '../application/update-profile/profile-updater.js';
 import { SessionFinder } from '../application/find-session/session-finder.js';
 import { RoleCreator } from '../application/create-role/role-creator.js';
 import { RoleRevoker } from '../application/revoke-role/role-revoker.js';
@@ -36,7 +38,9 @@ import { CreateRolePostController } from './http/create-role-post.controller.js'
 import { RevokeRoleDeleteController } from './http/revoke-role-delete.controller.js';
 import { SearchPermissionsGetController } from './http/search-permissions-get.controller.js';
 import { SearchRolesGetController } from './http/search-roles-get.controller.js';
+import { ChangePasswordPutController } from './http/change-password-put.controller.js';
 import { SessionGetController } from './http/session-get.controller.js';
+import { UpdateProfilePutController } from './http/update-profile-put.controller.js';
 import { UpdateRolePutController } from './http/update-role-put.controller.js';
 import { AssignRolePostController } from './http/assign-role-post.controller.js';
 import { CreateUserPostController } from './http/create-user-post.controller.js';
@@ -71,6 +75,8 @@ import { TOKEN_ISSUER } from './security/token-issuer.js';
     UpdateRolePutController,
     RevokeRoleDeleteController,
     SessionGetController,
+    UpdateProfilePutController,
+    ChangePasswordPutController,
   ],
   providers: [
     { provide: TENANT_REPOSITORY, useClass: PrismaTenantRepository },
@@ -178,6 +184,22 @@ import { TOKEN_ISSUER } from './security/token-issuer.js';
       inject: [MembershipFinder, RoleFinder, MEMBERSHIP_REPOSITORY, CLOCK],
     },
     { provide: CatalogPermissions, useClass: CatalogPermissions },
+    {
+      provide: ProfileUpdater,
+      useFactory: (finder: UserFinder, users: UserRepository, clock: Clock) =>
+        new ProfileUpdater(finder, users, clock),
+      inject: [UserFinder, USER_REPOSITORY, CLOCK],
+    },
+    {
+      provide: PasswordChanger,
+      useFactory: (
+        finder: UserFinder,
+        users: UserRepository,
+        hasher: PasswordHasher,
+        clock: Clock,
+      ) => new PasswordChanger(finder, users, hasher, clock),
+      inject: [UserFinder, USER_REPOSITORY, PASSWORD_HASHER, CLOCK],
+    },
     {
       provide: SessionFinder,
       useFactory: (

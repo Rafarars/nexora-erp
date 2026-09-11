@@ -3,36 +3,49 @@
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 
-const SECTIONS = [
-  { href: '/', label: 'Panel', testId: 'nav-panel' },
-  { href: '/usuarios', label: 'Usuarios', testId: 'nav-usuarios' },
-  { href: '/roles', label: 'Roles', testId: 'nav-roles' },
-  // Vive fuera de la zona con sesion: se consulta cuando el sistema esta caido.
-  { href: '/estado', label: 'Estado', testId: 'nav-estado' },
-];
+// Los modulos del negocio. Aqui creceran inventario, ventas y compras: por eso la
+// administracion del sistema no vive en esta lista, o acabarian mezclados.
+const MODULES = [{ href: '/', label: 'Panel', testId: 'nav-panel' }];
+
+const SETTINGS = { href: '/configuracion', label: 'Configuración', testId: 'nav-configuracion' };
 
 export function Sidebar() {
   const pathname = usePathname();
 
   return (
     <nav className="space-y-1" aria-label="Secciones" data-testid="sidebar">
-      {SECTIONS.map((section) => {
-        const active = pathname === section.href;
+      {MODULES.map((module) => (
+        <SidebarLink key={module.href} {...module} active={pathname === module.href} />
+      ))}
 
-        return (
-          <Link
-            key={section.href}
-            href={section.href}
-            data-testid={section.testId}
-            aria-current={active ? 'page' : undefined}
-            className={`block rounded-md px-3 py-2 text-sm ${
-              active ? 'bg-surface font-medium' : 'text-muted hover:text-foreground'
-            }`}
-          >
-            {section.label}
-          </Link>
-        );
-      })}
+      <div className="pt-4">
+        <SidebarLink {...SETTINGS} active={pathname.startsWith(SETTINGS.href)} />
+      </div>
     </nav>
+  );
+}
+
+function SidebarLink({
+  href,
+  label,
+  testId,
+  active,
+}: {
+  href: string;
+  label: string;
+  testId: string;
+  active: boolean;
+}) {
+  return (
+    <Link
+      href={href}
+      data-testid={testId}
+      aria-current={active ? 'page' : undefined}
+      className={`block rounded-md px-3 py-2 text-sm ${
+        active ? 'bg-surface font-medium' : 'text-muted hover:text-foreground'
+      }`}
+    >
+      {label}
+    </Link>
   );
 }

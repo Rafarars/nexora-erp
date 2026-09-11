@@ -27,8 +27,8 @@ export async function saveRole(_state: FormState, form: FormData): Promise<FormS
     return { error: readableError(error, 'No se pudo guardar el rol.'), done: false };
   }
 
-  revalidatePath('/roles');
-  revalidatePath('/usuarios');
+  revalidatePath('/configuracion/roles');
+  revalidatePath('/configuracion/usuarios');
 
   return { error: null, done: true };
 }

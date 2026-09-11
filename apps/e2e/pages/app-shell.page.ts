@@ -7,17 +7,29 @@ export class AppShell {
   readonly currentUser: Locator;
   readonly activeTenant: Locator;
   readonly tenantSwitcher: Locator;
-  readonly logout: Locator;
+  readonly accountButton: Locator;
 
   constructor(private readonly page: Page) {
     this.currentUser = page.getByTestId('current-user');
     this.activeTenant = page.getByTestId('active-tenant');
     this.tenantSwitcher = page.getByTestId('tenant-switcher');
-    this.logout = page.getByTestId('logout');
+    this.accountButton = page.getByTestId('account-button');
   }
 
-  async goTo(section: 'panel' | 'usuarios' | 'roles' | 'estado'): Promise<void> {
-    await this.page.getByTestId(`nav-${section}`).click();
+  // Los modulos del negocio viven en la barra lateral; la administracion, dentro de
+  // Configuracion, con su propia navegacion.
+  async goTo(module: 'panel' | 'configuracion'): Promise<void> {
+    await this.page.getByTestId(`nav-${module}`).click();
+  }
+
+  async goToSettings(section: 'usuarios' | 'roles' | 'perfil'): Promise<void> {
+    await this.goTo('configuracion');
+    await this.page.getByTestId(`settings-${section}`).click();
+  }
+
+  async logout(): Promise<void> {
+    await this.accountButton.click();
+    await this.page.getByTestId('logout').click();
   }
 
   async switchTo(tenantName: string): Promise<void> {

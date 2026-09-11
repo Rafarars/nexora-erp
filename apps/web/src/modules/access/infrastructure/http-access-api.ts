@@ -39,6 +39,14 @@ export class HttpAccessApi implements AccessApi {
     return this.request<MePayload>('GET', '/api/v1/auth/me', undefined, token);
   }
 
+  async updateProfile(token: string, name: string): Promise<void> {
+    await this.request('PUT', '/api/v1/auth/profile', { name }, token);
+  }
+
+  async changePassword(token: string, current: string, next: string): Promise<void> {
+    await this.request('PUT', '/api/v1/auth/password', { current, next }, token);
+  }
+
   async searchUsers(token: string): Promise<Person[]> {
     const { users } = await this.request<{ users: Person[] }>('GET', '/api/v1/users', undefined, token);
 

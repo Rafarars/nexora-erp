@@ -1,5 +1,11 @@
 import { expect, test } from '@playwright/test';
-import { ACCOUNTANT, ACME_ADMIN, LoginPage, PASSWORD } from '../../pages/login.page.js';
+import {
+  ACCOUNTANT,
+  ACME_ADMIN,
+  GLOBEX_ADMIN,
+  LoginPage,
+  PASSWORD,
+} from '../../pages/login.page.js';
 import { AppShell } from '../../pages/app-shell.page.js';
 
 test.describe('Signing in', () => {
@@ -31,7 +37,7 @@ test.describe('Signing in', () => {
   });
 
   test('sends anyone without a session back to the login', async ({ page }) => {
-    await page.goto('/usuarios');
+    await page.goto('/configuracion/usuarios');
 
     await expect(page).toHaveURL(/\/login$/);
     await expect(new LoginPage(page).form).toBeVisible();
@@ -51,11 +57,56 @@ test.describe('Signing in', () => {
   test('logs out and forgets the session', async ({ page }) => {
     await new LoginPage(page).signIn(ACCOUNTANT);
 
-    await new AppShell(page).logout.click();
+    await new AppShell(page).logout();
 
     await expect(page).toHaveURL(/\/login$/);
 
-    await page.goto('/usuarios');
+    await page.goto('/configuracion/usuarios');
     await expect(page).toHaveURL(/\/login$/);
+  });
+});
+
+test.describe('Your own account', () => {
+  test('changes your name and shows it right away', async ({ page }) => {
+    await new LoginPage(page).signIn(GLOBEX_ADMIN);
+    await new AppShell(page).goToSettings('perfil');
+
+    await page.getByTestId('profile-name').fill('Beto Lugo Mendez');
+    await page.getByTestId('profile-submit').click();
+
+    await expect(page.getByTestId('profile-saved')).toBeVisible();
+    await expect(new AppShell(page).currentUser).toHaveText('Beto Lugo Mendez');
+  });
+
+  // El correo identifica la cuenta en todas las empresas: no es una preferencia.
+  test('does not let you change your own email', async ({ page }) => {
+    await new LoginPage(page).signIn(GLOBEX_ADMIN);
+    await new AppShell(page).goToSettings('perfil');
+
+    await expect(page.getByTestId('profile-email')).toBeDisabled();
+  });
+
+  test('refuses to change the password without the current one', async ({ page }) => {
+    await new LoginPage(page).signIn(GLOBEX_ADMIN);
+    await new AppShell(page).goToSettings('perfil');
+
+    await page.getByTestId('password-current').fill('not-the-current-one');
+    await page.getByTestId('password-next').fill('a-brand-new-password');
+    await page.getByTestId('password-confirmation').fill('a-brand-new-password');
+    await page.getByTestId('password-submit').click();
+
+    await expect(page.getByTestId('password-error')).toBeVisible();
+  });
+
+  test('refuses a confirmation that does not match', async ({ page }) => {
+    await new LoginPage(page).signIn(GLOBEX_ADMIN);
+    await new AppShell(page).goToSettings('perfil');
+
+    await page.getByTestId('password-current').fill(PASSWORD);
+    await page.getByTestId('password-next').fill('a-brand-new-password');
+    await page.getByTestId('password-confirmation').fill('another-password');
+    await page.getByTestId('password-submit').click();
+
+    await expect(page.getByTestId('password-error')).toContainText('no coinciden');
   });
 });

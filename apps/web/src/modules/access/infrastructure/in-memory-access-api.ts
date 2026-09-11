@@ -37,6 +37,14 @@ export class InMemoryAccessApi implements AccessApi {
     return this.answer('me', [token], () => this.session());
   }
 
+  async updateProfile(token: string, name: string): Promise<void> {
+    this.answer('updateProfile', [token, name], () => undefined);
+  }
+
+  async changePassword(token: string, current: string, next: string): Promise<void> {
+    this.answer('changePassword', [token, current, next], () => undefined);
+  }
+
   async searchUsers(token: string): Promise<Person[]> {
     return this.answer('searchUsers', [token], () => this.data.people ?? []);
   }

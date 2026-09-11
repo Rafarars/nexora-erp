@@ -9,6 +9,8 @@ export interface AccessApi {
   switchTenant(token: string, tenantId: string): Promise<{ session: Session; token: string }>;
   // Quien soy ahora, sin reemitir el token.
   me(token: string): Promise<Session>;
+  updateProfile(token: string, name: string): Promise<void>;
+  changePassword(token: string, current: string, next: string): Promise<void>;
   searchUsers(token: string): Promise<Person[]>;
   createUser(
     token: string,

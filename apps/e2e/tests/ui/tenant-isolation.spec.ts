@@ -8,7 +8,7 @@ test.describe('What a person sees depends on the active tenant', () => {
     await new LoginPage(page).signIn(ACCOUNTANT);
     const shell = new AppShell(page);
 
-    await shell.goTo('usuarios');
+    await shell.goToSettings('usuarios');
     await expect(page.getByTestId('user-row-ana@acme.com')).toBeVisible();
     await expect(page.getByTestId('user-row-beto@globex.com')).toHaveCount(0);
 
@@ -37,7 +37,7 @@ test.describe('The interface only offers what the role allows', () => {
   // Carla solo consulta en Acme: ve la tabla pero no la puerta para escribir.
   test('hides the create button from a read-only role', async ({ page }) => {
     await new LoginPage(page).signIn(ACCOUNTANT);
-    await new AppShell(page).goTo('usuarios');
+    await new AppShell(page).goToSettings('usuarios');
 
     await expect(page.getByTestId('users-table')).toBeVisible();
     await expect(page.getByTestId('new-user')).toHaveCount(0);
@@ -45,7 +45,7 @@ test.describe('The interface only offers what the role allows', () => {
 
   test('shows the create button to an administrator', async ({ page }) => {
     await new LoginPage(page).signIn(ACME_ADMIN);
-    await new AppShell(page).goTo('usuarios');
+    await new AppShell(page).goToSettings('usuarios');
 
     await expect(page.getByTestId('new-user')).toBeVisible();
   });
@@ -55,14 +55,14 @@ test.describe('The interface only offers what the role allows', () => {
   test('refuses the roles screen to someone without the permission', async ({ page }) => {
     await new LoginPage(page).signIn(ACCOUNTANT);
 
-    await page.goto('/roles');
+    await page.goto('/configuracion/roles');
 
     await expect(page.getByTestId('roles-forbidden')).toBeVisible();
   });
 
   test('gives an administrator the roles screen', async ({ page }) => {
     await new LoginPage(page).signIn(ACME_ADMIN);
-    await new AppShell(page).goTo('roles');
+    await new AppShell(page).goToSettings('roles');
 
     await expect(page.getByTestId('role-Administrador')).toBeVisible();
   });
