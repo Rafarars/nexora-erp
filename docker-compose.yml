@@ -29,6 +29,10 @@ services:
       # `db` es el nombre del servicio, resuelto por el DNS interno del compose.
       DATABASE_URL: postgresql://${POSTGRES_USER:-nexora}:${POSTGRES_PASSWORD:-nexora}@db:5432/${POSTGRES_DB:-nexora}?schema=public
       PORT: ${API_INTERNAL_PORT:-3001}
+      # Sin valor por defecto A PROPOSITO: el contenedor corre con NODE_ENV=production
+      # y ahi un secreto conocido equivale a no tener ninguno. `make env` lo genera.
+      JWT_SECRET: ${JWT_SECRET:?falta JWT_SECRET; ejecuta \`make env\` para generarlo}
+      JWT_TTL_SECONDS: ${JWT_TTL_SECONDS:-3600}
     ports:
       - "${BIND_HOST:-127.0.0.1}:${API_PORT:-3001}:${API_INTERNAL_PORT:-3001}"
     depends_on:

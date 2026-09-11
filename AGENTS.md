@@ -76,6 +76,18 @@ Filosofía transversal: **explícito sobre automático.**
 - Ante un fallo intermitente: buscar el recurso compartido. Reintentar solo se justifica
   cuando la causa está **fuera** del sistema (una descarga externa, por ejemplo)
 
+## Comandos
+
+Casi todo tiene su objetivo en el `Makefile`, con un comentario `##` que explica qué
+hace: así se encuentra buscando en un archivo en vez de recordándolo, y sirve también a
+quien no programa.
+
+**Un comando hace lo que su nombre dice.** Sin efectos secundarios enganchados: `up`
+levanta, `migrate` migra, `env` prepara la configuración. Si a un comando le falta algo
+para funcionar, **falla diciendo qué hacer**; no lo resuelve por su cuenta. Generar un
+archivo de configuración al levantar contenedores sorprende a quien lo ejecuta y le
+esconde una decisión que es suya.
+
 ## Configuración y secretos
 
 - **Ninguna credencial en el repositorio.** El `.env` nunca se commitea; `.env.example`
@@ -96,6 +108,10 @@ pasos sueltos del pipeline ni instrucciones en un README.
 
 > El repositorio debe poder reconstruirse por completo desde lo versionado, sin pasos
 > manuales.
+
+La única excepción son los **secretos**, que por definición no pueden estar versionados.
+Ahí el repositorio no adivina: dice qué falta y cómo obtenerlo (`make env` en local,
+variables del proveedor en un servidor).
 
 ## Documentación
 

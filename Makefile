@@ -6,7 +6,7 @@ GITLEAKS := zricethezav/gitleaks:v8.18.4
 # Por defecto apunta al Postgres del compose. Se sobreescribe desde el entorno.
 DATABASE_URL ?= postgresql://nexora:nexora@localhost:5432/nexora?schema=public
 
-.PHONY: help install up down restart ps logs migrate lint typecheck test-unit test-contract test-e2e secrets verify verify-clean clean report
+.PHONY: help install env up down seed restart ps logs migrate lint typecheck test-unit test-contract test-e2e secrets verify verify-clean clean report
 
 help: ## Muestra los comandos disponibles
 	@echo ""
@@ -21,7 +21,29 @@ help: ## Muestra los comandos disponibles
 install: ## Instala dependencias (genera el cliente de Prisma)
 	pnpm install
 
+env: ## Crea el .env local si falta y genera un JWT_SECRET aleatorio (solo desarrollo)
+	@if [ ! -f .env ]; then cp .env.example .env; echo "  .env creado desde la plantilla"; fi
+	@if ! grep -qE '^JWT_SECRET=.+' .env; then \
+		secret=$$(openssl rand -hex 32); \
+		if grep -q '^JWT_SECRET=' .env; then \
+			sed -i.bak "s|^JWT_SECRET=.*|JWT_SECRET=$$secret|" .env && rm -f .env.bak; \
+		else \
+			printf '\nJWT_SECRET=%s\n' "$$secret" >> .env; \
+		fi; \
+		echo "  JWT_SECRET generado"; \
+	fi
+
 up: ## Levanta el sistema completo (db + api + web) y aplica migraciones
+	@if [ -z "$$JWT_SECRET" ] && ! grep -qE '^JWT_SECRET=.+' .env 2>/dev/null; then \
+		echo ""; \
+		echo "  Falta JWT_SECRET."; \
+		echo ""; \
+		echo "    Desarrollo local:  make env               (crea .env y genera un secreto)"; \
+		echo "    Manual:            cp .env.example .env   y editarlo"; \
+		echo "    Servidor:          exportar las variables del proveedor"; \
+		echo ""; \
+		exit 1; \
+	fi
 	docker compose up -d --build
 	$(MAKE) --no-print-directory migrate
 	@echo ""
@@ -42,6 +64,9 @@ logs: ## Sigue los registros de todos los servicios
 migrate: ## Aplica las migraciones pendientes y sincroniza el catalogo de permisos
 	DATABASE_URL="$(DATABASE_URL)" pnpm --filter api exec prisma migrate deploy
 	DATABASE_URL="$(DATABASE_URL)" pnpm --filter api permissions:sync
+
+seed: ## Siembra datos de demostracion (dos empresas; nunca en produccion)
+	DATABASE_URL="$(DATABASE_URL)" pnpm --filter api seed
 
 # ---------------------------------------------------------------- checks
 

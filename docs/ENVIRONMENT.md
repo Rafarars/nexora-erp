@@ -23,9 +23,20 @@ Validadas en `src/shared/config/env.schema.ts`.
 | `DATABASE_URL` | **Sí** | — | Cadena de conexión de PostgreSQL. Debe empezar por `postgres://` o `postgresql://` |
 | `PORT` | No | `3001` | Puerto de escucha. Las plataformas suelen asignarlo ellas |
 | `NODE_ENV` | No | `development` | `development`, `test` o `production` |
+| `JWT_SECRET` | **En producción** | Uno de desarrollo | Firma los tokens de sesión |
+| `JWT_TTL_SECONDS` | No | `3600` | Cuánto dura una sesión |
 
-**Guarda adicional:** si `NODE_ENV=production` y `DATABASE_URL` apunta a `localhost`,
-el arranque falla. Evita el accidente de desplegar contra la base local.
+**Guardas adicionales** cuando `NODE_ENV=production`, todas verifican al arrancar:
+
+- `DATABASE_URL` no puede apuntar a `localhost` — evita el accidente de desplegar
+  contra la base local
+- `JWT_SECRET` no puede ser el valor de desarrollo, y debe medir **32 caracteres o
+  más**. Un secreto publicado en el repositorio deja de ser un secreto: cualquiera que
+  lo lea podría firmar un token válido y entrar como quien quisiera
+
+El `.env` local **no trae ningún secreto escrito**. `make env` genera un `JWT_SECRET`
+aleatorio la primera vez, y `make up` lo llama solo. Por eso `.env.example` deja esa
+variable vacía en vez de proponer un valor.
 
 ## Frontend (`apps/web`)
 
@@ -112,11 +123,19 @@ plan de producción**. En un servidor real hay que definir como mínimo:
 
 ```bash
 POSTGRES_PASSWORD=   # larga y aleatoria: la de por defecto esta publicada en GitHub
+JWT_SECRET=          # 32+ caracteres: openssl rand -hex 32
 BIND_HOST=0.0.0.0    # solo si hay un proxy inverso delante; si no, dejar 127.0.0.1
 ```
 
 Y en la API, `NODE_ENV=production`, que activa las guardas de configuración: la
-aplicación se niega a arrancar si `DATABASE_URL` apunta a `localhost`.
+aplicación se niega a arrancar si `DATABASE_URL` apunta a `localhost` o si el
+`JWT_SECRET` es el de desarrollo.
+
+**Rotar el `JWT_SECRET` cierra todas las sesiones abiertas**, porque los tokens ya
+emitidos dejan de verificar. Es el efecto deseado si se sospecha de una filtración.
+
+**El seed de demostración nunca debe correr en producción**: sus contraseñas están en
+el repositorio. `make seed` se niega a ejecutarse con `NODE_ENV=production`.
 
 ### Otras formas de llevar los secretos al servidor
 

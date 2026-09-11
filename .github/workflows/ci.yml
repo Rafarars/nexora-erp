@@ -74,6 +74,11 @@ jobs:
           done
           exit 1
 
+      # El compose exige un JWT_SECRET y el runner no tiene .env. No es un secreto
+      # de verdad: la base del CI se crea y se tira en cada corrida.
+      - name: Generate a throwaway signing secret
+        run: echo "JWT_SECRET=$(openssl rand -hex 32)" >> "$GITHUB_ENV"
+
       # El mismo compose que se usa en local: si funciona alli, funciona aqui.
       - run: docker compose up -d --build
       # La base del runner nace vacia: sin esto, las tablas no existen.
