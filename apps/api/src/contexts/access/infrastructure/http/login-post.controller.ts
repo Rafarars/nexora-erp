@@ -1,4 +1,12 @@
-import { Body, Controller, HttpCode, HttpStatus, Inject, Post, UsePipes } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  HttpCode,
+  HttpStatus,
+  Inject,
+  Post,
+} from '@nestjs/common';
+import { Public } from '../../../../shared/infrastructure/http/public.decorator.js';
 import { ZodValidationPipe } from '../../../../shared/infrastructure/http/zod-validation.pipe.js';
 import { UserAuthenticator } from '../../application/authenticate-user/user-authenticator.js';
 import { TOKEN_ISSUER } from '../security/token-issuer.js';
@@ -19,8 +27,10 @@ export class LoginPostController {
 
   @Post('login')
   @HttpCode(HttpStatus.OK)
-  @UsePipes(new ZodValidationPipe(loginRequestSchema))
-  async run(@Body() body: LoginRequestDto): Promise<SessionResponseDto> {
+  @Public()
+  async run(
+    @Body(new ZodValidationPipe(loginRequestSchema)) body: LoginRequestDto,
+  ): Promise<SessionResponseDto> {
     const session = await this.authenticator.run(body);
 
     return toSessionResponse(

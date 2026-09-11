@@ -1,4 +1,5 @@
 import { Module } from '@nestjs/common';
+import { APP_GUARD } from '@nestjs/core';
 import { Clock, CLOCK } from '../../../shared/domain/ports/clock.js';
 import { IdGenerator, ID_GENERATOR } from '../../../shared/domain/ports/id-generator.js';
 import { PrismaModule } from '../../../shared/prisma/prisma.module.js';
@@ -23,7 +24,11 @@ import { UserFinder } from '../domain/user/find/user-finder.js';
 import { PASSWORD_HASHER, PasswordHasher } from '../domain/user/password-hasher.js';
 import { UserRegistrar } from '../domain/user/register/user-registrar.js';
 import { USER_REPOSITORY, UserRepository } from '../domain/user/user.repository.js';
+import { AccessGuard } from './http/access.guard.js';
+import { AssignRolePostController } from './http/assign-role-post.controller.js';
+import { CreateUserPostController } from './http/create-user-post.controller.js';
 import { LoginPostController } from './http/login-post.controller.js';
+import { SearchUsersGetController } from './http/search-users-get.controller.js';
 import { SwitchTenantPostController } from './http/switch-tenant-post.controller.js';
 import { PrismaMembershipRepository } from './persistence/prisma-membership.repository.js';
 import { PrismaRoleRepository } from './persistence/prisma-role.repository.js';
@@ -41,7 +46,13 @@ import { TOKEN_ISSUER } from './security/token-issuer.js';
 // proposito: son clases sin decoradores, y asi el dominio no importa NestJS.
 @Module({
   imports: [PrismaModule, SharedModule],
-  controllers: [LoginPostController, SwitchTenantPostController],
+  controllers: [
+    LoginPostController,
+    SwitchTenantPostController,
+    CreateUserPostController,
+    AssignRolePostController,
+    SearchUsersGetController,
+  ],
   providers: [
     { provide: TENANT_REPOSITORY, useClass: PrismaTenantRepository },
     { provide: USER_REPOSITORY, useClass: PrismaUserRepository },
@@ -49,6 +60,10 @@ import { TOKEN_ISSUER } from './security/token-issuer.js';
     { provide: ROLE_REPOSITORY, useClass: PrismaRoleRepository },
     { provide: PASSWORD_HASHER, useClass: Argon2PasswordHasher },
     { provide: TOKEN_ISSUER, useClass: JoseTokenIssuer },
+
+    // Global: cubre TODA la aplicacion, tambien los endpoints de otros contextos que
+    // se añadan despues. Un contexto nuevo nace protegido sin hacer nada.
+    { provide: APP_GUARD, useClass: AccessGuard },
 
     {
       provide: TenantFinder,
