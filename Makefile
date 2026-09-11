@@ -6,7 +6,7 @@ GITLEAKS := zricethezav/gitleaks:v8.18.4
 # Por defecto apunta al Postgres del compose. Se sobreescribe desde el entorno.
 DATABASE_URL ?= postgresql://nexora:nexora@localhost:5432/nexora?schema=public
 
-.PHONY: help install up down restart ps logs migrate lint typecheck test-unit test-e2e secrets verify verify-clean clean report
+.PHONY: help install up down restart ps logs migrate lint typecheck test-unit test-contract test-e2e secrets verify verify-clean clean report
 
 help: ## Muestra los comandos disponibles
 	@echo ""
@@ -39,8 +39,9 @@ ps: ## Estado de los servicios
 logs: ## Sigue los registros de todos los servicios
 	docker compose logs -f
 
-migrate: ## Aplica las migraciones pendientes
+migrate: ## Aplica las migraciones pendientes y sincroniza el catalogo de permisos
 	DATABASE_URL="$(DATABASE_URL)" pnpm --filter api exec prisma migrate deploy
+	DATABASE_URL="$(DATABASE_URL)" pnpm --filter api permissions:sync
 
 # ---------------------------------------------------------------- checks
 
@@ -52,6 +53,9 @@ typecheck: ## Verificacion de tipos en todos los paquetes
 
 test-unit: ## Pruebas unitarias (sin base de datos)
 	pnpm test:unit
+
+test-contract: ## Contrato de puerto contra PostgreSQL (requiere la base levantada)
+	DATABASE_URL="$(DATABASE_URL)" pnpm --filter api test:integration
 
 test-e2e: ## Suite de Playwright (requiere el sistema levantado)
 	pnpm test:e2e
@@ -65,11 +69,12 @@ report: ## Abre el ultimo reporte de Playwright
 # ---------------------------------------------------------------- verify
 
 verify: ## Corre TODO lo que corre el CI (usar antes de cada push)
-	@echo "==> 1/5 secrets";   $(MAKE) --no-print-directory secrets
-	@echo "==> 2/5 lint";      $(MAKE) --no-print-directory lint
-	@echo "==> 3/5 typecheck"; $(MAKE) --no-print-directory typecheck
-	@echo "==> 4/5 unit";      $(MAKE) --no-print-directory test-unit
-	@echo "==> 5/5 e2e";       $(MAKE) --no-print-directory up test-e2e
+	@echo "==> 1/6 secrets";   $(MAKE) --no-print-directory secrets
+	@echo "==> 2/6 lint";      $(MAKE) --no-print-directory lint
+	@echo "==> 3/6 typecheck"; $(MAKE) --no-print-directory typecheck
+	@echo "==> 4/6 unit";      $(MAKE) --no-print-directory test-unit
+	@echo "==> 5/6 contract";  $(MAKE) --no-print-directory up test-contract
+	@echo "==> 6/6 e2e";       $(MAKE) --no-print-directory test-e2e
 	@echo ""
 	@echo "  Todo en verde."
 
