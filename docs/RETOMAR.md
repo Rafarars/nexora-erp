@@ -22,9 +22,9 @@ de ninguna conversación anterior**.
 |---|---|
 | Repositorio | github.com/Rafarars/nexora-erp |
 | Reporte de pruebas | https://rafarars.github.io/nexora-erp/ |
-| Pruebas | 300 unitarias · 33 de contrato · 10 end-to-end |
+| Pruebas | 321 unitarias · 33 de contrato · 23 end-to-end |
 | **H0 — Fundación** | **Completado** |
-| **H1 — Multiempresa y acceso** | Fases 0 a 4 hechas; **siguiente: fase 5** |
+| **H1 — Multiempresa y acceso** | Fases 0 a 5 hechas; **siguiente: fase 6** |
 
 Lo que ya funciona: monorepo con API, frontend y suite E2E; PostgreSQL en Docker;
 endpoint de salud que verifica la base; CI con cuatro trabajos publicando el reporte;
@@ -32,7 +32,8 @@ configuración validada al arrancar; Makefile con `verify` y `verify-clean`; con
 de arquitectura escrita; primitivas de dominio; el esquema de acceso con su migración; y
 el dominio del contexto de acceso completo, con sus reglas de negocio probadas; y los
 cinco casos de uso del acceso, probados sin base de datos; los repositorios Prisma
-verificados por un contrato de puerto; y el catálogo de permisos declarado en el código.
+verificados por un contrato de puerto; el catálogo de permisos declarado en el código; y
+el inicio de sesión funcionando de punta a punta, con dos empresas de demostración.
 
 ---
 
@@ -155,12 +156,34 @@ de Playwright: si los repositorios mienten, el resto sobra.
 **Pendiente para la fase 6:** la prueba que cruce los `@RequirePermission` declarados
 contra el catálogo, en ambas direcciones. Sin ella, código y catálogo se desincronizan.
 
-### Fase 5 — Autenticación
+### Fase 5 — Autenticación ✅
 
-Argon2 como adaptador del puerto `PasswordHasher`. Emisión de token como adaptador de
-`TokenIssuer`. Endpoints `POST /api/v1/auth/login` y `POST /api/v1/auth/switch-tenant`.
+Hecha. `POST /api/v1/auth/login` y `POST /api/v1/auth/switch-tenant`, un controlador por
+acción. `Argon2PasswordHasher` y `JoseTokenIssuer` como adaptadores. El cuerpo se valida
+con el mismo zod que valida el entorno, sin añadir otra librería.
 
-El token lleva: identificador de usuario, `tenantId` activo y permisos.
+El `DomainErrorFilter` deja de estar probado por herencia: 13 pruebas end-to-end golpean
+la API real y comprueban que un correo desconocido da **401**, un cuerpo vacío **400** y
+una empresa ajena **404**.
+
+Decisiones que conviene no volver a discutir:
+
+- **El `.env.example` no trae ningún secreto escrito.** Un secreto publicado en un
+  repositorio público deja de serlo. `make env` genera uno; `make up` **no lo llama solo**
+- `NODE_ENV=production` exige un `JWT_SECRET` propio de 32 caracteres o más, verificado al
+  arrancar. El contenedor se niega a levantar sin él
+- `jwtVerify` **fija el algoritmo**: sin eso, un token con `alg: none` pasaría
+- El `switch-tenant` toma el usuario **del token, nunca del cuerpo**
+- La sesión lleva `grantsAll` además de los permisos: un administrador no enumera
+  permisos, y sin esa marca la interfaz le escondería todos los botones. **Es para la
+  interfaz**; el guardián siempre pregunta por un permiso concreto
+- El emisor valida su configuración **en el constructor**, para fallar al arrancar y no en
+  la primera petición
+
+**Del seed de la fase 9 se adelantó lo imprescindible**: sin dos empresas con datos no se
+podía verificar un login real. Contraseñas conocidas a propósito, y por eso **se niega a
+correr con `NODE_ENV=production`**. El `globalSetup` de Playwright lo ejecuta en cada
+corrida.
 
 ### Fase 6 — Guardianes
 
