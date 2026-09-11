@@ -17,5 +17,14 @@ export interface PermissionDefinition {
 export const ACCESS_PERMISSIONS: PermissionDefinition[] = [
   { code: 'access.users.create', description: 'Dar de alta a una persona en la empresa' },
   { code: 'access.users.search', description: 'Listar los usuarios de la empresa' },
-  { code: 'access.roles.assign', description: 'Asignar un rol a un miembro' },
+  { code: 'access.roles.search', description: 'Consultar los roles y sus permisos' },
+  { code: 'access.roles.create', description: 'Crear roles en la empresa' },
+  { code: 'access.roles.update', description: 'Cambiar el nombre y los permisos de un rol' },
+  { code: 'access.roles.assign', description: 'Asignar y retirar roles a un miembro' },
 ];
+
+// Concede un permiso que no existe y la clave ajena lo rechazaria en la base con un
+// error ilegible. Se comprueba antes, contra la unica fuente de verdad.
+export function isKnownPermission(code: string): boolean {
+  return ACCESS_PERMISSIONS.some((permission) => permission.code === code);
+}

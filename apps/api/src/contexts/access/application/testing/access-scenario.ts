@@ -18,6 +18,7 @@ import { RoleFinder } from '../../domain/role/find/role-finder.js';
 import { TenantFinder } from '../../domain/tenant/find/tenant-finder.js';
 import { UserFinder } from '../../domain/user/find/user-finder.js';
 import { UserRegistrar } from '../../domain/user/register/user-registrar.js';
+import { CatalogPermissions } from '../../domain/role/catalog-permissions.js';
 import { AccessSessionBuilder } from '../session/access-session-builder.js';
 
 export interface AccessScenario {
@@ -37,6 +38,7 @@ export interface AccessScenario {
   roleFinder: RoleFinder;
   registrar: UserRegistrar;
   enroller: MemberEnroller;
+  catalog: CatalogPermissions;
 }
 
 // Monta el mundo de una prueba de aplicacion en una linea. Sin base de datos, sin
@@ -72,5 +74,6 @@ export function anAccessScenario(
     roleFinder: new RoleFinder(roles),
     registrar: new UserRegistrar(users, hasher, ids, clock),
     enroller: new MemberEnroller(memberships, ids, clock),
+    catalog: new CatalogPermissions(),
   };
 }
