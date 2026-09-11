@@ -30,6 +30,22 @@ function assertDisposableEnvironment(): void {
   }
 }
 
+// Cada ejecucion garantiza su punto de partida: las pruebas de autenticacion
+// necesitan dos empresas con datos, y no pueden depender de que alguien se acuerde
+// de sembrar antes de lanzarlas.
+export function seedDemoData(): void {
+  execFileSync('pnpm', ['--filter', 'api', 'seed'], {
+    cwd: REPO_ROOT,
+    stdio: 'pipe',
+    env: {
+      ...process.env,
+      DATABASE_URL:
+        process.env.DATABASE_URL ??
+        'postgresql://nexora:nexora@localhost:5432/nexora?schema=public',
+    },
+  });
+}
+
 function compose(...args: string[]): void {
   execFileSync('docker', ['compose', ...args], {
     cwd: REPO_ROOT,
