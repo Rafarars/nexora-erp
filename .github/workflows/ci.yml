@@ -78,6 +78,12 @@ jobs:
       - run: docker compose up -d --build
       # La base del runner nace vacia: sin esto, las tablas no existen.
       - run: make migrate
+
+      # La misma suite que ya paso contra los dobles, ahora contra PostgreSQL.
+      # Corre antes que Playwright: si los repositorios mienten, el resto sobra.
+      - name: Port contract against PostgreSQL
+        run: make test-contract
+
       - run: pnpm --filter e2e test
 
       - name: Check report

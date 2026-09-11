@@ -9,5 +9,8 @@ export default defineConfig({
     globals: true,
     root: './',
     include: ['**/*.spec.ts'],
+    // Las de contrato contra PostgreSQL se piden aparte: `pnpm test:integration`.
+    // Asi `pnpm test` sigue corriendo sin base de datos ni Docker.
+    exclude: ['**/node_modules/**', '**/dist/**', '**/*.integration.spec.ts'],
   },
 });
