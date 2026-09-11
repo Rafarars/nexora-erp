@@ -22,9 +22,9 @@ de ninguna conversación anterior**.
 |---|---|
 | Repositorio | github.com/Rafarars/nexora-erp |
 | Reporte de pruebas | https://rafarars.github.io/nexora-erp/ |
-| Pruebas | 321 unitarias · 33 de contrato · 23 end-to-end |
+| Pruebas | 338 unitarias · 33 de contrato · 35 end-to-end |
 | **H0 — Fundación** | **Completado** |
-| **H1 — Multiempresa y acceso** | Fases 0 a 5 hechas; **siguiente: fase 6** |
+| **H1 — Multiempresa y acceso** | Fases 0 a 6 hechas; **siguiente: fase 7** |
 
 Lo que ya funciona: monorepo con API, frontend y suite E2E; PostgreSQL en Docker;
 endpoint de salud que verifica la base; CI con cuatro trabajos publicando el reporte;
@@ -33,7 +33,8 @@ de arquitectura escrita; primitivas de dominio; el esquema de acceso con su migr
 el dominio del contexto de acceso completo, con sus reglas de negocio probadas; y los
 cinco casos de uso del acceso, probados sin base de datos; los repositorios Prisma
 verificados por un contrato de puerto; el catálogo de permisos declarado en el código; y
-el inicio de sesión funcionando de punta a punta, con dos empresas de demostración.
+el inicio de sesión funcionando de punta a punta, con dos empresas de demostración; y la
+API entera protegida por un guardián que deniega por defecto.
 
 ---
 
@@ -185,14 +186,36 @@ podía verificar un login real. Contraseñas conocidas a propósito, y por eso *
 correr con `NODE_ENV=production`**. El `globalSetup` de Playwright lo ejecuta en cada
 corrida.
 
-### Fase 6 — Guardianes
+### Fase 6 — Guardianes ✅
 
-Decorador `@RequirePermission('...')` y guardián global que **deniega si no hay
-declaración**. El `tenantId` se lee del token y se pasa explícitamente al caso de uso.
+Hecha. Guardián global (`APP_GUARD`) y **tres declaraciones posibles, ninguna por
+omisión**: `@Public()`, `@AuthenticatedOnly()` y `@RequirePermission('...')`. Lo que no
+declara nada responde 403.
 
-**Prueba destacada:** una que recorre **todas las rutas registradas** y verifica que cada
-una declara un permiso o está marcada como pública. No verifica una funcionalidad,
-verifica una propiedad del sistema entero.
+Se añadieron los tres endpoints que faltaban para que el guardián tuviera algo que
+guardar: crear usuario, asignar rol y listar los usuarios de la empresa.
+
+Decisiones que conviene no volver a discutir:
+
+- **El guardián consulta la base, no el token.** Carga usuario, empresa, membresía y
+  roles en cada petición: revocar un acceso tiene efecto inmediato en vez de esperar a
+  que caduque la sesión. El `grantsAll` del token es solo para la interfaz
+- **Los decoradores de clase y de método conviven, no se anulan.** Un `@Public()` en la
+  clase junto a un `@RequirePermission()` en el método abriría el endpoint si se
+  comprobara lo público primero. Declaraciones contradictorias **cierran**
+- Una identidad que ya no existe responde **401, no 404**: el recurso existe, lo que no
+  vale es la sesión, y un 404 filtraría identificadores internos
+- El `tenantId` **nunca se acepta en el cuerpo**: sale de la sesión
+
+**Dos pruebas verifican propiedades del sistema entero**, en
+`route-declaration.spec.ts`: que toda ruta declare quién puede alcanzarla, y que los
+`@RequirePermission` y `permissions.catalog.ts` cuadren **en ambas direcciones**. La
+segunda encontró dos permisos declarados «por si acaso» que ningún endpoint usaba.
+
+**El analizador de rutas se prueba a sí mismo.** Su primera versión usaba una ventana de
+líneas y daba **falso verde**: una ruta sin declarar pasaba si la de al lado tenía un
+decorador. Una prueba que vigila el sistema entero y falla en silencio es peor que no
+tenerla.
 
 ### Fase 7 — Frontend
 
