@@ -22,16 +22,17 @@ de ninguna conversación anterior**.
 |---|---|
 | Repositorio | github.com/Rafarars/nexora-erp |
 | Reporte de pruebas | https://rafarars.github.io/nexora-erp/ |
-| Pruebas | 253 unitarias · 10 end-to-end |
+| Pruebas | 300 unitarias · 33 de contrato · 10 end-to-end |
 | **H0 — Fundación** | **Completado** |
-| **H1 — Multiempresa y acceso** | Fases 0 a 3 hechas; **siguiente: fase 4** |
+| **H1 — Multiempresa y acceso** | Fases 0 a 4 hechas; **siguiente: fase 5** |
 
 Lo que ya funciona: monorepo con API, frontend y suite E2E; PostgreSQL en Docker;
 endpoint de salud que verifica la base; CI con cuatro trabajos publicando el reporte;
 configuración validada al arrancar; Makefile con `verify` y `verify-clean`; convención
 de arquitectura escrita; primitivas de dominio; el esquema de acceso con su migración; y
 el dominio del contexto de acceso completo, con sus reglas de negocio probadas; y los
-cinco casos de uso del acceso, probados sin base de datos.
+cinco casos de uso del acceso, probados sin base de datos; los repositorios Prisma
+verificados por un contrato de puerto; y el catálogo de permisos declarado en el código.
 
 ---
 
@@ -117,13 +118,42 @@ Decisiones que conviene no volver a discutir:
 dependencias: la aplicación no alcanza infraestructura, y el dominio no conoce a ninguna
 de las dos.
 
-### Fase 4 — Infraestructura
+### Fase 4 — Infraestructura ✅
 
-Repositorios Prisma en `infrastructure/persistence/`, nombrados `PrismaUserRepository`.
+Hecha. `infrastructure/persistence/` con los cuatro repositorios Prisma, y
+`infrastructure/access.module.ts` como único sitio que decide qué implementación
+resuelve cada puerto.
 
-**La pieza que más vende del portafolio: pruebas de contrato de puerto.** Una sola suite
-ejecutada **dos veces** — contra el doble en memoria y contra el adaptador Prisma —
-demostrando que se comportan igual.
+**La pieza que más vende: `testing/access-repositories.contract.ts`.** Una sola suite de
+33 casos ejecutada **dos veces** — contra los dobles en memoria y contra PostgreSQL —
+con dos archivos de cinco líneas para lanzarla.
+
+**Encontró un defecto el primer día.** Contra PostgreSQL fallaron 2 de 33:
+`role_permissions_permission_code_fkey`. El doble aceptaba conceder cualquier código de
+permiso; la base exige que exista en el catálogo. Las 250 pruebas que usaban el doble no
+tenían forma de saberlo.
+
+Decisiones que conviene no volver a discutir:
+
+- **Un solo arnés para los cuatro repositorios**, no uno por agregado: las membresías y
+  los roles tienen claves ajenas, y con arneses separados PostgreSQL rechazaría
+  escrituras que el doble acepta. El contrato siembra usando solo la interfaz pública
+- `save()` es un **upsert**: el puerto no expone `create()` ni `update()`, quien llama no
+  decide si la fila existe
+- Las tablas intermedias se reemplazan **dentro de una transacción**, para que nadie lea
+  la entidad con los roles a medio camino
+- **El catálogo de permisos se declara en el código** (`permissions.catalog.ts`) y lo
+  sincroniza `make migrate`, no una prueba: así corre igual en local, en el CI y en el
+  servidor. Es idempotente y **nunca borra** — quitar un permiso arrastraría los
+  `role_permissions` de las empresas que ya lo tenían
+- `pnpm test` **sigue sin necesitar base de datos**: las de contrato van por
+  `vitest.integration.config.ts`, con `fileParallelism: false` porque comparten una base
+
+`make verify` pasó a seis pasos. En el CI el contrato corre tras `make migrate` y antes
+de Playwright: si los repositorios mienten, el resto sobra.
+
+**Pendiente para la fase 6:** la prueba que cruce los `@RequirePermission` declarados
+contra el catálogo, en ambas direcciones. Sin ella, código y catálogo se desincronizan.
 
 ### Fase 5 — Autenticación
 
