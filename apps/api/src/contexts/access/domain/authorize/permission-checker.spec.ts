@@ -52,6 +52,20 @@ describe('PermissionChecker', () => {
     );
   });
 
+  // Para la interfaz: un administrador no enumera permisos, pero puede todo.
+  it('reports that an administrator of the tenant grants everything', () => {
+    expect(PermissionChecker.grantsEverything([anAdminRole()], TENANT)).toBe(true);
+  });
+
+  it('does not report grantsAll for a plain role', () => {
+    expect(PermissionChecker.grantsEverything([aRole()], TENANT)).toBe(false);
+  });
+
+  it('does not report grantsAll for an administrator of another tenant', () => {
+    expect(PermissionChecker.grantsEverything([anAdminRole({ tenantId: TENANT_B })], TENANT))
+      .toBe(false);
+  });
+
   it('lists effective permissions without duplicates and sorted', () => {
     const roles = [
       aRole({ permissions: ['sales.invoices.read', 'sales.invoices.create'] }),

@@ -27,6 +27,7 @@ export class AccessSessionBuilder {
       tenantId: tenant.id.value,
       tenantName: tenant.toPrimitives().name,
       permissions: PermissionChecker.effectivePermissions(roles, tenant.id),
+      grantsAll: PermissionChecker.grantsEverything(roles, tenant.id),
       availableTenants: available,
     };
   }

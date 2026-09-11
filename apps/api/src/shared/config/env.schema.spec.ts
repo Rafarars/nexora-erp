@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { validateEnv } from './env.schema.js';
 
 const validDatabaseUrl = 'postgresql://user:pass@db:5432/nexora?schema=public';
+const validSecret = 'a-private-secret-long-enough-for-production';
 
 describe('validateEnv', () => {
   it('accepts a valid configuration', () => {
@@ -9,6 +10,7 @@ describe('validateEnv', () => {
       NODE_ENV: 'production',
       PORT: '8080',
       DATABASE_URL: validDatabaseUrl,
+      JWT_SECRET: validSecret,
     });
 
     expect(env.PORT).toBe(8080);
@@ -44,8 +46,37 @@ describe('validateEnv', () => {
       validateEnv({
         NODE_ENV: 'production',
         DATABASE_URL: 'postgresql://nexora:nexora@localhost:5432/nexora',
+        JWT_SECRET: validSecret,
       }),
     ).toThrow(/localhost while NODE_ENV=production/);
+  });
+
+  // Sin esto, cualquiera que lea el repositorio podria firmar un token valido.
+  it('rejects the example secret while NODE_ENV is production', () => {
+    expect(() =>
+      validateEnv({ NODE_ENV: 'production', DATABASE_URL: validDatabaseUrl }),
+    ).toThrow(/JWT_SECRET must be set to a private value/);
+  });
+
+  it('rejects a short secret while NODE_ENV is production', () => {
+    expect(() =>
+      validateEnv({
+        NODE_ENV: 'production',
+        DATABASE_URL: validDatabaseUrl,
+        JWT_SECRET: 'too-short',
+      }),
+    ).toThrow(/at least 32 characters/);
+  });
+
+  it('allows the development secret outside production', () => {
+    expect(validateEnv({ DATABASE_URL: validDatabaseUrl }).JWT_SECRET.length)
+      .toBeGreaterThan(0);
+  });
+
+  it('reads how long a session lasts', () => {
+    const env = validateEnv({ DATABASE_URL: validDatabaseUrl, JWT_TTL_SECONDS: '900' });
+
+    expect(env.JWT_TTL_SECONDS).toBe(900);
   });
 
   it('allows a localhost database in development', () => {

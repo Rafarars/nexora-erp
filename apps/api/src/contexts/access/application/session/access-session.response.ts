@@ -13,5 +13,8 @@ export interface AccessSessionResponse {
   tenantId: string;
   tenantName: string;
   permissions: string[];
+  // Un administrador no enumera permisos, asi que su lista viaja vacia. Sin esta
+  // marca, la interfaz le esconderia todos los botones a quien puede hacerlo todo.
+  grantsAll: boolean;
   availableTenants: AvailableTenantResponse[];
 }

@@ -13,6 +13,11 @@ export const envSchema = z
       .refine((value) => /^postgres(ql)?:\/\//.test(value), {
         message: 'DATABASE_URL must be a PostgreSQL connection string',
       }),
+    // Firma los tokens de sesion. El valor por defecto solo sirve en desarrollo: en
+    // produccion se exige uno propio y largo, mas abajo.
+    JWT_SECRET: z.string().min(1).default('development-only-secret-do-not-use'),
+    // Cuanto dura una sesion. Corta a proposito: cambiar de empresa reemite el token.
+    JWT_TTL_SECONDS: z.coerce.number().int().positive().default(3600),
   })
   .superRefine((env, ctx) => {
     if (env.NODE_ENV !== 'production') return;
@@ -22,6 +27,24 @@ export const envSchema = z
         code: 'custom',
         path: ['DATABASE_URL'],
         message: 'DATABASE_URL points to localhost while NODE_ENV=production',
+      });
+    }
+
+    // Arrancar produccion con el secreto de ejemplo permitiria a cualquiera que lea
+    // el repositorio firmar un token valido.
+    if (env.JWT_SECRET === 'development-only-secret-do-not-use') {
+      ctx.addIssue({
+        code: 'custom',
+        path: ['JWT_SECRET'],
+        message: 'JWT_SECRET must be set to a private value while NODE_ENV=production',
+      });
+    }
+
+    if (env.JWT_SECRET.length < 32) {
+      ctx.addIssue({
+        code: 'custom',
+        path: ['JWT_SECRET'],
+        message: 'JWT_SECRET must be at least 32 characters while NODE_ENV=production',
       });
     }
   });
