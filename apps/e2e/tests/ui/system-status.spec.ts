@@ -29,10 +29,14 @@ test.describe('System status page', () => {
     expect(latency).toBeGreaterThanOrEqual(0);
   });
 
+  // Una asercion negativa se cumple en cualquier pagina que no sea esta: cuando el
+  // panel se movio detras del login, esta prueba siguio pasando sobre la pantalla de
+  // entrada. Se comprueba primero que estamos donde creemos.
   test('shows no error message while healthy', async ({ page }) => {
     const statusPage = new SystemStatusPage(page);
     await statusPage.open();
 
+    await expect(statusPage.panel).toBeVisible();
     await expect(statusPage.errorMessage).toHaveCount(0);
   });
 });

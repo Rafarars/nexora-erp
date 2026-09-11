@@ -36,6 +36,7 @@ async function main(): Promise<void> {
   const passwordHash = await hash(PASSWORD);
 
   try {
+    await removeLeftovers(prisma);
     await upsertTenants(prisma);
     await upsertRoles(prisma);
     await upsertUsers(prisma, passwordHash);
@@ -45,6 +46,18 @@ async function main(): Promise<void> {
   } finally {
     await prisma.$disconnect();
   }
+}
+
+// Las pruebas end-to-end crean personas y roles sobre la marcha. Sin esto la base
+// acumula basura de corridas anteriores y las capturas del reporte salen con
+// veinte filas llamadas `colado-1789144380150@acme.com`.
+async function removeLeftovers(prisma: PrismaClient): Promise<void> {
+  const seeded = [ANA, BETO, CONTADOR];
+  const seededRoles = [ACME_ADMIN_ROLE, ACME_VIEWER_ROLE, GLOBEX_ADMIN_ROLE];
+
+  await prisma.membership.deleteMany({ where: { userId: { notIn: seeded } } });
+  await prisma.user.deleteMany({ where: { id: { notIn: seeded } } });
+  await prisma.role.deleteMany({ where: { id: { notIn: seededRoles } } });
 }
 
 async function upsertTenants(prisma: PrismaClient): Promise<void> {

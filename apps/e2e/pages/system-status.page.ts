@@ -17,7 +17,7 @@ export class SystemStatusPage {
   }
 
   async open(): Promise<void> {
-    await this.page.goto('/');
+    await this.page.goto('/estado');
   }
 
   async isHealthy(): Promise<boolean> {

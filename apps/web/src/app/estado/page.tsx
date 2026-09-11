@@ -3,6 +3,9 @@ import { getEnv } from "@/env";
 // En cada peticion: el estado no puede servirse cacheado.
 export const dynamic = "force-dynamic";
 
+// SIN sesion a proposito. Se consulta justo cuando el sistema esta mal, y comprobar
+// la sesion necesita la base: un panel de salud que cae con la base no sirve de nada.
+
 type HealthResponse = {
   status: string;
   database: { status: string; latencyMs?: number };

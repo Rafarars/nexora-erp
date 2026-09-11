@@ -2,7 +2,6 @@ import { describe, expect, it } from 'vitest';
 import { RoleRevoker } from './role-revoker.js';
 import { MembershipNotFoundError } from '../../domain/errors/membership-not-found.error.js';
 import { RoleNotFoundError } from '../../domain/errors/role-not-found.error.js';
-import { RoleId } from '../../domain/role/role-id.vo.js';
 import { TenantId } from '../../domain/tenant/tenant-id.vo.js';
 import { UserId } from '../../domain/user/user-id.vo.js';
 import {

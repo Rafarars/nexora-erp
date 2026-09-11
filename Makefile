@@ -76,7 +76,7 @@ lint: ## Linter en todos los paquetes
 typecheck: ## Verificacion de tipos en todos los paquetes
 	pnpm typecheck
 
-test-unit: ## Pruebas unitarias (sin base de datos)
+test-unit: ## Pruebas unitarias de la API y del frontend (sin base de datos)
 	pnpm test:unit
 
 test-contract: ## Contrato de puerto contra PostgreSQL (requiere la base levantada)

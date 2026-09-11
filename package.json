@@ -9,7 +9,7 @@
   "scripts": {
     "lint": "pnpm -r --if-present lint",
     "typecheck": "pnpm -r --if-present typecheck",
-    "test:unit": "pnpm --filter api test",
+    "test:unit": "pnpm --filter api test && pnpm --filter web test",
     "test:e2e": "pnpm --filter e2e test",
     "up": "docker compose up -d --build",
     "down": "docker compose down"
