@@ -26,11 +26,13 @@ export const MEMBERSHIP_A = '55555555-5555-4555-8555-555555555555';
 
 export const VALID_HASH = '$argon2id$v=19$m=65536,t=3,p=4$c29tZXNhbHQ$aGFzaGVkdmFsdWU';
 
-export function aTenant(overrides: { id?: string; active?: boolean } = {}): Tenant {
+export function aTenant(
+  overrides: { id?: string; name?: string; slug?: string; active?: boolean } = {},
+): Tenant {
   const tenant = Tenant.create(
     TenantId.of(overrides.id ?? TENANT_A),
-    TenantName.of('Acme'),
-    TenantSlug.of('acme'),
+    TenantName.of(overrides.name ?? 'Acme'),
+    TenantSlug.of(overrides.slug ?? 'acme'),
     NOW,
   );
 
@@ -58,10 +60,16 @@ export function aUser(overrides: { id?: string; email?: string; active?: boolean
 }
 
 export function aMembership(
-  overrides: { tenantId?: string; userId?: string; roleIds?: string[]; active?: boolean } = {},
+  overrides: {
+    id?: string;
+    tenantId?: string;
+    userId?: string;
+    roleIds?: string[];
+    active?: boolean;
+  } = {},
 ): Membership {
   const membership = Membership.create(
-    MembershipId.of(MEMBERSHIP_A),
+    MembershipId.of(overrides.id ?? MEMBERSHIP_A),
     UserId.of(overrides.userId ?? USER_A),
     TenantId.of(overrides.tenantId ?? TENANT_A),
     (overrides.roleIds ?? []).map((id) => RoleId.of(id)),
