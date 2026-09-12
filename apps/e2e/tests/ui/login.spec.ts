@@ -31,7 +31,8 @@ test.describe('Signing in', () => {
     const login = new LoginPage(page);
     await login.open();
 
-    await login.fill({ email: 'nadie@acme.com', password: PASSWORD });
+    // Distinto en cada corrida: uno fijo acumularia fallos y acabaria bloqueado.
+    await login.fill({ email: `nadie-${Date.now()}@acme.com`, password: PASSWORD });
 
     await expect(login.error).toHaveText('Correo o contraseña incorrectos.');
   });

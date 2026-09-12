@@ -3,7 +3,7 @@
 export class AccessError extends Error {
   constructor(
     message: string,
-    readonly kind: 'credentials' | 'forbidden' | 'not-found' | 'conflict' | 'invalid' | 'unknown',
+    readonly kind: 'credentials' | 'forbidden' | 'not-found' | 'conflict' | 'invalid' | 'rate-limited' | 'unknown',
   ) {
     super(message);
     this.name = 'AccessError';
@@ -15,6 +15,7 @@ export class AccessError extends Error {
     if (status === 404) return new AccessError(message, 'not-found');
     if (status === 409) return new AccessError(message, 'conflict');
     if (status === 400) return new AccessError(message, 'invalid');
+    if (status === 429) return new AccessError(message, 'rate-limited');
 
     return new AccessError(message, 'unknown');
   }
@@ -28,6 +29,7 @@ export function readableError(error: unknown, fallback: string): string {
   }
 
   if (error.kind === 'credentials') return 'Correo o contraseña incorrectos.';
+  if (error.kind === 'rate-limited') return 'Demasiados intentos fallidos. Espera unos minutos y vuelve a probar.';
   if (error.kind === 'forbidden') return 'Tu rol no te permite hacer esto.';
   if (error.kind === 'conflict') return error.message.includes('your own')
     ? 'No puedes desactivarte a ti mismo.'

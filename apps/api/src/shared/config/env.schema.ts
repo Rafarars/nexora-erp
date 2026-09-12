@@ -18,6 +18,9 @@ export const envSchema = z
     JWT_SECRET: z.string().min(1).default('development-only-secret-do-not-use'),
     // Cuanto dura una sesion. Corta a proposito: cambiar de empresa reemite el token.
     JWT_TTL_SECONDS: z.coerce.number().int().positive().default(3600),
+    // Intentos fallidos por correo antes de bloquear, y cuanto dura el bloqueo.
+    LOGIN_MAX_FAILED_ATTEMPTS: z.coerce.number().int().positive().default(5),
+    LOGIN_LOCKOUT_SECONDS: z.coerce.number().int().positive().default(900),
   })
   .superRefine((env, ctx) => {
     if (env.NODE_ENV !== 'production') return;

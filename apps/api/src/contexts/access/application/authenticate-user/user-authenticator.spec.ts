@@ -3,6 +3,7 @@ import { UserAuthenticator } from './user-authenticator.js';
 import { InactiveMembershipError } from '../../domain/errors/inactive-membership.error.js';
 import { InactiveTenantError } from '../../domain/errors/inactive-tenant.error.js';
 import { InvalidCredentialsError } from '../../domain/errors/invalid-credentials.error.js';
+import { TooManyLoginAttemptsError } from '../../domain/errors/too-many-login-attempts.error.js';
 import { PasswordHash } from '../../domain/user/password-hash.vo.js';
 import {
   ROLE_A,
@@ -64,6 +65,7 @@ describe('UserAuthenticator', () => {
       scenario.memberships,
       scenario.hasher,
       scenario.session,
+      scenario.attempts,
     );
   }
 
@@ -206,5 +208,51 @@ describe('UserAuthenticator', () => {
         tenantSlug: 'globex',
       }),
     ).rejects.toThrow(InvalidCredentialsError);
+  });
+
+  // Fuerza bruta: tras cinco fallos, ni la contrasena correcta entra.
+  it('locks the account after five failed attempts, even for the right password', async () => {
+    const scenario = scenarioWithOneTenant();
+    const authenticator = authenticatorFor(scenario);
+
+    for (let i = 0; i < 5; i++) {
+      await expect(
+        authenticator.run({ email: 'ana@acme.com', password: 'wrong' }),
+      ).rejects.toThrow(InvalidCredentialsError);
+    }
+
+    await expect(
+      authenticator.run({ email: 'ana@acme.com', password: PASSWORD }),
+    ).rejects.toThrow(TooManyLoginAttemptsError);
+  });
+
+  it('forgets the failures after a successful sign in', async () => {
+    const scenario = scenarioWithOneTenant();
+    const authenticator = authenticatorFor(scenario);
+
+    for (let i = 0; i < 4; i++) {
+      await expect(authenticator.run({ email: 'ana@acme.com', password: 'wrong' })).rejects.toThrow();
+    }
+    await authenticator.run({ email: 'ana@acme.com', password: PASSWORD });
+
+    for (let i = 0; i < 4; i++) {
+      await expect(authenticator.run({ email: 'ana@acme.com', password: 'wrong' })).rejects.toThrow(
+        InvalidCredentialsError,
+      );
+    }
+  });
+
+  // Tambien cuenta correos inexistentes: si no, bloquear delataria cuales existen.
+  it('locks an unknown email just the same', async () => {
+    const scenario = scenarioWithOneTenant();
+    const authenticator = authenticatorFor(scenario);
+
+    for (let i = 0; i < 5; i++) {
+      await expect(authenticator.run({ email: 'nadie@acme.com', password: 'x' })).rejects.toThrow();
+    }
+
+    await expect(authenticator.run({ email: 'nadie@acme.com', password: 'x' })).rejects.toThrow(
+      TooManyLoginAttemptsError,
+    );
   });
 });

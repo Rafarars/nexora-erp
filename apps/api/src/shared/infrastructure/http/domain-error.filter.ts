@@ -9,6 +9,7 @@ import {
   ConflictError,
   DomainError,
   ForbiddenError,
+  TooManyRequestsError,
   InvalidArgumentError,
   NotFoundError,
   UnauthorizedError,
@@ -20,6 +21,7 @@ function statusFor(error: DomainError): number {
   if (error instanceof InvalidArgumentError) return HttpStatus.BAD_REQUEST;
   if (error instanceof UnauthorizedError) return HttpStatus.UNAUTHORIZED;
   if (error instanceof ForbiddenError) return HttpStatus.FORBIDDEN;
+  if (error instanceof TooManyRequestsError) return HttpStatus.TOO_MANY_REQUESTS;
 
   return HttpStatus.INTERNAL_SERVER_ERROR;
 }

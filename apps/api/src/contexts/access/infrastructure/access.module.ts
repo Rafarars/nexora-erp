@@ -1,4 +1,5 @@
 import { Module } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
 import { APP_GUARD } from '@nestjs/core';
 import { Clock, CLOCK } from '../../../shared/domain/ports/clock.js';
 import { IdGenerator, ID_GENERATOR } from '../../../shared/domain/ports/id-generator.js';
@@ -56,7 +57,11 @@ import { PrismaRoleRepository } from './persistence/prisma-role.repository.js';
 import { PrismaTenantRepository } from './persistence/prisma-tenant.repository.js';
 import { PrismaUserRepository } from './persistence/prisma-user.repository.js';
 import { Argon2PasswordHasher } from './security/argon2-password-hasher.js';
+import { InMemoryLoginAttempts } from './security/in-memory-login-attempts.js';
 import { JoseTokenIssuer } from './security/jose-token-issuer.js';
+import { LOGIN_ATTEMPTS } from '../domain/authenticate/login-attempts.js';
+import type { LoginAttempts } from '../domain/authenticate/login-attempts.js';
+import type { Env } from '../../../shared/config/env.schema.js';
 import { TOKEN_ISSUER } from './security/token-issuer.js';
 
 // El unico sitio del contexto donde se decide QUE implementacion resuelve cada puerto,
@@ -91,9 +96,19 @@ import { TOKEN_ISSUER } from './security/token-issuer.js';
     { provide: ROLE_REPOSITORY, useClass: PrismaRoleRepository },
     { provide: PASSWORD_HASHER, useClass: Argon2PasswordHasher },
     { provide: TOKEN_ISSUER, useClass: JoseTokenIssuer },
+    {
+      provide: LOGIN_ATTEMPTS,
+      useFactory: (config: ConfigService<Env, true>, clock: Clock) =>
+        new InMemoryLoginAttempts(
+          config.get('LOGIN_MAX_FAILED_ATTEMPTS', { infer: true }),
+          config.get('LOGIN_LOCKOUT_SECONDS', { infer: true }),
+          clock,
+        ),
+      inject: [ConfigService, CLOCK],
+    },
 
     // Global: cubre TODA la aplicacion, tambien los endpoints de otros contextos que
-    // se añadan despues. Un contexto nuevo nace protegido sin hacer nada.
+    // se anadan despues. Un contexto nuevo nace protegido sin hacer nada.
     { provide: APP_GUARD, useClass: AccessGuard },
 
     {
@@ -150,13 +165,15 @@ import { TOKEN_ISSUER } from './security/token-issuer.js';
         memberships: MembershipRepository,
         hasher: PasswordHasher,
         session: AccessSessionBuilder,
-      ) => new UserAuthenticator(users, tenants, memberships, hasher, session),
+        attempts: LoginAttempts,
+      ) => new UserAuthenticator(users, tenants, memberships, hasher, session, attempts),
       inject: [
         USER_REPOSITORY,
         TENANT_REPOSITORY,
         MEMBERSHIP_REPOSITORY,
         PASSWORD_HASHER,
         AccessSessionBuilder,
+        LOGIN_ATTEMPTS,
       ],
     },
     {

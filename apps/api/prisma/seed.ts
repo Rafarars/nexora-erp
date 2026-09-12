@@ -1,6 +1,7 @@
 import { PrismaPg } from '@prisma/adapter-pg';
 import { hash } from '@node-rs/argon2';
 import { PrismaClient } from '../src/generated/prisma/client.js';
+import { assertDisposableDatabase } from './disposable-database.js';
 
 // Datos de demostracion para desarrollo y para la suite end-to-end. DOS empresas, no
 // una: sin una segunda empresa no se puede probar que el aislamiento funciona, que es
@@ -32,6 +33,8 @@ async function main(): Promise<void> {
   if (!connectionString) {
     throw new Error('DATABASE_URL is required to seed.');
   }
+
+  assertDisposableDatabase(connectionString);
 
   const prisma = new PrismaClient({ adapter: new PrismaPg({ connectionString }) });
   const passwordHash = await hash(PASSWORD);

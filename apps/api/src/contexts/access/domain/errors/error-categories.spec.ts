@@ -4,8 +4,10 @@ import {
   DomainError,
   ForbiddenError,
   NotFoundError,
+  TooManyRequestsError,
   UnauthorizedError,
 } from '../../../../shared/domain/domain.error.js';
+import { TooManyLoginAttemptsError } from './too-many-login-attempts.error.js';
 import { CannotDeactivateSelfError } from './cannot-deactivate-self.error.js';
 import { DuplicateMembershipError } from './duplicate-membership.error.js';
 import { DuplicateRoleNameError } from './duplicate-role-name.error.js';
@@ -36,6 +38,7 @@ const cases: Array<[DomainError, typeof DomainError]> = [
   [new InactiveTenantError('t'), UnauthorizedError],
   [new InactiveMembershipError('u', 't'), UnauthorizedError],
   [new PermissionDeniedError('sales.invoices.create'), ForbiddenError],
+  [new TooManyLoginAttemptsError(), TooManyRequestsError],
 ];
 
 describe('access domain errors', () => {

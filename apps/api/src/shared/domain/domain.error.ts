@@ -12,3 +12,4 @@ export abstract class ConflictError extends DomainError {}
 export abstract class InvalidArgumentError extends DomainError {}
 export abstract class UnauthorizedError extends DomainError {}
 export abstract class ForbiddenError extends DomainError {}
+export abstract class TooManyRequestsError extends DomainError {}

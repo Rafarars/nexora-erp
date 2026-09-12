@@ -34,6 +34,34 @@ describe('Argon2PasswordHasher', () => {
     expect(await hasher.verify(PASSWORD, 'not-a-hash')).toBe(false);
   });
 
+  // El ataque de tiempo: sin hash de verdad, rechazar una cuenta inexistente era casi
+  // instantaneo. Se compara la mediana de varias verificaciones de cada tipo.
+  it('takes as long to reject a missing account as a real one', async () => {
+    const real = await hasher.hash(PASSWORD);
+    await hasher.verify('warm-up', '');
+
+    const median = async (hashValue: string): Promise<number> => {
+      const samples: number[] = [];
+
+      for (let i = 0; i < 5; i++) {
+        const start = performance.now();
+        await hasher.verify('wrong-password', hashValue);
+        samples.push(performance.now() - start);
+      }
+
+      return samples.sort((a, b) => a - b)[2];
+    };
+
+    const againstReal = await median(real);
+    const againstMissing = await median('');
+
+    expect(againstMissing).toBeGreaterThan(againstReal * 0.5);
+  });
+
+  it('never accepts a missing hash, whatever the password', async () => {
+    expect(await hasher.verify('', '')).toBe(false);
+  });
+
   it('does not accept an empty password as valid', async () => {
     expect(await hasher.verify('', await hasher.hash(PASSWORD))).toBe(false);
   });

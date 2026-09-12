@@ -1,5 +1,7 @@
+import { LoginAttempts } from '../../domain/authenticate/login-attempts.js';
 import { SignInPolicy } from '../../domain/authenticate/sign-in-policy.js';
 import { InvalidCredentialsError } from '../../domain/errors/invalid-credentials.error.js';
+import { TooManyLoginAttemptsError } from '../../domain/errors/too-many-login-attempts.error.js';
 import { MembershipRepository } from '../../domain/membership/membership.repository.js';
 import { TenantSlug } from '../../domain/tenant/tenant-slug.vo.js';
 import { Tenant } from '../../domain/tenant/tenant.entity.js';
@@ -19,19 +21,31 @@ export class UserAuthenticator {
     private readonly memberships: MembershipRepository,
     private readonly hasher: PasswordHasher,
     private readonly session: AccessSessionBuilder,
+    private readonly attempts: LoginAttempts,
   ) {}
 
   async run(request: UserAuthenticatorRequest): Promise<AccessSessionResponse> {
-    const user = await this.users.findByEmail(Email.of(request.email));
+    const email = Email.of(request.email);
 
-    // Se verifica la contrasena aunque el usuario no exista: si se respondiera antes,
-    // el tiempo de respuesta revelaria que correos estan registrados.
+    // Antes de verificar: una cuenta bloqueada no gasta ni un calculo de Argon2, y
+    // quien prueba contrasenas no puede saber si la ultima era la buena.
+    if (await this.attempts.isLocked(email)) {
+      throw new TooManyLoginAttemptsError();
+    }
+
+    const user = await this.users.findByEmail(email);
+
+    // Se verifica la contrasena aunque el usuario no exista: el hasher usa un hash de
+    // relleno y tarda lo mismo, asi el tiempo no delata que correos estan registrados.
     const hash = user?.currentPasswordHash().value ?? '';
     const matches = await this.hasher.verify(request.password, hash);
 
     if (!user || !matches) {
+      await this.attempts.recordFailure(email);
       throw new InvalidCredentialsError();
     }
+
+    await this.attempts.reset(email);
 
     const tenant = await this.resolveTenant(user, request.tenantSlug);
     const membership = await this.memberships.findByUser(tenant.id, user.id);

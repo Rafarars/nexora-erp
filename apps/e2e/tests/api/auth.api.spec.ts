@@ -1,4 +1,5 @@
 import { expect, test } from '@playwright/test';
+import type { APIRequestContext } from '@playwright/test';
 
 const LOGIN = '/api/v1/auth/login';
 const SWITCH = '/api/v1/auth/switch-tenant';
@@ -68,8 +69,10 @@ test.describe('POST /api/v1/auth/login', () => {
   // Un correo que no existe y una contrasena mala responden IGUAL: si difirieran,
   // se podria averiguar que cuentas estan registradas.
   test('does not reveal whether the email exists', async ({ request }) => {
+    // Un correo distinto en cada corrida: el contador de intentos fallidos vive en la
+    // API y sobrevive entre corridas, y uno fijo acabaria bloqueado (429).
     const unknown = await request.post(LOGIN, {
-      data: { email: 'nadie@acme.com', password: PASSWORD },
+      data: { email: `nadie-${Date.now()}@acme.com`, password: PASSWORD },
     });
     const wrongPassword = await request.post(LOGIN, {
       data: { email: 'ana@acme.com', password: 'wrong-password' },
@@ -93,6 +96,65 @@ test.describe('POST /api/v1/auth/login', () => {
 
     expect(response.status()).toBe(400);
     expect((await response.json()).error).toBe('ValidationError');
+  });
+});
+
+// Cada prueba crea su propia cuenta: bloquear una del seed tumbaria al resto de la suite.
+async function aFreshAccount(request: APIRequestContext): Promise<{ email: string; password: string }> {
+  const { token } = await (await request.post(LOGIN, { data: ACME_ADMIN })).json();
+  const account = {
+    email: `intentos-${Date.now()}-${Math.random().toString(36).slice(2, 7)}@acme.com`,
+    password: 'a-long-password',
+  };
+
+  await request.post('/api/v1/users', {
+    headers: { authorization: `Bearer ${token}` },
+    data: { ...account, name: 'Intentos' },
+  });
+
+  return account;
+}
+
+test.describe('Brute force and timing', () => {
+  test('locks an account after five failed attempts, even for the right password', async ({
+    request,
+  }) => {
+    const account = await aFreshAccount(request);
+
+    for (let i = 0; i < 5; i++) {
+      const failed = await request.post(LOGIN, { data: { ...account, password: `wrong-${i}` } });
+      expect(failed.status()).toBe(401);
+    }
+
+    const locked = await request.post(LOGIN, { data: account });
+
+    expect(locked.status()).toBe(429);
+    expect(await locked.text()).not.toContain(account.email);
+  });
+
+  // La prueba que antes faltaba: comparar cuerpos no detecta que un correo inexistente
+  // respondia diez veces mas rapido. Aqui se mide. Entre cada fallo de la cuenta real se
+  // entra bien, para que el limite de intentos no la bloquee a mitad de la medicion.
+  test('takes about as long to reject an unknown email as a registered one', async ({ request }) => {
+    const account = await aFreshAccount(request);
+    const timed = async (data: object) => {
+      const start = performance.now();
+      await request.post(LOGIN, { data });
+      return performance.now() - start;
+    };
+
+    const registered: number[] = [];
+    const unknown: number[] = [];
+
+    for (let i = 0; i < 7; i++) {
+      registered.push(await timed({ ...account, password: 'wrong-password' }));
+      await request.post(LOGIN, { data: account });
+      unknown.push(await timed({ email: `fantasma-${Date.now()}-${i}@acme.com`, password: 'x' }));
+    }
+
+    const median = (values: number[]) => [...values].sort((a, b) => a - b)[3];
+
+    expect(median(unknown)).toBeGreaterThan(median(registered) * 0.5);
   });
 });
 
