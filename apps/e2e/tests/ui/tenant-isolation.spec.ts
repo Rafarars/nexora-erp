@@ -67,3 +67,34 @@ test.describe('The interface only offers what the role allows', () => {
     await expect(page.getByTestId('role-Administrador')).toBeVisible();
   });
 });
+
+test.describe('Switching tenant changes everything the administration shows', () => {
+  test('the roles belong to the active tenant', async ({ page }) => {
+    await new LoginPage(page).signIn(ACCOUNTANT);
+    const shell = new AppShell(page);
+
+    // En Acme Carla solo consulta: no ve la pantalla de roles.
+    await page.goto('/administracion/roles');
+    await expect(page.getByTestId('roles-forbidden')).toBeVisible();
+
+    await shell.switchTo('Globex Servicios');
+    await shell.goToAdministration('roles');
+
+    await expect(page.getByTestId('role-Administrador')).toBeVisible();
+    await expect(page.getByTestId('role-Consulta')).toHaveCount(0);
+  });
+
+  // Tras cambiar a Globex, volver a la URL de Acme no trae de vuelta sus datos: la
+  // empresa la decide la sesion, no la pagina que se abre.
+  test('reopening a page keeps showing the active tenant, not the previous one', async ({ page }) => {
+    await new LoginPage(page).signIn(ACCOUNTANT);
+    const shell = new AppShell(page);
+
+    await shell.switchTo('Globex Servicios');
+    await page.goto('/administracion/usuarios');
+    await page.reload();
+
+    await expect(shell.activeTenant).toHaveText('Globex Servicios');
+    await expect(page.getByTestId('user-row-ana@acme.com')).toHaveCount(0);
+  });
+});

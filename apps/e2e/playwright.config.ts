@@ -32,10 +32,17 @@ export default defineConfig({
       use: { ...devices['Desktop Chrome'], baseURL: WEB_URL },
     },
     {
+      // Aislamiento entre empresas: la matriz de ataques y la prueba que la vigila.
+      name: 'isolation',
+      testDir: './tests/isolation',
+      fullyParallel: true,
+      use: { baseURL: API_URL },
+    },
+    {
       // Apaga Postgres: siempre al final o tumbaria a los demas proyectos.
       name: 'resilience',
       testDir: './tests/resilience',
-      dependencies: ['api', 'ui'],
+      dependencies: ['api', 'ui', 'isolation'],
       fullyParallel: false,
       workers: 1,
       use: { ...devices['Desktop Chrome'], baseURL: WEB_URL },

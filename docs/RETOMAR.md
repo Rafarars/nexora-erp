@@ -22,9 +22,9 @@ de ninguna conversación anterior**.
 |---|---|
 | Repositorio | github.com/Rafarars/nexora-erp |
 | Reporte de pruebas | https://rafarars.github.io/nexora-erp/ |
-| Pruebas | 338 unitarias · 33 de contrato · 35 end-to-end |
+| Pruebas | 444 + 8 unitarias · 33 de contrato · 85 end-to-end |
 | **H0 — Fundación** | **Completado** |
-| **H1 — Multiempresa y acceso** | Fases 0 a 6 hechas; **siguiente: fase 7** |
+| **H1 — Multiempresa y acceso** | Fases 0 a 8 hechas; **siguiente: fase 9** |
 
 Lo que ya funciona: monorepo con API, frontend y suite E2E; PostgreSQL en Docker;
 endpoint de salud que verifica la base; CI con cuatro trabajos publicando el reporte;
@@ -217,15 +217,51 @@ líneas y daba **falso verde**: una ruta sin declarar pasaba si la de al lado te
 decorador. Una prueba que vigila el sistema entero y falla en silencio es peor que no
 tenerla.
 
-### Fase 7 — Frontend
+### Fase 7 — Frontend ✅
 
-Login, cookie `httpOnly` puesta por una acción de servidor, ruta protegida y selector de
-empresa. Lógica en `modules/access/`, componentes en `sections/`.
+Hecha. Cuatro pantallas: `/login`, `/` (panel), `/administracion/{usuarios,roles}` y
+`/perfil`. La lógica vive en `modules/access/` (dominio, puerto `AccessApi`, adaptador
+HTTP y doble en memoria), sin React. El token va en una cookie `httpOnly` puesta por
+una acción de servidor: el navegador nunca lo ve.
 
-### Fase 8 — Pruebas end-to-end
+Decisiones de interfaz, **tomadas por Rafael**:
 
-POM de login reutilizable. Y las **pruebas de aislamiento entre empresas**: la empresa A
-intenta leer, editar y borrar datos de la B, y rebota en los tres casos con 404.
+- **Barra lateral solo para los módulos del negocio.** Administración (Usuarios y Roles)
+  y el perfil viven en el **menú del nombre**, al pie. Así inventario o ventas no se
+  mezclarán con la gestión de accesos. Administración solo aparece a quien tiene algo
+  que administrar
+- **Formularios en panel lateral deslizante**: la tabla sigue visible y se comprueba el
+  resultado sin recargar
+- **Listados con menú «Opciones» por fila**, como Flexio: Editar abre el mismo panel del
+  alta ya relleno
+- `/estado` es **público**: se consulta justo cuando el sistema está mal, y comprobar la
+  sesión necesita la base
+
+**Qué puede editar un administrador de otra persona**: nombre, roles y estado **en su
+empresa**. **Nunca el correo ni la contraseña**: la cuenta es una sola en todas sus
+empresas, y cambiarle la contraseña a alguien que también está en otra empresa daría
+acceso a esa otra. Desactivar revoca la membresía, no la cuenta. Nadie se desactiva a
+sí mismo.
+
+Los permisos se **asignan desde la interfaz** (casillas en Roles) aunque el catálogo se
+declare en código: qué permisos *existen* es código; quién los *tiene*, base de datos.
+
+### Fase 8 — Aislamiento entre empresas ✅
+
+Hecha. Proyecto propio de Playwright, `isolation`.
+
+- **Matriz de ataques** (`support/isolation-matrix.ts`): cada endpoint que recibe un
+  identificador, llamado con la sesión de la administradora de Acme —todos los permisos,
+  así que un rechazo no puede ser por falta de uno— y datos de Globex. Debe responder
+  **404** y, después, Globex debe estar **idéntico** a como estaba: un 404 que llega
+  tras escribir también sería una fuga
+- **La matriz se vigila sola** (`isolation-coverage.spec.ts`): lee los controladores y
+  sus DTO y falla si un endpoint que recibe identificadores no tiene su ataque. Verificado
+  quitando un caso: lo nombró
+
+Una primera versión de esa vigilancia daba falsos positivos: miraba el controlador
+entero y todos usan `session.tenantId`, que viene del token. Ahora solo mira los
+parámetros de ruta y los campos del DTO.
 
 ### Fase 9 — Semillas
 
