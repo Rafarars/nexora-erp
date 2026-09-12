@@ -60,6 +60,18 @@ export class HttpAccessApi implements AccessApi {
     await this.request('POST', '/api/v1/users', person, token);
   }
 
+  async updateUser(
+    token: string,
+    userId: string,
+    person: { name: string; roleIds: string[] },
+  ): Promise<void> {
+    await this.request('PUT', `/api/v1/users/${userId}`, person, token);
+  }
+
+  async changeUserStatus(token: string, userId: string, active: boolean): Promise<void> {
+    await this.request('PUT', `/api/v1/users/${userId}/status`, { active }, token);
+  }
+
   async searchRoles(token: string): Promise<Role[]> {
     const { roles } = await this.request<{ roles: Role[] }>('GET', '/api/v1/roles', undefined, token);
 

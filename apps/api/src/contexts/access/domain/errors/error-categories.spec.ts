@@ -6,6 +6,7 @@ import {
   NotFoundError,
   UnauthorizedError,
 } from '../../../../shared/domain/domain.error.js';
+import { CannotDeactivateSelfError } from './cannot-deactivate-self.error.js';
 import { DuplicateMembershipError } from './duplicate-membership.error.js';
 import { DuplicateRoleNameError } from './duplicate-role-name.error.js';
 import { EmailAlreadyInUseError } from './email-already-in-use.error.js';
@@ -29,6 +30,7 @@ const cases: Array<[DomainError, typeof DomainError]> = [
   [new EmailAlreadyInUseError('ana@acme.com'), ConflictError],
   [new DuplicateMembershipError('u', 't'), ConflictError],
   [new DuplicateRoleNameError('Sales', 't'), ConflictError],
+  [new CannotDeactivateSelfError(), ConflictError],
   [new InvalidCredentialsError(), UnauthorizedError],
   [new InactiveUserError('u'), UnauthorizedError],
   [new InactiveTenantError('t'), UnauthorizedError],

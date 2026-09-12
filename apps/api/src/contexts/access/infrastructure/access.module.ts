@@ -24,7 +24,9 @@ import { UserFinder } from '../domain/user/find/user-finder.js';
 import { PASSWORD_HASHER, PasswordHasher } from '../domain/user/password-hasher.js';
 import { UserRegistrar } from '../domain/user/register/user-registrar.js';
 import { USER_REPOSITORY, UserRepository } from '../domain/user/user.repository.js';
+import { MembershipStatusChanger } from '../application/change-membership-status/membership-status-changer.js';
 import { PasswordChanger } from '../application/change-password/password-changer.js';
+import { TenantUserUpdater } from '../application/update-tenant-user/tenant-user-updater.js';
 import { ProfileUpdater } from '../application/update-profile/profile-updater.js';
 import { SessionFinder } from '../application/find-session/session-finder.js';
 import { RoleCreator } from '../application/create-role/role-creator.js';
@@ -38,7 +40,9 @@ import { CreateRolePostController } from './http/create-role-post.controller.js'
 import { RevokeRoleDeleteController } from './http/revoke-role-delete.controller.js';
 import { SearchPermissionsGetController } from './http/search-permissions-get.controller.js';
 import { SearchRolesGetController } from './http/search-roles-get.controller.js';
+import { ChangeMembershipStatusPutController } from './http/change-membership-status-put.controller.js';
 import { ChangePasswordPutController } from './http/change-password-put.controller.js';
+import { UpdateTenantUserPutController } from './http/update-tenant-user-put.controller.js';
 import { SessionGetController } from './http/session-get.controller.js';
 import { UpdateProfilePutController } from './http/update-profile-put.controller.js';
 import { UpdateRolePutController } from './http/update-role-put.controller.js';
@@ -77,6 +81,8 @@ import { TOKEN_ISSUER } from './security/token-issuer.js';
     SessionGetController,
     UpdateProfilePutController,
     ChangePasswordPutController,
+    UpdateTenantUserPutController,
+    ChangeMembershipStatusPutController,
   ],
   providers: [
     { provide: TENANT_REPOSITORY, useClass: PrismaTenantRepository },
@@ -184,6 +190,24 @@ import { TOKEN_ISSUER } from './security/token-issuer.js';
       inject: [MembershipFinder, RoleFinder, MEMBERSHIP_REPOSITORY, CLOCK],
     },
     { provide: CatalogPermissions, useClass: CatalogPermissions },
+    {
+      provide: TenantUserUpdater,
+      useFactory: (
+        memberships: MembershipFinder,
+        users: UserFinder,
+        roles: RoleFinder,
+        userRepository: UserRepository,
+        membershipRepository: MembershipRepository,
+        clock: Clock,
+      ) => new TenantUserUpdater(memberships, users, roles, userRepository, membershipRepository, clock),
+      inject: [MembershipFinder, UserFinder, RoleFinder, USER_REPOSITORY, MEMBERSHIP_REPOSITORY, CLOCK],
+    },
+    {
+      provide: MembershipStatusChanger,
+      useFactory: (finder: MembershipFinder, memberships: MembershipRepository, clock: Clock) =>
+        new MembershipStatusChanger(finder, memberships, clock),
+      inject: [MembershipFinder, MEMBERSHIP_REPOSITORY, CLOCK],
+    },
     {
       provide: ProfileUpdater,
       useFactory: (finder: UserFinder, users: UserRepository, clock: Clock) =>

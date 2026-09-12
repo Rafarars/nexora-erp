@@ -5,4 +5,5 @@ export interface Person {
   isActive: boolean;
   membershipActive: boolean;
   roles: string[];
+  roleIds: string[];
 }

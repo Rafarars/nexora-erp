@@ -40,6 +40,7 @@ export class UserSearcher {
             .filter((role) => membership.hasRole(role.id))
             .map((role) => role.toPrimitives().name)
             .sort(),
+          roleIds: membership.roles().map((id) => id.value),
         },
       ];
     });

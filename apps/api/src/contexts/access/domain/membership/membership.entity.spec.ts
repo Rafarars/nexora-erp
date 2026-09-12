@@ -47,6 +47,14 @@ describe('Membership', () => {
     expect(membership.hasRole(RoleId.of(OTHER_ROLE))).toBe(true);
   });
 
+  it('replaces the roles with exactly the ones given', () => {
+    const membership = aMembership({ roleIds: [ROLE_A] });
+
+    membership.replaceRoles([RoleId.of(OTHER_ROLE)], LATER);
+
+    expect(membership.roles().map((role) => role.value)).toEqual([OTHER_ROLE]);
+  });
+
   // Devolver la lista interna dejaria que quien la recibe la mutara por la espalda.
   it('does not leak its internal role list', () => {
     const membership = aMembership({ roleIds: [ROLE_A] });

@@ -56,6 +56,18 @@ export class InMemoryAccessApi implements AccessApi {
     this.answer('createUser', [token, person], () => undefined);
   }
 
+  async updateUser(
+    token: string,
+    userId: string,
+    person: { name: string; roleIds: string[] },
+  ): Promise<void> {
+    this.answer('updateUser', [token, userId, person], () => undefined);
+  }
+
+  async changeUserStatus(token: string, userId: string, active: boolean): Promise<void> {
+    this.answer('changeUserStatus', [token, userId, active], () => undefined);
+  }
+
   async searchRoles(token: string): Promise<Role[]> {
     return this.answer('searchRoles', [token], () => this.data.roles ?? []);
   }

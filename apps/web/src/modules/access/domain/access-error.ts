@@ -29,7 +29,9 @@ export function readableError(error: unknown, fallback: string): string {
 
   if (error.kind === 'credentials') return 'Correo o contraseña incorrectos.';
   if (error.kind === 'forbidden') return 'Tu rol no te permite hacer esto.';
-  if (error.kind === 'conflict') return 'Ya existe algo con ese nombre o ese correo.';
+  if (error.kind === 'conflict') return error.message.includes('your own')
+    ? 'No puedes desactivarte a ti mismo.'
+    : 'Ya existe algo con ese nombre o ese correo.';
   if (error.kind === 'invalid') return error.message || 'Revisa los datos del formulario.';
   if (error.kind === 'not-found') return 'Eso ya no existe en esta empresa.';
 

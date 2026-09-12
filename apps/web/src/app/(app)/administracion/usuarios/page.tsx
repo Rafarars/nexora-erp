@@ -24,8 +24,10 @@ export default async function UsersPage() {
     <UsersTable
       people={people}
       roles={roles}
+      currentUserId={session.userId}
       canCreate={can(session, 'access.users.create')}
-      canAssign={can(session, 'access.roles.assign') && roles.length > 0}
+      canUpdate={can(session, 'access.users.update')}
+      canDeactivate={can(session, 'access.users.deactivate')}
     />
   );
 }

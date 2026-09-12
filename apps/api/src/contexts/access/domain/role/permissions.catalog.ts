@@ -17,6 +17,8 @@ export interface PermissionDefinition {
 export const ACCESS_PERMISSIONS: PermissionDefinition[] = [
   { code: 'access.users.create', description: 'Dar de alta a una persona en la empresa' },
   { code: 'access.users.search', description: 'Listar los usuarios de la empresa' },
+  { code: 'access.users.update', description: 'Editar el nombre y los roles de una persona' },
+  { code: 'access.users.deactivate', description: 'Desactivar y reactivar a una persona en la empresa' },
   { code: 'access.roles.search', description: 'Consultar los roles y sus permisos' },
   { code: 'access.roles.create', description: 'Crear roles en la empresa' },
   { code: 'access.roles.update', description: 'Cambiar el nombre y los permisos de un rol' },

@@ -90,6 +90,20 @@ export class Membership {
     this.updatedAt = now;
   }
 
+  // Deja exactamente los roles indicados: la interfaz manda las casillas marcadas,
+  // no una lista de cambios.
+  replaceRoles(roleIds: RoleId[], now: Date): void {
+    for (const current of this.roles()) {
+      if (!roleIds.some((wanted) => wanted.equals(current))) {
+        this.revokeRole(current, now);
+      }
+    }
+
+    for (const wanted of roleIds) {
+      this.assignRole(wanted, now);
+    }
+  }
+
   // Revocar el acceso a una empresa sin borrar la cuenta ni tocar las demas.
   revoke(now: Date): void {
     this.active = false;

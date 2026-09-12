@@ -16,6 +16,8 @@ export interface AccessApi {
     token: string,
     person: { email: string; password: string; name: string; roleIds: string[] },
   ): Promise<void>;
+  updateUser(token: string, userId: string, person: { name: string; roleIds: string[] }): Promise<void>;
+  changeUserStatus(token: string, userId: string, active: boolean): Promise<void>;
   searchRoles(token: string): Promise<Role[]>;
   searchPermissions(token: string): Promise<Permission[]>;
   createRole(token: string, role: { name: string; permissions: string[] }): Promise<void>;

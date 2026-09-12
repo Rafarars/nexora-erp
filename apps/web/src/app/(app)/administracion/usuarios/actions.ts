@@ -25,13 +25,16 @@ export async function createUser(_state: FormState, form: FormData): Promise<For
   return { error: null, done: true };
 }
 
-export async function assignRole(_state: FormState, form: FormData): Promise<FormState> {
+export async function updateUser(_state: FormState, form: FormData): Promise<FormState> {
   const { token } = await requireSession();
 
   try {
-    await accessApi().assignRole(token, String(form.get('userId')), String(form.get('roleId')));
+    await accessApi().updateUser(token, String(form.get('userId')), {
+      name: String(form.get('name') ?? ''),
+      roleIds: form.getAll('roleIds').map(String),
+    });
   } catch (error) {
-    return { error: readableError(error, 'No se pudo asignar el rol.'), done: false };
+    return { error: readableError(error, 'No se pudieron guardar los cambios.'), done: false };
   }
 
   revalidatePath('/administracion/usuarios');
@@ -39,16 +42,21 @@ export async function assignRole(_state: FormState, form: FormData): Promise<For
   return { error: null, done: true };
 }
 
-export async function revokeRole(_state: FormState, form: FormData): Promise<FormState> {
+export async function changeUserStatus(_state: FormState, form: FormData): Promise<FormState> {
   const { token } = await requireSession();
 
   try {
-    await accessApi().revokeRole(token, String(form.get('userId')), String(form.get('roleId')));
+    await accessApi().changeUserStatus(
+      token,
+      String(form.get('userId')),
+      form.get('active') === 'true',
+    );
   } catch (error) {
-    return { error: readableError(error, 'No se pudo retirar el rol.'), done: false };
+    return { error: readableError(error, 'No se pudo cambiar el estado.'), done: false };
   }
 
   revalidatePath('/administracion/usuarios');
 
   return { error: null, done: true };
 }
+

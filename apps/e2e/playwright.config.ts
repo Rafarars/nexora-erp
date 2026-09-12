@@ -6,6 +6,7 @@ const API_URL = process.env.API_URL ?? 'http://localhost:3001';
 export default defineConfig({
   testDir: './tests',
   globalSetup: './support/global-setup.ts',
+  globalTeardown: './support/global-teardown.ts',
   forbidOnly: Boolean(process.env.CI),
   retries: process.env.CI ? 2 : 0,
   reporter: [['html', { open: 'never' }], ['list']],
