@@ -23,13 +23,21 @@ async function globexSnapshot(request: APIRequestContext) {
   return { users, roles };
 }
 
+// Ana solo esta en Acme. El superusuario esta en las dos y es administrador en ambas:
+// si tuviera algun atajo, desde su sesion de Acme podria tocar Globex.
+const ATTACKERS = [
+  { who: 'an Acme administrator', email: 'ana@acme.com' },
+  { who: 'the superuser, while working in Acme', email: 'admin@nexora.com' },
+];
+
 test.describe('Tenant isolation: Acme cannot reach Globex', () => {
+  for (const attacker of ATTACKERS)
   for (const attack of ISOLATION_CASES) {
-    test(`an Acme administrator cannot ${attack.title}`, async ({ request }) => {
+    test(`${attacker.who} cannot ${attack.title}`, async ({ request }) => {
       const before = await globexSnapshot(request);
-      // Ana es administradora de Acme: tiene todos los permisos, asi que un rechazo
-      // no puede deberse a que le falte uno.
-      const acmeAdmin = await tokenFor(request, 'ana@acme.com');
+      // Administradores con todos los permisos: un rechazo no puede deberse a que les
+      // falte uno. Ambos entran primero en Acme, que es su primera membresia.
+      const acmeAdmin = await tokenFor(request, attacker.email);
 
       const response = await request[attack.method](attack.path, {
         headers: auth(acmeAdmin),

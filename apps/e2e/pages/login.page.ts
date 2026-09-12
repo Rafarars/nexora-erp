@@ -8,6 +8,8 @@ export const PASSWORD = 'Nexora-2026!';
 export const ACME_ADMIN = { email: 'ana@acme.com', password: PASSWORD };
 export const GLOBEX_ADMIN = { email: 'beto@globex.com', password: PASSWORD };
 export const ACCOUNTANT = { email: 'contador@externo.com', password: PASSWORD };
+// Administrador en todas las empresas por membresia, sin ningun atajo en el codigo.
+export const SUPERUSER = { email: 'admin@nexora.com', password: PASSWORD };
 
 export class LoginPage {
   readonly form: Locator;

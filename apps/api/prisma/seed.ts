@@ -18,6 +18,7 @@ const GLOBEX_ADMIN_ROLE = 'b0000000-0000-4000-8000-000000000001';
 const ANA = 'c0000000-0000-4000-8000-000000000001';
 const BETO = 'c0000000-0000-4000-8000-000000000002';
 const CONTADOR = 'c0000000-0000-4000-8000-000000000003';
+const SUPERUSER = 'c0000000-0000-4000-8000-000000000004';
 
 const PASSWORD = process.env.SEED_PASSWORD ?? 'Nexora-2026!';
 
@@ -42,7 +43,7 @@ async function main(): Promise<void> {
     await upsertUsers(prisma, passwordHash);
     await upsertMemberships(prisma);
 
-    console.log('  semillas aplicadas: 2 empresas, 3 roles, 3 personas, 4 membresias');
+    console.log('  semillas aplicadas: 2 empresas, 3 roles, 4 personas, 6 membresias');
   } finally {
     await prisma.$disconnect();
   }
@@ -52,7 +53,7 @@ async function main(): Promise<void> {
 // acumula basura de corridas anteriores y las capturas del reporte salen con
 // veinte filas llamadas `colado-1789144380150@acme.com`.
 async function removeLeftovers(prisma: PrismaClient): Promise<void> {
-  const seeded = [ANA, BETO, CONTADOR];
+  const seeded = [ANA, BETO, CONTADOR, SUPERUSER];
   const seededRoles = [ACME_ADMIN_ROLE, ACME_VIEWER_ROLE, GLOBEX_ADMIN_ROLE];
 
   await prisma.membership.deleteMany({ where: { userId: { notIn: seeded } } });
@@ -100,6 +101,10 @@ async function upsertUsers(prisma: PrismaClient, passwordHash: string): Promise<
     // El contador que trabaja para las dos empresas: UNA persona, un solo correo.
     // Es el caso que justifica que `users` no lleve tenantId.
     { id: CONTADOR, email: 'contador@externo.com', name: 'Carla Mena' },
+    // Superusuario SIN atajos: no hay un `if (esSuperusuario)` en ningun sitio. Puede
+    // todo porque es administrador en cada empresa, y el guardian lo trata igual que a
+    // cualquiera. Una empresa nueva no le da acceso hasta que alguien lo invite.
+    { id: SUPERUSER, email: 'admin@nexora.com', name: 'Superusuario' },
   ];
 
   for (const user of users) {
@@ -115,6 +120,8 @@ async function upsertMemberships(prisma: PrismaClient): Promise<void> {
     { id: 'd0000000-0000-4000-8000-000000000002', userId: BETO, tenantId: GLOBEX, roles: [GLOBEX_ADMIN_ROLE] },
     { id: 'd0000000-0000-4000-8000-000000000003', userId: CONTADOR, tenantId: ACME, roles: [ACME_VIEWER_ROLE] },
     { id: 'd0000000-0000-4000-8000-000000000004', userId: CONTADOR, tenantId: GLOBEX, roles: [GLOBEX_ADMIN_ROLE] },
+    { id: 'd0000000-0000-4000-8000-000000000005', userId: SUPERUSER, tenantId: ACME, roles: [ACME_ADMIN_ROLE] },
+    { id: 'd0000000-0000-4000-8000-000000000006', userId: SUPERUSER, tenantId: GLOBEX, roles: [GLOBEX_ADMIN_ROLE] },
   ];
 
   for (const { roles, ...membership } of memberships) {
