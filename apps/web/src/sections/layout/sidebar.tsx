@@ -3,11 +3,9 @@
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 
-// Los modulos del negocio. Aqui creceran inventario, ventas y compras: por eso la
-// administracion del sistema no vive en esta lista, o acabarian mezclados.
+// Solo los modulos del negocio: aqui creceran inventario, ventas y compras. La
+// administracion vive en el menu de la cuenta para no mezclarse con ellos.
 const MODULES = [{ href: '/', label: 'Panel', testId: 'nav-panel' }];
-
-const SETTINGS = { href: '/administracion', label: 'Administración', testId: 'nav-administracion' };
 
 export function Sidebar() {
   const pathname = usePathname();
@@ -18,9 +16,6 @@ export function Sidebar() {
         <SidebarLink key={module.href} {...module} active={pathname === module.href} />
       ))}
 
-      <div className="pt-4">
-        <SidebarLink {...SETTINGS} active={pathname.startsWith(SETTINGS.href)} />
-      </div>
     </nav>
   );
 }

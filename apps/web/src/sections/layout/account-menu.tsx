@@ -4,9 +4,17 @@ import Link from 'next/link';
 import { useState } from 'react';
 import { logout } from '@/app/(app)/actions';
 
-// Al pie de la barra lateral, no arriba: la cuenta personal no es una seccion del
-// sistema, y mezclarla con los modulos fue justo lo que habia que arreglar.
-export function AccountMenu({ name, email }: { name: string; email: string }) {
+// Al pie de la barra lateral: la cuenta y la administracion de la empresa no son
+// modulos del negocio. Administracion solo aparece a quien tiene algo que administrar.
+export function AccountMenu({
+  name,
+  email,
+  canAdminister,
+}: {
+  name: string;
+  email: string;
+  canAdminister: boolean;
+}) {
   const [open, setOpen] = useState(false);
 
   return (
@@ -24,6 +32,17 @@ export function AccountMenu({ name, email }: { name: string; email: string }) {
           >
             Perfil
           </Link>
+
+          {canAdminister ? (
+            <Link
+              href="/administracion"
+              onClick={() => setOpen(false)}
+              data-testid="account-administration"
+              className="hover:bg-surface block rounded px-3 py-2 text-sm"
+            >
+              Administración
+            </Link>
+          ) : null}
 
           <form action={logout}>
             <button

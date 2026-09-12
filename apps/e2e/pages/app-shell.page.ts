@@ -16,14 +16,15 @@ export class AppShell {
     this.accountButton = page.getByTestId('account-button');
   }
 
-  // Los modulos del negocio y la administracion viven en la barra lateral; la cuenta
-  // propia, en el menu del nombre.
-  async goTo(module: 'panel' | 'administracion'): Promise<void> {
+  // Los modulos del negocio viven en la barra lateral; la cuenta y la administracion,
+  // en el menu del nombre.
+  async goTo(module: 'panel'): Promise<void> {
     await this.page.getByTestId(`nav-${module}`).click();
   }
 
   async goToAdministration(section: 'usuarios' | 'roles'): Promise<void> {
-    await this.goTo('administracion');
+    await this.accountButton.click();
+    await this.page.getByTestId('account-administration').click();
     await this.page.getByTestId(`admin-${section}`).click();
   }
 
