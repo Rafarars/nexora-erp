@@ -22,9 +22,9 @@ de ninguna conversación anterior**.
 |---|---|
 | Repositorio | github.com/Rafarars/nexora-erp |
 | Reporte de pruebas | https://rafarars.github.io/nexora-erp/ |
-| Pruebas | 444 + 8 unitarias · 33 de contrato · 91 end-to-end |
+| Pruebas | 478 + 20 unitarias · 33 de contrato · 96 end-to-end |
 | **H0 — Fundación** | **Completado** |
-| **H1 — Multiempresa y acceso** | **Completado**; siguiente: revisión rigurosa del H0 y el H1 |
+| **H1 — Multiempresa y acceso** | **Completado** y revisado; siguiente: H2 |
 
 Lo que ya funciona: monorepo con API, frontend y suite E2E; PostgreSQL en Docker;
 endpoint de salud que verifica la base; CI con cuatro trabajos publicando el reporte;
@@ -298,11 +298,37 @@ Hecha.
   solo caso de uso suele quedar atada a él. Se harán cuando haya un segundo proyecto. Ya
   existe una `hexagonal-architecture` de Flexio (PHP): elegir nombres que no choquen
 
-## Lo siguiente: revisión rigurosa
+## Revisión rigurosa del H0 y el H1 ✅
 
-Pedida por Rafael antes de seguir con el H2: revisar el H0 y el H1 **juntos** buscando
-vulnerabilidades, falsos positivos en las pruebas, huecos, si la arquitectura se cumple
-de verdad y si se siguen buenas prácticas.
+Pedida por Rafael al cerrar el H1. Cada hallazgo se comprobó con evidencia antes de
+corregirlo, y cada prueba nueva se verificó contra falso verde.
+
+**Graves**
+
+- **El login delataba qué correos existen**: 22,6 ms con un correo registrado frente a
+  2,4 ms con uno inexistente. Se verificaba contra un hash vacío que Argon2 rechazaba al
+  instante. Ahora se usa un hash de relleno real. **La prueba que decía cubrirlo era un
+  falso verde**: comparaba cuerpos, no tiempos. Ahora hay dos que miden
+- **Las semillas podían borrar una base real**: eliminan a toda persona que no sea de
+  demostración y Playwright las corre en cada ejecución, con solo `NODE_ENV` como guarda.
+  Ahora se niegan a correr contra un host que no sea local o del compose
+- **Sin límite de intentos**: 25 contraseñas falsas seguidas, 25 respuestas 401. Ahora 5
+  fallos por correo bloquean 15 minutos, también para correos inexistentes
+
+**Medios**
+
+- La contraseña mínima solo la frenaba la validación HTTP: el alta aceptaba un carácter.
+  Ahora es regla del dominio
+- `multer`, `mysql2` y `deepmerge-ts` vulnerables dentro de la imagen, aunque no
+  alcanzables. Versiones corregidas por `overrides` y fuera de la imagen: `pnpm audit`
+  sin avisos
+- Sin cabeceras de seguridad y anunciando `X-Powered-By`. Añadidas en API y frontend
+- La prueba de arquitectura solo vigilaba `contexts/access`. Ahora cubre todo contexto,
+  `shared/domain` y `modules/` del frontend
+
+**Menores**: acciones del CI fijadas por hash; borrado un doble de pruebas sin uso;
+pruebas para la validación del entorno del frontend; comentarios con tilde. Lo que no se
+corrigió está anotado en `docs/FUTURE.md`, con su porqué.
 
 ---
 
