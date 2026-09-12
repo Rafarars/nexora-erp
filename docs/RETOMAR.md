@@ -22,9 +22,9 @@ de ninguna conversación anterior**.
 |---|---|
 | Repositorio | github.com/Rafarars/nexora-erp |
 | Reporte de pruebas | https://rafarars.github.io/nexora-erp/ |
-| Pruebas | 444 + 8 unitarias · 33 de contrato · 85 end-to-end |
+| Pruebas | 444 + 8 unitarias · 33 de contrato · 91 end-to-end |
 | **H0 — Fundación** | **Completado** |
-| **H1 — Multiempresa y acceso** | Fases 0 a 8 hechas; **siguiente: fase 9** |
+| **H1 — Multiempresa y acceso** | **Completado**; siguiente: revisión rigurosa del H0 y el H1 |
 
 Lo que ya funciona: monorepo con API, frontend y suite E2E; PostgreSQL en Docker;
 endpoint de salud que verifica la base; CI con cuatro trabajos publicando el reporte;
@@ -263,17 +263,46 @@ Una primera versión de esa vigilancia daba falsos positivos: miraba el controla
 entero y todos usan `session.tenantId`, que viene del token. Ahora solo mira los
 parámetros de ruta y los campos del DTO.
 
-### Fase 9 — Semillas
+### Fase 9 — Semillas ✅
 
-Dos empresas con datos, sus roles y el superusuario con membresía en ambas. Son
-imprescindibles para poder probar el aislamiento.
+Hecha (`make seed`, idempotente, se niega a correr con `NODE_ENV=production`).
 
-### Fase 10 — Cierre
+| Persona | Acme Industrial | Globex Servicios |
+|---|---|---|
+| `ana@acme.com` | Administradora | — |
+| `beto@globex.com` | — | Administrador |
+| `contador@externo.com` | Consulta | Administradora |
+| `admin@nexora.com` | Administrador | Administrador |
 
-Ajustar `docs/ARCHITECTURE.md` con lo aprendido, y **extraer las skills** (`nest-hexagonal`,
-`frontend-hexagonal`, `nexora-testing`) más los patrones al
-[playbook](https://github.com/Rafarars/engineering-playbook), cuya carpeta `patterns/`
-está vacía esperando esto.
+Contraseña de todas: `Nexora-2026!`.
+
+- **El superusuario no tiene atajos.** No existe un `if (esSuperusuario)`: puede todo
+  porque es administrador en cada empresa, y el guardián lo trata como a cualquiera. La
+  matriz de aislamiento lo ataca igual que a Ana: desde su sesión de Acme no toca Globex
+- **La contadora** es el caso que justifica que `users` no lleve `tenantId`: una persona,
+  dos empresas, dos roles distintos
+- **Limpia al empezar y al terminar** cada ejecución de Playwright: borra lo que no es
+  suyo, así la base no se queda con personas creadas por las pruebas
+
+### Fase 10 — Cierre ✅
+
+Hecha.
+
+- `docs/ARCHITECTURE.md` al día con lo construido: servicios de dominio, autorización,
+  el árbol real del frontend, sesión, navegación, las pruebas de propiedad y los
+  antipatrones aprendidos a golpes
+- **Cuatro patrones** extraídos al
+  [playbook](https://github.com/Rafarars/engineering-playbook/tree/main/patterns):
+  `hexagonal-architecture`, `multi-tenancy`, `authorization` y `testing-architecture`
+- **Las skills quedan para después**, por decisión de Rafael: una skill escrita con un
+  solo caso de uso suele quedar atada a él. Se harán cuando haya un segundo proyecto. Ya
+  existe una `hexagonal-architecture` de Flexio (PHP): elegir nombres que no choquen
+
+## Lo siguiente: revisión rigurosa
+
+Pedida por Rafael antes de seguir con el H2: revisar el H0 y el H1 **juntos** buscando
+vulnerabilidades, falsos positivos en las pruebas, huecos, si la arquitectura se cumple
+de verdad y si se siguen buenas prácticas.
 
 ---
 

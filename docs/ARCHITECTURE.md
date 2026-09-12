@@ -165,6 +165,42 @@ de servicio de `services.yaml` en Symfony.
 `find()` devuelve `null` cuando no encuentra; quien lanza la excepción es el servicio
 de dominio o el caso de uso.
 
+## Servicios de dominio
+
+Cuando una regla de negocio necesita un repositorio, vive en un servicio de dominio con
+nombre de negocio, no en un `if` dentro del caso de uso:
+
+```
+domain/
+  tenant/find/tenant-finder.ts        el repositorio devuelve null; el finder lanza
+  user/register/user-registrar.ts     un correo ya registrado reutiliza a la persona
+  membership/enroll/member-enroller.ts  nadie entra dos veces a la misma empresa
+```
+
+El caso de uso **ordena**; las reglas viven en el dominio. Un finder de dominio devuelve
+la entidad y sirve a otros casos de uso; un `Finder` de aplicación devuelve un DTO y
+sirve a un endpoint. Tienen el mismo nombre y trabajos distintos.
+
+## Autorización
+
+Guardián global que **deniega por defecto**. Cada ruta declara una de tres cosas, y lo
+que no declara nada responde 403:
+
+| Declaración | Para |
+|---|---|
+| `@Public()` | Sin sesión: `login`, `/health` |
+| `@AuthenticatedOnly()` | Sesión válida y ningún permiso concreto: perfil, cambio de empresa |
+| `@RequirePermission('access.users.create')` | Un permiso concreto |
+
+- **El guardián consulta la base en cada petición**, no los permisos del token: quitar
+  un permiso tiene efecto inmediato
+- **Dos declaraciones a la vez cierran.** Los decoradores de clase y de método conviven:
+  un `@Public()` en la clase no debe abrir un método que exige permiso
+- **Qué permisos existen es código** (`permissions.catalog.ts`, sincronizado por
+  `make migrate`); **quién los tiene es base de datos**, editable desde la interfaz
+- `route-declaration.spec.ts` recorre todas las rutas y exige que declaren algo, y cruza
+  los `@RequirePermission` con el catálogo en ambas direcciones
+
 ## Errores
 
 El dominio lanza errores de dominio, y un filtro de excepciones los traduce a códigos
@@ -177,17 +213,38 @@ tarea programada o una cola sin arrastrar HTTP.
 
 ```
 apps/web/src/
-├── app/          rutas de Next: SOLO composición
-├── sections/     componentes, por pantalla
-├── modules/      LÓGICA — sin React
+├── app/                     rutas de Next: composición y acciones de servidor
+│   ├── login/
+│   ├── estado/              público: se consulta cuando el sistema está caído
+│   └── (app)/               todo lo que exige sesión
+│       ├── administracion/{usuarios,roles}/   page.tsx + actions.ts
+│       └── perfil/
+├── sections/                componentes, por pantalla
+├── modules/                 LÓGICA — sin React
 │   └── access/
-│       ├── domain/
-│       ├── application/
-│       └── infrastructure/
+│       ├── domain/          modelo propio y puerto AccessApi
+│       └── infrastructure/  HttpAccessApi y su doble en memoria
 └── shared/
-    ├── ui/
-    └── api/
+    ├── session/             cookie httpOnly y sesión actual
+    └── forms/
 ```
+
+**Las acciones de servidor son la capa de aplicación del frontend.** Llaman al puerto,
+traducen el error a un mensaje para la persona y revalidan la ruta. Por eso no existe
+`modules/*/application/`.
+
+## Sesión
+
+El token vive en una **cookie `httpOnly`** que pone una acción de servidor: ningún
+JavaScript de la página puede leerlo. En cada navegación se pide `/auth/me` en vez de
+confiar en lo guardado al entrar: si a alguien le quitan un rol, la siguiente pantalla
+ya lo refleja.
+
+## Navegación
+
+La barra lateral es **solo para los módulos del negocio**. La administración de la
+empresa y el perfil viven en el menú del nombre, al pie. Los listados llevan un menú
+**Opciones** por fila; Editar abre el mismo panel lateral del alta ya relleno.
 
 **`modules/` no sabe que existe React.** Son clases y funciones puras, probables con
 Vitest sin montar un componente.
@@ -225,6 +282,24 @@ Formas hoy idénticas divergen mañana, y para entonces la traducción ya existe
 | Contrato de puerto | Vitest | Sí — la misma suite contra el doble y contra Prisma |
 | Infraestructura HTTP | Playwright (proyecto `api`) | Sí |
 | Interfaz | Playwright (proyecto `ui`) | Sí |
+| Aislamiento entre empresas | Playwright (proyecto `isolation`) | Sí |
+| Resiliencia | Playwright (proyecto `resilience`, al final) | Apaga la base |
+
+## Pruebas de propiedad
+
+No verifican una funcionalidad, verifican que **una regla se cumple en todo el
+sistema**, y fallan el día que alguien la rompe:
+
+| Prueba | Propiedad |
+|---|---|
+| `architecture.spec.ts` | `domain/` y `application/` no importan nada externo ni de capas exteriores |
+| `route-declaration.spec.ts` | Toda ruta declara quién la alcanza; decoradores y catálogo cuadran |
+| `error-categories.spec.ts` | Cada error hereda de su categoría, o saldría 500 |
+| `isolation-coverage.spec.ts` | Todo endpoint que recibe un identificador tiene su ataque de aislamiento |
+
+**Cada una se comprobó contra falso verde** introduciendo a mano la infracción que
+existe para detectar. Una prueba que vigila el sistema entero y falla en silencio es
+peor que no tenerla.
 
 Que las pruebas de dominio y aplicación corran sin infraestructura **es la verificación
 de que la arquitectura está bien hecha**. Si necesitan base de datos, algo se filtró.
@@ -243,6 +318,12 @@ de que la arquitectura está bien hecha**. Si necesitan base de datos, algo se f
 | Un repositorio sin `TenantId` en la firma | Obligatorio en cada método |
 | `new User(...)` desde fuera | `User.create(...)` o `User.fromPrimitives(...)` |
 | Carpetas `handlers/`, `dtos/`, `use-cases/` | Carpetas por acción: `create-user/` |
+| `@UsePipes(new ZodValidationPipe(...))` en el método | En el parámetro: `@Body(new ZodValidationPipe(...))`. En el método valida también `@Session()` |
+| Comprobar `@Public()` primero y salir | Leer todas las declaraciones antes de decidir |
+| El administrador cambia la contraseña de otra persona | Solo la propia persona: la cuenta abre todas sus empresas |
+| Solo una aserción negativa (`toHaveCount(0)`) | Antes, una positiva que confirme que se está en la página correcta |
+| Imports relativos con `.js` en el frontend | Sin extensión en Next; con `.js` en la API (`nodenext`) |
+| Exportar constantes o funciones síncronas desde `'use server'` | Solo funciones async; lo demás, en otro archivo |
 
 ---
 
