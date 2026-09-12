@@ -20,7 +20,7 @@ export async function createUser(_state: FormState, form: FormData): Promise<For
     return { error: readableError(error, 'No se pudo dar de alta a la persona.'), done: false };
   }
 
-  revalidatePath('/configuracion/usuarios');
+  revalidatePath('/administracion/usuarios');
 
   return { error: null, done: true };
 }
@@ -34,7 +34,7 @@ export async function assignRole(_state: FormState, form: FormData): Promise<For
     return { error: readableError(error, 'No se pudo asignar el rol.'), done: false };
   }
 
-  revalidatePath('/configuracion/usuarios');
+  revalidatePath('/administracion/usuarios');
 
   return { error: null, done: true };
 }
@@ -48,7 +48,7 @@ export async function revokeRole(_state: FormState, form: FormData): Promise<For
     return { error: readableError(error, 'No se pudo retirar el rol.'), done: false };
   }
 
-  revalidatePath('/configuracion/usuarios');
+  revalidatePath('/administracion/usuarios');
 
   return { error: null, done: true };
 }

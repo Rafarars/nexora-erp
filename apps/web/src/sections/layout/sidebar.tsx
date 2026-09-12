@@ -7,7 +7,7 @@ import { usePathname } from 'next/navigation';
 // administracion del sistema no vive en esta lista, o acabarian mezclados.
 const MODULES = [{ href: '/', label: 'Panel', testId: 'nav-panel' }];
 
-const SETTINGS = { href: '/configuracion', label: 'Configuración', testId: 'nav-configuracion' };
+const SETTINGS = { href: '/administracion', label: 'Administración', testId: 'nav-administracion' };
 
 export function Sidebar() {
   const pathname = usePathname();

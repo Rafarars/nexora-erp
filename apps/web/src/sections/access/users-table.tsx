@@ -1,7 +1,7 @@
 'use client';
 
 import { useActionState, useState } from 'react';
-import { assignRole, createUser, revokeRole } from '@/app/(app)/configuracion/usuarios/actions';
+import { assignRole, createUser, revokeRole } from '@/app/(app)/administracion/usuarios/actions';
 import { emptyState } from '@/shared/forms/form-state';
 import { Field, FormError, SubmitButton } from './field';
 import { SlideOver } from './slide-over';

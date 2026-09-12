@@ -3,19 +3,18 @@
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 
-// Navegacion propia de la configuracion, como el `settings/` de Laravel: lo que
-// administra el sistema no compite por espacio con los modulos del negocio.
+// Administracion de la empresa: quien entra y que puede hacer. No compite por
+// espacio con los modulos del negocio, y la cuenta propia vive en el menu del nombre.
 const SECTIONS = [
-  { href: '/configuracion/usuarios', label: 'Usuarios', testId: 'settings-usuarios' },
-  { href: '/configuracion/roles', label: 'Roles', testId: 'settings-roles' },
-  { href: '/configuracion/perfil', label: 'Mi perfil', testId: 'settings-perfil' },
+  { href: '/administracion/usuarios', label: 'Usuarios', testId: 'admin-usuarios' },
+  { href: '/administracion/roles', label: 'Roles', testId: 'admin-roles' },
 ];
 
-export function SettingsNav() {
+export function AdminNav() {
   const pathname = usePathname();
 
   return (
-    <nav className="sm:w-48 sm:shrink-0" aria-label="Configuración" data-testid="settings-nav">
+    <nav className="sm:w-48 sm:shrink-0" aria-label="Administración" data-testid="admin-nav">
       <ul className="flex gap-1 overflow-x-auto sm:flex-col sm:overflow-visible">
         {SECTIONS.map((section) => {
           const active = pathname === section.href;

@@ -1,7 +1,7 @@
 'use client';
 
 import { useActionState, useState } from 'react';
-import { saveRole } from '@/app/(app)/configuracion/roles/actions';
+import { saveRole } from '@/app/(app)/administracion/roles/actions';
 import { emptyState } from '@/shared/forms/form-state';
 import type { FormState } from '@/shared/forms/form-state';
 import { Field, FormError, SubmitButton } from './field';

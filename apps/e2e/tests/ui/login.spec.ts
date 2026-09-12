@@ -37,7 +37,7 @@ test.describe('Signing in', () => {
   });
 
   test('sends anyone without a session back to the login', async ({ page }) => {
-    await page.goto('/configuracion/usuarios');
+    await page.goto('/administracion/usuarios');
 
     await expect(page).toHaveURL(/\/login$/);
     await expect(new LoginPage(page).form).toBeVisible();
@@ -61,7 +61,7 @@ test.describe('Signing in', () => {
 
     await expect(page).toHaveURL(/\/login$/);
 
-    await page.goto('/configuracion/usuarios');
+    await page.goto('/administracion/usuarios');
     await expect(page).toHaveURL(/\/login$/);
   });
 });
@@ -69,7 +69,7 @@ test.describe('Signing in', () => {
 test.describe('Your own account', () => {
   test('changes your name and shows it right away', async ({ page }) => {
     await new LoginPage(page).signIn(GLOBEX_ADMIN);
-    await new AppShell(page).goToSettings('perfil');
+    await new AppShell(page).goToProfile();
 
     await page.getByTestId('profile-name').fill('Beto Lugo Mendez');
     await page.getByTestId('profile-submit').click();
@@ -81,14 +81,14 @@ test.describe('Your own account', () => {
   // El correo identifica la cuenta en todas las empresas: no es una preferencia.
   test('does not let you change your own email', async ({ page }) => {
     await new LoginPage(page).signIn(GLOBEX_ADMIN);
-    await new AppShell(page).goToSettings('perfil');
+    await new AppShell(page).goToProfile();
 
     await expect(page.getByTestId('profile-email')).toBeDisabled();
   });
 
   test('refuses to change the password without the current one', async ({ page }) => {
     await new LoginPage(page).signIn(GLOBEX_ADMIN);
-    await new AppShell(page).goToSettings('perfil');
+    await new AppShell(page).goToProfile();
 
     await page.getByTestId('password-current').fill('not-the-current-one');
     await page.getByTestId('password-next').fill('a-brand-new-password');
@@ -100,7 +100,7 @@ test.describe('Your own account', () => {
 
   test('refuses a confirmation that does not match', async ({ page }) => {
     await new LoginPage(page).signIn(GLOBEX_ADMIN);
-    await new AppShell(page).goToSettings('perfil');
+    await new AppShell(page).goToProfile();
 
     await page.getByTestId('password-current').fill(PASSWORD);
     await page.getByTestId('password-next').fill('a-brand-new-password');

@@ -17,7 +17,7 @@ export function AccountMenu({ name, email }: { name: string; email: string }) {
           data-testid="account-menu"
         >
           <Link
-            href="/configuracion/perfil"
+            href="/perfil"
             onClick={() => setOpen(false)}
             data-testid="account-profile"
             className="hover:bg-surface block rounded px-3 py-2 text-sm"

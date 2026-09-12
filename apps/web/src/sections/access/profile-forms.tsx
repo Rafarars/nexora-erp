@@ -1,7 +1,7 @@
 'use client';
 
 import { useActionState } from 'react';
-import { changePassword, updateProfile } from '@/app/(app)/configuracion/perfil/actions';
+import { changePassword, updateProfile } from '@/app/(app)/perfil/actions';
 import { Field, FormError, SubmitButton } from './field';
 import { emptyState } from '@/shared/forms/form-state';
 
