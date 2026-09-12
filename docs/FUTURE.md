@@ -179,3 +179,26 @@ Se descartó en el H0 para que React se comportara como describe la documentaci�
 mientras se aprende, y para no meter un optimizador automático antes de escribir la
 guarda de rendimiento. Se activa con una línea en `next.config.ts` cuando el sistema
 esté maduro.
+
+## Seguridad: lo que la revisión del H0 y el H1 dejó anotado
+
+**Revocar tokens al cerrar sesión.** Hoy cerrar sesión borra la cookie, pero el token
+sigue siendo válido hasta que caduca (una hora). El riesgo es bajo: la cookie es
+`httpOnly` y el guardián consulta la base en cada petición, así que desactivar a alguien
+corta el acceso al instante. Haría falta una lista de tokens revocados, o tokens cortos
+con renovación.
+
+**Límite de intentos compartido entre instancias.** El contador de intentos fallidos vive
+en la memoria del proceso. Con varias instancias de la API, cada una contaría por su lado
+y el límite real se multiplicaría. Haría falta un almacén común, como Redis.
+
+**HSTS.** No se envía desde la aplicación: en local se sirve por HTTP y quedaría grabado
+en el navegador para `localhost`. Debe ponerlo el proxy que termina TLS en el servidor.
+
+**CSP con `script-src`.** La del frontend cierra el encuadre, los plugins y el destino de
+los formularios, pero no restringe scripts, porque Next inyecta scripts en línea. Exigirlo
+pide un nonce por petición desde el middleware.
+
+**Mensajes de error que repiten la entrada.** Algunos errores de validación incluyen el
+valor recibido (`received <no-es-uuid>`). Son JSON, sin riesgo de XSS, pero no hace falta
+devolverle a nadie lo que mandó.

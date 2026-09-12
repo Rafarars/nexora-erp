@@ -32,7 +32,7 @@ export async function changePassword(_state: FormState, form: FormData): Promise
   try {
     await accessApi().changePassword(token, String(form.get('current') ?? ''), next);
   } catch (error) {
-    // Una contraseña actual incorrecta llega como credenciales invalidas.
+    // Una contrasena actual incorrecta llega como credenciales invalidas.
     return { error: readableError(error, 'No se pudo cambiar la contraseña.'), done: false };
   }
 

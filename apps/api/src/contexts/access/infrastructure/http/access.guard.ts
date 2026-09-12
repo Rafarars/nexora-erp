@@ -60,7 +60,7 @@ export class AccessGuard implements CanActivate {
     }
 
     // Declaraciones que se contradicen se resuelven cerrando, no abriendo: quien
-    // escribio las dos no sabe cual gana, y adivinar por el sería como abrirla.
+    // escribio las dos no sabe cual gana, y adivinar por el seria como abrirla.
     if (declarations > 1) {
       throw new ContradictoryDeclarationError(context.getClass().name);
     }
