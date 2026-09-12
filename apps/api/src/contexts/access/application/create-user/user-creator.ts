@@ -5,6 +5,7 @@ import { TenantFinder } from '../../domain/tenant/find/tenant-finder.js';
 import { TenantId } from '../../domain/tenant/tenant-id.vo.js';
 import { Email } from '../../domain/user/email.vo.js';
 import { UserRegistrar } from '../../domain/user/register/user-registrar.js';
+import { PlainPassword } from '../../domain/user/plain-password.vo.js';
 import { UserName } from '../../domain/user/user-name.vo.js';
 import { UserCreatorRequest } from './user-creator.request.js';
 
@@ -28,9 +29,12 @@ export class UserCreator {
       (request.roleIds ?? []).map((id) => RoleId.of(id)),
     );
 
+    // Se valida antes de escribir nada, junto con los roles.
+    const password = PlainPassword.of(request.password);
+
     const user = await this.registrar.register(
       Email.of(request.email),
-      request.password,
+      password,
       UserName.of(request.name),
     );
 

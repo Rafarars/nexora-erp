@@ -7,3 +7,10 @@ allowBuilds:
   esbuild: true
   prisma: true
   unrs-resolver: true
+# Versiones corregidas de dependencias transitivas con avisos de seguridad. multer llega
+# por @nestjs/platform-express, que aun no lo actualizo; mysql2 y deepmerge-ts, por la
+# CLI de Prisma. Quitar cada linea cuando el paquete que las trae ya las incluya.
+overrides:
+  multer: '>=2.3.0'
+  mysql2: '>=3.24.4'
+  deepmerge-ts: '>=8.0.2'

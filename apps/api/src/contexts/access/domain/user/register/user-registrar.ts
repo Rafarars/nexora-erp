@@ -3,6 +3,7 @@ import { IdGenerator } from '../../../../../shared/domain/ports/id-generator.js'
 import { Email } from '../email.vo.js';
 import { PasswordHash } from '../password-hash.vo.js';
 import { PasswordHasher } from '../password-hasher.js';
+import { PlainPassword } from '../plain-password.vo.js';
 import { UserId } from '../user-id.vo.js';
 import { UserName } from '../user-name.vo.js';
 import { User } from '../user.entity.js';
@@ -18,7 +19,9 @@ export class UserRegistrar {
     private readonly clock: Clock,
   ) {}
 
-  async register(email: Email, password: string, name: UserName): Promise<User> {
+  // La contrasena llega ya validada como PlainPassword: la longitud minima es regla del
+  // dominio, no solo de la frontera HTTP, y el alta no puede saltarsela.
+  async register(email: Email, password: PlainPassword, name: UserName): Promise<User> {
     const existing = await this.users.findByEmail(email);
 
     if (existing) {
@@ -28,7 +31,7 @@ export class UserRegistrar {
     const user = User.create(
       UserId.of(this.ids.next()),
       email,
-      PasswordHash.of(await this.hasher.hash(password)),
+      PasswordHash.of(await this.hasher.hash(password.value)),
       name,
       this.clock.now(),
     );

@@ -6,6 +6,7 @@ import { FixedClock } from '../../../infrastructure/testing/fixed-clock.js';
 import { InMemoryUserRepository } from '../../../infrastructure/testing/in-memory-user.repository.js';
 import { SequentialIdGenerator } from '../../../infrastructure/testing/sequential-id-generator.js';
 import { Email } from '../email.vo.js';
+import { PlainPassword } from '../plain-password.vo.js';
 import { UserName } from '../user-name.vo.js';
 
 const PASSWORD = 'a-secret-password';
@@ -32,7 +33,7 @@ describe('UserRegistrar', () => {
 
     const user = await registrar.register(
       Email.of('nueva@acme.com'),
-      PASSWORD,
+      PlainPassword.of(PASSWORD),
       UserName.of('Nueva'),
     );
 
@@ -45,7 +46,7 @@ describe('UserRegistrar', () => {
 
     const user = await registrar.register(
       Email.of('nueva@acme.com'),
-      PASSWORD,
+      PlainPassword.of(PASSWORD),
       UserName.of('Nueva'),
     );
 
@@ -60,7 +61,7 @@ describe('UserRegistrar', () => {
 
     const user = await registrar.register(
       Email.of('ana@acme.com'),
-      'a-different-password',
+      PlainPassword.of('a-different-password'),
       UserName.of('Ana'),
     );
 
@@ -76,7 +77,7 @@ describe('UserRegistrar', () => {
 
     const user = await registrar.register(
       Email.of('ana@acme.com'),
-      'a-different-password',
+      PlainPassword.of('a-different-password'),
       UserName.of('Ana'),
     );
 
@@ -88,7 +89,7 @@ describe('UserRegistrar', () => {
 
     const user = await registrar.register(
       Email.of('ANA@Acme.com'),
-      PASSWORD,
+      PlainPassword.of(PASSWORD),
       UserName.of('Ana'),
     );
 

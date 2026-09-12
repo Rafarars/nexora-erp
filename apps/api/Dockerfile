@@ -21,7 +21,8 @@ COPY apps/api/package.json ./apps/api/
 RUN pnpm install --frozen-lockfile --prod --filter api... --ignore-scripts
 # @prisma/client declara `prisma` y `typescript` como pares OPCIONALES, y pnpm
 # los resuelve por estar en el workspace. Con driver adapter no se usan en
-# ejecucion: fuera, junto con su arbol.
+# ejecucion: fuera, junto con su arbol. mysql2 y deepmerge-ts tambien son de la CLI:
+# no se ejecutan, pero un escaner los marcaria dentro de la imagen.
 RUN rm -rf node_modules/.pnpm/prisma@* \
            node_modules/.pnpm/typescript@* \
            node_modules/.pnpm/@prisma+studio-core@* \
@@ -30,7 +31,9 @@ RUN rm -rf node_modules/.pnpm/prisma@* \
            node_modules/.pnpm/@electric-sql+pglite@* \
            node_modules/.pnpm/elkjs@* \
            node_modules/.pnpm/react@* \
-           node_modules/.pnpm/react-dom@*
+           node_modules/.pnpm/react-dom@* \
+           node_modules/.pnpm/mysql2@* \
+           node_modules/.pnpm/deepmerge-ts@*
 
 FROM node:22-alpine AS runtime
 WORKDIR /app

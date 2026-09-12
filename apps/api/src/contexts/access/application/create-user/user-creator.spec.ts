@@ -3,6 +3,7 @@ import { UserCreator } from './user-creator.js';
 import { DuplicateMembershipError } from '../../domain/errors/duplicate-membership.error.js';
 import { RoleNotFoundError } from '../../domain/errors/role-not-found.error.js';
 import { TenantNotFoundError } from '../../domain/errors/tenant-not-found.error.js';
+import { WeakPasswordError } from '../../domain/user/plain-password.vo.js';
 import { TenantId } from '../../domain/tenant/tenant-id.vo.js';
 import { Email } from '../../domain/user/email.vo.js';
 import {
@@ -181,5 +182,21 @@ describe('UserCreator', () => {
     ).rejects.toThrow(RoleNotFoundError);
 
     expect(await scenario.users.findByEmail(Email.of('nueva@acme.com'))).toBeNull();
+  });
+
+  // Antes solo lo frenaba la validacion HTTP: el caso de uso aceptaba un caracter.
+  it('rejects a password shorter than the minimum and creates nobody', async () => {
+    const scenario = aScenario();
+
+    await expect(
+      creatorFor(scenario).run({
+        tenantId: TENANT_A,
+        email: 'corta@acme.com',
+        password: 'x',
+        name: 'Corta',
+      }),
+    ).rejects.toThrow(WeakPasswordError);
+
+    expect(await scenario.users.findByEmail(Email.of('corta@acme.com'))).toBeNull();
   });
 });
