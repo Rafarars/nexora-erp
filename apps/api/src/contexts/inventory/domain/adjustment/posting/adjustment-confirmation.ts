@@ -1,30 +1,30 @@
-import { IdGenerator } from '../../../../../shared/domain/ports/id-generator.js';
-import { MovementId } from '../../movement/inventory-movement.entity.js';
-import { ItemStock } from '../../stock/item-stock.entity.js';
+import { StockMovements } from '../../stock/posting/stock-movements.js';
+import { Ledger } from '../../stock/posting/stock-ledger.js';
 import { Adjustment } from '../adjustment.entity.js';
-import { Ledger, Posting } from './adjustment-posting.js';
+import { Posting } from './adjustment-posting.js';
 
 // Confirmar: cada linea mueve la existencia de su articulo en la bodega del ajuste, en el
 // orden de las lineas. Si una salida no alcanza, el error aborta todo el ajuste.
 export class AdjustmentConfirmation {
-  constructor(private readonly ids: IdGenerator) {}
+  constructor(private readonly movements: StockMovements) {}
 
   apply(adjustment: Adjustment, ledger: Ledger, now: Date): Posting {
     adjustment.confirm(now);
 
-    const touched = new Map<string, ItemStock>();
-    const movements = adjustment.lines().map((line) => {
-      const stock = ledger.stock(line.itemId, adjustment.warehouseId());
-      const origin = { type: 'adjustment' as const, id: adjustment.id.value, lineId: line.id.value };
-      const id = MovementId.of(this.ids.next());
+    const changes = this.movements.record(
+      ledger,
+      { type: 'adjustment', id: adjustment.id.value },
+      adjustment.lines().map((line) => ({
+        lineId: line.id.value,
+        itemId: line.itemId,
+        warehouseId: adjustment.warehouseId(),
+        direction: line.direction,
+        quantity: line.baseQuantity,
+        unitCost: line.unitCost ? line.unitCost.perBase(line.quantity, line.baseQuantity) : null,
+      })),
+      now,
+    );
 
-      touched.set(stock.itemId.value, stock);
-
-      return line.direction === 'in'
-        ? stock.receive(line.baseQuantity, line.baseUnitCost(stock.currentAverageCost()), origin, id, now)
-        : stock.release(line.baseQuantity, origin, id, now);
-    });
-
-    return { adjustment, stocks: [...touched.values()], movements };
+    return { adjustment, ...changes };
   }
 }

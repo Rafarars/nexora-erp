@@ -29,7 +29,7 @@ function useCases(s: InventoryScenario) {
     cancel: new AdjustmentCanceller(s.store, s.cancellation, s.clock),
     adjustments: new AdjustmentSearcher(s.store, s.catalog),
     stock: new StockSearcher(s.store, s.catalog),
-    kardex: new MovementSearcher(s.store, s.store, s.catalog),
+    kardex: new MovementSearcher(s.store, s.documents, s.catalog),
   };
 }
 

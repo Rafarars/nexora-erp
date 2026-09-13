@@ -12,8 +12,12 @@ export class MovementId extends Uuid {
 
 export type StockDirection = 'in' | 'out';
 
+// Que documento movio la existencia. El ajuste lo escribe el inventario; la entrada de
+// mercancia la escriben las compras a traves de DocumentStockPosting.
+export type MovementOriginType = 'adjustment' | 'receipt';
+
 export interface MovementOrigin {
-  type: 'adjustment';
+  type: MovementOriginType;
   id: string;
   lineId: string | null;
 }
@@ -29,7 +33,7 @@ export interface InventoryMovementPrimitives {
   unitCost: number;
   balanceQuantity: number;
   balanceAverageCost: number;
-  originType: 'adjustment';
+  originType: MovementOriginType;
   originId: string;
   originLineId: string | null;
   reversalOfId: string | null;

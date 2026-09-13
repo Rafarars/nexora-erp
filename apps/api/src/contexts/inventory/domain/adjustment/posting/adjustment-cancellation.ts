@@ -1,14 +1,12 @@
-import { IdGenerator } from '../../../../../shared/domain/ports/id-generator.js';
-import { MovementId } from '../../movement/inventory-movement.entity.js';
-import { ItemStock } from '../../stock/item-stock.entity.js';
+import { StockMovements } from '../../stock/posting/stock-movements.js';
+import { Ledger } from '../../stock/posting/stock-ledger.js';
 import { Adjustment } from '../adjustment.entity.js';
-import { Ledger, Posting } from './adjustment-posting.js';
+import { Posting } from './adjustment-posting.js';
 
 // Anular: un borrador solo cambia de estado. Uno confirmado revierte cada movimiento que
-// escribio, del ultimo al primero, con otro que lo cita. Si la mercancia que entro ya
-// salio, revertir la entrada dejaria la existencia negativa, y se rechaza.
+// escribio con otro que lo cita.
 export class AdjustmentCancellation {
-  constructor(private readonly ids: IdGenerator) {}
+  constructor(private readonly movements: StockMovements) {}
 
   apply(adjustment: Adjustment, ledger: Ledger, now: Date): Posting {
     const wasConfirmed = adjustment.currentStatus() === 'confirmed';
@@ -19,22 +17,6 @@ export class AdjustmentCancellation {
       return { adjustment, stocks: [], movements: [] };
     }
 
-    const touched = new Map<string, ItemStock>();
-    const originals = ledger.movementsOf(adjustment.id).filter((movement) => movement.reversalOfId === null);
-    const movements = [...originals]
-      .sort((a, b) => b.sequence - a.sequence)
-      .map((original) => {
-        const stock = ledger.stock(original.itemId, original.warehouseId);
-        touched.set(stock.itemId.value, stock);
-
-        return stock.reverse(
-          original,
-          { type: 'adjustment', id: adjustment.id.value, lineId: original.origin.lineId },
-          MovementId.of(this.ids.next()),
-          now,
-        );
-      });
-
-    return { adjustment, stocks: [...touched.values()], movements };
+    return { adjustment, ...this.movements.reverse(ledger, { type: 'adjustment', id: adjustment.id.value }, now) };
   }
 }

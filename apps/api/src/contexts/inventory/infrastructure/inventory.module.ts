@@ -3,6 +3,7 @@ import type { Clock } from '../../../shared/domain/ports/clock.js';
 import { CLOCK } from '../../../shared/domain/ports/clock.js';
 import type { IdGenerator } from '../../../shared/domain/ports/id-generator.js';
 import { ID_GENERATOR } from '../../../shared/domain/ports/id-generator.js';
+import { DOCUMENT_STOCK_POSTING } from '../../../shared/prisma/document-stock-posting.js';
 import { SharedModule } from '../../../shared/infrastructure/shared.module.js';
 import { PrismaModule } from '../../../shared/prisma/prisma.module.js';
 import { AdjustmentCanceller } from '../application/cancel-adjustment/adjustment-canceller.js';
@@ -20,6 +21,9 @@ import { AdjustmentCancellation } from '../domain/adjustment/posting/adjustment-
 import { AdjustmentConfirmation } from '../domain/adjustment/posting/adjustment-confirmation.js';
 import { ADJUSTMENT_POSTING } from '../domain/adjustment/posting/adjustment-posting.js';
 import type { AdjustmentPosting } from '../domain/adjustment/posting/adjustment-posting.js';
+import { MOVEMENT_DOCUMENTS } from '../domain/documents/movement-documents.js';
+import type { MovementDocuments } from '../domain/documents/movement-documents.js';
+import { StockMovements } from '../domain/stock/posting/stock-movements.js';
 import { INVENTORY_CATALOG } from '../domain/catalog/inventory-catalog.js';
 import type { InventoryCatalog } from '../domain/catalog/inventory-catalog.js';
 import { INVENTORY_CODE_SEQUENCE } from '../domain/shared/code-sequence.js';
@@ -33,13 +37,16 @@ import { SearchAdjustmentsGetController } from './http/search-adjustments-get.co
 import { SearchMovementsGetController } from './http/search-movements-get.controller.js';
 import { SearchStockGetController } from './http/search-stock-get.controller.js';
 import { UpdateAdjustmentPutController } from './http/update-adjustment-put.controller.js';
+import { PrismaDocumentStockPosting } from './persistence/prisma-document-stock-posting.js';
+import { PrismaMovementDocuments } from './persistence/prisma-movement-documents.js';
 import { PrismaAdjustmentPosting } from './persistence/prisma-adjustment-posting.js';
 import { PrismaAdjustmentRepository } from './persistence/prisma-adjustment.repository.js';
 import { PrismaInventoryCatalog } from './persistence/prisma-inventory-catalog.js';
 import { PrismaInventoryCodeSequence } from './persistence/prisma-inventory-code-sequence.js';
 import { PrismaStockRepository } from './persistence/prisma-stock.repository.js';
 
-// El cableado del inventario, con el mismo criterio que los otros contextos.
+// El cableado del inventario, con el mismo criterio que los otros contextos. Exporta solo
+// la publicacion de documentos: es lo unico que otro contexto puede pedirle.
 @Module({
   imports: [PrismaModule, SharedModule],
   controllers: [
@@ -57,6 +64,8 @@ import { PrismaStockRepository } from './persistence/prisma-stock.repository.js'
     { provide: ADJUSTMENT_POSTING, useClass: PrismaAdjustmentPosting },
     { provide: INVENTORY_CATALOG, useClass: PrismaInventoryCatalog },
     { provide: INVENTORY_CODE_SEQUENCE, useClass: PrismaInventoryCodeSequence },
+    { provide: MOVEMENT_DOCUMENTS, useClass: PrismaMovementDocuments },
+    { provide: DOCUMENT_STOCK_POSTING, useClass: PrismaDocumentStockPosting },
 
     { provide: AdjustmentFinder, useFactory: (r: AdjustmentRepository) => new AdjustmentFinder(r), inject: [ADJUSTMENT_REPOSITORY] },
     {
@@ -64,8 +73,9 @@ import { PrismaStockRepository } from './persistence/prisma-stock.repository.js'
       useFactory: (c: InventoryCatalog, i: IdGenerator) => new AdjustmentLineFactory(c, i),
       inject: [INVENTORY_CATALOG, ID_GENERATOR],
     },
-    { provide: AdjustmentConfirmation, useFactory: (i: IdGenerator) => new AdjustmentConfirmation(i), inject: [ID_GENERATOR] },
-    { provide: AdjustmentCancellation, useFactory: (i: IdGenerator) => new AdjustmentCancellation(i), inject: [ID_GENERATOR] },
+    { provide: StockMovements, useFactory: (i: IdGenerator) => new StockMovements(i), inject: [ID_GENERATOR] },
+    { provide: AdjustmentConfirmation, useFactory: (m: StockMovements) => new AdjustmentConfirmation(m), inject: [StockMovements] },
+    { provide: AdjustmentCancellation, useFactory: (m: StockMovements) => new AdjustmentCancellation(m), inject: [StockMovements] },
 
     {
       provide: AdjustmentCreator,
@@ -108,9 +118,10 @@ import { PrismaStockRepository } from './persistence/prisma-stock.repository.js'
     },
     {
       provide: MovementSearcher,
-      useFactory: (s: StockRepository, r: AdjustmentRepository, c: InventoryCatalog) => new MovementSearcher(s, r, c),
-      inject: [STOCK_REPOSITORY, ADJUSTMENT_REPOSITORY, INVENTORY_CATALOG],
+      useFactory: (s: StockRepository, d: MovementDocuments, c: InventoryCatalog) => new MovementSearcher(s, d, c),
+      inject: [STOCK_REPOSITORY, MOVEMENT_DOCUMENTS, INVENTORY_CATALOG],
     },
   ],
+  exports: [DOCUMENT_STOCK_POSTING],
 })
 export class InventoryModule {}

@@ -15,6 +15,8 @@ import { Quantity } from '../domain/quantity/quantity.vo.js';
 import { UnitCost } from '../domain/quantity/unit-cost.vo.js';
 import { ItemRef, UnitRef, WarehouseRef } from '../domain/shared/references.vo.js';
 import { TenantId } from '../domain/shared/tenant-id.vo.js';
+import { StockMovements } from '../domain/stock/posting/stock-movements.js';
+
 import { MAIN, NORTH, NOW, PIECE, TENANT_A, TENANT_B, TODAY, WATER } from '../domain/testing/inventory.mother.js';
 import { InventoryPorts, InventoryPortsHarness } from './inventory-store.harness.js';
 
@@ -75,9 +77,9 @@ export function describeInventoryPortsContract(implementation: string, createHar
     }
 
     const confirm = (id: AdjustmentId) =>
-      ports.posting.post(tenant, id, (adjustment, ledger) => new AdjustmentConfirmation(ids).apply(adjustment, ledger, NOW));
+      ports.posting.post(tenant, id, (adjustment, ledger) => new AdjustmentConfirmation(new StockMovements(ids)).apply(adjustment, ledger, NOW));
     const cancel = (id: AdjustmentId) =>
-      ports.posting.post(tenant, id, (adjustment, ledger) => new AdjustmentCancellation(ids).apply(adjustment, ledger, NOW));
+      ports.posting.post(tenant, id, (adjustment, ledger) => new AdjustmentCancellation(new StockMovements(ids)).apply(adjustment, ledger, NOW));
 
     async function available(warehouse = MAIN): Promise<number> {
       const [stock] = await ports.stocks.searchStocks(tenant, WarehouseRef.of(warehouse));
@@ -189,7 +191,7 @@ export function describeInventoryPortsContract(implementation: string, createHar
         const id = await draft([line('in', 5, 1)]);
 
         await expect(
-          ports.posting.post(TenantId.of(TENANT_B), id, (adjustment, ledger) => new AdjustmentConfirmation(ids).apply(adjustment, ledger, NOW)),
+          ports.posting.post(TenantId.of(TENANT_B), id, (adjustment, ledger) => new AdjustmentConfirmation(new StockMovements(ids)).apply(adjustment, ledger, NOW)),
         ).rejects.toThrow(AdjustmentNotFoundError);
       });
 

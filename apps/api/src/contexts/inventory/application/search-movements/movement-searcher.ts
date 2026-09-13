@@ -1,5 +1,6 @@
-import { AdjustmentRepository } from '../../domain/adjustment/adjustment.repository.js';
 import { InventoryCatalog } from '../../domain/catalog/inventory-catalog.js';
+import { MovementDocuments } from '../../domain/documents/movement-documents.js';
+import { MovementOriginType } from '../../domain/movement/inventory-movement.entity.js';
 import { ItemRef, WarehouseRef } from '../../domain/shared/references.vo.js';
 import { TenantId } from '../../domain/shared/tenant-id.vo.js';
 import { StockRepository } from '../../domain/stock/stock.repository.js';
@@ -14,7 +15,7 @@ export interface MovementResponse {
   unitCost: number;
   balanceQuantity: number;
   balanceAverageCost: number;
-  origin: { type: 'adjustment'; id: string; code: string };
+  origin: { type: MovementOriginType; id: string; code: string };
   isReversal: boolean;
   occurredAt: string;
 }
@@ -23,7 +24,7 @@ export interface MovementResponse {
 export class MovementSearcher {
   constructor(
     private readonly stocks: StockRepository,
-    private readonly adjustments: AdjustmentRepository,
+    private readonly documents: MovementDocuments,
     private readonly catalog: InventoryCatalog,
   ) {}
 
@@ -44,9 +45,9 @@ export class MovementSearcher {
 
     const movements = await this.stocks.searchMovements(tenantId, itemId, warehouseId);
 
-    const [warehouses, adjustments] = await Promise.all([
+    const [warehouses, codes] = await Promise.all([
       this.catalog.findWarehouses(tenantId, [...new Map(movements.map((m) => [m.warehouseId.value, m.warehouseId])).values()]),
-      this.adjustments.searchByTenant(tenantId),
+      this.documents.codesOf(tenantId, movements.map((m) => ({ type: m.origin.type, id: m.origin.id }))),
     ]);
 
     return {
@@ -65,7 +66,7 @@ export class MovementSearcher {
           origin: {
             type: row.originType,
             id: row.originId,
-            code: adjustments.find((adjustment) => adjustment.id.value === row.originId)?.code ?? '',
+            code: codes.get(row.originId) ?? '',
           },
           isReversal: row.reversalOfId !== null,
           occurredAt: row.occurredAt.toISOString(),

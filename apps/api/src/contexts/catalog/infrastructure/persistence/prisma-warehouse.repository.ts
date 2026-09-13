@@ -7,7 +7,7 @@ import { WarehouseId } from '../../domain/warehouse/warehouse-id.vo.js';
 import { WarehouseName } from '../../domain/warehouse/warehouse-name.vo.js';
 import { Warehouse } from '../../domain/warehouse/warehouse.entity.js';
 import { WarehouseRepository } from '../../domain/warehouse/warehouse.repository.js';
-import { violatedUniqueFields, violates } from './unique-violation.js';
+import { violatedUniqueFields, violates } from '../../../../shared/prisma/unique-violation.js';
 
 const ONE_DEFAULT_PER_TENANT = 'warehouses_one_default_per_tenant';
 

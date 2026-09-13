@@ -6,7 +6,7 @@ import { TaxId } from '../../domain/tax/tax-id.vo.js';
 import { TaxName } from '../../domain/tax/tax-name.vo.js';
 import { Tax } from '../../domain/tax/tax.entity.js';
 import { TaxRepository } from '../../domain/tax/tax.repository.js';
-import { violates } from './unique-violation.js';
+import { violates } from '../../../../shared/prisma/unique-violation.js';
 
 type TaxRow = Awaited<ReturnType<PrismaService['tax']['findFirstOrThrow']>>;
 

@@ -10,6 +10,7 @@ import { BOX, MAIN, NOW, PIECE, TENANT_A, TODAY, WATER } from '../../testing/inv
 import { AdjustmentDate } from '../adjustment-date.vo.js';
 import { AdjustmentLine, AdjustmentLineId } from '../adjustment-line.js';
 import { Adjustment, AdjustmentId } from '../adjustment.entity.js';
+import { StockMovements } from '../../stock/posting/stock-movements.js';
 import { AdjustmentCancellation } from './adjustment-cancellation.js';
 import { AdjustmentConfirmation } from './adjustment-confirmation.js';
 
@@ -50,8 +51,8 @@ function world() {
 
   return {
     store,
-    confirm: (id: AdjustmentId) => store.post(tenant, id, (adjustment, ledger) => new AdjustmentConfirmation(ids).apply(adjustment, ledger, NOW)),
-    cancel: (id: AdjustmentId) => store.post(tenant, id, (adjustment, ledger) => new AdjustmentCancellation(ids).apply(adjustment, ledger, NOW)),
+    confirm: (id: AdjustmentId) => store.post(tenant, id, (adjustment, ledger) => new AdjustmentConfirmation(new StockMovements(ids)).apply(adjustment, ledger, NOW)),
+    cancel: (id: AdjustmentId) => store.post(tenant, id, (adjustment, ledger) => new AdjustmentCancellation(new StockMovements(ids)).apply(adjustment, ledger, NOW)),
     available: async () => (await store.searchStocks(tenant))[0]?.available().toNumber() ?? 0,
     kardex: async () => (await store.searchMovements(tenant, ItemRef.of(WATER))).map((m) => m.toPrimitives()),
   };

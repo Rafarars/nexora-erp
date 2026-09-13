@@ -82,10 +82,4 @@ export class AdjustmentLine {
       unitCost: this.unitCost?.toNumber() ?? null,
     };
   }
-
-  // El costo por unidad base: el de la linea repartido entre sus unidades base. Sin costo,
-  // la entrada se valora al promedio vigente (un hallazgo en un conteo, por ejemplo).
-  baseUnitCost(currentAverage: UnitCost): UnitCost {
-    return this.unitCost ? this.unitCost.perBase(this.quantity, this.baseQuantity) : currentAverage;
-  }
 }

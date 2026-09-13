@@ -1,5 +1,5 @@
 import { Adjustment } from '../../domain/adjustment/adjustment.entity.js';
-import { InventoryMovement } from '../../domain/movement/inventory-movement.entity.js';
+import { InventoryMovement, MovementOriginType } from '../../domain/movement/inventory-movement.entity.js';
 import { ItemStock } from '../../domain/stock/item-stock.entity.js';
 import { toNumber } from './decimals.js';
 
@@ -74,7 +74,7 @@ export function movementFromRow(row: {
 }): InventoryMovement {
   return InventoryMovement.fromPrimitives({
     ...row,
-    originType: 'adjustment',
+    originType: row.originType as MovementOriginType,
     quantity: toNumber(row.quantity),
     unitCost: toNumber(row.unitCost),
     balanceQuantity: toNumber(row.balanceQuantity),

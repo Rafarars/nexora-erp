@@ -6,7 +6,7 @@ import { Category } from '../../domain/category/category.entity.js';
 import { CategoryRepository } from '../../domain/category/category.repository.js';
 import { DuplicateCategoryNameError } from '../../domain/errors/duplicate.errors.js';
 import { TenantId } from '../../domain/shared/tenant-id.vo.js';
-import { violates } from './unique-violation.js';
+import { violates } from '../../../../shared/prisma/unique-violation.js';
 
 // Las fechas se escriben explicitas: el reloj es del dominio, y sin esto `@updatedAt`
 // pondria la hora de la base y el contrato veria una entidad distinta de la guardada.

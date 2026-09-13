@@ -107,7 +107,7 @@ export class InMemoryInventoryStore implements AdjustmentRepository, StockReposi
       },
       movementsOf: (id) =>
         this.movements
-          .filter((row) => row.tenantId === tenantId.value && row.originId === id.value)
+          .filter((row) => row.tenantId === tenantId.value && row.originId === id)
           .map((row) => InventoryMovement.fromPrimitives(row)),
     };
 

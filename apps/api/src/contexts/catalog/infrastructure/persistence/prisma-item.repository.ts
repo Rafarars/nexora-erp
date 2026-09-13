@@ -9,7 +9,7 @@ import { Sku } from '../../domain/item/sku.vo.js';
 import { MeasurementUnitId } from '../../domain/measurement-unit/measurement-unit-id.vo.js';
 import { TenantId } from '../../domain/shared/tenant-id.vo.js';
 import { TaxId } from '../../domain/tax/tax-id.vo.js';
-import { violates } from './unique-violation.js';
+import { violates } from '../../../../shared/prisma/unique-violation.js';
 
 const WITH_UNITS = { units: true } as const;
 

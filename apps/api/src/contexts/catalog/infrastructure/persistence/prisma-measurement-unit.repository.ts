@@ -10,7 +10,7 @@ import { MeasurementUnit } from '../../domain/measurement-unit/measurement-unit.
 import { MeasurementUnitRepository } from '../../domain/measurement-unit/measurement-unit.repository.js';
 import { UnitAbbreviation } from '../../domain/measurement-unit/unit-abbreviation.vo.js';
 import { TenantId } from '../../domain/shared/tenant-id.vo.js';
-import { violates } from './unique-violation.js';
+import { violates } from '../../../../shared/prisma/unique-violation.js';
 
 @Injectable()
 export class PrismaMeasurementUnitRepository implements MeasurementUnitRepository {
