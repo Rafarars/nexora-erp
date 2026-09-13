@@ -66,6 +66,32 @@ const CATALOG = {
   },
 };
 
+// Compras de ejemplo. Globex tiene una orden confirmada, un borrador y una entrada en
+// borrador porque la matriz de aislamiento los ataca desde Acme por su identificador.
+const PURCHASING = {
+  acme: {
+    andina: 'e8000000-0000-4000-8000-000000000001',
+    valle: 'e8000000-0000-4000-8000-000000000002',
+    partialOrder: 'e9000000-0000-4000-8000-000000000001',
+    draftOrder: 'e9000000-0000-4000-8000-000000000002',
+    partialWater: 'ea000000-0000-4000-8000-000000000001',
+    partialDetergent: 'ea000000-0000-4000-8000-000000000002',
+    draftWater: 'ea000000-0000-4000-8000-000000000003',
+    receipt: 'eb000000-0000-4000-8000-000000000001',
+    receiptWater: 'ec000000-0000-4000-8000-000000000001',
+    receiptMovement: 'e7000000-0000-4000-8000-000000000003',
+  },
+  globex: {
+    supplier: 'e8000000-0000-4000-8000-000000000101',
+    confirmedOrder: 'e9000000-0000-4000-8000-000000000101',
+    draftOrder: 'e9000000-0000-4000-8000-000000000102',
+    confirmedFilter: 'ea000000-0000-4000-8000-000000000101',
+    draftFilter: 'ea000000-0000-4000-8000-000000000102',
+    draftReceipt: 'eb000000-0000-4000-8000-000000000101',
+    draftReceiptFilter: 'ec000000-0000-4000-8000-000000000101',
+  },
+};
+
 const INVENTORY = {
   acme: {
     opening: 'e5000000-0000-4000-8000-000000000001',
@@ -112,11 +138,13 @@ async function main(): Promise<void> {
     await removeInventory(prisma);
     await seedCatalog(prisma);
     await seedInventory(prisma);
+    await seedPurchasing(prisma);
 
     console.log(
       '  semillas aplicadas: 3 empresas, 4 roles, 5 personas, 7 membresias; ' +
         'catalogo: 7 unidades, 3 categorias, 3 impuestos, 5 bodegas, 4 articulos; ' +
-        'inventario: 4 ajustes (2 confirmados), 3 existencias',
+        'inventario: 4 ajustes (2 confirmados), 3 existencias; ' +
+        'compras: 3 proveedores, 4 ordenes, 2 entradas',
     );
   } finally {
     await prisma.$disconnect();
@@ -167,6 +195,10 @@ async function upsertRoles(prisma: PrismaClient): Promise<void> {
         'inventory.adjustments.search',
         'inventory.stock.search',
         'inventory.movements.search',
+        'purchasing.suppliers.search',
+        'purchasing.orders.search',
+        'purchasing.receipts.search',
+        'purchasing.incoming.search',
       ],
     },
     { id: GLOBEX_ADMIN_ROLE, tenantId: GLOBEX, name: 'Administrador', grantsAll: true, permissions: [] },
@@ -344,9 +376,13 @@ async function removeCatalogLeftovers(
   await prisma.warehouse.deleteMany({ where: { id: { notIn: ids('warehouses') } } });
 }
 
-// El inventario de demostracion se rehace entero en cada corrida: las pruebas confirman y
-// anulan ajustes, y dejar sus existencias haria que el seed no fuera el mismo dos veces.
+// Compras e inventario de demostracion se rehacen enteros en cada corrida: las pruebas
+// confirman y anulan documentos, y dejar sus existencias haria que el seed no fuera el mismo
+// dos veces. Compras primero: sus documentos apuntan a articulos y bodegas.
 async function removeInventory(prisma: PrismaClient): Promise<void> {
+  await prisma.goodsReceipt.deleteMany();
+  await prisma.purchaseOrder.deleteMany();
+  await prisma.supplier.deleteMany();
   await prisma.inventoryMovement.updateMany({ data: { reversalOfId: null } });
   await prisma.inventoryMovement.deleteMany();
   await prisma.itemStock.deleteMany();
@@ -428,6 +464,107 @@ async function seedInventory(prisma: PrismaClient): Promise<void> {
     await prisma.$executeRaw`
       INSERT INTO code_sequences (tenant_id, prefix, last_value)
       VALUES (${tenantId}::uuid, 'AJU', 2)
+      ON CONFLICT (tenant_id, prefix)
+      DO UPDATE SET last_value = GREATEST(code_sequences.last_value, EXCLUDED.last_value)`;
+  }
+}
+
+// Una orden de Acme recibida en parte, con su entrada confirmada escrita como la escribiria el
+// sistema (4 cajas de 24 a 12 entran a 0,5 por unidad y el agua pasa de 240 a 336), y un
+// borrador. En Globex, lo que ataca la matriz de aislamiento.
+async function seedPurchasing(prisma: PrismaClient): Promise<void> {
+  const { acme, globex } = CATALOG;
+  const at = (day: string) => new Date(`${day}T12:00:00.000Z`);
+  const date = (day: string) => new Date(`${day}T00:00:00.000Z`);
+
+  await prisma.supplier.createMany({
+    data: [
+      {
+        id: PURCHASING.acme.andina, tenantId: ACME, code: 'PRV000001', name: 'Distribuidora Andina', fiscalId: 'J-30512345-6',
+        email: 'compras@andina.com', phone: '+58 212 555 0101', address: 'Av. Principal de Los Ruices', paymentTermDays: 30,
+      },
+      { id: PURCHASING.acme.valle, tenantId: ACME, code: 'PRV000002', name: 'Aguas del Valle', paymentTermDays: 0 },
+      { id: PURCHASING.globex.supplier, tenantId: GLOBEX, code: 'PRV000001', name: 'Repuestos Industriales', paymentTermDays: 15 },
+    ],
+  });
+
+  const orders = [
+    {
+      id: PURCHASING.acme.partialOrder, tenantId: ACME, code: 'OC000001', supplierId: PURCHASING.acme.andina,
+      warehouseId: acme.warehouses.main, orderDate: date('2026-09-02'), expectedDate: date('2026-09-10'),
+      notes: 'Reposición quincenal', status: 'partially_received' as const, confirmedAt: at('2026-09-02'),
+      lines: [
+        { id: PURCHASING.acme.partialWater, itemId: acme.items.water, unitId: acme.units.box, quantity: 10, baseQuantity: 240, unitCost: 12, taxRate: 16, receivedQuantity: 4 },
+        { id: PURCHASING.acme.partialDetergent, itemId: acme.items.detergent, unitId: acme.units.kilo, quantity: 20, baseQuantity: 20, unitCost: 3.1, taxRate: 16, receivedQuantity: 0 },
+      ],
+    },
+    {
+      id: PURCHASING.acme.draftOrder, tenantId: ACME, code: 'OC000002', supplierId: PURCHASING.acme.valle,
+      warehouseId: acme.warehouses.main, orderDate: date('2026-09-06'), expectedDate: null, notes: null,
+      status: 'draft' as const, confirmedAt: null,
+      lines: [{ id: PURCHASING.acme.draftWater, itemId: acme.items.water, unitId: acme.units.piece, quantity: 48, baseQuantity: 48, unitCost: 0.45, taxRate: 16, receivedQuantity: 0 }],
+    },
+    {
+      id: PURCHASING.globex.confirmedOrder, tenantId: GLOBEX, code: 'OC000001', supplierId: PURCHASING.globex.supplier,
+      warehouseId: globex.warehouses.main, orderDate: date('2026-09-03'), expectedDate: null, notes: 'Filtros para taller',
+      status: 'confirmed' as const, confirmedAt: at('2026-09-03'),
+      lines: [{ id: PURCHASING.globex.confirmedFilter, itemId: globex.items.filter, unitId: globex.units.piece, quantity: 20, baseQuantity: 20, unitCost: 8, taxRate: 16, receivedQuantity: 0 }],
+    },
+    {
+      id: PURCHASING.globex.draftOrder, tenantId: GLOBEX, code: 'OC000002', supplierId: PURCHASING.globex.supplier,
+      warehouseId: globex.warehouses.main, orderDate: date('2026-09-04'), expectedDate: null, notes: null,
+      status: 'draft' as const, confirmedAt: null,
+      lines: [{ id: PURCHASING.globex.draftFilter, itemId: globex.items.filter, unitId: globex.units.piece, quantity: 5, baseQuantity: 5, unitCost: 8, taxRate: 16, receivedQuantity: 0 }],
+    },
+  ];
+
+  for (const { lines, ...order } of orders) {
+    await prisma.purchaseOrder.create({ data: { ...order, createdAt: order.orderDate, updatedAt: order.confirmedAt ?? order.orderDate } });
+    await prisma.purchaseOrderLine.createMany({
+      data: lines.map((line, index) => ({ ...line, tenantId: order.tenantId, orderId: order.id, lineNumber: index + 1 })),
+    });
+  }
+
+  const receipts = [
+    {
+      id: PURCHASING.acme.receipt, tenantId: ACME, code: 'ENT000001', orderId: PURCHASING.acme.partialOrder,
+      warehouseId: acme.warehouses.main, receiptDate: date('2026-09-05'), notes: 'Llegaron 4 de 10 cajas',
+      status: 'confirmed' as const, confirmedAt: at('2026-09-05'),
+      lines: [{ id: PURCHASING.acme.receiptWater, orderLineId: PURCHASING.acme.partialWater, itemId: acme.items.water, unitId: acme.units.box, quantity: 4, baseQuantity: 96, unitCost: 12 }],
+    },
+    {
+      id: PURCHASING.globex.draftReceipt, tenantId: GLOBEX, code: 'ENT000001', orderId: PURCHASING.globex.confirmedOrder,
+      warehouseId: globex.warehouses.main, receiptDate: date('2026-09-06'), notes: null, status: 'draft' as const, confirmedAt: null,
+      lines: [{ id: PURCHASING.globex.draftReceiptFilter, orderLineId: PURCHASING.globex.confirmedFilter, itemId: globex.items.filter, unitId: globex.units.piece, quantity: 5, baseQuantity: 5, unitCost: 8 }],
+    },
+  ];
+
+  for (const { lines, ...receipt } of receipts) {
+    await prisma.goodsReceipt.create({ data: { ...receipt, createdAt: receipt.receiptDate, updatedAt: receipt.confirmedAt ?? receipt.receiptDate } });
+    await prisma.goodsReceiptLine.createMany({
+      data: lines.map((line, index) => ({ ...line, tenantId: receipt.tenantId, receiptId: receipt.id, lineNumber: index + 1 })),
+    });
+  }
+
+  await prisma.inventoryMovement.create({
+    data: {
+      id: PURCHASING.acme.receiptMovement, tenantId: ACME, itemId: acme.items.water, warehouseId: acme.warehouses.main, sequence: 2,
+      direction: 'in', quantity: 96, unitCost: 0.5, balanceQuantity: 336, balanceAverageCost: 0.5, originType: 'receipt',
+      originId: PURCHASING.acme.receipt, originLineId: PURCHASING.acme.receiptWater, occurredAt: at('2026-09-05'),
+    },
+  });
+  await prisma.itemStock.update({
+    where: { tenantId_itemId_warehouseId: { tenantId: ACME, itemId: acme.items.water, warehouseId: acme.warehouses.main } },
+    data: { quantity: 336, lastSequence: 2, updatedAt: at('2026-09-05') },
+  });
+
+  for (const [tenantId, prefix, lastValue] of [
+    [ACME, 'PRV', 2], [ACME, 'OC', 2], [ACME, 'ENT', 1],
+    [GLOBEX, 'PRV', 1], [GLOBEX, 'OC', 2], [GLOBEX, 'ENT', 1],
+  ] as const) {
+    await prisma.$executeRaw`
+      INSERT INTO code_sequences (tenant_id, prefix, last_value)
+      VALUES (${tenantId}::uuid, ${prefix}, ${lastValue})
       ON CONFLICT (tenant_id, prefix)
       DO UPDATE SET last_value = GREATEST(code_sequences.last_value, EXCLUDED.last_value)`;
   }
