@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { ACCESS_PERMISSIONS, CATALOG_PERMISSIONS, SYSTEM_PERMISSIONS } from './permissions.catalog.js';
+import { ACCESS_PERMISSIONS, CATALOG_PERMISSIONS, INVENTORY_PERMISSIONS, SYSTEM_PERMISSIONS } from './permissions.catalog.js';
 import { PermissionCode } from './permission-code.vo.js';
 
 describe('permissions catalog', () => {
@@ -29,7 +29,11 @@ describe('permissions catalog', () => {
     expect(code.startsWith('catalog.')).toBe(true);
   });
 
+  it.each(INVENTORY_PERMISSIONS)('$code belongs to the inventory context', ({ code }) => {
+    expect(code.startsWith('inventory.')).toBe(true);
+  });
+
   it('is exactly the permissions of every context, nothing more', () => {
-    expect(SYSTEM_PERMISSIONS).toEqual([...ACCESS_PERMISSIONS, ...CATALOG_PERMISSIONS]);
+    expect(SYSTEM_PERMISSIONS).toEqual([...ACCESS_PERMISSIONS, ...CATALOG_PERMISSIONS, ...INVENTORY_PERMISSIONS]);
   });
 });

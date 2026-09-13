@@ -8,6 +8,8 @@ export const GLOBEX = {
   taxId: 'e2000000-0000-4000-8000-000000000101',
   warehouseId: 'e3000000-0000-4000-8000-000000000101',
   itemId: 'e4000000-0000-4000-8000-000000000101',
+  confirmedAdjustmentId: 'e5000000-0000-4000-8000-000000000101',
+  draftAdjustmentId: 'e5000000-0000-4000-8000-000000000102',
 };
 
 export const ACME = {
@@ -170,5 +172,43 @@ export const ISOLATION_CASES: IsolationCase[] = [
       type: 'inventoried',
       units: [{ unitId: GLOBEX.unitId, conversionFactor: 1, isBase: true }],
     },
+  },
+  {
+    route: 'PUT /api/v1/inventory/adjustments/:adjustmentId',
+    title: 'rewrite a draft adjustment of another tenant',
+    method: 'put',
+    path: `/api/v1/inventory/adjustments/${GLOBEX.draftAdjustmentId}`,
+    body: { warehouseId: GLOBEX.warehouseId, lines: [{ itemId: GLOBEX.itemId, unitId: GLOBEX.unitId, direction: 'in', quantity: 999 }] },
+  },
+  {
+    route: 'PUT /api/v1/inventory/adjustments/:adjustmentId/confirm',
+    title: 'confirm a draft adjustment of another tenant and move its stock',
+    method: 'put',
+    path: `/api/v1/inventory/adjustments/${GLOBEX.draftAdjustmentId}/confirm`,
+  },
+  {
+    route: 'PUT /api/v1/inventory/adjustments/:adjustmentId/cancel',
+    title: 'cancel a confirmed adjustment of another tenant and reverse its stock',
+    method: 'put',
+    path: `/api/v1/inventory/adjustments/${GLOBEX.confirmedAdjustmentId}/cancel`,
+  },
+  {
+    route: 'POST /api/v1/inventory/adjustments',
+    title: 'create an adjustment in a warehouse of another tenant',
+    method: 'post',
+    path: '/api/v1/inventory/adjustments',
+    body: { warehouseId: GLOBEX.warehouseId, lines: [{ itemId: GLOBEX.itemId, unitId: GLOBEX.unitId, direction: 'out', quantity: 1 }] },
+  },
+  {
+    route: 'GET /api/v1/inventory/items/:itemId/movements',
+    title: 'read the kardex of an item of another tenant',
+    method: 'get',
+    path: `/api/v1/inventory/items/${GLOBEX.itemId}/movements`,
+  },
+  {
+    route: 'GET /api/v1/inventory/stock',
+    title: 'filter the stock by a warehouse of another tenant',
+    method: 'get',
+    path: `/api/v1/inventory/stock?warehouseId=${GLOBEX.warehouseId}`,
   },
 ];

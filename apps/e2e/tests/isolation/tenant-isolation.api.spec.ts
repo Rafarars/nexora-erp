@@ -16,7 +16,7 @@ const auth = (token: string) => ({ authorization: `Bearer ${token}` });
 async function globexSnapshot(request: APIRequestContext) {
   const token = await tokenFor(request, 'beto@globex.com');
   const read = (path: string) => request.get(path, { headers: auth(token) }).then((r) => r.json());
-  const [users, roles, categories, units, taxes, warehouses, items] = await Promise.all([
+  const [users, roles, categories, units, taxes, warehouses, items, adjustments, stock] = await Promise.all([
     read('/api/v1/users'),
     read('/api/v1/roles'),
     read('/api/v1/catalog/categories'),
@@ -24,9 +24,11 @@ async function globexSnapshot(request: APIRequestContext) {
     read('/api/v1/catalog/taxes'),
     read('/api/v1/catalog/warehouses'),
     read('/api/v1/catalog/items'),
+    read('/api/v1/inventory/adjustments'),
+    read('/api/v1/inventory/stock'),
   ]);
 
-  return { users, roles, categories, units, taxes, warehouses, items };
+  return { users, roles, categories, units, taxes, warehouses, items, adjustments, stock };
 }
 
 // Ana solo esta en Acme. El superusuario esta en las dos y es administrador en ambas:

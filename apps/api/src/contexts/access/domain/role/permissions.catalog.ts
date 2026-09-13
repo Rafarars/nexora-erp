@@ -52,7 +52,21 @@ export const CATALOG_PERMISSIONS: PermissionDefinition[] = [
   { code: 'catalog.items.deactivate', description: 'Desactivar y reactivar artículos' },
 ];
 
-export const SYSTEM_PERMISSIONS: PermissionDefinition[] = [...ACCESS_PERMISSIONS, ...CATALOG_PERMISSIONS];
+export const INVENTORY_PERMISSIONS: PermissionDefinition[] = [
+  { code: 'inventory.adjustments.search', description: 'Consultar los ajustes de inventario' },
+  { code: 'inventory.adjustments.create', description: 'Crear ajustes en borrador' },
+  { code: 'inventory.adjustments.update', description: 'Editar ajustes en borrador' },
+  { code: 'inventory.adjustments.confirm', description: 'Confirmar ajustes: mueve la existencia' },
+  { code: 'inventory.adjustments.cancel', description: 'Anular ajustes, revirtiendo lo que movieron' },
+  { code: 'inventory.stock.search', description: 'Consultar las existencias por bodega' },
+  { code: 'inventory.movements.search', description: 'Consultar el kardex de un artículo' },
+];
+
+export const SYSTEM_PERMISSIONS: PermissionDefinition[] = [
+  ...ACCESS_PERMISSIONS,
+  ...CATALOG_PERMISSIONS,
+  ...INVENTORY_PERMISSIONS,
+];
 
 // Concede un permiso que no existe y la clave ajena lo rechazaria en la base con un
 // error ilegible. Se comprueba antes, contra la unica fuente de verdad.
