@@ -181,6 +181,32 @@ El caso de uso **ordena**; las reglas viven en el dominio. Un finder de dominio 
 la entidad y sirve a otros casos de uso; un `Finder` de aplicación devuelve un DTO y
 sirve a un endpoint. Tienen el mismo nombre y trabajos distintos.
 
+## Varios contextos
+
+- **Un contexto no importa de otro.** El catálogo tiene su propio `TenantId`: los contextos
+  hablan de la misma empresa por su identificador, que viaja en la sesión. Hoy se cumple por
+  disciplina; `architecture.spec.ts` todavía no lo vigila
+- **Los permisos de todos los contextos se declaran en `access`**, cada uno en su lista
+  (`ACCESS_PERMISSIONS`, `CATALOG_PERMISSIONS`), reunidas en `SYSTEM_PERMISSIONS`. Autorizar
+  es trabajo de `access`; los demás solo nombran el permiso en su `@RequirePermission`
+- **El guardián global protege un contexto nuevo sin hacer nada**: su módulo no declara
+  guardián propio
+- Lo que comparten las pruebas de varios contextos (reloj congelado, identificadores
+  predecibles) vive en `shared/infrastructure/testing/`
+
+## Persistencia
+
+- **La base también hace cumplir las reglas que puede**: claves ajenas compuestas con la
+  empresa, `CHECK` e índices parciales. Lo que Prisma no expresa va en la migración, tras
+  comprobar con `prisma migrate diff` que no lo toma por deriva
+- **Un duplicado que se cuela entre la comprobación y la escritura** se traduce en el
+  repositorio al mismo error de dominio: 409, nunca 500. Con el adaptador de PostgreSQL,
+  Prisma 7 informa el índice en `meta.driverAdapterError.cause.constraint.index`
+- **Las fechas se escriben explícitas**: el reloj es del dominio, y `@updatedAt` las pisaría
+- Los `upsert` buscan por **empresa e identificador**
+- **Los dobles en memoria imitan las restricciones de la base**, incluida la unicidad. Si
+  aceptan lo que PostgreSQL rechaza, el contrato de puerto lo descubre
+
 ## Autorización
 
 Guardián global que **deniega por defecto**. Cada ruta declara una de tres cosas, y lo
@@ -323,7 +349,7 @@ sistema**, y fallan el día que alguien la rompe:
 | `architecture.spec.ts` | `domain/` y `application/` no importan nada externo ni de capas exteriores |
 | `route-declaration.spec.ts` | Toda ruta declara quién la alcanza; decoradores y catálogo cuadran |
 | `error-categories.spec.ts` | Cada error hereda de su categoría, o saldría 500 |
-| `isolation-coverage.spec.ts` | Todo endpoint que recibe un identificador tiene su ataque de aislamiento |
+| `isolation-coverage.spec.ts` | Todo endpoint que recibe un identificador, en cualquier contexto, tiene su ataque de aislamiento |
 
 **Cada una se comprobó contra falso verde** introduciendo a mano la infracción que
 existe para detectar. Una prueba que vigila el sistema entero y falla en silencio es
@@ -356,6 +382,10 @@ de que la arquitectura está bien hecha**. Si necesitan base de datos, algo se f
 | Mostrar en pantalla el mensaje que devuelve la API | Traducir por el código de error y los campos |
 | Formulario con credenciales de otra persona sin `autoComplete` | `off` en el correo y `new-password` en la contraseña |
 | Dos formularios de una página con el mismo `name` en un campo | Nombres propios: `Field` usa `name` como `id` |
+| Una prueba que mueve algo que existe una vez por empresa donde otras lo leen | Una empresa dedicada solo a esa prueba (Initech) |
+| Leer `meta.target` para reconocer un duplicado de Prisma | Leer también el índice de `driverAdapterError`: con adaptador, `target` no llega |
+| Importar con `@/` dentro de `modules/` | Relativo: Vitest no resuelve el alias |
+| Mostrar un número con separador de miles en un campo editable | Sin agrupar: al volver a guardarlo no se entendería |
 
 ---
 

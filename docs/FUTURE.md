@@ -108,6 +108,30 @@ queda para cuando se decida completar el ERP.
 y la regla de que solo entrada, despacho y ajuste mueven stock hace que traslados y devoluciones
 se monten sobre documentos que ya existirán.
 
+### Paginación de los listados del catálogo
+
+**Por qué:** los cinco listados devuelven todo. Con un catálogo de miles de artículos, la
+tabla y la respuesta crecen sin límite.
+
+**Qué habría que hacer:** búsqueda y paginación en el puerto (`search(tenantId, criteria)`),
+y la guarda de rendimiento prevista en el H7 sobre un listado con volumen sembrado.
+
+### Bloquear cambios de un artículo con movimientos
+
+**Por qué:** hoy se puede cambiar la unidad base o el tipo de un artículo, porque todavía no
+existen movimientos de inventario. En el H3 eso rompería el kardex.
+
+**Qué habría que hacer:** al llegar el H3, rechazar en el dominio el cambio de unidad base y
+de tipo de un artículo con movimientos, y la desactivación de un artículo o bodega con
+existencia.
+
+### Renombrar `AccessError` a `ApiError` en el frontend
+
+**Por qué:** el catálogo lo reutiliza como error de la API. El nombre ya no dice lo que es.
+
+**Qué habría que hacer:** moverlo a `modules/shared/` con su traducción base, y que cada
+módulo añada sus códigos.
+
 ## Infraestructura y despliegue
 
 ### Comandos de despliegue en el Makefile

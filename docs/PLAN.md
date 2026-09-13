@@ -270,6 +270,17 @@ Lo que se dejó fuera de este alcance está en `docs/FUTURE.md`, sección «ERP 
 ### H2 — Catálogo
 Categorías (un nivel), unidades de medida (por empresa, sin conversión), impuestos, bodegas y
 artículos con su unidad base y sus conversiones propias.
+
+**Fases** (informe detallado en [`docs/H2-CATALOGO.md`](H2-CATALOGO.md))
+
+- [x] **0. Modelo y migración** — siete tablas, claves ajenas compuestas con la empresa, `CHECK` e índice parcial
+- [x] **1. Dominio** — cinco maestros, `CatalogRecord`, unicidad, uso, referencias y bodega por defecto
+- [x] **2. Aplicación** — 21 casos de uso probados sin base de datos
+- [x] **3. Infraestructura** — repositorios Prisma, contador atómico y contrato de puerto
+- [x] **4. API** — 21 rutas, 20 permisos y 12 ataques nuevos en la matriz de aislamiento
+- [x] **5. Frontend** — módulo Catálogo con cinco secciones y editor de unidades
+- [x] **6. Semillas y E2E** — catálogo de demostración, Initech y las suites de API e interfaz
+- [ ] **7. Cierre** — revisión de Rafael, commits por fase y convención al día
 *Pruebas:* validaciones de dominio (SKU único por empresa, exactamente una unidad base, no
 desactivar lo que está en uso), CRUD por API, componentes de formulario, aislamiento entre
 empresas de los recursos nuevos, primer flujo E2E del catálogo.

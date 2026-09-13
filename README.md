@@ -137,7 +137,8 @@ El pipeline **no tiene ni un secreto configurado**: no pide permisos que no usa.
 | Hito | Estado |
 |---|---|
 | **H0** Fundación: monorepo, Docker, CI, despliegue de reportes | **Completado** |
-| **H1** Multiempresa y acceso: inquilinos, usuarios, roles y permisos | En curso |
-| H2–H7 Catálogo, inventario, compras, ventas, cobranza, reportes | Planificado |
+| **H1** Multiempresa y acceso: inquilinos, usuarios, roles y permisos | **Completado** |
+| **H2** Catálogo: categorías, unidades, impuestos, bodegas y artículos | Implementado, en revisión |
+| H3–H7 Inventario, compras, ventas, cobranza, reportes | Planificado |
 
 Plan completo en [`docs/PLAN.md`](docs/PLAN.md) · Configuración en [`docs/ENVIRONMENT.md`](docs/ENVIRONMENT.md)

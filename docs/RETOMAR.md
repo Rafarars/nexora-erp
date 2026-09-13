@@ -3,7 +3,7 @@
 Documento de traspaso: contiene lo necesario para continuar el proyecto **sin depender
 de ninguna conversación anterior**.
 
-**Actualizado:** 10 de septiembre de 2026
+**Actualizado:** 13 de septiembre de 2026
 
 ---
 
@@ -22,9 +22,10 @@ de ninguna conversación anterior**.
 |---|---|
 | Repositorio | github.com/Rafarars/nexora-erp |
 | Reporte de pruebas | https://rafarars.github.io/nexora-erp/ |
-| Pruebas | 511 + 28 unitarias · 33 de contrato · 105 end-to-end |
+| Pruebas | 1023 + 62 unitarias · 67 de contrato · 153 end-to-end |
 | **H0 — Fundación** | **Completado** |
-| **H1 — Multiempresa y acceso** | **Completado** y revisado; siguiente: H2 |
+| **H1 — Multiempresa y acceso** | **Completado** y revisado |
+| **H2 — Catálogo** | Fases 0 a 6 **implementadas y sin commitear**, pendientes de la revisión de Rafael. Informe en [`H2-CATALOGO.md`](H2-CATALOGO.md) |
 
 Lo que ya funciona: monorepo con API, frontend y suite E2E; PostgreSQL en Docker;
 endpoint de salud que verifica la base; CI con cuatro trabajos publicando el reporte;
@@ -362,6 +363,19 @@ de la extensión de Chrome, pero una sonda de Playwright independiente los usó 
 problema.
 
 ---
+
+## H2 — Catálogo (sin commitear)
+
+Todo lo hecho, fase por fase, en [`docs/H2-CATALOGO.md`](H2-CATALOGO.md). Para retomar:
+
+1. Rafael revisa el informe y el código
+2. Commits por fase, en el orden del informe
+3. Decidir si se unen las dos migraciones del catálogo (exige `prisma migrate reset`, que
+   Prisma no deja ejecutar a un agente)
+4. Decidir la regla propuesta: que `architecture.spec.ts` prohíba importar entre contextos
+
+Empresas de demostración: Acme Industrial, Globex Servicios e **Initech Logística**
+(`dora@initech.com`), esta última solo para la prueba que mueve la bodega por defecto.
 
 ## Comandos
 
