@@ -18,7 +18,7 @@ export class AppShell {
 
   // Los modulos del negocio viven en la barra lateral; la cuenta y la administracion,
   // en el menu del nombre.
-  async goTo(module: 'panel'): Promise<void> {
+  async goTo(module: 'panel' | 'catalogo'): Promise<void> {
     await this.page.getByTestId(`nav-${module}`).click();
   }
 

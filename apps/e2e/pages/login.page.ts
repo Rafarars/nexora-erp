@@ -10,6 +10,9 @@ export const GLOBEX_ADMIN = { email: 'beto@globex.com', password: PASSWORD };
 export const ACCOUNTANT = { email: 'contador@externo.com', password: PASSWORD };
 // Administrador en todas las empresas por membresia, sin ningun atajo en el codigo.
 export const SUPERUSER = { email: 'admin@nexora.com', password: PASSWORD };
+// Administradora de Initech, la empresa que solo usa la prueba de la bodega por defecto:
+// lo que existe una vez por empresa no se puede mover en Acme sin pisar a otra prueba.
+export const INITECH_ADMIN = { email: 'dora@initech.com', password: PASSWORD };
 
 export class LoginPage {
   readonly form: Locator;
