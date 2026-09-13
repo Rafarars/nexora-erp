@@ -16,6 +16,7 @@ const MODULE_LABELS: Record<string, string> = {
   access: 'Acceso y administración',
   catalog: 'Catálogo',
   inventory: 'Inventario',
+  purchasing: 'Compras',
 };
 
 export function moduleLabel(module: string): string {

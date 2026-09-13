@@ -1,5 +1,5 @@
 import { can } from '@/modules/access/domain/session';
-import { DIRECTION_LABELS, formatMoney, formatQuantity } from '@/modules/inventory/domain/inventory';
+import { DIRECTION_LABELS, ORIGIN_LABELS, formatMoney, formatQuantity } from '@/modules/inventory/domain/inventory';
 import { readableInventoryError } from '@/modules/inventory/domain/inventory-error';
 import { catalogApi } from '@/shared/session/catalog-api';
 import { inventoryApi } from '@/shared/session/inventory-api';
@@ -122,7 +122,10 @@ export default async function KardexPage({ searchParams }: { searchParams: Promi
                 >
                   <td className="text-muted px-4 py-3">{movement.sequence}</td>
                   <td className="px-4 py-3">{movement.warehouse.name}</td>
-                  <td className="px-4 py-3 font-mono text-xs">{movement.origin.code}</td>
+                  <td className="px-4 py-3" data-testid={`kardex-origin-${movement.warehouse.name}-${movement.sequence}`}>
+                    <p className="font-mono text-xs">{movement.origin.code}</p>
+                    <p className="text-muted text-xs">{ORIGIN_LABELS[movement.origin.type]}</p>
+                  </td>
                   <td className="px-4 py-3">
                     {DIRECTION_LABELS[movement.direction]}
                     {movement.isReversal ? <span className="text-muted"> (anulación)</span> : null}
