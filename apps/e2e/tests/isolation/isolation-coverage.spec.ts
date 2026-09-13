@@ -16,7 +16,7 @@ const CONTROLLER_DIRS = readdirSync(CONTEXTS)
 // fuente de la empresa y de la persona, asi que no hay nada ajeno que pasarles.
 const EXEMPT = new Set(['POST /api/v1/auth/switch-tenant']);
 
-const IDENTIFIER_FIELD = /\b(userId|roleId|roleIds|tenantId|categoryId|taxId|unitId|warehouseId|itemId)\s*:/;
+const IDENTIFIER_FIELD = /\b(userId|roleId|roleIds|tenantId|categoryId|taxId|unitId|warehouseId|itemId|supplierId|orderId|orderLineId)\s*:/;
 
 // Los campos que llegan en el cuerpo, leidos del DTO que importa el controlador. Mirar
 // el controlador entero daba falsos positivos: todos usan `session.tenantId`, que sale

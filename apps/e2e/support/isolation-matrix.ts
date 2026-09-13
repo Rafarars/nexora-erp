@@ -10,12 +10,20 @@ export const GLOBEX = {
   itemId: 'e4000000-0000-4000-8000-000000000101',
   confirmedAdjustmentId: 'e5000000-0000-4000-8000-000000000101',
   draftAdjustmentId: 'e5000000-0000-4000-8000-000000000102',
+  supplierId: 'e8000000-0000-4000-8000-000000000101',
+  confirmedOrderId: 'e9000000-0000-4000-8000-000000000101',
+  confirmedOrderLineId: 'ea000000-0000-4000-8000-000000000101',
+  draftOrderId: 'e9000000-0000-4000-8000-000000000102',
+  draftReceiptId: 'eb000000-0000-4000-8000-000000000101',
 };
 
 export const ACME = {
   anaUserId: 'c0000000-0000-4000-8000-000000000001',
   viewerRoleId: 'a0000000-0000-4000-8000-000000000002',
   unitId: 'e0000000-0000-4000-8000-000000000001',
+  supplierId: 'e8000000-0000-4000-8000-000000000001',
+  mainWarehouseId: 'e3000000-0000-4000-8000-000000000001',
+  waterItemId: 'e4000000-0000-4000-8000-000000000001',
 };
 
 export interface IsolationCase {
@@ -210,5 +218,85 @@ export const ISOLATION_CASES: IsolationCase[] = [
     title: 'filter the stock by a warehouse of another tenant',
     method: 'get',
     path: `/api/v1/inventory/stock?warehouseId=${GLOBEX.warehouseId}`,
+  },
+  {
+    route: 'PUT /api/v1/purchasing/suppliers/:supplierId',
+    title: 'rename a supplier of another tenant',
+    method: 'put',
+    path: `/api/v1/purchasing/suppliers/${GLOBEX.supplierId}`,
+    body: { name: 'Colado' },
+  },
+  {
+    route: 'PUT /api/v1/purchasing/suppliers/:supplierId/status',
+    title: 'deactivate a supplier of another tenant',
+    method: 'put',
+    path: `/api/v1/purchasing/suppliers/${GLOBEX.supplierId}/status`,
+    body: { active: false },
+  },
+  {
+    route: 'POST /api/v1/purchasing/orders',
+    title: 'order from a supplier of another tenant',
+    method: 'post',
+    path: '/api/v1/purchasing/orders',
+    body: {
+      supplierId: GLOBEX.supplierId,
+      warehouseId: ACME.mainWarehouseId,
+      lines: [{ itemId: ACME.waterItemId, unitId: ACME.unitId, quantity: 1, unitCost: 1 }],
+    },
+  },
+  {
+    route: 'PUT /api/v1/purchasing/orders/:orderId',
+    title: 'rewrite a draft purchase order of another tenant',
+    method: 'put',
+    path: `/api/v1/purchasing/orders/${GLOBEX.draftOrderId}`,
+    body: {
+      supplierId: GLOBEX.supplierId,
+      warehouseId: GLOBEX.warehouseId,
+      lines: [{ itemId: GLOBEX.itemId, unitId: GLOBEX.unitId, quantity: 999, unitCost: 1 }],
+    },
+  },
+  {
+    route: 'PUT /api/v1/purchasing/orders/:orderId/confirm',
+    title: 'confirm a draft purchase order of another tenant',
+    method: 'put',
+    path: `/api/v1/purchasing/orders/${GLOBEX.draftOrderId}/confirm`,
+  },
+  {
+    route: 'PUT /api/v1/purchasing/orders/:orderId/cancel',
+    title: 'cancel a confirmed purchase order of another tenant',
+    method: 'put',
+    path: `/api/v1/purchasing/orders/${GLOBEX.confirmedOrderId}/cancel`,
+  },
+  {
+    route: 'POST /api/v1/purchasing/receipts',
+    title: 'receive goods for an order of another tenant',
+    method: 'post',
+    path: '/api/v1/purchasing/receipts',
+    body: { orderId: GLOBEX.confirmedOrderId, lines: [{ orderLineId: GLOBEX.confirmedOrderLineId, quantity: 1 }] },
+  },
+  {
+    route: 'PUT /api/v1/purchasing/receipts/:receiptId',
+    title: 'rewrite a draft goods receipt of another tenant',
+    method: 'put',
+    path: `/api/v1/purchasing/receipts/${GLOBEX.draftReceiptId}`,
+    body: { lines: [{ orderLineId: GLOBEX.confirmedOrderLineId, quantity: 1 }] },
+  },
+  {
+    route: 'PUT /api/v1/purchasing/receipts/:receiptId/confirm',
+    title: 'confirm a goods receipt of another tenant and move its stock',
+    method: 'put',
+    path: `/api/v1/purchasing/receipts/${GLOBEX.draftReceiptId}/confirm`,
+  },
+  {
+    route: 'PUT /api/v1/purchasing/receipts/:receiptId/cancel',
+    title: 'cancel a goods receipt of another tenant',
+    method: 'put',
+    path: `/api/v1/purchasing/receipts/${GLOBEX.draftReceiptId}/cancel`,
+  },
+  {
+    route: 'GET /api/v1/purchasing/incoming',
+    title: 'filter the goods in transit by a warehouse of another tenant',
+    method: 'get',
+    path: `/api/v1/purchasing/incoming?warehouseId=${GLOBEX.warehouseId}`,
   },
 ];

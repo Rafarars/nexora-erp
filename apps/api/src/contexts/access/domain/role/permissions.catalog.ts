@@ -62,10 +62,29 @@ export const INVENTORY_PERMISSIONS: PermissionDefinition[] = [
   { code: 'inventory.movements.search', description: 'Consultar el kardex de un artículo' },
 ];
 
+export const PURCHASING_PERMISSIONS: PermissionDefinition[] = [
+  { code: 'purchasing.suppliers.search', description: 'Consultar los proveedores' },
+  { code: 'purchasing.suppliers.create', description: 'Crear proveedores' },
+  { code: 'purchasing.suppliers.update', description: 'Editar proveedores' },
+  { code: 'purchasing.suppliers.deactivate', description: 'Desactivar y reactivar proveedores' },
+  { code: 'purchasing.orders.search', description: 'Consultar las órdenes de compra' },
+  { code: 'purchasing.orders.create', description: 'Crear órdenes de compra en borrador' },
+  { code: 'purchasing.orders.update', description: 'Editar órdenes de compra en borrador' },
+  { code: 'purchasing.orders.confirm', description: 'Confirmar órdenes de compra: anuncia mercancía en camino' },
+  { code: 'purchasing.orders.cancel', description: 'Anular órdenes de compra sin mercancía recibida' },
+  { code: 'purchasing.receipts.search', description: 'Consultar las entradas de mercancía' },
+  { code: 'purchasing.receipts.create', description: 'Crear entradas de mercancía en borrador' },
+  { code: 'purchasing.receipts.update', description: 'Editar entradas de mercancía en borrador' },
+  { code: 'purchasing.receipts.confirm', description: 'Confirmar entradas: sube la existencia' },
+  { code: 'purchasing.receipts.cancel', description: 'Anular entradas, revirtiendo la existencia' },
+  { code: 'purchasing.incoming.search', description: 'Consultar la mercancía en camino' },
+];
+
 export const SYSTEM_PERMISSIONS: PermissionDefinition[] = [
   ...ACCESS_PERMISSIONS,
   ...CATALOG_PERMISSIONS,
   ...INVENTORY_PERMISSIONS,
+  ...PURCHASING_PERMISSIONS,
 ];
 
 // Concede un permiso que no existe y la clave ajena lo rechazaria en la base con un
