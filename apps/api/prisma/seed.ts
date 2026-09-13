@@ -66,6 +66,25 @@ const CATALOG = {
   },
 };
 
+const INVENTORY = {
+  acme: {
+    opening: 'e5000000-0000-4000-8000-000000000001',
+    breakage: 'e5000000-0000-4000-8000-000000000002',
+    openingWater: 'e6000000-0000-4000-8000-000000000001',
+    openingDetergent: 'e6000000-0000-4000-8000-000000000002',
+    breakageWater: 'e6000000-0000-4000-8000-000000000003',
+    waterMovement: 'e7000000-0000-4000-8000-000000000001',
+    detergentMovement: 'e7000000-0000-4000-8000-000000000002',
+  },
+  globex: {
+    opening: 'e5000000-0000-4000-8000-000000000101',
+    draft: 'e5000000-0000-4000-8000-000000000102',
+    openingFilter: 'e6000000-0000-4000-8000-000000000101',
+    draftFilter: 'e6000000-0000-4000-8000-000000000102',
+    filterMovement: 'e7000000-0000-4000-8000-000000000101',
+  },
+};
+
 async function main(): Promise<void> {
   if (process.env.NODE_ENV === 'production') {
     throw new Error('The demo seed must never run in production: its passwords are public.');
@@ -88,11 +107,16 @@ async function main(): Promise<void> {
     await upsertRoles(prisma);
     await upsertUsers(prisma, passwordHash);
     await upsertMemberships(prisma);
+    // El inventario apunta al catalogo: se vacia antes de limpiar el catalogo y se siembra
+    // despues de sembrarlo.
+    await removeInventory(prisma);
     await seedCatalog(prisma);
+    await seedInventory(prisma);
 
     console.log(
       '  semillas aplicadas: 3 empresas, 4 roles, 5 personas, 7 membresias; ' +
-        'catalogo: 7 unidades, 3 categorias, 3 impuestos, 5 bodegas, 4 articulos',
+        'catalogo: 7 unidades, 3 categorias, 3 impuestos, 5 bodegas, 4 articulos; ' +
+        'inventario: 4 ajustes (2 confirmados), 3 existencias',
     );
   } finally {
     await prisma.$disconnect();
@@ -140,6 +164,9 @@ async function upsertRoles(prisma: PrismaClient): Promise<void> {
         'catalog.units.search',
         'catalog.taxes.search',
         'catalog.warehouses.search',
+        'inventory.adjustments.search',
+        'inventory.stock.search',
+        'inventory.movements.search',
       ],
     },
     { id: GLOBEX_ADMIN_ROLE, tenantId: GLOBEX, name: 'Administrador', grantsAll: true, permissions: [] },
@@ -315,6 +342,95 @@ async function removeCatalogLeftovers(
   await prisma.tax.deleteMany({ where: { id: { notIn: ids('taxes') } } });
   await prisma.measurementUnit.deleteMany({ where: { id: { notIn: ids('units') } } });
   await prisma.warehouse.deleteMany({ where: { id: { notIn: ids('warehouses') } } });
+}
+
+// El inventario de demostracion se rehace entero en cada corrida: las pruebas confirman y
+// anulan ajustes, y dejar sus existencias haria que el seed no fuera el mismo dos veces.
+async function removeInventory(prisma: PrismaClient): Promise<void> {
+  await prisma.inventoryMovement.updateMany({ data: { reversalOfId: null } });
+  await prisma.inventoryMovement.deleteMany();
+  await prisma.itemStock.deleteMany();
+  await prisma.adjustment.deleteMany();
+}
+
+// Dos ajustes confirmados, con sus movimientos y existencias escritos como los escribiria
+// el sistema (una caja de 24 a 12 entra a 0,5 por unidad), y un borrador por empresa.
+async function seedInventory(prisma: PrismaClient): Promise<void> {
+  const { acme, globex } = CATALOG;
+  const confirmedAt = new Date('2026-09-01T12:00:00.000Z');
+  const date = new Date('2026-09-01T00:00:00.000Z');
+
+  const adjustments = [
+    {
+      id: INVENTORY.acme.opening, tenantId: ACME, code: 'AJU000001', warehouseId: acme.warehouses.main, notes: 'Conteo inicial',
+      status: 'confirmed' as const, confirmedAt,
+      lines: [
+        { id: INVENTORY.acme.openingWater, itemId: acme.items.water, unitId: acme.units.box, quantity: 10, baseQuantity: 240, unitCost: 12 },
+        { id: INVENTORY.acme.openingDetergent, itemId: acme.items.detergent, unitId: acme.units.kilo, quantity: 50, baseQuantity: 50, unitCost: 3.2 },
+      ],
+    },
+    {
+      id: INVENTORY.acme.breakage, tenantId: ACME, code: 'AJU000002', warehouseId: acme.warehouses.main, notes: 'Merma por rotura',
+      status: 'draft' as const, confirmedAt: null,
+      lines: [{ id: INVENTORY.acme.breakageWater, itemId: acme.items.water, unitId: acme.units.piece, quantity: 6, baseQuantity: 6, unitCost: null }],
+      direction: 'out' as const,
+    },
+    {
+      id: INVENTORY.globex.opening, tenantId: GLOBEX, code: 'AJU000001', warehouseId: globex.warehouses.main, notes: 'Conteo inicial',
+      status: 'confirmed' as const, confirmedAt,
+      lines: [{ id: INVENTORY.globex.openingFilter, itemId: globex.items.filter, unitId: globex.units.piece, quantity: 30, baseQuantity: 30, unitCost: 8.5 }],
+    },
+    {
+      id: INVENTORY.globex.draft, tenantId: GLOBEX, code: 'AJU000002', warehouseId: globex.warehouses.main, notes: 'Filtros dañados',
+      status: 'draft' as const, confirmedAt: null,
+      lines: [{ id: INVENTORY.globex.draftFilter, itemId: globex.items.filter, unitId: globex.units.piece, quantity: 2, baseQuantity: 2, unitCost: null }],
+      direction: 'out' as const,
+    },
+  ];
+
+  for (const { lines, direction = 'in', ...adjustment } of adjustments) {
+    await prisma.adjustment.create({ data: { ...adjustment, adjustmentDate: date, createdAt: date, updatedAt: confirmedAt } });
+    await prisma.adjustmentLine.createMany({
+      data: lines.map((line, index) => ({
+        ...line,
+        tenantId: adjustment.tenantId,
+        adjustmentId: adjustment.id,
+        lineNumber: index + 1,
+        direction,
+      })),
+    });
+  }
+
+  const stocks = [
+    { tenantId: ACME, itemId: acme.items.water, warehouseId: acme.warehouses.main, quantity: 240, cost: 0.5, movement: INVENTORY.acme.waterMovement, adjustmentId: INVENTORY.acme.opening, lineId: INVENTORY.acme.openingWater },
+    { tenantId: ACME, itemId: acme.items.detergent, warehouseId: acme.warehouses.main, quantity: 50, cost: 3.2, movement: INVENTORY.acme.detergentMovement, adjustmentId: INVENTORY.acme.opening, lineId: INVENTORY.acme.openingDetergent },
+    { tenantId: GLOBEX, itemId: globex.items.filter, warehouseId: globex.warehouses.main, quantity: 30, cost: 8.5, movement: INVENTORY.globex.filterMovement, adjustmentId: INVENTORY.globex.opening, lineId: INVENTORY.globex.openingFilter },
+  ];
+
+  for (const stock of stocks) {
+    await prisma.inventoryMovement.create({
+      data: {
+        id: stock.movement, tenantId: stock.tenantId, itemId: stock.itemId, warehouseId: stock.warehouseId, sequence: 1,
+        direction: 'in', quantity: stock.quantity, unitCost: stock.cost, balanceQuantity: stock.quantity,
+        balanceAverageCost: stock.cost, originType: 'adjustment', originId: stock.adjustmentId, originLineId: stock.lineId,
+        occurredAt: confirmedAt,
+      },
+    });
+    await prisma.itemStock.create({
+      data: {
+        tenantId: stock.tenantId, itemId: stock.itemId, warehouseId: stock.warehouseId, quantity: stock.quantity,
+        averageCost: stock.cost, lastSequence: 1, updatedAt: confirmedAt,
+      },
+    });
+  }
+
+  for (const tenantId of [ACME, GLOBEX]) {
+    await prisma.$executeRaw`
+      INSERT INTO code_sequences (tenant_id, prefix, last_value)
+      VALUES (${tenantId}::uuid, 'AJU', 2)
+      ON CONFLICT (tenant_id, prefix)
+      DO UPDATE SET last_value = GREATEST(code_sequences.last_value, EXCLUDED.last_value)`;
+  }
 }
 
 await main();
