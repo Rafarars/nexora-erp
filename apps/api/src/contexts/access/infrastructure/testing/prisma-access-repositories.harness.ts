@@ -40,6 +40,20 @@ export class PrismaAccessRepositoriesHarness implements AccessRepositoriesHarnes
   // Cada ejecucion garantiza su estado inicial en vez de confiar en como lo dejo la
   // anterior. El orden respeta las claves ajenas.
   async reset(): Promise<void> {
+    // Borrar una empresa arrastra en cascada su catalogo e inventario, pero las claves que
+    // los unen son RESTRICT y PostgreSQL las comprueba fila a fila: la cascada falla si una
+    // unidad o un movimiento revertido sigue referenciado. Se vacian antes, en orden. Sin
+    // esto el resultado dependia de que otro contrato hubiera corrido primero.
+    await this.prisma.inventoryMovement.updateMany({ data: { reversalOfId: null } });
+    await this.prisma.inventoryMovement.deleteMany();
+    await this.prisma.itemStock.deleteMany();
+    await this.prisma.adjustment.deleteMany();
+    await this.prisma.itemUnit.deleteMany();
+    await this.prisma.item.deleteMany();
+    await this.prisma.category.deleteMany();
+    await this.prisma.tax.deleteMany();
+    await this.prisma.measurementUnit.deleteMany();
+    await this.prisma.warehouse.deleteMany();
     await this.prisma.membershipRole.deleteMany();
     await this.prisma.rolePermission.deleteMany();
     await this.prisma.membership.deleteMany();

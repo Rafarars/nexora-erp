@@ -78,6 +78,9 @@ import { PrismaItemRepository } from './persistence/prisma-item.repository.js';
 import { PrismaMeasurementUnitRepository } from './persistence/prisma-measurement-unit.repository.js';
 import { PrismaTaxRepository } from './persistence/prisma-tax.repository.js';
 import { PrismaWarehouseRepository } from './persistence/prisma-warehouse.repository.js';
+import { PrismaStockUsage } from './persistence/prisma-stock-usage.js';
+import { STOCK_USAGE } from '../domain/stock/stock-usage.js';
+import type { StockUsage } from '../domain/stock/stock-usage.js';
 
 // El cableado del catalogo. Mismo criterio que en access: los servicios de dominio y
 // los casos de uso se construyen con `useFactory`, asi el dominio no importa NestJS.
@@ -116,6 +119,7 @@ import { PrismaWarehouseRepository } from './persistence/prisma-warehouse.reposi
     { provide: WAREHOUSE_REPOSITORY, useClass: PrismaWarehouseRepository },
     { provide: ITEM_REPOSITORY, useClass: PrismaItemRepository },
     { provide: CODE_SEQUENCE, useClass: PrismaCodeSequence },
+    { provide: STOCK_USAGE, useClass: PrismaStockUsage },
 
     // ---- servicios de dominio
     { provide: CategoryFinder, useFactory: (r: CategoryRepository) => new CategoryFinder(r), inject: [CATEGORY_REPOSITORY] },
@@ -225,8 +229,8 @@ import { PrismaWarehouseRepository } from './persistence/prisma-warehouse.reposi
     },
     {
       provide: WarehouseStatusChanger,
-      useFactory: (f: WarehouseFinder, r: WarehouseRepository, k: Clock) => new WarehouseStatusChanger(f, r, k),
-      inject: [WarehouseFinder, WAREHOUSE_REPOSITORY, CLOCK],
+      useFactory: (f: WarehouseFinder, s: StockUsage, r: WarehouseRepository, k: Clock) => new WarehouseStatusChanger(f, s, r, k),
+      inject: [WarehouseFinder, STOCK_USAGE, WAREHOUSE_REPOSITORY, CLOCK],
     },
     {
       provide: DefaultWarehouseSetter,
@@ -244,14 +248,15 @@ import { PrismaWarehouseRepository } from './persistence/prisma-warehouse.reposi
     },
     {
       provide: ItemUpdater,
-      useFactory: (f: ItemFinder, ref: ItemReferences, s: SkuUniqueness, r: ItemRepository, k: Clock) =>
-        new ItemUpdater(f, ref, s, r, k),
-      inject: [ItemFinder, ItemReferences, SkuUniqueness, ITEM_REPOSITORY, CLOCK],
+      useFactory: (f: ItemFinder, ref: ItemReferences, s: SkuUniqueness, u: StockUsage, r: ItemRepository, k: Clock) =>
+        new ItemUpdater(f, ref, s, u, r, k),
+      inject: [ItemFinder, ItemReferences, SkuUniqueness, STOCK_USAGE, ITEM_REPOSITORY, CLOCK],
     },
     {
       provide: ItemStatusChanger,
-      useFactory: (f: ItemFinder, ref: ItemReferences, r: ItemRepository, k: Clock) => new ItemStatusChanger(f, ref, r, k),
-      inject: [ItemFinder, ItemReferences, ITEM_REPOSITORY, CLOCK],
+      useFactory: (f: ItemFinder, ref: ItemReferences, u: StockUsage, r: ItemRepository, k: Clock) =>
+        new ItemStatusChanger(f, ref, u, r, k),
+      inject: [ItemFinder, ItemReferences, STOCK_USAGE, ITEM_REPOSITORY, CLOCK],
     },
     {
       provide: ItemSearcher,

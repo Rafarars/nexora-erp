@@ -37,6 +37,11 @@ export class PrismaCatalogRepositoriesHarness implements CatalogRepositoriesHarn
   // Vacia el catalogo en el orden de las claves ajenas y garantiza que las dos
   // empresas existen: sin ellas, la base rechazaria cada fila.
   async reset(): Promise<void> {
+    // El inventario apunta a articulos y bodegas: se vacia primero.
+    await this.prisma.inventoryMovement.updateMany({ data: { reversalOfId: null } });
+    await this.prisma.inventoryMovement.deleteMany();
+    await this.prisma.itemStock.deleteMany();
+    await this.prisma.adjustment.deleteMany();
     await this.prisma.itemUnit.deleteMany();
     await this.prisma.item.deleteMany();
     await this.prisma.category.deleteMany();
