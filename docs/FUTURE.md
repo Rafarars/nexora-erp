@@ -86,6 +86,28 @@ plataforma explícito, nunca un `if` que salte el guardián de inquilino.
 
 ---
 
+### ERP completo: lo que quedó fuera del flujo mínimo
+
+**Por qué:** el H2–H7 cubre el ciclo comprar → recibir → vender → despachar → facturar →
+cobrar. Un ERP de uso real necesita más, y la documentación de referencia
+(github.com/verlumyx/erp, `docs/`) ya lo tiene especificado. Decidido el 13-sep-2026:
+queda para cuando se decida completar el ERP.
+
+**Qué habría que hacer, agrupado:**
+- **Fiscal y moneda:** identificación fiscal (RIF), multimoneda con tasas de cambio por fecha
+  copiadas al confirmar y diferencial cambiario, retenciones de impuestos
+- **Trazabilidad:** lotes con vencimiento (salida FEFO), números de serie, ubicaciones dentro
+  de la bodega
+- **Logística:** traslados entre bodegas, rutas de reparto, importaciones con costos de
+  internación
+- **Documentos financieros:** notas de crédito, anticipos, devoluciones de compra y de venta,
+  cuentas por pagar y pagos a proveedores, listas de precio
+- **Tienda en línea** con pedidos web que se convierten en pedidos de venta
+
+**El diseño ya lo permite:** cada grupo es un contexto nuevo o una extensión de uno existente,
+y la regla de que solo entrada, despacho y ajuste mueven stock hace que traslados y devoluciones
+se monten sobre documentos que ya existirán.
+
 ## Infraestructura y despliegue
 
 ### Comandos de despliegue en el Makefile

@@ -250,26 +250,52 @@ funcionalidades.
 datos de la empresa B y rebota en los tres casos), guardas de permisos por endpoint,
 sesión en E2E, POM de login reutilizable por toda la suite.
 
+**Flujo completo (decidido el 13-sep-2026):** comprar → recibir → vender → despachar →
+facturar → cobrar. Es el recorrido mínimo con el que un revisor reconoce un ERP. Se añade
+Compras, que el plan original no tenía: sin ella el stock solo podía entrar con ajustes.
+
+Reglas de negocio tomadas como guía de la documentación de un ERP de referencia
+(github.com/verlumyx/erp, `docs/`), adaptadas a este alcance:
+
+- **Nada se borra.** Los maestros se desactivan y los documentos se anulan
+- **Estados de documento:** borrador → confirmado → parcial → completado, o anulado. La persona
+  solo confirma o anula; parcial y completado los deriva el sistema y retroceden al anular
+- **Lo que vale al confirmar se copia al documento** (precio, impuesto): cambiarlo después no
+  altera lo emitido
+- **Solo entrada, despacho y ajuste mueven stock.** Ningún documento comercial toca el kardex
+- **El kardex es inmutable** y el stock es derivado: siempre cuadra con la suma de movimientos
+
+Lo que se dejó fuera de este alcance está en `docs/FUTURE.md`, sección «ERP completo».
+
 ### H2 — Catálogo
-Productos, categorías, unidades de medida, almacenes.
-*Pruebas:* CRUD por API, validaciones de dominio, componentes de formulario, primer flujo E2E completo.
+Categorías (un nivel), unidades de medida (por empresa, sin conversión), impuestos, bodegas y
+artículos con su unidad base y sus conversiones propias.
+*Pruebas:* validaciones de dominio (SKU único por empresa, exactamente una unidad base, no
+desactivar lo que está en uso), CRUD por API, componentes de formulario, aislamiento entre
+empresas de los recursos nuevos, primer flujo E2E del catálogo.
 
 ### H3 — Inventario
-Entradas, salidas, ajustes, historial de movimientos, stock por almacén.
-*Pruebas:* **guarda de inventario en cero** (no se puede sacar más de lo que hay), integridad del
-historial de movimientos, consistencia entre movimientos y saldo de stock.
+Ajustes, kardex y existencias por bodega.
+*Pruebas:* **guarda de inventario en cero** (no se puede sacar más de lo que hay), kardex
+inmutable con corrección por contrapartida, **el stock siempre cuadra con la suma del kardex**.
 *→ A partir de aquí el enlace ya es presentable en postulaciones.*
 
-### H4 — Ventas
-Clientes, cotización, orden de venta, factura. Descuento de stock al facturar.
-*Pruebas:* el flujo cruzado completo en Gherkin, stock comprometido, ATDD del ciclo de venta.
+### H4 — Compras
+Proveedores, orden de compra y entrada de mercancía.
+*Pruebas:* la orden confirmada anuncia el stock en camino, la entrada sube el stock y recalcula el
+costo promedio, recepción parcial y retroceso del estado al anular.
 
-### H5 — Cuentas por cobrar
-Pagos, saldos, cuentas vencidas, límite de crédito del cliente.
-*Pruebas:* **anular un pago revierte el saldo**, cliente con vencidas no puede facturar a crédito,
-consistencia entre pagos y saldo.
+### H5 — Ventas
+Clientes, pedido de venta con reserva, despacho y factura.
+*Pruebas:* el pedido no reserva más de lo disponible, el despacho baja el stock y la factura no,
+**el ciclo completo en Gherkin** (comprar → recibir → vender → despachar → facturar).
 
-### H6 — Reportes y tablero
+### H6 — Cuentas por cobrar
+Cobros, saldos, cuentas vencidas, límite de crédito del cliente.
+*Pruebas:* **anular un cobro revierte el saldo**, cliente con vencidas no puede facturar a crédito,
+consistencia entre cobros y saldo.
+
+### H7 — Reportes y tablero
 Exportación a PDF y Excel, tablero con indicadores.
 *Pruebas:* verificación del contenido de los documentos generados, **guarda de rendimiento** sobre
 un listado con volumen sembrado.
