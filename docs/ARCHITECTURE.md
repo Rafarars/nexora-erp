@@ -196,9 +196,17 @@ sirve a un endpoint. Tienen el mismo nombre y trabajos distintos.
 
 ## Mover existencia
 
-- **Un solo camino**: el puerto `AdjustmentPosting`. Bloquea el documento y las existencias
-  que toca (en orden fijo), ejecuta un trabajo **síncrono y puro** del dominio y escribe todo en
-  una transacción. Si el dominio lanza, no queda nada escrito
+- **Un solo motor**: `StockMovements`, servicio puro del inventario que registra o revierte las
+  líneas de cualquier documento. Cada publicación bloquea **primero su documento y después las
+  existencias, en orden fijo**, ejecuta un trabajo **síncrono y puro** y escribe todo en una
+  transacción. Si el dominio lanza, no queda nada escrito
+- **Otro contexto mueve existencia por un contrato publicado**: `shared/prisma/document-stock-posting.ts`
+  (`DOCUMENT_STOCK_POSTING`). Lo implementa el inventario y es lo **único que exporta su módulo**;
+  recibe la transacción de quien llama porque la entrada, su orden y la existencia cambian juntas.
+  Vive en infraestructura: ningún dominio sabe de transacciones. El módulo de compras importa el del
+  inventario solo para eso, y es la única composición entre contextos
+- **La capa anticorrupción también traduce errores**: el inventario dice `InsufficientStockError` y
+  compras lo convierte en `ReceivedGoodsAlreadyUsedError`
 - **Cantidades y costos en enteros escalados** (`BigInt`): la existencia es la suma exacta del
   kardex, sin redondeos de coma flotante
 - **El kardex no se edita**: anular escribe movimientos que citan a los originales
@@ -403,6 +411,9 @@ de que la arquitectura está bien hecha**. Si necesitan base de datos, algo se f
 | Leer la existencia, decidir y escribir en pasos separados | Bloquear la fila en la misma transacción: dos salidas leerían el mismo saldo |
 | Pruebas en paralelo que mueven el stock de un artículo sembrado | Un artículo propio por prueba |
 | Un filtro por identificador ajeno que devuelve lista vacía | 404, como cualquier identificador ajeno |
+| Regenerar los identificadores de las líneas al revalidar un borrador | Conservarlos: quien leyó el borrador los usa después (recibir por `orderLineId`) |
+| Nombrar `taxId` a algo que no es una referencia a un impuesto | Un nombre propio (`fiscalId`): la vigilancia de aislamiento lee los nombres de campo |
+| Que otro contexto escriba las tablas del inventario | Pedírselo por `DocumentStockPosting`, dentro de la misma transacción |
 
 ---
 

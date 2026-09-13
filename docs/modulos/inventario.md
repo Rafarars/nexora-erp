@@ -18,8 +18,9 @@ el código del catálogo.
 
 ## Principios
 
-1. **Un solo camino mueve existencia.** En el H3 es el ajuste confirmado o anulado. Entradas (H4) y
-   despachos (H5) pasarán por el mismo mecanismo.
+1. **Un solo motor mueve existencia** (`StockMovements`). Lo usan el ajuste y, desde el H4, la
+   entrada de mercancía de [Compras](compras.md), que se lo pide al inventario por un contrato
+   publicado. Los despachos (H5) pasarán por el mismo camino.
 2. **El kardex no se edita ni se borra.** Un error se corrige con un movimiento de contrapartida
    que cita al original.
 3. **La existencia es derivada.** Siempre es igual a la suma de sus movimientos, y el saldo del
@@ -115,7 +116,7 @@ borrador ───────────▶ confirmado ───────�
 | `unit_cost` | Costo por unidad base del movimiento |
 | `balance_quantity` | Existencia **después** del movimiento |
 | `balance_average_cost` | Costo promedio **después** del movimiento |
-| `origin_type`, `origin_id`, `origin_line_id` | Documento y línea que lo originaron (`adjustment`) |
+| `origin_type`, `origin_id`, `origin_line_id` | Documento y línea que lo originaron: `adjustment` o `receipt` (entrada de compra) |
 | `reversal_of_id` | Movimiento que revierte, si es una anulación |
 | `occurred_at` | Cuándo |
 
@@ -141,6 +142,20 @@ borrador ───────────▶ confirmado ───────�
 
 **Solo la escribe quien escribe el kardex**, en la misma transacción. La valoración de la pantalla
 es `cantidad × costo promedio`, redondeada a céntimos.
+
+---
+
+### El motor compartido
+
+Confirmar o anular cualquier documento pasa por el mismo servicio puro, `StockMovements`:
+
+- `record(documento, líneas)`: cada línea, ya en unidad base, entra o sale de su existencia.
+- `reverse(documento)`: revierte, del último al primero, los movimientos que ese documento escribió.
+
+El ajuste lo usa desde `AdjustmentConfirmation` y `AdjustmentCancellation`. La entrada de compra lo
+usa a través de `DocumentStockPosting`, el contrato publicado que el inventario exporta y que recibe
+la transacción de quien llama, para que documento y existencia cambien juntos. Ver
+[compras.md §5](compras.md#5-cómo-se-mueve-la-existencia).
 
 ---
 
@@ -220,11 +235,12 @@ Probado contra PostgreSQL: dos salidas de 6 sobre 10 enviadas a la vez → pasa 
 | Empresa | Ajuste | Estado | Contenido | Existencia resultante |
 |---|---|---|---|---|
 | Acme | `AJU000001` | Confirmado | 10 cajas de agua a 12; 50 kg de detergente a 3,20 | Agua 240 un a 0,50; detergente 50 kg a 3,20 (Principal) |
+| Acme | `ENT000001` (compras) | Confirmada | 4 cajas de agua a 12 | Agua **336 un** a 0,50: segundo movimiento de su kardex |
 | Acme | `AJU000002` | Borrador | Salida de 6 un de agua («Merma por rotura») | — |
 | Globex | `AJU000001` | Confirmado | 30 filtros a 8,50 | Filtro 30 un (Central) |
 | Globex | `AJU000002` | Borrador | Salida de 2 filtros | — |
 
-Se rehace entero en cada corrida de semillas.
+Se rehace entero en cada corrida de semillas, junto con las compras.
 
 ---
 

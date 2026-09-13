@@ -116,6 +116,13 @@ tabla y la respuesta crecen sin límite.
 **Qué habría que hacer:** búsqueda y paginación en el puerto (`search(tenantId, criteria)`),
 y la guarda de rendimiento prevista en el H7 sobre un listado con volumen sembrado.
 
+### Paginación de compras
+
+**Por qué:** los listados de órdenes y entradas traen todo, y la de entradas carga las órdenes y
+los proveedores de la empresa para resolver nombres.
+
+**Qué habría que hacer:** paginar por código y resolver solo lo que la página muestra.
+
 ### Paginación del kardex y de los ajustes
 
 **Por qué:** el kardex de un artículo con años de movimientos, o el listado de ajustes de una
@@ -124,13 +131,31 @@ empresa grande, se devuelven enteros.
 **Qué habría que hacer:** paginar por `sequence` en el kardex y por código en los ajustes, y
 la guarda de rendimiento del H7.
 
-### Generalizar la publicación para entradas y despachos
+### Despachos por el mismo contrato que las entradas
 
-**Por qué:** en el H3 solo el ajuste mueve existencia. Compras y ventas traerán entradas y
-despachos, que tienen que pasar por el mismo camino.
+**Por qué:** en el H4 la entrada de mercancía ya mueve existencia por `DocumentStockPosting`, con
+el motor `StockMovements` que comparte con el ajuste. El despacho de ventas (H5) es su espejo.
 
-**Qué habría que hacer:** extraer de `AdjustmentPosting` una publicación por documento de
-origen, con `origin_type` ampliado, reutilizando `ItemStock` tal cual.
+**Qué habría que hacer:** añadir `release` al contrato publicado y `'dispatch'` a los tipos de
+origen del kardex, y leer su código en `MovementDocuments`. Nada del motor cambia.
+
+### Compras: lo que quedó fuera del H4
+
+**Por qué:** el H4 cierra comprar → recibir con proveedor, orden y entrada. Un área de compras real
+pide más, y todo cabe sobre lo construido. Decidido con Rafael al aprobar el alcance (13-sep-2026).
+
+**Qué habría que hacer:**
+- **Cuentas por pagar**: factura de proveedor contra la entrada, vencimiento con el plazo del
+  proveedor y pagos. Es un contexto propio
+- **Devoluciones a proveedor**: un documento que saca existencia citando la entrada
+- **Aprobación de órdenes por monto** antes de confirmar
+- **Costos adicionales** (flete, seguro, importación) prorrateados sobre el costo de la entrada
+- **Cierre corto**: dar una orden por terminada aunque falte mercancía, para que deje de estar en
+  camino
+- **Comprar servicios**, que no pasan por bodega
+- **Proteger en el catálogo lo que tiene órdenes abiertas**: hoy se puede desactivar un artículo o
+  una bodega con mercancía en camino, y la entrada falla al confirmar con un mensaje claro
+- Que la fecha de una entrada no pueda ser anterior a la de su orden
 
 ### Renombrar `AccessError` a `ApiError` en el frontend
 

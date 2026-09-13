@@ -297,13 +297,24 @@ Ajustes, kardex y existencias por bodega.
 - [x] **4. API** — siete rutas, siete permisos y seis ataques nuevos
 - [x] **5. Frontend** — existencias, ajustes con editor de líneas y kardex
 - [x] **6. Semillas y E2E** — inventario de demostración y suites de API e interfaz
-- [ ] **7. Cierre** — revisión de Rafael y commits por fase
+- [x] **7. Cierre** — revisión de Rafael y commits por fase
 *Pruebas:* **guarda de inventario en cero** (no se puede sacar más de lo que hay), kardex
 inmutable con corrección por contrapartida, **el stock siempre cuadra con la suma del kardex**.
 *→ A partir de aquí el enlace ya es presentable en postulaciones.*
 
 ### H4 — Compras
 Proveedores, orden de compra y entrada de mercancía.
+
+**Fases** (informe detallado en [`docs/H4-COMPRAS.md`](H4-COMPRAS.md))
+
+- [x] **0. Modelo y migración** — proveedores, órdenes y entradas; la base prohíbe recibir más de lo pedido
+- [x] **1. Dominio** — generalizar el motor del inventario y el dominio de compras con su ciclo de estados
+- [x] **2. Aplicación** — quince casos de uso, con lo que viene en camino
+- [x] **3. Infraestructura** — entrada, orden y existencia en una transacción, con contrato y concurrencia real
+- [x] **4. API** — quince rutas, quince permisos y once ataques nuevos
+- [x] **5. Frontend** — órdenes con recepción, entradas, en camino y proveedores
+- [x] **6. Semillas y E2E** — compras de demostración y suites de API e interfaz
+- [ ] **7. Cierre** — revisión de Rafael y commits por fase
 *Pruebas:* la orden confirmada anuncia el stock en camino, la entrada sube el stock y recalcula el
 costo promedio, recepción parcial y retroceso del estado al anular.
 
