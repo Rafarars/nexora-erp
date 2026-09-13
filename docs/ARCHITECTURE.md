@@ -200,12 +200,40 @@ que no declara nada responde 403:
   `make migrate`); **quién los tiene es base de datos**, editable desde la interfaz
 - `route-declaration.spec.ts` recorre todas las rutas y exige que declaren algo, y cruza
   los `@RequirePermission` con el catálogo en ambas direcciones
+- **Correo y contraseña los cambia solo la propia persona**, desde su perfil y
+  confirmando la contraseña actual. Ningún administrador puede: la cuenta abre todas las
+  empresas de esa persona, y cambiarle la llave daría acceso a las demás
+- Quien acierta la contraseña pero no tiene ninguna membresía activa recibe
+  `NoActiveMembershipError`: solo llega ahí el dueño de la cuenta, así que decírselo no
+  da pistas y le evita creer que se equivocó de contraseña
 
 ## Errores
 
 El dominio lanza errores de dominio, y un filtro de excepciones los traduce a códigos
 HTTP. **El dominio nunca sabe qué es un 404.** Así el mismo caso de uso sirve para una
 tarea programada o una cola sin arrastrar HTTP.
+
+**Cada error tiene dos mensajes**:
+
+| | Para | Puede llevar identificadores |
+|---|---|---|
+| `message` | Registros y pruebas | Sí |
+| `publicMessage` | Quien llama por HTTP | **Nunca** |
+
+El filtro responde `{ statusCode, error, message }`, con `error` = nombre de la clase y
+`message` = `publicMessage`, y deja el detalle en el registro. Antes devolvía `message`
+tal cual, y trece errores exponían UUID de personas y empresas o repetían lo recibido.
+Cada categoría trae un mensaje público por defecto; un error concreto lo afina sin datos.
+
+La validación de entrada responde `error: 'ValidationError'` y `fields`: los campos que
+fallaron, sin el texto del validador.
+
+**La interfaz traduce por código, nunca por texto**: `readableError` busca por `error`,
+luego por `fields`, luego por categoría, y siempre en español. Nunca muestra el mensaje
+que devuelve la API.
+
+`error-categories.spec.ts` exige que cada mensaje público exista y no lleve `<…>` ni
+nada con forma de UUID.
 
 ---
 
@@ -324,6 +352,10 @@ de que la arquitectura está bien hecha**. Si necesitan base de datos, algo se f
 | Solo una aserción negativa (`toHaveCount(0)`) | Antes, una positiva que confirme que se está en la página correcta |
 | Imports relativos con `.js` en el frontend | Sin extensión en Next; con `.js` en la API (`nodenext`) |
 | Exportar constantes o funciones síncronas desde `'use server'` | Solo funciones async; lo demás, en otro archivo |
+| Devolver `error.message` al cliente | `publicMessage`; el detalle, al registro |
+| Mostrar en pantalla el mensaje que devuelve la API | Traducir por el código de error y los campos |
+| Formulario con credenciales de otra persona sin `autoComplete` | `off` en el correo y `new-password` en la contraseña |
+| Dos formularios de una página con el mismo `name` en un campo | Nombres propios: `Field` usa `name` como `id` |
 
 ---
 

@@ -199,6 +199,17 @@ en el navegador para `localhost`. Debe ponerlo el proxy que termina TLS en el se
 los formularios, pero no restringe scripts, porque Next inyecta scripts en línea. Exigirlo
 pide un nonce por petición desde el middleware.
 
-**Mensajes de error que repiten la entrada.** Algunos errores de validación incluyen el
-valor recibido (`received <no-es-uuid>`). Son JSON, sin riesgo de XSS, pero no hace falta
-devolverle a nadie lo que mandó.
+## Cambio de correo: lo que falta para producción
+
+**Verificar el correo nuevo.** Hoy se cambia al confirmar la contraseña, sin comprobar que
+el buzón nuevo es de la persona. Un error de tecleo la deja sin poder recuperar la cuenta.
+Haría falta enviar un enlace de confirmación y no aplicar el cambio hasta que se abra.
+
+**La unicidad del correo ante una carrera.** El caso de uso comprueba que el correo esté
+libre antes de guardar, y la base tiene un índice único. Si dos personas piden el mismo
+correo a la vez, la segunda choca con el índice y responde 500. Habría que traducir el
+error de clave única del ORM a `EmailAlreadyInUseError` en el adaptador.
+
+**Limitar los intentos de contraseña actual.** Cambiar el correo o la contraseña pide la
+actual, pero no cuenta los fallos como el inicio de sesión. Exige una sesión abierta, así
+que el riesgo es bajo, pero quien la encuentre podría probar contraseñas sin límite.

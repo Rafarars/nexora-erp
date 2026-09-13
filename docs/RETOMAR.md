@@ -22,7 +22,7 @@ de ninguna conversación anterior**.
 |---|---|
 | Repositorio | github.com/Rafarars/nexora-erp |
 | Reporte de pruebas | https://rafarars.github.io/nexora-erp/ |
-| Pruebas | 478 + 20 unitarias · 33 de contrato · 96 end-to-end |
+| Pruebas | 511 + 28 unitarias · 33 de contrato · 105 end-to-end |
 | **H0 — Fundación** | **Completado** |
 | **H1 — Multiempresa y acceso** | **Completado** y revisado; siguiente: H2 |
 
@@ -111,9 +111,11 @@ Decisiones que conviene no volver a discutir:
   login debe responder siempre `InvalidCredentialsError` para no revelar qué existe
 - Se verifica la contraseña **aunque el usuario no exista**: cortar antes revelaría por
   el tiempo de respuesta qué correos están registrados
-- Una membresía revocada responde `InvalidCredentialsError` si no se pidió empresa, y
-  `InactiveMembershipError` si se pidió por slug: quien ya sabe que la empresa existe
-  merece saber que le revocaron el acceso
+- Con la contraseña correcta y ninguna membresía activa se responde
+  `NoActiveMembershipError`, y con una empresa pedida por slug y revocada,
+  `InactiveMembershipError`. **Revisado en la segunda revisión**: al principio se respondía
+  `InvalidCredentialsError` para no dar pistas, pero a esa rama solo llega quien ya conoce la
+  contraseña, y el mensaje genérico le hacía creer que se había equivocado
 - La respuesta **no menciona token ni JWT**: emitirlo es cosa de infraestructura
 
 `architecture.spec.ts` sustituye a la prueba de pureza y añade la dirección de las
@@ -238,7 +240,8 @@ Decisiones de interfaz, **tomadas por Rafael**:
   sesión necesita la base
 
 **Qué puede editar un administrador de otra persona**: nombre, roles y estado **en su
-empresa**. **Nunca el correo ni la contraseña**: la cuenta es una sola en todas sus
+empresa**. **Nunca el correo ni la contraseña**; esos los cambia la propia persona desde su
+perfil, confirmando la contraseña actual: la cuenta es una sola en todas sus
 empresas, y cambiarle la contraseña a alguien que también está en otra empresa daría
 acceso a esa otra. Desactivar revoca la membresía, no la cuenta. Nadie se desactiva a
 sí mismo.
@@ -329,6 +332,34 @@ corregirlo, y cada prueba nueva se verificó contra falso verde.
 **Menores**: acciones del CI fijadas por hash; borrado un doble de pruebas sin uso;
 pruebas para la validación del entorno del frontend; comentarios con tilde. Lo que no se
 corrigió está anotado en `docs/FUTURE.md`, con su porqué.
+
+## Segunda revisión: recorrido de interfaz ✅
+
+Pedida por Rafael tras la primera: volver a verificar todo y **usar cada pantalla** como lo
+haría una persona. Se recorrió en el navegador y con una sonda de Playwright suelta.
+
+Lo que se comprobó sin fallos: la suite end-to-end dos veces seguidas, el CI, el alta,
+edición, desactivación y reactivación de personas, la creación y edición de roles, el
+**efecto inmediato con un mismo token** (403 → 200 → 403 → 200 según roles y permisos, y
+401 al desactivar), el perfil, la vista de solo consulta, el cambio de empresa y el cierre
+de sesión.
+
+Lo que apareció, y cómo quedó:
+
+| Hallazgo | Arreglo |
+|---|---|
+| Chrome rellenaba el alta de otra persona con credenciales guardadas | `autoComplete="off"` y `"new-password"` en el alta; `current-password`/`new-password` en el perfil |
+| Mensajes de validación en inglés técnico en pantalla | La API devuelve `fields`; la interfaz traduce por código y campo |
+| **Trece mensajes de error exponían UUID o lo recibido** | Mensaje público separado del interno; prueba que lo exige |
+| **No existía forma de cambiar un correo**, y dos pantallas se remitían entre sí | La propia persona lo cambia desde el perfil con su contraseña actual |
+| Un acceso revocado recibía «correo o contraseña incorrectos» | `NoActiveMembershipError` y mensaje propio |
+| El cambio de contraseña decía «correo o contraseña incorrectos» | `WrongCurrentPasswordError` (400) y mensaje propio |
+| `EmailAlreadyInUseError` no lo lanzaba nadie | Lo lanza el cambio de correo |
+| Rol repetido: «ese nombre o ese correo» | «Ya existe un rol con ese nombre.» |
+
+Descartado como defecto: los formularios del perfil dejaron de responder en una pestaña
+de la extensión de Chrome, pero una sonda de Playwright independiente los usó sin
+problema.
 
 ---
 
