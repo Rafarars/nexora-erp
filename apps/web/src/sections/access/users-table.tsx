@@ -173,9 +173,15 @@ export function UsersTable({
 
       <SlideOver title="Nueva persona" open={creating} onClose={() => setCreating(false)} testId="user-panel">
         <form action={create} className="space-y-4">
-          <Field label="Nombre" name="name" testId="user-name" />
-          <Field label="Correo" name="email" type="email" testId="user-email" />
-          <Field label="Contraseña" name="password" type="password" testId="user-password" />
+          <Field label="Nombre" name="name" testId="user-name" autoComplete="off" />
+          <Field label="Correo" name="email" type="email" testId="user-email" autoComplete="off" />
+          <Field
+            label="Contraseña"
+            name="password"
+            type="password"
+            testId="user-password"
+            autoComplete="new-password"
+          />
           <RoleCheckboxes roles={roles} checked={[]} prefix="user-role" />
           <FormError message={createState.error} testId="user-error" />
           <SubmitButton pending={saving} testId="user-submit">

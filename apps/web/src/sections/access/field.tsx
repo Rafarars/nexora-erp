@@ -5,6 +5,7 @@ export function Field({
   required = true,
   testId,
   defaultValue,
+  autoComplete,
 }: {
   label: string;
   name: string;
@@ -12,6 +13,9 @@ export function Field({
   required?: boolean;
   testId: string;
   defaultValue?: string;
+  // Sin esto el navegador adivina, y un formulario con correo y contrasena le parece
+  // un login: rellena el alta de otra persona con las credenciales guardadas.
+  autoComplete?: string;
 }) {
   return (
     <div className="space-y-1.5">
@@ -24,6 +28,7 @@ export function Field({
         type={type}
         required={required}
         defaultValue={defaultValue}
+        autoComplete={autoComplete}
         data-testid={testId}
         className="border-line w-full rounded-md border bg-transparent px-3 py-2 text-sm outline-none focus:border-neutral-500"
       />

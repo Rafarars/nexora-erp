@@ -20,6 +20,24 @@ export async function updateProfile(_state: FormState, form: FormData): Promise<
   return { error: null, done: true };
 }
 
+export async function changeEmail(_state: FormState, form: FormData): Promise<FormState> {
+  const { token } = await requireSession();
+
+  try {
+    await accessApi().changeEmail(
+      token,
+      String(form.get('emailPassword') ?? ''),
+      String(form.get('newEmail') ?? ''),
+    );
+  } catch (error) {
+    return { error: readableError(error, 'No se pudo cambiar el correo.'), done: false };
+  }
+
+  revalidatePath('/', 'layout');
+
+  return { error: null, done: true };
+}
+
 export async function changePassword(_state: FormState, form: FormData): Promise<FormState> {
   const { token } = await requireSession();
 
@@ -32,7 +50,7 @@ export async function changePassword(_state: FormState, form: FormData): Promise
   try {
     await accessApi().changePassword(token, String(form.get('current') ?? ''), next);
   } catch (error) {
-    // Una contrasena actual incorrecta llega como credenciales invalidas.
+    // Una contrasena actual incorrecta llega con su propio codigo, no como un login fallido.
     return { error: readableError(error, 'No se pudo cambiar la contraseña.'), done: false };
   }
 

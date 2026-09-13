@@ -79,14 +79,6 @@ test.describe('Your own account', () => {
     await expect(new AppShell(page).currentUser).toHaveText('Beto Lugo Mendez');
   });
 
-  // El correo identifica la cuenta en todas las empresas: no es una preferencia.
-  test('does not let you change your own email', async ({ page }) => {
-    await new LoginPage(page).signIn(GLOBEX_ADMIN);
-    await new AppShell(page).goToProfile();
-
-    await expect(page.getByTestId('profile-email')).toBeDisabled();
-  });
-
   test('refuses to change the password without the current one', async ({ page }) => {
     await new LoginPage(page).signIn(GLOBEX_ADMIN);
     await new AppShell(page).goToProfile();
@@ -96,7 +88,7 @@ test.describe('Your own account', () => {
     await page.getByTestId('password-confirmation').fill('a-brand-new-password');
     await page.getByTestId('password-submit').click();
 
-    await expect(page.getByTestId('password-error')).toBeVisible();
+    await expect(page.getByTestId('password-error')).toHaveText('La contraseña actual no es correcta.');
   });
 
   test('refuses a confirmation that does not match', async ({ page }) => {

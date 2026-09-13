@@ -11,6 +11,7 @@ export interface AccessApi {
   me(token: string): Promise<Session>;
   updateProfile(token: string, name: string): Promise<void>;
   changePassword(token: string, current: string, next: string): Promise<void>;
+  changeEmail(token: string, current: string, email: string): Promise<void>;
   searchUsers(token: string): Promise<Person[]>;
   createUser(
     token: string,

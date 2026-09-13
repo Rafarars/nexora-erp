@@ -26,6 +26,7 @@ import { PASSWORD_HASHER, PasswordHasher } from '../domain/user/password-hasher.
 import { UserRegistrar } from '../domain/user/register/user-registrar.js';
 import { USER_REPOSITORY, UserRepository } from '../domain/user/user.repository.js';
 import { MembershipStatusChanger } from '../application/change-membership-status/membership-status-changer.js';
+import { EmailChanger } from '../application/change-email/email-changer.js';
 import { PasswordChanger } from '../application/change-password/password-changer.js';
 import { TenantUserUpdater } from '../application/update-tenant-user/tenant-user-updater.js';
 import { ProfileUpdater } from '../application/update-profile/profile-updater.js';
@@ -42,6 +43,7 @@ import { RevokeRoleDeleteController } from './http/revoke-role-delete.controller
 import { SearchPermissionsGetController } from './http/search-permissions-get.controller.js';
 import { SearchRolesGetController } from './http/search-roles-get.controller.js';
 import { ChangeMembershipStatusPutController } from './http/change-membership-status-put.controller.js';
+import { ChangeEmailPutController } from './http/change-email-put.controller.js';
 import { ChangePasswordPutController } from './http/change-password-put.controller.js';
 import { UpdateTenantUserPutController } from './http/update-tenant-user-put.controller.js';
 import { SessionGetController } from './http/session-get.controller.js';
@@ -86,6 +88,7 @@ import { TOKEN_ISSUER } from './security/token-issuer.js';
     SessionGetController,
     UpdateProfilePutController,
     ChangePasswordPutController,
+    ChangeEmailPutController,
     UpdateTenantUserPutController,
     ChangeMembershipStatusPutController,
   ],
@@ -207,6 +210,16 @@ import { TOKEN_ISSUER } from './security/token-issuer.js';
       inject: [MembershipFinder, RoleFinder, MEMBERSHIP_REPOSITORY, CLOCK],
     },
     { provide: CatalogPermissions, useClass: CatalogPermissions },
+    {
+      provide: EmailChanger,
+      useFactory: (
+        finder: UserFinder,
+        users: UserRepository,
+        hasher: PasswordHasher,
+        clock: Clock,
+      ) => new EmailChanger(finder, users, hasher, clock),
+      inject: [UserFinder, USER_REPOSITORY, PASSWORD_HASHER, CLOCK],
+    },
     {
       provide: TenantUserUpdater,
       useFactory: (
