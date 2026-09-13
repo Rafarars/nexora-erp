@@ -1,6 +1,7 @@
 import { LoginAttempts } from '../../domain/authenticate/login-attempts.js';
 import { SignInPolicy } from '../../domain/authenticate/sign-in-policy.js';
 import { InvalidCredentialsError } from '../../domain/errors/invalid-credentials.error.js';
+import { NoActiveMembershipError } from '../../domain/errors/no-active-membership.error.js';
 import { TooManyLoginAttemptsError } from '../../domain/errors/too-many-login-attempts.error.js';
 import { MembershipRepository } from '../../domain/membership/membership.repository.js';
 import { TenantSlug } from '../../domain/tenant/tenant-slug.vo.js';
@@ -77,7 +78,7 @@ export class UserAuthenticator {
     const tenant = first ? await this.tenants.find(first.tenantId) : null;
 
     if (!tenant) {
-      throw new InvalidCredentialsError();
+      throw new NoActiveMembershipError(user.id.value);
     }
 
     return tenant;

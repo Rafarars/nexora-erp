@@ -1,5 +1,5 @@
 import { Clock } from '../../../../shared/domain/ports/clock.js';
-import { InvalidCredentialsError } from '../../domain/errors/invalid-credentials.error.js';
+import { WrongCurrentPasswordError } from '../../domain/errors/wrong-current-password.error.js';
 import { UserFinder } from '../../domain/user/find/user-finder.js';
 import { PasswordHash } from '../../domain/user/password-hash.vo.js';
 import { PasswordHasher } from '../../domain/user/password-hasher.js';
@@ -23,7 +23,7 @@ export class PasswordChanger {
     const matches = await this.hasher.verify(request.current, user.currentPasswordHash().value);
 
     if (!matches) {
-      throw new InvalidCredentialsError();
+      throw new WrongCurrentPasswordError();
     }
 
     const next = PlainPassword.of(request.next);

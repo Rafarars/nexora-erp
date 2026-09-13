@@ -3,6 +3,7 @@ import { UserAuthenticator } from './user-authenticator.js';
 import { InactiveMembershipError } from '../../domain/errors/inactive-membership.error.js';
 import { InactiveTenantError } from '../../domain/errors/inactive-tenant.error.js';
 import { InvalidCredentialsError } from '../../domain/errors/invalid-credentials.error.js';
+import { NoActiveMembershipError } from '../../domain/errors/no-active-membership.error.js';
 import { TooManyLoginAttemptsError } from '../../domain/errors/too-many-login-attempts.error.js';
 import { PasswordHash } from '../../domain/user/password-hash.vo.js';
 import {
@@ -131,13 +132,23 @@ describe('UserAuthenticator', () => {
     });
   }
 
-  // Sin empresa pedida, elegir es cosa del sistema: una membresia revocada no entra
-  // en la eleccion y el rechazo no dice por que, igual que un correo inexistente.
-  it('rejects a revoked membership without saying why when no tenant is asked for', async () => {
+  // Quien acierta la contrasena ya es el dueno de la cuenta: se le dice que no tiene
+  // acceso activo en vez de hacerle creer que se equivoco de contrasena.
+  it('tells a person with the right password that no access is active', async () => {
     await expect(
       authenticatorFor(scenarioWithRevokedMembership()).run({
         email: 'ana@acme.com',
         password: PASSWORD,
+      }),
+    ).rejects.toThrow(NoActiveMembershipError);
+  });
+
+  // La contrasena mala sigue sin revelar nada, tenga o no acceso activo la cuenta.
+  it('still answers invalid credentials when the password is wrong', async () => {
+    await expect(
+      authenticatorFor(scenarioWithRevokedMembership()).run({
+        email: 'ana@acme.com',
+        password: 'wrong',
       }),
     ).rejects.toThrow(InvalidCredentialsError);
   });

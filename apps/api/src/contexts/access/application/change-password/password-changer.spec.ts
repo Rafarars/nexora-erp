@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { PasswordChanger } from './password-changer.js';
-import { InvalidCredentialsError } from '../../domain/errors/invalid-credentials.error.js';
+import { WrongCurrentPasswordError } from '../../domain/errors/wrong-current-password.error.js';
 import { WeakPasswordError } from '../../domain/user/plain-password.vo.js';
 import { PasswordHash } from '../../domain/user/password-hash.vo.js';
 import { UserId } from '../../domain/user/user-id.vo.js';
@@ -41,7 +41,7 @@ describe('PasswordChanger', () => {
 
     await expect(
       changerFor(scenario).run({ userId: USER_A, current: 'wrong', next: 'a-brand-new-password' }),
-    ).rejects.toThrow(InvalidCredentialsError);
+    ).rejects.toThrow(WrongCurrentPasswordError);
   });
 
   it('changes nothing when the current password is wrong', async () => {
