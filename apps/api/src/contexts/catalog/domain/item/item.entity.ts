@@ -88,11 +88,17 @@ export class Item extends CatalogRecord<ItemId> {
     };
   }
 
-  // Cambiar la unidad base o el tipo quedara bloqueado cuando el articulo tenga
-  // movimientos de inventario (H3). Hoy todavia no existen.
   update(details: ItemDetails, now: Date): void {
     this.details = normalized(details);
     this.touch(now);
+  }
+
+  // Lo que el kardex no tolera que cambie: la unidad en la que guarda las cantidades y si el
+  // articulo tiene existencia o no.
+  changesStockIdentity(details: ItemDetails): boolean {
+    return (
+      details.type !== this.details.type || !details.units.base().unitId.equals(this.details.units.base().unitId)
+    );
   }
 
   sku(): Sku {

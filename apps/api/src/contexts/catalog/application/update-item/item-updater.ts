@@ -6,6 +6,8 @@ import { ItemRepository } from '../../domain/item/item.repository.js';
 import { ItemReferences } from '../../domain/item/references/item-references.js';
 import { SkuUniqueness } from '../../domain/item/unique/sku-uniqueness.js';
 import { TenantId } from '../../domain/shared/tenant-id.vo.js';
+import { ItemWithMovementsError } from '../../domain/errors/in-use.errors.js';
+import { StockUsage } from '../../domain/stock/stock-usage.js';
 
 export interface ItemUpdaterRequest extends ItemDetailsInput {
   tenantId: string;
@@ -17,6 +19,7 @@ export class ItemUpdater {
     private readonly finder: ItemFinder,
     private readonly references: ItemReferences,
     private readonly skus: SkuUniqueness,
+    private readonly stock: StockUsage,
     private readonly items: ItemRepository,
     private readonly clock: Clock,
   ) {}
@@ -28,6 +31,10 @@ export class ItemUpdater {
 
     await this.references.ensureAssignable(tenantId, details, item);
     await this.skus.ensureIsFree(tenantId, details.sku, item.id);
+
+    if (item.changesStockIdentity(details) && (await this.stock.itemHasMovements(tenantId, item.id))) {
+      throw new ItemWithMovementsError(item.id.value);
+    }
 
     item.update(details, this.clock.now());
 

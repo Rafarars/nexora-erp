@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { DuplicateSkuError } from '../../domain/errors/duplicate.errors.js';
 import { InactiveReferenceError } from '../../domain/errors/inactive-reference.error.js';
 import { ItemNotFoundError } from '../../domain/errors/not-found.errors.js';
+import { ItemWithMovementsError } from '../../domain/errors/in-use.errors.js';
 import { ItemId } from '../../domain/item/item-id.vo.js';
 import { TenantId } from '../../domain/shared/tenant-id.vo.js';
 import {
@@ -12,6 +13,7 @@ import {
   TAX_A,
   TENANT_A,
   TENANT_B,
+  UNIT_BOX,
   UNIT_PIECE,
   aCategory,
   aTax,
@@ -21,7 +23,7 @@ import {
 import { CatalogScenario, aCatalogScenario } from '../testing/catalog-scenario.js';
 import { ItemUpdater, ItemUpdaterRequest } from './item-updater.js';
 
-const updaterFor = (s: CatalogScenario) => new ItemUpdater(s.itemFinder, s.references, s.skuUniqueness, s.items, s.clock);
+const updaterFor = (s: CatalogScenario) => new ItemUpdater(s.itemFinder, s.references, s.skuUniqueness, s.stock, s.items, s.clock);
 
 function request(overrides: Partial<ItemUpdaterRequest> = {}): ItemUpdaterRequest {
   return {
@@ -76,5 +78,38 @@ describe('ItemUpdater', () => {
     const scenario = scenarioWith({ items: [anItem({ tenantId: TENANT_B })] });
 
     await expect(updaterFor(scenario).run(request())).rejects.toThrow(ItemNotFoundError);
+  });
+
+  describe('an item with inventory movements', () => {
+    const withMovements = () => {
+      const scenario = scenarioWith({ units: [aUnit(), aUnit({ id: UNIT_BOX, code: 'UOM000002', name: 'Caja', abbreviation: 'cja' })] });
+      scenario.stock.itemsWithMovements.add(ITEM_A);
+      return scenario;
+    };
+
+    // El kardex guarda cantidades en la unidad base: cambiarla reescribiria su historia.
+    it('cannot change its base unit', async () => {
+      await expect(
+        updaterFor(withMovements()).run(request({ units: [{ unitId: UNIT_BOX, conversionFactor: 1, isBase: true }] })),
+      ).rejects.toThrow(ItemWithMovementsError);
+    });
+
+    it('cannot become a service', async () => {
+      await expect(updaterFor(withMovements()).run(request({ type: 'service' }))).rejects.toThrow(ItemWithMovementsError);
+    });
+
+    it('can still change its name and add a secondary unit', async () => {
+      await expect(
+        updaterFor(withMovements()).run(
+          request({
+            name: 'Agua renombrada',
+            units: [
+              { unitId: UNIT_PIECE, conversionFactor: 1, isBase: true },
+              { unitId: UNIT_BOX, conversionFactor: 24, isBase: false },
+            ],
+          }),
+        ),
+      ).resolves.toBeUndefined();
+    });
   });
 });

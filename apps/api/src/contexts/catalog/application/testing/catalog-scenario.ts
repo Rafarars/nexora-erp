@@ -27,6 +27,7 @@ import { InMemoryItemRepository } from '../../infrastructure/testing/in-memory-i
 import { InMemoryMeasurementUnitRepository } from '../../infrastructure/testing/in-memory-measurement-unit.repository.js';
 import { InMemoryTaxRepository } from '../../infrastructure/testing/in-memory-tax.repository.js';
 import { InMemoryWarehouseRepository } from '../../infrastructure/testing/in-memory-warehouse.repository.js';
+import { InMemoryStockUsage } from '../../infrastructure/testing/in-memory-stock-usage.js';
 
 // El mundo de una prueba de aplicacion en una linea: sin base de datos, sin Docker y
 // sin NestJS.
@@ -74,6 +75,7 @@ export function aCatalogScenario(
     usage: new CatalogUsage(items),
     references: new ItemReferences(categoryFinder, taxFinder, unitFinder),
     defaultWarehouse: new DefaultWarehouse(warehouses),
+    stock: new InMemoryStockUsage(),
   };
 }
 

@@ -17,7 +17,14 @@ import {
   DuplicateWarehouseNameError,
 } from './duplicate.errors.js';
 import { InactiveReferenceError } from './inactive-reference.error.js';
-import { CategoryInUseError, MeasurementUnitInUseError, TaxInUseError } from './in-use.errors.js';
+import {
+  CategoryInUseError,
+  ItemWithMovementsError,
+  ItemWithStockError,
+  MeasurementUnitInUseError,
+  TaxInUseError,
+  WarehouseWithStockError,
+} from './in-use.errors.js';
 import {
   InvalidConversionFactorError,
   InvalidItemTypeError,
@@ -58,6 +65,9 @@ const cases: Array<[DomainError, typeof DomainError]> = [
   [new CategoryInUseError(ID), ConflictError],
   [new MeasurementUnitInUseError(ID), ConflictError],
   [new TaxInUseError(ID), ConflictError],
+  [new ItemWithStockError(ID), ConflictError],
+  [new WarehouseWithStockError(ID), ConflictError],
+  [new ItemWithMovementsError(ID), ConflictError],
   [new DefaultWarehouseDeactivationError(ID), ConflictError],
   [new InactiveDefaultWarehouseError(ID), ConflictError],
   [new ConcurrentDefaultWarehouseError(TENANT), ConflictError],
