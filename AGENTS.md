@@ -76,6 +76,14 @@ Filosofía transversal: **explícito sobre automático.**
 - Ante un fallo intermitente: buscar el recurso compartido. Reintentar solo se justifica
   cuando la causa está **fuera** del sistema (una descarga externa, por ejemplo)
 
+## Errores
+
+- **Ningún mensaje de error que ve un cliente lleva identificadores internos ni repite lo
+  que envió.** Cada error de dominio tiene `message`, para registros y pruebas, y
+  `publicMessage`, lo único que sale por HTTP
+- **La interfaz traduce los errores por su código y sus campos**, siempre en español.
+  Nunca muestra el texto que devuelve la API
+
 ## Comandos
 
 Casi todo tiene su objetivo en el `Makefile`, con un comentario `##` que explica qué
