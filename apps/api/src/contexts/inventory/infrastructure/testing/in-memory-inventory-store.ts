@@ -1,0 +1,140 @@
+import { Adjustment, AdjustmentId, AdjustmentPrimitives } from '../../domain/adjustment/adjustment.entity.js';
+import { AdjustmentRepository } from '../../domain/adjustment/adjustment.repository.js';
+import { AdjustmentPosting, Ledger, Posting } from '../../domain/adjustment/posting/adjustment-posting.js';
+import {
+  AdjustmentNotEditableError,
+  AdjustmentNotFoundError,
+  InsufficientStockError,
+} from '../../domain/errors/inventory.errors.js';
+import { InventoryMovement, InventoryMovementPrimitives } from '../../domain/movement/inventory-movement.entity.js';
+import { ItemRef, WarehouseRef } from '../../domain/shared/references.vo.js';
+import { TenantId } from '../../domain/shared/tenant-id.vo.js';
+import { ItemStock, ItemStockPrimitives } from '../../domain/stock/item-stock.entity.js';
+import { StockRepository } from '../../domain/stock/stock.repository.js';
+
+const stockKey = (tenantId: string, itemId: string, warehouseId: string) => `${tenantId}|${itemId}|${warehouseId}`;
+
+// Ajustes, existencias y kardex en un solo almacen, porque en la base comparten
+// transaccion. Imita lo que PostgreSQL garantiza: las publicaciones se ejecutan de una en
+// una, una que falla no deja nada escrito, la existencia nunca queda negativa y un
+// movimiento no se revierte dos veces.
+export class InMemoryInventoryStore implements AdjustmentRepository, StockRepository, AdjustmentPosting {
+  private adjustments = new Map<string, AdjustmentPrimitives>();
+  private stocks = new Map<string, ItemStockPrimitives>();
+  private movements: InventoryMovementPrimitives[] = [];
+  private queue: Promise<unknown> = Promise.resolve();
+
+  constructor(private readonly now: () => Date = () => new Date()) {}
+
+  // Como la base: un borrador guardado no puede pisar un ajuste que entretanto se
+  // confirmo o se anulo. Los cambios de estado los escribe `post`.
+  async save(adjustment: Adjustment): Promise<void> {
+    const row = adjustment.toPrimitives();
+    const stored = this.adjustments.get(row.id);
+
+    if (stored && stored.status !== 'draft') {
+      throw new AdjustmentNotEditableError(row.id, stored.status);
+    }
+
+    this.write(adjustment);
+  }
+
+  private write(adjustment: Adjustment): void {
+    const row = adjustment.toPrimitives();
+
+    this.adjustments.set(row.id, structuredClone(row));
+  }
+
+  async find(tenantId: TenantId, id: AdjustmentId): Promise<Adjustment | null> {
+    const row = this.adjustments.get(id.value);
+
+    return row && row.tenantId === tenantId.value ? Adjustment.fromPrimitives(structuredClone(row)) : null;
+  }
+
+  async searchByTenant(tenantId: TenantId): Promise<Adjustment[]> {
+    return [...this.adjustments.values()]
+      .filter((row) => row.tenantId === tenantId.value)
+      .sort((a, b) => b.code.localeCompare(a.code))
+      .map((row) => Adjustment.fromPrimitives(structuredClone(row)));
+  }
+
+  async searchStocks(tenantId: TenantId, warehouseId?: WarehouseRef): Promise<ItemStock[]> {
+    return [...this.stocks.values()]
+      .filter((row) => row.tenantId === tenantId.value && (!warehouseId || row.warehouseId === warehouseId.value))
+      .map((row) => ItemStock.fromPrimitives(row));
+  }
+
+  async searchMovements(tenantId: TenantId, itemId: ItemRef, warehouseId?: WarehouseRef): Promise<InventoryMovement[]> {
+    return this.movements
+      .filter(
+        (row) =>
+          row.tenantId === tenantId.value &&
+          row.itemId === itemId.value &&
+          (!warehouseId || row.warehouseId === warehouseId.value),
+      )
+      .sort((a, b) => a.warehouseId.localeCompare(b.warehouseId) || a.sequence - b.sequence)
+      .map((row) => InventoryMovement.fromPrimitives(row));
+  }
+
+  // En serie, como el bloqueo de filas de la base.
+  post(tenantId: TenantId, adjustmentId: AdjustmentId, work: (adjustment: Adjustment, ledger: Ledger) => Posting): Promise<void> {
+    const run = this.queue.then(() => this.postNow(tenantId, adjustmentId, work));
+
+    this.queue = run.catch(() => undefined);
+
+    return run;
+  }
+
+  private async postNow(
+    tenantId: TenantId,
+    adjustmentId: AdjustmentId,
+    work: (adjustment: Adjustment, ledger: Ledger) => Posting,
+  ): Promise<void> {
+    const adjustment = await this.find(tenantId, adjustmentId);
+
+    if (!adjustment) throw new AdjustmentNotFoundError(adjustmentId.value);
+
+    const loaded = new Map<string, ItemStock>();
+    const ledger: Ledger = {
+      stock: (itemId, warehouseId) => {
+        const key = stockKey(tenantId.value, itemId.value, warehouseId.value);
+        const row = this.stocks.get(key);
+        const stock = loaded.get(key) ?? (row ? ItemStock.fromPrimitives(row) : ItemStock.empty(tenantId, itemId, warehouseId, this.now()));
+
+        loaded.set(key, stock);
+
+        return stock;
+      },
+      movementsOf: (id) =>
+        this.movements
+          .filter((row) => row.tenantId === tenantId.value && row.originId === id.value)
+          .map((row) => InventoryMovement.fromPrimitives(row)),
+    };
+
+    const posting = work(adjustment, ledger);
+
+    for (const stock of posting.stocks) {
+      if (stock.available().units < 0n) {
+        throw new InsufficientStockError(stock.itemId.value, stock.warehouseId.value, stock.available().toNumber(), 0);
+      }
+    }
+
+    const reversed = new Set(this.movements.map((row) => row.reversalOfId).filter(Boolean));
+
+    for (const movement of posting.movements) {
+      if (movement.reversalOfId && reversed.has(movement.reversalOfId.value)) {
+        throw new Error(`Movement <${movement.reversalOfId.value}> is already reversed.`);
+      }
+    }
+
+    // Nada se escribe hasta que todo lo anterior paso: es la transaccion.
+    this.write(posting.adjustment);
+
+    for (const stock of posting.stocks) {
+      const row = stock.toPrimitives();
+      this.stocks.set(stockKey(row.tenantId, row.itemId, row.warehouseId), row);
+    }
+
+    this.movements.push(...posting.movements.map((movement) => movement.toPrimitives()));
+  }
+}

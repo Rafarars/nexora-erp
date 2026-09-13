@@ -1,0 +1,134 @@
+import {
+  ConflictError,
+  InvalidArgumentError,
+  NotFoundError,
+} from '../../../../shared/domain/domain.error.js';
+
+export class AdjustmentNotFoundError extends NotFoundError {
+  constructor(id: string) {
+    super(`Adjustment <${id}> does not exist.`);
+  }
+}
+
+// Lo del catalogo que el inventario no encuentra en la empresa se responde igual que en el
+// catalogo: como inexistente.
+export class StockItemNotFoundError extends NotFoundError {
+  constructor(id: string) {
+    super(`Item <${id}> does not exist.`);
+  }
+}
+
+export class StockWarehouseNotFoundError extends NotFoundError {
+  constructor(id: string) {
+    super(`Warehouse <${id}> does not exist.`);
+  }
+}
+
+export class InactiveStockItemError extends ConflictError {
+  constructor(id: string) {
+    super(`Item <${id}> is inactive.`, 'The adjustment uses an item that is inactive.');
+  }
+}
+
+export class InactiveStockWarehouseError extends ConflictError {
+  constructor(id: string) {
+    super(`Warehouse <${id}> is inactive.`, 'The adjustment uses a warehouse that is inactive.');
+  }
+}
+
+// Un servicio se compra y se vende, pero no se guarda en ninguna bodega.
+export class ServiceHasNoStockError extends InvalidArgumentError {
+  constructor(id: string) {
+    super(`Item <${id}> is a service and has no stock.`, 'A service cannot be adjusted: it has no stock.');
+  }
+}
+
+export class UnitNotOfItemError extends InvalidArgumentError {
+  constructor(unitId: string, itemId: string) {
+    super(`Unit <${unitId}> is not one of the units of item <${itemId}>.`, 'A line uses a unit that the item does not have.');
+  }
+}
+
+// La regla central del inventario: no se saca lo que no hay.
+export class InsufficientStockError extends ConflictError {
+  constructor(itemId: string, warehouseId: string, available: number, requested: number) {
+    super(
+      `Item <${itemId}> in warehouse <${warehouseId}> has ${available} and ${requested} was requested.`,
+      'There is not enough stock for this operation.',
+    );
+  }
+}
+
+export class EmptyAdjustmentError extends InvalidArgumentError {
+  constructor() {
+    super('An adjustment needs at least one line.', 'An adjustment needs at least one line.');
+  }
+}
+
+export class InvalidQuantityError extends InvalidArgumentError {
+  constructor(value: number) {
+    super(
+      `A quantity must be greater than zero with at most four decimals, received <${value}>.`,
+      'Quantities must be greater than zero with at most four decimals.',
+    );
+  }
+}
+
+export class InvalidUnitCostError extends InvalidArgumentError {
+  constructor(value: number) {
+    super(
+      `A unit cost must be zero or more with at most six decimals, received <${value}>.`,
+      'Unit costs must be zero or more with at most six decimals.',
+    );
+  }
+}
+
+// Una salida se valora al costo promedio vigente: un costo escrito en ella no significaria
+// nada y confundiria a quien lee el documento.
+export class CostOnOutgoingLineError extends InvalidArgumentError {
+  constructor(lineNumber: number) {
+    super(`Line ${lineNumber} is outgoing and cannot carry a unit cost.`, 'Only incoming lines can carry a unit cost.');
+  }
+}
+
+export class InvalidAdjustmentDateError extends InvalidArgumentError {
+  constructor(value: string) {
+    super(`An adjustment date must be a real YYYY-MM-DD date, received <${value}>.`, 'The adjustment date is not valid.');
+  }
+}
+
+export class FutureAdjustmentDateError extends InvalidArgumentError {
+  constructor(value: string) {
+    super(`Adjustment date <${value}> is in the future.`, 'An adjustment cannot be dated in the future.');
+  }
+}
+
+export class AdjustmentNotEditableError extends ConflictError {
+  constructor(id: string, status: string) {
+    super(`Adjustment <${id}> is ${status} and can no longer be edited.`, 'Only a draft adjustment can be edited.');
+  }
+}
+
+export class AdjustmentNotConfirmableError extends ConflictError {
+  constructor(id: string, status: string) {
+    super(`Adjustment <${id}> is ${status} and cannot be confirmed.`, 'Only a draft adjustment can be confirmed.');
+  }
+}
+
+export class AdjustmentAlreadyCancelledError extends ConflictError {
+  constructor(id: string) {
+    super(`Adjustment <${id}> is already cancelled.`, 'The adjustment is already cancelled.');
+  }
+}
+
+export class InventoryTextTooLongError extends InvalidArgumentError {
+  constructor(name: string, max: number) {
+    super(`${name} cannot be longer than ${max} characters.`, 'A value is too long.');
+  }
+}
+
+export class InvalidDirectionError extends InvalidArgumentError {
+  constructor(value: string) {
+    super(`A line direction must be in or out, received <${value}>.`, 'Each line must be an entry or an exit.');
+  }
+}
