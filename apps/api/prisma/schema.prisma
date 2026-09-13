@@ -31,6 +31,11 @@ model Tenant {
   adjustmentLines  AdjustmentLine[]
   movements        InventoryMovement[]
   stocks           ItemStock[]
+  suppliers        Supplier[]
+  purchaseOrders   PurchaseOrder[]
+  purchaseLines    PurchaseOrderLine[]
+  goodsReceipts    GoodsReceipt[]
+  receiptLines     GoodsReceiptLine[]
 
   @@map("tenants")
 }
@@ -174,9 +179,11 @@ model MeasurementUnit {
   createdAt    DateTime @default(now()) @map("created_at")
   updatedAt    DateTime @updatedAt @map("updated_at")
 
-  tenant          Tenant           @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  tenant          Tenant              @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   itemUnits       ItemUnit[]
   adjustmentLines AdjustmentLine[]
+  purchaseLines   PurchaseOrderLine[]
+  receiptLines    GoodsReceiptLine[]
 
   @@unique([tenantId, id])
   @@unique([tenantId, code])
@@ -219,10 +226,12 @@ model Warehouse {
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt @map("updated_at")
 
-  tenant      Tenant              @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  adjustments Adjustment[]
-  movements   InventoryMovement[]
-  stocks      ItemStock[]
+  tenant         Tenant              @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  adjustments    Adjustment[]
+  movements      InventoryMovement[]
+  stocks         ItemStock[]
+  purchaseOrders PurchaseOrder[]
+  goodsReceipts  GoodsReceipt[]
 
   @@unique([tenantId, id])
   @@unique([tenantId, code])
@@ -256,6 +265,8 @@ model Item {
   adjustmentLines AdjustmentLine[]
   movements       InventoryMovement[]
   stocks          ItemStock[]
+  purchaseLines   PurchaseOrderLine[]
+  receiptLines    GoodsReceiptLine[]
 
   @@unique([tenantId, id])
   @@unique([tenantId, code])
@@ -412,4 +423,164 @@ model ItemStock {
   @@id([tenantId, itemId, warehouseId])
   @@index([tenantId, warehouseId])
   @@map("item_stocks")
+}
+
+// ---------------------------------------------------------------- compras
+//
+// Proveedor, orden de compra y entrada de mercancia. La orden no mueve existencia: anuncia
+// lo que viene en camino. La entrada confirmada es la que la mueve, y lo hace a traves del
+// inventario, que sigue siendo el unico que escribe kardex y existencias.
+
+/// A quien se le compra. Nunca se borra: se desactiva.
+model Supplier {
+  id              String   @id @db.Uuid
+  tenantId        String   @map("tenant_id") @db.Uuid
+  code            String   @db.VarChar(12)
+  name            String   @db.VarChar(150)
+  fiscalId        String?  @map("fiscal_id") @db.VarChar(30)
+  email           String?  @db.VarChar(150)
+  phone           String?  @db.VarChar(40)
+  address         String?  @db.VarChar(500)
+  paymentTermDays Int      @default(0) @map("payment_term_days")
+  isActive        Boolean  @default(true) @map("is_active")
+  createdAt       DateTime @default(now()) @map("created_at")
+  updatedAt       DateTime @updatedAt @map("updated_at")
+
+  tenant Tenant          @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  orders PurchaseOrder[]
+
+  @@unique([tenantId, id])
+  @@unique([tenantId, code])
+  @@unique([tenantId, name])
+  @@map("suppliers")
+}
+
+/// Borrador editable, confirmada (anuncia mercancia en camino), recibida en parte,
+/// recibida del todo o anulada.
+enum PurchaseOrderStatus {
+  draft
+  confirmed
+  partially_received
+  received
+  cancelled
+
+  @@map("purchase_order_status")
+}
+
+/// Lo que se le pide a un proveedor para una bodega.
+model PurchaseOrder {
+  id           String              @id @db.Uuid
+  tenantId     String              @map("tenant_id") @db.Uuid
+  code         String              @db.VarChar(12)
+  supplierId   String              @map("supplier_id") @db.Uuid
+  warehouseId  String              @map("warehouse_id") @db.Uuid
+  orderDate    DateTime            @map("order_date") @db.Date
+  expectedDate DateTime?           @map("expected_date") @db.Date
+  notes        String?             @db.VarChar(500)
+  status       PurchaseOrderStatus @default(draft)
+  confirmedAt  DateTime?           @map("confirmed_at")
+  cancelledAt  DateTime?           @map("cancelled_at")
+  createdAt    DateTime            @default(now()) @map("created_at")
+  updatedAt    DateTime            @updatedAt @map("updated_at")
+
+  tenant    Tenant              @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  supplier  Supplier            @relation(fields: [tenantId, supplierId], references: [tenantId, id], onDelete: Restrict)
+  warehouse Warehouse           @relation(fields: [tenantId, warehouseId], references: [tenantId, id], onDelete: Restrict)
+  lines     PurchaseOrderLine[]
+  receipts  GoodsReceipt[]
+
+  @@unique([tenantId, id])
+  @@unique([tenantId, code])
+  @@index([tenantId, status])
+  @@index([tenantId, supplierId])
+  @@map("purchase_orders")
+}
+
+/// Una linea de la orden. `unit_cost` es por unidad de la linea y `tax_rate` es el
+/// porcentaje del impuesto del articulo cuando se escribio. `received_quantity`, en la
+/// unidad de la linea, lo suman las entradas confirmadas y lo restan las anuladas.
+model PurchaseOrderLine {
+  id               String  @id @db.Uuid
+  tenantId         String  @map("tenant_id") @db.Uuid
+  orderId          String  @map("order_id") @db.Uuid
+  lineNumber       Int     @map("line_number")
+  itemId           String  @map("item_id") @db.Uuid
+  unitId           String  @map("unit_id") @db.Uuid
+  quantity         Decimal @db.Decimal(18, 4)
+  baseQuantity     Decimal @map("base_quantity") @db.Decimal(18, 4)
+  unitCost         Decimal @map("unit_cost") @db.Decimal(18, 6)
+  taxRate          Decimal @default(0) @map("tax_rate") @db.Decimal(7, 4)
+  receivedQuantity Decimal @default(0) @map("received_quantity") @db.Decimal(18, 4)
+
+  tenant       Tenant             @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  order        PurchaseOrder      @relation(fields: [tenantId, orderId], references: [tenantId, id], onDelete: Cascade)
+  item         Item               @relation(fields: [tenantId, itemId], references: [tenantId, id], onDelete: Restrict)
+  unit         MeasurementUnit    @relation(fields: [tenantId, unitId], references: [tenantId, id], onDelete: Restrict)
+  receiptLines GoodsReceiptLine[]
+
+  @@unique([tenantId, id])
+  @@unique([orderId, lineNumber])
+  @@index([tenantId, itemId])
+  @@map("purchase_order_lines")
+}
+
+enum GoodsReceiptStatus {
+  draft
+  confirmed
+  cancelled
+
+  @@map("goods_receipt_status")
+}
+
+/// Lo que llego de una orden. Al confirmarse sube la existencia; al anularse la revierte.
+model GoodsReceipt {
+  id          String             @id @db.Uuid
+  tenantId    String             @map("tenant_id") @db.Uuid
+  code        String             @db.VarChar(12)
+  orderId     String             @map("order_id") @db.Uuid
+  warehouseId String             @map("warehouse_id") @db.Uuid
+  receiptDate DateTime           @map("receipt_date") @db.Date
+  notes       String?            @db.VarChar(500)
+  status      GoodsReceiptStatus @default(draft)
+  confirmedAt DateTime?          @map("confirmed_at")
+  cancelledAt DateTime?          @map("cancelled_at")
+  createdAt   DateTime           @default(now()) @map("created_at")
+  updatedAt   DateTime           @updatedAt @map("updated_at")
+
+  tenant    Tenant             @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  order     PurchaseOrder      @relation(fields: [tenantId, orderId], references: [tenantId, id], onDelete: Restrict)
+  warehouse Warehouse          @relation(fields: [tenantId, warehouseId], references: [tenantId, id], onDelete: Restrict)
+  lines     GoodsReceiptLine[]
+
+  @@unique([tenantId, id])
+  @@unique([tenantId, code])
+  @@index([tenantId, orderId])
+  @@index([tenantId, status])
+  @@map("goods_receipts")
+}
+
+/// Una linea de la entrada: cuanto llego de una linea de la orden, en su misma unidad.
+model GoodsReceiptLine {
+  id           String  @id @db.Uuid
+  tenantId     String  @map("tenant_id") @db.Uuid
+  receiptId    String  @map("receipt_id") @db.Uuid
+  lineNumber   Int     @map("line_number")
+  orderLineId  String  @map("order_line_id") @db.Uuid
+  itemId       String  @map("item_id") @db.Uuid
+  unitId       String  @map("unit_id") @db.Uuid
+  quantity     Decimal @db.Decimal(18, 4)
+  baseQuantity Decimal @map("base_quantity") @db.Decimal(18, 4)
+  unitCost     Decimal @map("unit_cost") @db.Decimal(18, 6)
+
+  tenant    Tenant            @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  receipt   GoodsReceipt      @relation(fields: [tenantId, receiptId], references: [tenantId, id], onDelete: Cascade)
+  orderLine PurchaseOrderLine @relation(fields: [tenantId, orderLineId], references: [tenantId, id], onDelete: Restrict)
+  item      Item              @relation(fields: [tenantId, itemId], references: [tenantId, id], onDelete: Restrict)
+  unit      MeasurementUnit   @relation(fields: [tenantId, unitId], references: [tenantId, id], onDelete: Restrict)
+
+  @@unique([receiptId, lineNumber])
+  // Una linea de la orden aparece una sola vez en cada entrada.
+  @@unique([receiptId, orderLineId])
+  @@index([tenantId, orderLineId])
+  @@map("goods_receipt_lines")
 }
