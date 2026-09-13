@@ -19,8 +19,14 @@ model Tenant {
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt @map("updated_at")
 
-  memberships Membership[]
-  roles       Role[]
+  memberships       Membership[]
+  roles             Role[]
+  codeSequences     CodeSequence[]
+  categories        Category[]
+  measurementUnits  MeasurementUnit[]
+  taxes             Tax[]
+  warehouses        Warehouse[]
+  items             Item[]
 
   @@map("tenants")
 }
@@ -110,4 +116,165 @@ model MembershipRole {
 
   @@id([membershipId, roleId])
   @@map("membership_roles")
+}
+
+// ---------------------------------------------------------------- catalogo
+//
+// Nada se borra: los maestros se desactivan con `is_active`. Por eso las claves
+// ajenas entre maestros son RESTRICT: una fila referenciada no puede desaparecer.
+// Contra `tenants` siguen en CASCADE, como el resto del esquema.
+
+/// Contador del codigo legible por empresa y prefijo (`ART000001`). Una fila por
+/// pareja: el incremento es un UPDATE atomico, asi dos altas simultaneas nunca
+/// reciben el mismo numero.
+model CodeSequence {
+  tenantId  String @map("tenant_id") @db.Uuid
+  prefix    String @db.VarChar(3)
+  lastValue Int    @default(0) @map("last_value")
+
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@id([tenantId, prefix])
+  @@map("code_sequences")
+}
+
+/// Clasificacion de los articulos. Un solo nivel, sin jerarquia.
+model Category {
+  id          String   @id @db.Uuid
+  tenantId    String   @map("tenant_id") @db.Uuid
+  code        String   @db.VarChar(12)
+  name        String   @db.VarChar(150)
+  description String?
+  isActive    Boolean  @default(true) @map("is_active")
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  items  Item[]
+
+  @@unique([tenantId, id])
+  @@unique([tenantId, code])
+  @@unique([tenantId, name])
+  @@map("categories")
+}
+
+/// Unidad, Caja, Kilogramo. NO guarda factores de conversion: el contenido de una
+/// caja cambia de articulo en articulo, asi que la equivalencia vive en `item_units`.
+model MeasurementUnit {
+  id           String   @id @db.Uuid
+  tenantId     String   @map("tenant_id") @db.Uuid
+  code         String   @db.VarChar(12)
+  name         String   @db.VarChar(100)
+  abbreviation String   @db.VarChar(10)
+  isActive     Boolean  @default(true) @map("is_active")
+  createdAt    DateTime @default(now()) @map("created_at")
+  updatedAt    DateTime @updatedAt @map("updated_at")
+
+  tenant    Tenant     @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  itemUnits ItemUnit[]
+
+  @@unique([tenantId, id])
+  @@unique([tenantId, code])
+  @@unique([tenantId, name])
+  @@unique([tenantId, abbreviation])
+  @@map("measurement_units")
+}
+
+/// Impuesto aplicable a un articulo. El porcentaje se copiara a la linea del documento
+/// al confirmarlo: cambiarlo aqui no altera lo ya emitido.
+model Tax {
+  id        String   @id @db.Uuid
+  tenantId  String   @map("tenant_id") @db.Uuid
+  code      String   @db.VarChar(12)
+  name      String   @db.VarChar(100)
+  rate      Decimal  @db.Decimal(7, 4)
+  isActive  Boolean  @default(true) @map("is_active")
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  items  Item[]
+
+  @@unique([tenantId, id])
+  @@unique([tenantId, code])
+  @@unique([tenantId, name])
+  @@map("taxes")
+}
+
+/// Lugar donde se guarda inventario. Una sola bodega por defecto por empresa: lo garantiza
+/// un indice unico parcial que Prisma no sabe expresar y vive en la migracion.
+model Warehouse {
+  id        String   @id @db.Uuid
+  tenantId  String   @map("tenant_id") @db.Uuid
+  code      String   @db.VarChar(12)
+  name      String   @db.VarChar(150)
+  address   String?  @db.VarChar(500)
+  isDefault Boolean  @default(false) @map("is_default")
+  isActive  Boolean  @default(true) @map("is_active")
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@unique([tenantId, id])
+  @@unique([tenantId, code])
+  @@unique([tenantId, name])
+  @@index([tenantId, isDefault])
+  @@map("warehouses")
+}
+
+/// El maestro de productos y servicios. `sku` lo escribe la persona; `code` es el
+/// correlativo del sistema.
+model Item {
+  id          String   @id @db.Uuid
+  tenantId    String   @map("tenant_id") @db.Uuid
+  code        String   @db.VarChar(12)
+  sku         String   @db.VarChar(60)
+  name        String   @db.VarChar(200)
+  description String?
+  type        ItemType
+  categoryId  String?  @map("category_id") @db.Uuid
+  taxId       String?  @map("tax_id") @db.Uuid
+  isActive    Boolean  @default(true) @map("is_active")
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  tenant   Tenant     @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  // Compuestas con la empresa: ni la propia base acepta un articulo que apunte a la
+  // categoria o al impuesto de otra empresa.
+  category Category?  @relation(fields: [tenantId, categoryId], references: [tenantId, id], onDelete: Restrict)
+  tax      Tax?       @relation(fields: [tenantId, taxId], references: [tenantId, id], onDelete: Restrict)
+  units    ItemUnit[]
+
+  @@unique([tenantId, id])
+  @@unique([tenantId, code])
+  @@unique([tenantId, sku])
+  @@index([tenantId, categoryId])
+  @@index([tenantId, taxId])
+  @@map("items")
+}
+
+/// `inventoried` mueve existencia; `service` se compra y se vende pero nunca tiene stock.
+enum ItemType {
+  inventoried
+  service
+
+  @@map("item_type")
+}
+
+/// Las unidades en que se maneja un articulo. Exactamente una es la base (factor 1)
+/// y en ella se guardara todo el stock; el resto dice cuantas bases contiene.
+model ItemUnit {
+  tenantId         String  @map("tenant_id") @db.Uuid
+  itemId           String  @map("item_id") @db.Uuid
+  unitId           String  @map("unit_id") @db.Uuid
+  conversionFactor Decimal @map("conversion_factor") @db.Decimal(18, 4)
+  isBase           Boolean @map("is_base")
+
+  item Item            @relation(fields: [tenantId, itemId], references: [tenantId, id], onDelete: Cascade)
+  unit MeasurementUnit @relation(fields: [tenantId, unitId], references: [tenantId, id], onDelete: Restrict)
+
+  @@id([itemId, unitId])
+  @@index([tenantId, unitId])
+  @@map("item_units")
 }
