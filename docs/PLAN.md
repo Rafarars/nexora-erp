@@ -287,6 +287,17 @@ empresas de los recursos nuevos, primer flujo E2E del catálogo.
 
 ### H3 — Inventario
 Ajustes, kardex y existencias por bodega.
+
+**Fases** (informe detallado en [`docs/H3-INVENTARIO.md`](H3-INVENTARIO.md))
+
+- [x] **0. Modelo y migración** — ajustes, líneas, kardex y existencias; la base prohíbe existencia negativa
+- [x] **1. Dominio** — enteros escalados, costo promedio, kardex inmutable y publicación atómica
+- [x] **2. Aplicación** — siete casos de uso y las reglas del catálogo que esperaban al inventario
+- [x] **3. Infraestructura** — transacción con bloqueo de filas y contrato con concurrencia real
+- [x] **4. API** — siete rutas, siete permisos y seis ataques nuevos
+- [x] **5. Frontend** — existencias, ajustes con editor de líneas y kardex
+- [x] **6. Semillas y E2E** — inventario de demostración y suites de API e interfaz
+- [ ] **7. Cierre** — revisión de Rafael y commits por fase
 *Pruebas:* **guarda de inventario en cero** (no se puede sacar más de lo que hay), kardex
 inmutable con corrección por contrapartida, **el stock siempre cuadra con la suma del kardex**.
 *→ A partir de aquí el enlace ya es presentable en postulaciones.*

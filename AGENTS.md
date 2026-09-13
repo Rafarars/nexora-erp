@@ -130,6 +130,8 @@ variables del proveedor en un servidor).
 | `docs/RETOMAR.md` | **Empezar aquí**: estado actual y siguientes pasos |
 | `docs/ARCHITECTURE.md` | Convención hexagonal: estructura, nombres y reglas |
 | `docs/FUTURE.md` | Mejoras diferidas, con su porqué |
+| `docs/modulos/` | Documentación funcional de cada módulo: reglas de negocio, datos, API, pantallas y pruebas |
+| `docs/H2-CATALOGO.md`, `docs/H3-INVENTARIO.md` | Informe de cada hito, fase por fase, con lo que encontró su revisión |
 | `README.md` | Portada del portafolio |
 
 Las decisiones con su porqué se guardan además en Engram, proyecto `nexora-erp`.

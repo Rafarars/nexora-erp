@@ -194,6 +194,19 @@ sirve a un endpoint. Tienen el mismo nombre y trabajos distintos.
 - Lo que comparten las pruebas de varios contextos (reloj congelado, identificadores
   predecibles) vive en `shared/infrastructure/testing/`
 
+## Mover existencia
+
+- **Un solo camino**: el puerto `AdjustmentPosting`. Bloquea el documento y las existencias
+  que toca (en orden fijo), ejecuta un trabajo **síncrono y puro** del dominio y escribe todo en
+  una transacción. Si el dominio lanza, no queda nada escrito
+- **Cantidades y costos en enteros escalados** (`BigInt`): la existencia es la suma exacta del
+  kardex, sin redondeos de coma flotante
+- **El kardex no se edita**: anular escribe movimientos que citan a los originales
+- **Un contexto lee a otro por un puerto propio** (`InventoryCatalog`, `StockUsage`) cuyo
+  adaptador lee las tablas del otro: capa anticorrupción, sin importar su código
+- **Un repositorio no pisa un cambio de estado**: guardar un borrador solo actualiza filas que
+  siguen en borrador
+
 ## Persistencia
 
 - **La base también hace cumplir las reglas que puede**: claves ajenas compuestas con la
@@ -386,6 +399,10 @@ de que la arquitectura está bien hecha**. Si necesitan base de datos, algo se f
 | Leer `meta.target` para reconocer un duplicado de Prisma | Leer también el índice de `driverAdapterError`: con adaptador, `target` no llega |
 | Importar con `@/` dentro de `modules/` | Relativo: Vitest no resuelve el alias |
 | Mostrar un número con separador de miles en un campo editable | Sin agrupar: al volver a guardarlo no se entendería |
+| Sumar cantidades con `number` y comparar con el kardex | Enteros escalados: con coma flotante no cuadra |
+| Leer la existencia, decidir y escribir en pasos separados | Bloquear la fila en la misma transacción: dos salidas leerían el mismo saldo |
+| Pruebas en paralelo que mueven el stock de un artículo sembrado | Un artículo propio por prueba |
+| Un filtro por identificador ajeno que devuelve lista vacía | 404, como cualquier identificador ajeno |
 
 ---
 

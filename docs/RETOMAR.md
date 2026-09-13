@@ -9,6 +9,7 @@ de ninguna conversación anterior**.
 
 ## Cómo retomar
 
+0. Leer [`docs/modulos/`](modulos/README.md) — qué hace cada módulo y con qué reglas
 1. Leer [`AGENTS.md`](../AGENTS.md) — reglas del proyecto
 2. Leer [`docs/ARCHITECTURE.md`](ARCHITECTURE.md) — convención hexagonal
 3. Buscar en Engram, proyecto `nexora-erp`, para el porqué de cada decisión
@@ -22,10 +23,11 @@ de ninguna conversación anterior**.
 |---|---|
 | Repositorio | github.com/Rafarars/nexora-erp |
 | Reporte de pruebas | https://rafarars.github.io/nexora-erp/ |
-| Pruebas | 1023 + 62 unitarias · 67 de contrato · 153 end-to-end |
+| Pruebas | 1249 + 82 unitarias · 82 de contrato · 177 end-to-end |
 | **H0 — Fundación** | **Completado** |
 | **H1 — Multiempresa y acceso** | **Completado** y revisado |
-| **H2 — Catálogo** | Fases 0 a 6 **implementadas y sin commitear**, pendientes de la revisión de Rafael. Informe en [`H2-CATALOGO.md`](H2-CATALOGO.md) |
+| **H2 — Catálogo** | **Completado** ([`H2-CATALOGO.md`](H2-CATALOGO.md)) |
+| **H3 — Inventario** | Fases 0 a 6 **implementadas y sin commitear**, pendientes de revisión. Informe en [`H3-INVENTARIO.md`](H3-INVENTARIO.md) |
 
 Lo que ya funciona: monorepo con API, frontend y suite E2E; PostgreSQL en Docker;
 endpoint de salud que verifica la base; CI con cuatro trabajos publicando el reporte;

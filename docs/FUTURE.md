@@ -116,14 +116,21 @@ tabla y la respuesta crecen sin límite.
 **Qué habría que hacer:** búsqueda y paginación en el puerto (`search(tenantId, criteria)`),
 y la guarda de rendimiento prevista en el H7 sobre un listado con volumen sembrado.
 
-### Bloquear cambios de un artículo con movimientos
+### Paginación del kardex y de los ajustes
 
-**Por qué:** hoy se puede cambiar la unidad base o el tipo de un artículo, porque todavía no
-existen movimientos de inventario. En el H3 eso rompería el kardex.
+**Por qué:** el kardex de un artículo con años de movimientos, o el listado de ajustes de una
+empresa grande, se devuelven enteros.
 
-**Qué habría que hacer:** al llegar el H3, rechazar en el dominio el cambio de unidad base y
-de tipo de un artículo con movimientos, y la desactivación de un artículo o bodega con
-existencia.
+**Qué habría que hacer:** paginar por `sequence` en el kardex y por código en los ajustes, y
+la guarda de rendimiento del H7.
+
+### Generalizar la publicación para entradas y despachos
+
+**Por qué:** en el H3 solo el ajuste mueve existencia. Compras y ventas traerán entradas y
+despachos, que tienen que pasar por el mismo camino.
+
+**Qué habría que hacer:** extraer de `AdjustmentPosting` una publicación por documento de
+origen, con `origin_type` ampliado, reutilizando `ItemStock` tal cual.
 
 ### Renombrar `AccessError` a `ApiError` en el frontend
 
