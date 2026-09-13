@@ -1,6 +1,6 @@
 import { PrismaPg } from '@prisma/adapter-pg';
 import { PrismaClient } from '../src/generated/prisma/client.js';
-import { ACCESS_PERMISSIONS } from '../src/contexts/access/domain/role/permissions.catalog.js';
+import { SYSTEM_PERMISSIONS } from '../src/contexts/access/domain/role/permissions.catalog.js';
 
 // Sincroniza el catalogo de permisos declarado en el codigo. Lo corre `make migrate`,
 // asi que pasa en esta maquina, en el CI y en el servidor por igual — nunca depende
@@ -10,7 +10,6 @@ import { ACCESS_PERMISSIONS } from '../src/contexts/access/domain/role/permissio
 // un permiso del catalogo no puede arrastrar los role_permissions de las empresas que
 // ya lo tenian concedido; retirar un permiso es una decision explicita, con su
 // migracion.
-const CATALOGS = [ACCESS_PERMISSIONS];
 
 async function main(): Promise<void> {
   const connectionString = process.env.DATABASE_URL;
@@ -22,7 +21,7 @@ async function main(): Promise<void> {
   const prisma = new PrismaClient({ adapter: new PrismaPg({ connectionString }) });
 
   try {
-    const permissions = CATALOGS.flat();
+    const permissions = SYSTEM_PERMISSIONS;
 
     for (const { code, description } of permissions) {
       await prisma.permission.upsert({

@@ -15,12 +15,18 @@ const auth = (token: string) => ({ authorization: `Bearer ${token}` });
 // despues de cada ataque: un 404 que llega DESPUES de escribir tambien seria una fuga.
 async function globexSnapshot(request: APIRequestContext) {
   const token = await tokenFor(request, 'beto@globex.com');
-  const [users, roles] = await Promise.all([
-    request.get('/api/v1/users', { headers: auth(token) }).then((r) => r.json()),
-    request.get('/api/v1/roles', { headers: auth(token) }).then((r) => r.json()),
+  const read = (path: string) => request.get(path, { headers: auth(token) }).then((r) => r.json());
+  const [users, roles, categories, units, taxes, warehouses, items] = await Promise.all([
+    read('/api/v1/users'),
+    read('/api/v1/roles'),
+    read('/api/v1/catalog/categories'),
+    read('/api/v1/catalog/units'),
+    read('/api/v1/catalog/taxes'),
+    read('/api/v1/catalog/warehouses'),
+    read('/api/v1/catalog/items'),
   ]);
 
-  return { users, roles };
+  return { users, roles, categories, units, taxes, warehouses, items };
 }
 
 // Ana solo esta en Acme. El superusuario esta en las dos y es administrador en ambas:

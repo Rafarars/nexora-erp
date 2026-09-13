@@ -1,7 +1,7 @@
 import { ConfigService } from '@nestjs/config';
 import { PrismaService } from '../../../../shared/prisma/prisma.service.js';
 import type { Env } from '../../../../shared/config/env.schema.js';
-import { ACCESS_PERMISSIONS } from '../../domain/role/permissions.catalog.js';
+import { SYSTEM_PERMISSIONS } from '../../domain/role/permissions.catalog.js';
 import {
   AccessRepositories,
   AccessRepositoriesHarness,
@@ -50,7 +50,7 @@ export class PrismaAccessRepositoriesHarness implements AccessRepositoriesHarnes
     // El catalogo NO se borra: es lo que `make migrate` deja puesto, y el contrato
     // debe correr contra los permisos de verdad, no contra unos inventados.
     await this.prisma.permission.createMany({
-      data: ACCESS_PERMISSIONS,
+      data: SYSTEM_PERMISSIONS,
       skipDuplicates: true,
     });
   }

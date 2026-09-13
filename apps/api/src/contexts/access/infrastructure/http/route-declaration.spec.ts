@@ -2,7 +2,7 @@ import { readdirSync, readFileSync, statSync } from 'node:fs';
 import { dirname, join, relative, sep } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
-import { ACCESS_PERMISSIONS } from '../../domain/role/permissions.catalog.js';
+import { SYSTEM_PERMISSIONS } from '../../domain/role/permissions.catalog.js';
 
 const API_SRC = join(dirname(fileURLToPath(import.meta.url)), '../../../..');
 const REQUIRED_PERMISSION = /@RequirePermission\('([^']+)'\)/g;
@@ -86,7 +86,7 @@ describe('every route declares who can reach it', () => {
 // catalogo se separan, el endpoint queda inalcanzable —ningun rol puede tener un
 // permiso que no existe— y nadie lo nota hasta produccion.
 describe('declared permissions match the catalog', () => {
-  const catalog = new Set(ACCESS_PERMISSIONS.map((permission) => permission.code));
+  const catalog = new Set(SYSTEM_PERMISSIONS.map((permission) => permission.code));
 
   const declared = new Set(
     files.flatMap((path) =>

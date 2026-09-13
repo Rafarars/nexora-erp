@@ -3,8 +3,9 @@ import { ConfigModule } from './shared/config/config.module.js';
 import { SharedModule } from './shared/infrastructure/shared.module.js';
 import { HealthModule } from './health/health.module.js';
 import { AccessModule } from './contexts/access/infrastructure/access.module.js';
+import { CatalogModule } from './contexts/catalog/infrastructure/catalog.module.js';
 
 @Module({
-  imports: [ConfigModule, SharedModule, HealthModule, AccessModule],
+  imports: [ConfigModule, SharedModule, HealthModule, AccessModule, CatalogModule],
 })
 export class AppModule {}

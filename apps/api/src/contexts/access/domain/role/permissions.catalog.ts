@@ -1,6 +1,10 @@
-// Los permisos que EXISTEN en este contexto. El codigo es la fuente de verdad: se
-// declaran junto al contexto que los usa, no repartidos por el historial de
-// migraciones. `make migrate` los sincroniza en la base con un upsert idempotente.
+// Los permisos que EXISTEN en el sistema. El codigo es la fuente de verdad: se declaran
+// aqui, no repartidos por el historial de migraciones, y `make migrate` los sincroniza
+// en la base con un upsert idempotente.
+//
+// Viven en `access` aunque protejan endpoints de otros contextos: autorizar es trabajo
+// de este contexto, y los demas solo nombran el permiso en su @RequirePermission. Cada
+// contexto tiene su propia lista para que se lea de quien es cada permiso.
 //
 // Al crear un modulo nuevo: declarar aqui su permiso ANTES de usarlo en un
 // @RequirePermission, o el endpoint quedaria inalcanzable — ningun rol puede tener
@@ -25,8 +29,33 @@ export const ACCESS_PERMISSIONS: PermissionDefinition[] = [
   { code: 'access.roles.assign', description: 'Asignar y retirar roles a un miembro' },
 ];
 
+export const CATALOG_PERMISSIONS: PermissionDefinition[] = [
+  { code: 'catalog.categories.search', description: 'Consultar las categorías' },
+  { code: 'catalog.categories.create', description: 'Crear categorías' },
+  { code: 'catalog.categories.update', description: 'Editar categorías' },
+  { code: 'catalog.categories.deactivate', description: 'Desactivar y reactivar categorías' },
+  { code: 'catalog.units.search', description: 'Consultar las unidades de medida' },
+  { code: 'catalog.units.create', description: 'Crear unidades de medida' },
+  { code: 'catalog.units.update', description: 'Editar unidades de medida' },
+  { code: 'catalog.units.deactivate', description: 'Desactivar y reactivar unidades de medida' },
+  { code: 'catalog.taxes.search', description: 'Consultar los impuestos' },
+  { code: 'catalog.taxes.create', description: 'Crear impuestos' },
+  { code: 'catalog.taxes.update', description: 'Editar impuestos y su porcentaje' },
+  { code: 'catalog.taxes.deactivate', description: 'Desactivar y reactivar impuestos' },
+  { code: 'catalog.warehouses.search', description: 'Consultar las bodegas' },
+  { code: 'catalog.warehouses.create', description: 'Crear bodegas' },
+  { code: 'catalog.warehouses.update', description: 'Editar bodegas y elegir la bodega por defecto' },
+  { code: 'catalog.warehouses.deactivate', description: 'Desactivar y reactivar bodegas' },
+  { code: 'catalog.items.search', description: 'Consultar los artículos' },
+  { code: 'catalog.items.create', description: 'Crear artículos' },
+  { code: 'catalog.items.update', description: 'Editar artículos y sus unidades' },
+  { code: 'catalog.items.deactivate', description: 'Desactivar y reactivar artículos' },
+];
+
+export const SYSTEM_PERMISSIONS: PermissionDefinition[] = [...ACCESS_PERMISSIONS, ...CATALOG_PERMISSIONS];
+
 // Concede un permiso que no existe y la clave ajena lo rechazaria en la base con un
 // error ilegible. Se comprueba antes, contra la unica fuente de verdad.
 export function isKnownPermission(code: string): boolean {
-  return ACCESS_PERMISSIONS.some((permission) => permission.code === code);
+  return SYSTEM_PERMISSIONS.some((permission) => permission.code === code);
 }

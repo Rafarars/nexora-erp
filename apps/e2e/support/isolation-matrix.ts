@@ -3,11 +3,17 @@ export const GLOBEX = {
   tenantId: '22222222-2222-4222-8222-222222222222',
   adminRoleId: 'b0000000-0000-4000-8000-000000000001',
   betoUserId: 'c0000000-0000-4000-8000-000000000002',
+  unitId: 'e0000000-0000-4000-8000-000000000101',
+  categoryId: 'e1000000-0000-4000-8000-000000000101',
+  taxId: 'e2000000-0000-4000-8000-000000000101',
+  warehouseId: 'e3000000-0000-4000-8000-000000000101',
+  itemId: 'e4000000-0000-4000-8000-000000000101',
 };
 
 export const ACME = {
   anaUserId: 'c0000000-0000-4000-8000-000000000001',
   viewerRoleId: 'a0000000-0000-4000-8000-000000000002',
+  unitId: 'e0000000-0000-4000-8000-000000000001',
 };
 
 export interface IsolationCase {
@@ -67,6 +73,102 @@ export const ISOLATION_CASES: IsolationCase[] = [
       password: 'a-long-password',
       name: 'Colado',
       roleIds: [GLOBEX.adminRoleId],
+    },
+  },
+  {
+    route: 'PUT /api/v1/catalog/categories/:categoryId',
+    title: 'rename a category of another tenant',
+    method: 'put',
+    path: `/api/v1/catalog/categories/${GLOBEX.categoryId}`,
+    body: { name: 'Colado' },
+  },
+  {
+    route: 'PUT /api/v1/catalog/categories/:categoryId/status',
+    title: 'deactivate a category of another tenant',
+    method: 'put',
+    path: `/api/v1/catalog/categories/${GLOBEX.categoryId}/status`,
+    body: { active: false },
+  },
+  {
+    route: 'PUT /api/v1/catalog/units/:unitId',
+    title: 'rename a measurement unit of another tenant',
+    method: 'put',
+    path: `/api/v1/catalog/units/${GLOBEX.unitId}`,
+    body: { name: 'Colado', abbreviation: 'col' },
+  },
+  {
+    route: 'PUT /api/v1/catalog/units/:unitId/status',
+    title: 'deactivate a measurement unit of another tenant',
+    method: 'put',
+    path: `/api/v1/catalog/units/${GLOBEX.unitId}/status`,
+    body: { active: false },
+  },
+  {
+    route: 'PUT /api/v1/catalog/taxes/:taxId',
+    title: 'change the rate of a tax of another tenant',
+    method: 'put',
+    path: `/api/v1/catalog/taxes/${GLOBEX.taxId}`,
+    body: { name: 'Colado', rate: 0 },
+  },
+  {
+    route: 'PUT /api/v1/catalog/taxes/:taxId/status',
+    title: 'deactivate a tax of another tenant',
+    method: 'put',
+    path: `/api/v1/catalog/taxes/${GLOBEX.taxId}/status`,
+    body: { active: false },
+  },
+  {
+    route: 'PUT /api/v1/catalog/warehouses/:warehouseId',
+    title: 'rename a warehouse of another tenant',
+    method: 'put',
+    path: `/api/v1/catalog/warehouses/${GLOBEX.warehouseId}`,
+    body: { name: 'Colado' },
+  },
+  {
+    route: 'PUT /api/v1/catalog/warehouses/:warehouseId/status',
+    title: 'deactivate a warehouse of another tenant',
+    method: 'put',
+    path: `/api/v1/catalog/warehouses/${GLOBEX.warehouseId}/status`,
+    body: { active: false },
+  },
+  {
+    route: 'PUT /api/v1/catalog/warehouses/:warehouseId/default',
+    title: 'take the default mark with a warehouse of another tenant',
+    method: 'put',
+    path: `/api/v1/catalog/warehouses/${GLOBEX.warehouseId}/default`,
+  },
+  {
+    route: 'PUT /api/v1/catalog/items/:itemId',
+    title: 'rewrite an item of another tenant',
+    method: 'put',
+    path: `/api/v1/catalog/items/${GLOBEX.itemId}`,
+    body: {
+      sku: 'COLADO',
+      name: 'Colado',
+      type: 'service',
+      units: [{ unitId: GLOBEX.unitId, conversionFactor: 1, isBase: true }],
+    },
+  },
+  {
+    route: 'PUT /api/v1/catalog/items/:itemId/status',
+    title: 'deactivate an item of another tenant',
+    method: 'put',
+    path: `/api/v1/catalog/items/${GLOBEX.itemId}/status`,
+    body: { active: false },
+  },
+  {
+    // Cada referencia por separado seria mas exhaustivo; con la unidad basta para ver
+    // que el articulo no puede apuntar fuera de su empresa. La categoria y el impuesto
+    // ajenos los cubren las pruebas de aplicacion.
+    route: 'POST /api/v1/catalog/items',
+    title: 'create an item that uses a unit of another tenant',
+    method: 'post',
+    path: '/api/v1/catalog/items',
+    body: {
+      sku: `COLADO-${Date.now()}`,
+      name: 'Colado',
+      type: 'inventoried',
+      units: [{ unitId: GLOBEX.unitId, conversionFactor: 1, isBase: true }],
     },
   },
 ];

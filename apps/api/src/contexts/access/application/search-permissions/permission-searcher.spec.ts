@@ -11,11 +11,13 @@ describe('PermissionSearcher', () => {
     expect(permissions.length).toBeGreaterThan(0);
   });
 
-  // La interfaz las agrupa por modulo en vez de pintar una lista plana.
-  it('groups every permission under its module', async () => {
+  // La interfaz las agrupa por modulo en vez de pintar una lista plana. El modulo es el
+  // primer segmento del codigo: `catalog.items.create` va bajo `catalog`.
+  it('groups every permission under the module its code starts with', async () => {
     const { permissions } = await searcher.run();
 
-    expect(permissions.every((permission) => permission.module === 'access')).toBe(true);
+    expect(permissions.every((permission) => permission.code.startsWith(`${permission.module}.`))).toBe(true);
+    expect([...new Set(permissions.map((permission) => permission.module))]).toEqual(['access', 'catalog']);
   });
 
   it('describes every permission, because that is what a person reads', async () => {

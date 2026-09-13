@@ -1,37 +1,44 @@
-import { readdirSync, readFileSync } from 'node:fs';
+import { existsSync, readdirSync, readFileSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { expect, test } from '@playwright/test';
 import { ISOLATION_CASES } from '../../support/isolation-matrix.js';
 
-const CONTROLLERS = path.resolve(
-  path.dirname(fileURLToPath(import.meta.url)),
-  '../../../api/src/contexts/access/infrastructure/http',
-);
+// Los controladores de TODOS los contextos: un contexto nuevo queda vigilado sin tocar
+// esta prueba. Antes solo miraba access y el catalogo habria nacido sin vigilancia.
+const CONTEXTS = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../../../api/src/contexts');
+
+const CONTROLLER_DIRS = readdirSync(CONTEXTS)
+  .map((context) => path.join(CONTEXTS, context, 'infrastructure', 'http'))
+  .filter((dir) => existsSync(dir));
 
 // Rutas que reciben identificadores pero no hace falta atacar: la sesion es la unica
 // fuente de la empresa y de la persona, asi que no hay nada ajeno que pasarles.
 const EXEMPT = new Set(['POST /api/v1/auth/switch-tenant']);
 
-const IDENTIFIER_FIELD = /\b(userId|roleId|roleIds|tenantId)\s*:/;
+const IDENTIFIER_FIELD = /\b(userId|roleId|roleIds|tenantId|categoryId|taxId|unitId|warehouseId|itemId)\s*:/;
 
 // Los campos que llegan en el cuerpo, leidos del DTO que importa el controlador. Mirar
 // el controlador entero daba falsos positivos: todos usan `session.tenantId`, que sale
 // del token y no lo elige quien llama.
-function bodyTakesIdentifiers(controllerSource: string): boolean {
+function bodyTakesIdentifiers(dir: string, controllerSource: string): boolean {
   const dto = controllerSource.match(/from '(\.\/dto\/[^']+)\.js'/)?.[1];
 
   if (!dto) return false;
 
-  return IDENTIFIER_FIELD.test(readFileSync(path.join(CONTROLLERS, `${dto}.ts`), 'utf8'));
+  // Sin comentarios: un "Sin tenantId: sale de la sesion" daba un falso positivo.
+  const source = readFileSync(path.join(dir, `${dto}.ts`), 'utf8').replace(/\/\/.*$/gm, '');
+
+  return IDENTIFIER_FIELD.test(source);
 }
 
 // Las rutas donde quien llama elige un identificador: en la ruta o en el cuerpo.
 function routesTakingIdentifiers(): string[] {
-  return readdirSync(CONTROLLERS)
+  return CONTROLLER_DIRS.flatMap((dir) =>
+    readdirSync(dir)
     .filter((file) => file.endsWith('.controller.ts'))
     .flatMap((file) => {
-      const source = readFileSync(path.join(CONTROLLERS, file), 'utf8');
+      const source = readFileSync(path.join(dir, file), 'utf8');
       const base = source.match(/@Controller\('([^']+)'\)/)?.[1] ?? '';
       const route = source.match(/@(Get|Post|Put|Delete)\((?:'([^']*)')?\)/);
 
@@ -39,8 +46,9 @@ function routesTakingIdentifiers(): string[] {
 
       const full = `${route[1].toUpperCase()} /${[base, route[2]].filter(Boolean).join('/')}`;
 
-      return full.includes(':') || bodyTakesIdentifiers(source) ? [full] : [];
-    });
+      return full.includes(':') || bodyTakesIdentifiers(dir, source) ? [full] : [];
+    }),
+  );
 }
 
 // No prueba el sistema: prueba que la matriz no se quede atras. Un endpoint nuevo
