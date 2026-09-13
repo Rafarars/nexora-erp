@@ -3,6 +3,7 @@ import {
   Catch,
   ExceptionFilter,
   HttpStatus,
+  Logger,
 } from '@nestjs/common';
 import type { Response } from 'express';
 import {
@@ -28,14 +29,20 @@ function statusFor(error: DomainError): number {
 
 @Catch(DomainError)
 export class DomainErrorFilter implements ExceptionFilter {
+  private readonly logger = new Logger(DomainErrorFilter.name);
+
   catch(error: DomainError, host: ArgumentsHost): void {
     const response = host.switchToHttp().getResponse<Response>();
     const status = statusFor(error);
 
+    // El detalle queda en el registro; al cliente solo le llega el mensaje publico,
+    // que no lleva identificadores internos ni devuelve lo que se recibio.
+    this.logger.debug(`${error.name}: ${error.message}`);
+
     response.status(status).json({
       statusCode: status,
       error: error.name,
-      message: error.message,
+      message: error.publicMessage,
     });
   }
 }

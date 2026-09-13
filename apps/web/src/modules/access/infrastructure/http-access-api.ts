@@ -1,4 +1,5 @@
 import { AccessError } from '../domain/access-error';
+import type { AccessErrorBody } from '../domain/access-error';
 import type { AccessApi } from '../domain/access-api';
 import type { Person } from '../domain/person';
 import type { Permission, Role } from '../domain/role';
@@ -45,6 +46,10 @@ export class HttpAccessApi implements AccessApi {
 
   async changePassword(token: string, current: string, next: string): Promise<void> {
     await this.request('PUT', '/api/v1/auth/password', { current, next }, token);
+  }
+
+  async changeEmail(token: string, current: string, email: string): Promise<void> {
+    await this.request('PUT', '/api/v1/auth/email', { current, email }, token);
   }
 
   async searchUsers(token: string): Promise<Person[]> {
@@ -142,7 +147,7 @@ export class HttpAccessApi implements AccessApi {
     });
 
     if (!response.ok) {
-      throw AccessError.fromStatus(response.status, await messageOf(response));
+      throw AccessError.fromStatus(response.status, await errorBodyOf(response));
     }
 
     // 200 sin cuerpo: crear y borrar no devuelven nada.
@@ -152,12 +157,16 @@ export class HttpAccessApi implements AccessApi {
   }
 }
 
-async function messageOf(response: Response): Promise<string> {
+async function errorBodyOf(response: Response): Promise<AccessErrorBody> {
   try {
     const body = await response.json();
 
-    return Array.isArray(body.message) ? body.message.join('. ') : String(body.message ?? '');
+    return {
+      message: String(body.message ?? ''),
+      code: typeof body.error === 'string' ? body.error : '',
+      fields: Array.isArray(body.fields) ? body.fields.map(String) : [],
+    };
   } catch {
-    return 'No se pudo contactar con el servidor.';
+    return {};
   }
 }

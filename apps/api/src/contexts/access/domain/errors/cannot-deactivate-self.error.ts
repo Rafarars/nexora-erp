@@ -4,6 +4,6 @@ import { ConflictError } from '../../../../shared/domain/domain.error.js';
 // capaz de devolverle el acceso.
 export class CannotDeactivateSelfError extends ConflictError {
   constructor() {
-    super('You cannot deactivate your own membership.');
+    super('You cannot deactivate your own membership.', 'You cannot deactivate your own membership.');
   }
 }

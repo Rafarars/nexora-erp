@@ -7,7 +7,7 @@ const EMAIL_PATTERN = /^[^\s@]+@[^\s@.]+(\.[^\s@.]+)+$/;
 
 export class InvalidEmailError extends InvalidArgumentError {
   constructor(value: string) {
-    super(`Email must be a valid address, received <${value}>.`);
+    super(`Email must be a valid address, received <${value}>.`, 'The email is not valid.');
   }
 }
 

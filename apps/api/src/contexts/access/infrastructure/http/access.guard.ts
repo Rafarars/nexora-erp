@@ -9,7 +9,7 @@ import {
 import {
   REQUIRED_PERMISSION,
 } from '../../../../shared/infrastructure/http/require-permission.decorator.js';
-import { NotFoundError } from '../../../../shared/domain/domain.error.js';
+import { NotFoundError, UnauthorizedError } from '../../../../shared/domain/domain.error.js';
 import { SignInPolicy } from '../../domain/authenticate/sign-in-policy.js';
 import { PermissionChecker } from '../../domain/authorize/permission-checker.js';
 import { ContradictoryDeclarationError } from '../../domain/errors/contradictory-declaration.error.js';
@@ -87,7 +87,17 @@ export class AccessGuard implements CanActivate {
     // filtraria identificadores internos en el mensaje.
     const { user, tenant, membership } = await this.resolveIdentity(userId, tenantId);
 
-    SignInPolicy.ensureCanSignIn(user, tenant, membership);
+    // Una cuenta, empresa o membresia inactiva invalida la sesion igual que una borrada:
+    // se responde lo mismo y no se le cuenta a quien llama que parte fallo.
+    try {
+      SignInPolicy.ensureCanSignIn(user, tenant, membership);
+    } catch (error) {
+      if (error instanceof UnauthorizedError) {
+        throw new InvalidTokenError();
+      }
+
+      throw error;
+    }
 
     if (permission) {
       const roles = await this.roles.searchByIds(tenantId, membership.roles());

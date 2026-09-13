@@ -2,7 +2,7 @@ import { InvalidArgumentError } from './domain.error.js';
 
 class EmptyStringValueError extends InvalidArgumentError {
   constructor(name: string) {
-    super(`${name} cannot be empty.`);
+    super(`${name} cannot be empty.`, 'A required value is empty.');
   }
 }
 

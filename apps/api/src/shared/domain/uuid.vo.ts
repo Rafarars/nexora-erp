@@ -6,7 +6,7 @@ const UUID_PATTERN =
 
 export class InvalidUuidError extends InvalidArgumentError {
   constructor(name: string, value: string) {
-    super(`${name} must be a valid UUID, received <${value}>.`);
+    super(`${name} must be a valid UUID, received <${value}>.`, 'An identifier is not valid.');
   }
 }
 

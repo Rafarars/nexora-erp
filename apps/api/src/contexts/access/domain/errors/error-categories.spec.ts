@@ -3,11 +3,14 @@ import {
   ConflictError,
   DomainError,
   ForbiddenError,
+  InvalidArgumentError,
   NotFoundError,
   TooManyRequestsError,
   UnauthorizedError,
 } from '../../../../shared/domain/domain.error.js';
 import { TooManyLoginAttemptsError } from './too-many-login-attempts.error.js';
+import { NoActiveMembershipError } from './no-active-membership.error.js';
+import { WrongCurrentPasswordError } from './wrong-current-password.error.js';
 import { CannotDeactivateSelfError } from './cannot-deactivate-self.error.js';
 import { DuplicateMembershipError } from './duplicate-membership.error.js';
 import { DuplicateRoleNameError } from './duplicate-role-name.error.js';
@@ -39,12 +42,22 @@ const cases: Array<[DomainError, typeof DomainError]> = [
   [new InactiveMembershipError('u', 't'), UnauthorizedError],
   [new PermissionDeniedError('sales.invoices.create'), ForbiddenError],
   [new TooManyLoginAttemptsError(), TooManyRequestsError],
+  [new NoActiveMembershipError('u'), UnauthorizedError],
+  [new WrongCurrentPasswordError(), InvalidArgumentError],
 ];
 
 describe('access domain errors', () => {
   it.each(cases)('%s belongs to its category', (error, category) => {
     expect(error).toBeInstanceOf(category);
     expect(error).toBeInstanceOf(DomainError);
+  });
+
+  // Lo unico que sale por HTTP. Una plantilla con <...> en el mensaje publico
+  // devolveria identificadores internos o lo que mando quien llama.
+  it.each(cases)('%s gives the caller a message with nothing internal', (error) => {
+    expect(error.publicMessage.length).toBeGreaterThan(0);
+    expect(error.publicMessage).not.toMatch(/[<>]/);
+    expect(error.publicMessage).not.toMatch(/[0-9a-f]{8}-[0-9a-f]{4}-/i);
   });
 
   it('names itself with its concrete class, for readable logs', () => {

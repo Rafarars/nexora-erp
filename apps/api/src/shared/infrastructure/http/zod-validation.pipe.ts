@@ -11,12 +11,17 @@ export class ZodValidationPipe<T> implements PipeTransform<unknown, T> {
     const result = this.schema.safeParse(value);
 
     if (!result.success) {
+      // Los campos que fallaron, sin el texto de zod: la interfaz decide como decirlo en
+      // el idioma de quien usa el sistema.
+      const fields = [
+        ...new Set(result.error.issues.map((issue) => issue.path.join('.') || '(body)')),
+      ];
+
       throw new BadRequestException({
         statusCode: 400,
         error: 'ValidationError',
-        message: result.error.issues.map(
-          (issue) => `${issue.path.join('.') || '(body)'}: ${issue.message}`,
-        ),
+        message: 'The request contains invalid data.',
+        fields,
       });
     }
 

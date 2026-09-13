@@ -5,7 +5,10 @@ const MINIMUM_LENGTH = 8;
 
 export class WeakPasswordError extends InvalidArgumentError {
   constructor() {
-    super(`A password must be at least ${MINIMUM_LENGTH} characters long.`);
+    super(
+      `A password must be at least ${MINIMUM_LENGTH} characters long.`,
+      `A password must be at least ${MINIMUM_LENGTH} characters long.`,
+    );
   }
 }
 
