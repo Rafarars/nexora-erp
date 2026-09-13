@@ -11,9 +11,9 @@ import {
   aTenant,
   aUser,
 } from '../../testing/access.mother.js';
-import { FixedClock } from '../../../infrastructure/testing/fixed-clock.js';
+import { FixedClock } from '../../../../../shared/infrastructure/testing/fixed-clock.js';
 import { InMemoryMembershipRepository } from '../../../infrastructure/testing/in-memory-membership.repository.js';
-import { SequentialIdGenerator } from '../../../infrastructure/testing/sequential-id-generator.js';
+import { SequentialIdGenerator } from '../../../../../shared/infrastructure/testing/sequential-id-generator.js';
 import { TenantId } from '../../tenant/tenant-id.vo.js';
 
 function enrollerWith(seed: ReturnType<typeof aMembership>[] = []) {

@@ -1,4 +1,4 @@
-import { IdGenerator } from '../../../../shared/domain/ports/id-generator.js';
+import { IdGenerator } from '../../domain/ports/id-generator.js';
 
 // Identificadores predecibles y validos: una prueba puede afirmar cual salio sin
 // tener que capturarlo primero.

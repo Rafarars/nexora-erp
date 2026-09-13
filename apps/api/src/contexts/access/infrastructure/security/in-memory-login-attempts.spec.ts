@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { InMemoryLoginAttempts } from './in-memory-login-attempts.js';
 import { Email } from '../../domain/user/email.vo.js';
 import { NOW } from '../../domain/testing/access.mother.js';
-import { FixedClock } from '../testing/fixed-clock.js';
+import { FixedClock } from '../../../../shared/infrastructure/testing/fixed-clock.js';
 
 const ANA = Email.of('ana@acme.com');
 
