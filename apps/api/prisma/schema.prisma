@@ -19,14 +19,18 @@ model Tenant {
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt @map("updated_at")
 
-  memberships       Membership[]
-  roles             Role[]
-  codeSequences     CodeSequence[]
-  categories        Category[]
-  measurementUnits  MeasurementUnit[]
-  taxes             Tax[]
-  warehouses        Warehouse[]
-  items             Item[]
+  memberships      Membership[]
+  roles            Role[]
+  codeSequences    CodeSequence[]
+  categories       Category[]
+  measurementUnits MeasurementUnit[]
+  taxes            Tax[]
+  warehouses       Warehouse[]
+  items            Item[]
+  adjustments      Adjustment[]
+  adjustmentLines  AdjustmentLine[]
+  movements        InventoryMovement[]
+  stocks           ItemStock[]
 
   @@map("tenants")
 }
@@ -170,8 +174,9 @@ model MeasurementUnit {
   createdAt    DateTime @default(now()) @map("created_at")
   updatedAt    DateTime @updatedAt @map("updated_at")
 
-  tenant    Tenant     @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  itemUnits ItemUnit[]
+  tenant          Tenant           @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  itemUnits       ItemUnit[]
+  adjustmentLines AdjustmentLine[]
 
   @@unique([tenantId, id])
   @@unique([tenantId, code])
@@ -214,7 +219,10 @@ model Warehouse {
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt @map("updated_at")
 
-  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  tenant      Tenant              @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  adjustments Adjustment[]
+  movements   InventoryMovement[]
+  stocks      ItemStock[]
 
   @@unique([tenantId, id])
   @@unique([tenantId, code])
@@ -239,12 +247,15 @@ model Item {
   createdAt   DateTime @default(now()) @map("created_at")
   updatedAt   DateTime @updatedAt @map("updated_at")
 
-  tenant   Tenant     @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  tenant          Tenant              @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   // Compuestas con la empresa: ni la propia base acepta un articulo que apunte a la
   // categoria o al impuesto de otra empresa.
-  category Category?  @relation(fields: [tenantId, categoryId], references: [tenantId, id], onDelete: Restrict)
-  tax      Tax?       @relation(fields: [tenantId, taxId], references: [tenantId, id], onDelete: Restrict)
-  units    ItemUnit[]
+  category        Category?           @relation(fields: [tenantId, categoryId], references: [tenantId, id], onDelete: Restrict)
+  tax             Tax?                @relation(fields: [tenantId, taxId], references: [tenantId, id], onDelete: Restrict)
+  units           ItemUnit[]
+  adjustmentLines AdjustmentLine[]
+  movements       InventoryMovement[]
+  stocks          ItemStock[]
 
   @@unique([tenantId, id])
   @@unique([tenantId, code])
@@ -277,4 +288,128 @@ model ItemUnit {
   @@id([itemId, unitId])
   @@index([tenantId, unitId])
   @@map("item_units")
+}
+
+// ---------------------------------------------------------------- inventario
+//
+// Solo el ajuste mueve existencia en el H3; entradas y despachos llegaran con compras y
+// ventas. El kardex nunca se edita ni se borra: un error se corrige con un movimiento
+// de contrapartida. Las existencias son derivadas y siempre cuadran con el kardex.
+
+/// Documento que corrige la existencia de una bodega: conteos, mermas, hallazgos.
+model Adjustment {
+  id             String           @id @db.Uuid
+  tenantId       String           @map("tenant_id") @db.Uuid
+  code           String           @db.VarChar(12)
+  warehouseId    String           @map("warehouse_id") @db.Uuid
+  adjustmentDate DateTime         @map("adjustment_date") @db.Date
+  notes          String?          @db.VarChar(500)
+  status         AdjustmentStatus @default(draft)
+  confirmedAt    DateTime?        @map("confirmed_at")
+  cancelledAt    DateTime?        @map("cancelled_at")
+  createdAt      DateTime         @default(now()) @map("created_at")
+  updatedAt      DateTime         @updatedAt @map("updated_at")
+
+  tenant    Tenant           @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  warehouse Warehouse        @relation(fields: [tenantId, warehouseId], references: [tenantId, id], onDelete: Restrict)
+  lines     AdjustmentLine[]
+
+  @@unique([tenantId, id])
+  @@unique([tenantId, code])
+  @@index([tenantId, status])
+  @@map("adjustments")
+}
+
+/// Borrador editable, confirmado (ya movio existencia) o anulado (revertido con
+/// contrapartida, o descartado si era borrador).
+enum AdjustmentStatus {
+  draft
+  confirmed
+  cancelled
+
+  @@map("adjustment_status")
+}
+
+enum StockDirection {
+  in
+  out
+
+  @@map("stock_direction")
+}
+
+/// Una linea del ajuste. `quantity` en la unidad elegida; `base_quantity` ya convertida a
+/// la unidad base del articulo, que es en la que se guarda el stock.
+model AdjustmentLine {
+  id           String         @id @db.Uuid
+  tenantId     String         @map("tenant_id") @db.Uuid
+  adjustmentId String         @map("adjustment_id") @db.Uuid
+  lineNumber   Int            @map("line_number")
+  itemId       String         @map("item_id") @db.Uuid
+  unitId       String         @map("unit_id") @db.Uuid
+  direction    StockDirection
+  quantity     Decimal        @db.Decimal(18, 4)
+  baseQuantity Decimal        @map("base_quantity") @db.Decimal(18, 4)
+  unitCost     Decimal?       @map("unit_cost") @db.Decimal(18, 6)
+
+  tenant     Tenant          @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  adjustment Adjustment      @relation(fields: [tenantId, adjustmentId], references: [tenantId, id], onDelete: Cascade)
+  item       Item            @relation(fields: [tenantId, itemId], references: [tenantId, id], onDelete: Restrict)
+  unit       MeasurementUnit @relation(fields: [tenantId, unitId], references: [tenantId, id], onDelete: Restrict)
+
+  @@unique([adjustmentId, lineNumber])
+  @@index([tenantId, itemId])
+  @@map("adjustment_lines")
+}
+
+/// El kardex: una fila por cada cambio de existencia, inmutable. `sequence` ordena los
+/// movimientos de un articulo en una bodega sin depender de la hora; `balance_*` es el
+/// saldo despues del movimiento, para auditar sin recalcular.
+model InventoryMovement {
+  id                 String         @id @db.Uuid
+  tenantId           String         @map("tenant_id") @db.Uuid
+  itemId             String         @map("item_id") @db.Uuid
+  warehouseId        String         @map("warehouse_id") @db.Uuid
+  sequence           Int
+  direction          StockDirection
+  quantity           Decimal        @db.Decimal(18, 4)
+  unitCost           Decimal        @map("unit_cost") @db.Decimal(18, 6)
+  balanceQuantity    Decimal        @map("balance_quantity") @db.Decimal(18, 4)
+  balanceAverageCost Decimal        @map("balance_average_cost") @db.Decimal(18, 6)
+  originType         String         @map("origin_type") @db.VarChar(20)
+  originId           String         @map("origin_id") @db.Uuid
+  originLineId       String?        @map("origin_line_id") @db.Uuid
+  reversalOfId       String?        @map("reversal_of_id") @db.Uuid
+  occurredAt         DateTime       @map("occurred_at")
+
+  tenant     Tenant             @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  item       Item               @relation(fields: [tenantId, itemId], references: [tenantId, id], onDelete: Restrict)
+  warehouse  Warehouse          @relation(fields: [tenantId, warehouseId], references: [tenantId, id], onDelete: Restrict)
+  reversalOf InventoryMovement? @relation("Reversal", fields: [reversalOfId], references: [id], onDelete: Restrict)
+  reversedBy InventoryMovement? @relation("Reversal")
+
+  @@unique([tenantId, itemId, warehouseId, sequence])
+  // Un movimiento se revierte una sola vez: anular dos veces no puede duplicar la contrapartida.
+  @@unique([reversalOfId])
+  @@index([tenantId, originType, originId])
+  @@map("inventory_movements")
+}
+
+/// Existencia actual de un articulo en una bodega, en su unidad base. Derivada: solo la
+/// escribe quien escribe el kardex, en la misma transaccion.
+model ItemStock {
+  tenantId     String   @map("tenant_id") @db.Uuid
+  itemId       String   @map("item_id") @db.Uuid
+  warehouseId  String   @map("warehouse_id") @db.Uuid
+  quantity     Decimal  @default(0) @db.Decimal(18, 4)
+  averageCost  Decimal  @default(0) @map("average_cost") @db.Decimal(18, 6)
+  lastSequence Int      @default(0) @map("last_sequence")
+  updatedAt    DateTime @map("updated_at")
+
+  tenant    Tenant    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  item      Item      @relation(fields: [tenantId, itemId], references: [tenantId, id], onDelete: Restrict)
+  warehouse Warehouse @relation(fields: [tenantId, warehouseId], references: [tenantId, id], onDelete: Restrict)
+
+  @@id([tenantId, itemId, warehouseId])
+  @@index([tenantId, warehouseId])
+  @@map("item_stocks")
 }
