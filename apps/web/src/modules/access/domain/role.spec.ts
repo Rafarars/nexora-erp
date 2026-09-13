@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { groupByModule } from './role';
+import { groupByModule, moduleLabel } from './role';
 
 const permissions = [
   { code: 'access.users.create', description: 'Dar de alta', module: 'access' },
@@ -17,5 +17,17 @@ describe('groupByModule', () => {
 
   it('returns nothing for an empty catalog', () => {
     expect(groupByModule([]).size).toBe(0);
+  });
+});
+
+describe('moduleLabel', () => {
+  it('names each module in Spanish', () => {
+    expect(moduleLabel('access')).toBe('Acceso y administración');
+    expect(moduleLabel('catalog')).toBe('Catálogo');
+  });
+
+  // Un modulo nuevo sin traducir se ve con su prefijo en vez de desaparecer.
+  it('shows the raw prefix of a module it does not know yet', () => {
+    expect(moduleLabel('sales')).toBe('sales');
   });
 });

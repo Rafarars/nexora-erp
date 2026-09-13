@@ -6,9 +6,9 @@ import {
   createUser,
   updateUser,
 } from '@/app/(app)/administracion/usuarios/actions';
-import { Field, FormError, SubmitButton } from './field';
-import { RowOptions } from './row-options';
-import { SlideOver } from './slide-over';
+import { Field, FormError, SubmitButton } from '@/sections/shared/field';
+import { RowOptions } from '@/sections/shared/row-options';
+import { SlideOver } from '@/sections/shared/slide-over';
 import { emptyState } from '@/shared/forms/form-state';
 import type { FormState } from '@/shared/forms/form-state';
 import type { Person } from '@/modules/access/domain/person';

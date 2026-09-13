@@ -4,9 +4,9 @@ import { useActionState, useState } from 'react';
 import { saveRole } from '@/app/(app)/administracion/roles/actions';
 import { emptyState } from '@/shared/forms/form-state';
 import type { FormState } from '@/shared/forms/form-state';
-import { Field, FormError, SubmitButton } from './field';
-import { SlideOver } from './slide-over';
-import { groupByModule } from '@/modules/access/domain/role';
+import { Field, FormError, SubmitButton } from '@/sections/shared/field';
+import { SlideOver } from '@/sections/shared/slide-over';
+import { groupByModule, moduleLabel } from '@/modules/access/domain/role';
 import type { Permission, Role } from '@/modules/access/domain/role';
 
 export function RolesBoard({
@@ -105,7 +105,7 @@ export function RolesBoard({
 
             {[...groupByModule(permissions).entries()].map(([module, items]) => (
               <div key={module} className="space-y-2">
-                <p className="text-muted text-xs uppercase tracking-wide">{module}</p>
+                <p className="text-muted text-xs uppercase tracking-wide">{moduleLabel(module)}</p>
 
                 {items.map((permission) => (
                   <label key={permission.code} className="flex items-start gap-2 text-sm">

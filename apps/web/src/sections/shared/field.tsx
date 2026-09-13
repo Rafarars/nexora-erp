@@ -6,6 +6,7 @@ export function Field({
   testId,
   defaultValue,
   autoComplete,
+  inputMode,
 }: {
   label: string;
   name: string;
@@ -16,6 +17,7 @@ export function Field({
   // Sin esto el navegador adivina, y un formulario con correo y contrasena le parece
   // un login: rellena el alta de otra persona con las credenciales guardadas.
   autoComplete?: string;
+  inputMode?: React.HTMLAttributes<HTMLInputElement>['inputMode'];
 }) {
   return (
     <div className="space-y-1.5">
@@ -29,6 +31,35 @@ export function Field({
         required={required}
         defaultValue={defaultValue}
         autoComplete={autoComplete}
+        inputMode={inputMode}
+        data-testid={testId}
+        className="border-line w-full rounded-md border bg-transparent px-3 py-2 text-sm outline-none focus:border-neutral-500"
+      />
+    </div>
+  );
+}
+
+export function TextArea({
+  label,
+  name,
+  testId,
+  defaultValue,
+}: {
+  label: string;
+  name: string;
+  testId: string;
+  defaultValue?: string;
+}) {
+  return (
+    <div className="space-y-1.5">
+      <label htmlFor={name} className="text-sm font-medium">
+        {label} <span className="text-muted font-normal">(opcional)</span>
+      </label>
+      <textarea
+        id={name}
+        name={name}
+        rows={3}
+        defaultValue={defaultValue}
         data-testid={testId}
         className="border-line w-full rounded-md border bg-transparent px-3 py-2 text-sm outline-none focus:border-neutral-500"
       />

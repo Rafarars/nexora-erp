@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from 'react';
 
-// El menu "Opciones" de cada fila, como en los listados de Flexio: las acciones sobre
+// El menu "Opciones" de cada fila: las acciones sobre
 // un registro viven juntas y no reparten columnas por la tabla.
 export function RowOptions({
   testId,

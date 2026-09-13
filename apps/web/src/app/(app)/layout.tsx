@@ -3,6 +3,7 @@ import { AccountMenu } from '@/sections/layout/account-menu';
 import { Sidebar } from '@/sections/layout/sidebar';
 import { TenantSwitcher } from '@/sections/layout/tenant-switcher';
 import { can } from '@/modules/access/domain/session';
+import { visibleCatalogSections } from '@/modules/catalog/domain/catalog-sections';
 import { requireSession } from '@/shared/session/current-session';
 
 // La sesion se pide al servidor en cada navegacion: si le quitan un rol a alguien,
@@ -18,7 +19,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
         <p className="mb-6 px-3 text-sm font-semibold tracking-widest">NEXORA</p>
 
         <div className="flex-1">
-          <Sidebar />
+          <Sidebar showCatalog={visibleCatalogSections(session).length > 0} />
         </div>
 
         {/* Fuera de la zona con sesion: se consulta cuando el sistema esta caido. */}

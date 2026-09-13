@@ -2,7 +2,7 @@
 
 import { useActionState } from 'react';
 import { changeEmail, changePassword, updateProfile } from '@/app/(app)/perfil/actions';
-import { Field, FormError, SubmitButton } from './field';
+import { Field, FormError, SubmitButton } from '@/sections/shared/field';
 import { emptyState } from '@/shared/forms/form-state';
 
 export function ProfileForms({ name, email }: { name: string; email: string }) {

@@ -5,17 +5,18 @@ import { usePathname } from 'next/navigation';
 
 // Solo los modulos del negocio: aqui creceran inventario, ventas y compras. La
 // administracion vive en el menu de la cuenta para no mezclarse con ellos.
-const MODULES = [{ href: '/', label: 'Panel', testId: 'nav-panel' }];
+const PANEL = { href: '/', label: 'Panel', testId: 'nav-panel' };
+const CATALOG = { href: '/catalogo', label: 'Catálogo', testId: 'nav-catalogo' };
 
-export function Sidebar() {
+// Cada modulo aparece solo si el rol puede ver algo dentro. Un modulo se marca activo
+// en todas sus secciones, no solo en su portada.
+export function Sidebar({ showCatalog }: { showCatalog: boolean }) {
   const pathname = usePathname();
 
   return (
     <nav className="space-y-1" aria-label="Secciones" data-testid="sidebar">
-      {MODULES.map((module) => (
-        <SidebarLink key={module.href} {...module} active={pathname === module.href} />
-      ))}
-
+      <SidebarLink {...PANEL} active={pathname === PANEL.href} />
+      {showCatalog ? <SidebarLink {...CATALOG} active={pathname.startsWith(CATALOG.href)} /> : null}
     </nav>
   );
 }
