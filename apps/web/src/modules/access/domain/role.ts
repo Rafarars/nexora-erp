@@ -15,6 +15,7 @@ export interface Permission {
 const MODULE_LABELS: Record<string, string> = {
   access: 'Acceso y administración',
   catalog: 'Catálogo',
+  inventory: 'Inventario',
 };
 
 export function moduleLabel(module: string): string {

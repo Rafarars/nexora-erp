@@ -1,4 +1,4 @@
-import { CatalogNav } from '@/sections/catalog/catalog-nav';
+import { SectionNav } from '@/sections/shared/section-nav';
 import { visibleCatalogSections } from '@/modules/catalog/domain/catalog-sections';
 import { requireSession } from '@/shared/session/current-session';
 
@@ -13,7 +13,11 @@ export default async function CatalogLayout({ children }: { children: React.Reac
       </div>
 
       <div className="flex flex-col gap-6 sm:flex-row">
-        <CatalogNav sections={visibleCatalogSections(session).map(({ href, label, testId }) => ({ href, label, testId }))} />
+        <SectionNav
+          label="Catálogo"
+          testId="catalog-nav"
+          sections={visibleCatalogSections(session).map(({ href, label, testId }) => ({ href, label, testId }))}
+        />
         <div className="min-w-0 flex-1">{children}</div>
       </div>
     </div>
