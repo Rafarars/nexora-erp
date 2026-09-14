@@ -5,6 +5,7 @@ import {
   INVENTORY_PERMISSIONS,
   PURCHASING_PERMISSIONS,
   RECEIVABLES_PERMISSIONS,
+  REPORTS_PERMISSIONS,
   SALES_PERMISSIONS,
   SYSTEM_PERMISSIONS,
 } from './permissions.catalog.js';
@@ -53,7 +54,11 @@ describe('permissions catalog', () => {
     expect(code.startsWith('receivables.')).toBe(true);
   });
 
+  it.each(REPORTS_PERMISSIONS)('$code belongs to the reports context', ({ code }) => {
+    expect(code.startsWith('reports.')).toBe(true);
+  });
+
   it('is exactly the permissions of every context, nothing more', () => {
-    expect(SYSTEM_PERMISSIONS).toEqual([...ACCESS_PERMISSIONS, ...CATALOG_PERMISSIONS, ...INVENTORY_PERMISSIONS, ...PURCHASING_PERMISSIONS, ...SALES_PERMISSIONS, ...RECEIVABLES_PERMISSIONS]);
+    expect(SYSTEM_PERMISSIONS).toEqual([...ACCESS_PERMISSIONS, ...CATALOG_PERMISSIONS, ...INVENTORY_PERMISSIONS, ...PURCHASING_PERMISSIONS, ...SALES_PERMISSIONS, ...RECEIVABLES_PERMISSIONS, ...REPORTS_PERMISSIONS]);
   });
 });

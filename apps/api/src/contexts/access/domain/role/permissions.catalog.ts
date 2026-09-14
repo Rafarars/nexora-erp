@@ -111,6 +111,13 @@ export const RECEIVABLES_PERMISSIONS: PermissionDefinition[] = [
   { code: 'receivables.statements.search', description: 'Consultar el estado de cuenta de un cliente' },
 ];
 
+export const REPORTS_PERMISSIONS: PermissionDefinition[] = [
+  { code: 'reports.dashboard.search', description: 'Ver el tablero con los indicadores del mes' },
+  { code: 'reports.receivables.search', description: 'Ver y exportar la antigüedad de saldos y los estados de cuenta' },
+  { code: 'reports.sales.search', description: 'Ver y exportar las ventas por cliente' },
+  { code: 'reports.inventory.search', description: 'Ver y exportar la valuación del inventario, con costos' },
+];
+
 export const SYSTEM_PERMISSIONS: PermissionDefinition[] = [
   ...ACCESS_PERMISSIONS,
   ...CATALOG_PERMISSIONS,
@@ -118,6 +125,7 @@ export const SYSTEM_PERMISSIONS: PermissionDefinition[] = [
   ...PURCHASING_PERMISSIONS,
   ...SALES_PERMISSIONS,
   ...RECEIVABLES_PERMISSIONS,
+  ...REPORTS_PERMISSIONS,
 ];
 
 // Concede un permiso que no existe y la clave ajena lo rechazaria en la base con un

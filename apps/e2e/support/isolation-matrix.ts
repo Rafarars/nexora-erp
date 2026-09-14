@@ -431,4 +431,28 @@ export const ISOLATION_CASES: IsolationCase[] = [
     method: 'get',
     path: `/api/v1/receivables/customers/${GLOBEX.customerId}/statement`,
   },
+  {
+    route: 'GET /api/v1/reports/customers/:customerId/statement',
+    title: 'read the printable statement of a customer of another tenant',
+    method: 'get',
+    path: `/api/v1/reports/customers/${GLOBEX.customerId}/statement`,
+  },
+  {
+    route: 'GET /api/v1/reports/customers/:customerId/statement/export',
+    title: 'download the statement of a customer of another tenant',
+    method: 'get',
+    path: `/api/v1/reports/customers/${GLOBEX.customerId}/statement/export?format=pdf`,
+  },
+  {
+    route: 'GET /api/v1/reports/inventory-valuation',
+    title: 'value the stock of a warehouse of another tenant',
+    method: 'get',
+    path: `/api/v1/reports/inventory-valuation?warehouseId=${GLOBEX.warehouseId}`,
+  },
+  {
+    route: 'GET /api/v1/reports/inventory-valuation/export',
+    title: 'download the stock valuation of a warehouse of another tenant',
+    method: 'get',
+    path: `/api/v1/reports/inventory-valuation/export?format=xlsx&warehouseId=${GLOBEX.warehouseId}`,
+  },
 ];
