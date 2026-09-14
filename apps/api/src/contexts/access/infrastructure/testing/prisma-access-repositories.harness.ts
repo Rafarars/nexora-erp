@@ -44,6 +44,7 @@ export class PrismaAccessRepositoriesHarness implements AccessRepositoriesHarnes
     // los unen son RESTRICT y PostgreSQL las comprueba fila a fila: la cascada falla si una
     // unidad o un movimiento revertido sigue referenciado. Se vacian antes, en orden. Sin
     // esto el resultado dependia de que otro contrato hubiera corrido primero.
+    await this.prisma.customerPayment.deleteMany();
     await this.prisma.invoice.deleteMany();
     await this.prisma.dispatch.deleteMany();
     await this.prisma.salesOrder.deleteMany();
