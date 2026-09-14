@@ -6,6 +6,7 @@ import { can } from '@/modules/access/domain/session';
 import { visibleCatalogSections } from '@/modules/catalog/domain/catalog-sections';
 import { visibleInventorySections } from '@/modules/inventory/domain/inventory-sections';
 import { visiblePurchasingSections } from '@/modules/purchasing/domain/purchasing-sections';
+import { visibleReportSections } from '@/modules/reports/domain/reports-sections';
 import { visibleReceivablesSections } from '@/modules/receivables/domain/receivables-sections';
 import { visibleSalesSections } from '@/modules/sales/domain/sales-sections';
 import { requireSession } from '@/shared/session/current-session';
@@ -29,6 +30,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
             showPurchasing={visiblePurchasingSections(session).length > 0}
             showSales={visibleSalesSections(session).length > 0}
             showReceivables={visibleReceivablesSections(session).length > 0}
+            showReports={visibleReportSections(session).length > 0}
           />
         </div>
 

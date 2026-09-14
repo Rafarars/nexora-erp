@@ -1,10 +1,14 @@
 import { can } from '@/modules/access/domain/session';
+import { DashboardView } from '@/sections/reports/dashboard';
+import { reportsApi } from '@/shared/session/reports-api';
 import { requireSession } from '@/shared/session/current-session';
 
 export const dynamic = 'force-dynamic';
 
 export default async function PanelPage() {
-  const { session } = await requireSession();
+  const { session, token } = await requireSession();
+  // El tablero solo para quien puede ver cifras del negocio; los datos de la sesion, para todos.
+  const dashboard = can(session, 'reports.dashboard.search') ? await reportsApi().dashboard(token) : null;
 
   const summary = [
     { label: 'Empresa activa', value: session.tenantName, testId: 'panel-tenant' },
@@ -40,6 +44,8 @@ export default async function PanelPage() {
           </div>
         ))}
       </dl>
+
+      {dashboard ? <DashboardView dashboard={dashboard} /> : null}
 
       {can(session, 'access.users.search') ? null : (
         <p className="text-muted text-sm" data-testid="panel-no-access">

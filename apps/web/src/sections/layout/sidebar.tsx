@@ -10,6 +10,7 @@ const CATALOG = { href: '/catalogo', label: 'Catálogo', testId: 'nav-catalogo' 
 const INVENTORY = { href: '/inventario', label: 'Inventario', testId: 'nav-inventario' };
 const PURCHASING = { href: '/compras', label: 'Compras', testId: 'nav-compras' };
 const SALES = { href: '/ventas', label: 'Ventas', testId: 'nav-ventas' };
+const REPORTS = { href: '/reportes', label: 'Reportes', testId: 'nav-reportes' };
 const RECEIVABLES = { href: '/cuentas-por-cobrar', label: 'Cuentas por cobrar', testId: 'nav-cuentas-por-cobrar' };
 
 // Cada modulo aparece solo si el rol puede ver algo dentro. Un modulo se marca activo
@@ -20,12 +21,14 @@ export function Sidebar({
   showPurchasing,
   showSales,
   showReceivables,
+  showReports,
 }: {
   showCatalog: boolean;
   showInventory: boolean;
   showPurchasing: boolean;
   showSales: boolean;
   showReceivables: boolean;
+  showReports: boolean;
 }) {
   const pathname = usePathname();
 
@@ -37,6 +40,7 @@ export function Sidebar({
       {showPurchasing ? <SidebarLink {...PURCHASING} active={pathname.startsWith(PURCHASING.href)} /> : null}
       {showSales ? <SidebarLink {...SALES} active={pathname.startsWith(SALES.href)} /> : null}
       {showReceivables ? <SidebarLink {...RECEIVABLES} active={pathname.startsWith(RECEIVABLES.href)} /> : null}
+      {showReports ? <SidebarLink {...REPORTS} active={pathname.startsWith(REPORTS.href)} /> : null}
     </nav>
   );
 }

@@ -19,6 +19,7 @@ const MODULE_LABELS: Record<string, string> = {
   purchasing: 'Compras',
   sales: 'Ventas',
   receivables: 'Cuentas por cobrar',
+  reports: 'Reportes',
 };
 
 export function moduleLabel(module: string): string {
