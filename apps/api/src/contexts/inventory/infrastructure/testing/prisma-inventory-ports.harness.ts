@@ -29,6 +29,10 @@ export class PrismaInventoryPortsHarness implements InventoryPortsHarness {
   }
 
   async reset(): Promise<void> {
+    await this.prisma.invoice.deleteMany();
+    await this.prisma.dispatch.deleteMany();
+    await this.prisma.salesOrder.deleteMany();
+    await this.prisma.customer.deleteMany();
     await this.prisma.goodsReceipt.deleteMany();
     await this.prisma.purchaseOrder.deleteMany();
     await this.prisma.supplier.deleteMany();

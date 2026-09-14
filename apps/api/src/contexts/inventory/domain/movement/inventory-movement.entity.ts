@@ -13,8 +13,8 @@ export class MovementId extends Uuid {
 export type StockDirection = 'in' | 'out';
 
 // Que documento movio la existencia. El ajuste lo escribe el inventario; la entrada de
-// mercancia la escriben las compras a traves de DocumentStockPosting.
-export type MovementOriginType = 'adjustment' | 'receipt';
+// mercancia y el despacho, compras y ventas a traves de DocumentStockPosting.
+export type MovementOriginType = 'adjustment' | 'receipt' | 'dispatch';
 
 export interface MovementOrigin {
   type: MovementOriginType;

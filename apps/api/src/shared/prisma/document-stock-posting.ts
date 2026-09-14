@@ -22,13 +22,23 @@ export interface DocumentStockEntry {
 }
 
 export interface StockDocument {
-  type: 'receipt';
+  type: 'receipt' | 'dispatch';
   id: string;
 }
+
+// Una salida: el costo no viaja, el inventario la valora al promedio vigente.
+export type DocumentStockExit = Omit<DocumentStockEntry, 'unitCost'>;
 
 export interface DocumentStockPosting {
   // Bloquea las existencias en orden fijo y registra una entrada por linea.
   receive(tx: TransactionClient, tenantId: string, document: StockDocument, entries: DocumentStockEntry[], now: Date): Promise<void>;
+  // Bloquea las existencias en orden fijo y saca una salida por linea. Lanza
+  // InsufficientStockError si alguna no alcanza.
+  release(tx: TransactionClient, tenantId: string, document: StockDocument, exits: DocumentStockExit[], now: Date): Promise<void>;
+  // Bloquea las filas de existencia en orden fijo y devuelve cuanto hay, en unidad base, por
+  // `itemId|warehouseId`. Quien reserva existencia la compara con lo ya reservado dentro de la
+  // misma transaccion, y dos reservas del mismo articulo esperan en fila.
+  lockAvailable(tx: TransactionClient, tenantId: string, keys: [itemId: string, warehouseId: string][]): Promise<Map<string, number>>;
   // Revierte todo lo que el documento escribio. Lanza InsufficientStockError si la
   // mercancia ya salio.
   reverse(tx: TransactionClient, tenantId: string, document: StockDocument, now: Date): Promise<void>;

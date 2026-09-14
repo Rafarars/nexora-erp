@@ -1,6 +1,6 @@
 export type AdjustmentStatus = 'draft' | 'confirmed' | 'cancelled';
 export type Direction = 'in' | 'out';
-export type MovementOriginType = 'adjustment' | 'receipt';
+export type MovementOriginType = 'adjustment' | 'receipt' | 'dispatch';
 
 export interface Stock {
   item: { id: string; sku: string; name: string; baseUnit: string };
@@ -56,7 +56,7 @@ export const STATUS_LABELS: Record<AdjustmentStatus, string> = {
 export const DIRECTION_LABELS: Record<Direction, string> = { in: 'Entrada', out: 'Salida' };
 
 // Que documento movio la existencia, como se lee en el kardex.
-export const ORIGIN_LABELS: Record<MovementOriginType, string> = { adjustment: 'Ajuste', receipt: 'Entrada de compra' };
+export const ORIGIN_LABELS: Record<MovementOriginType, string> = { adjustment: 'Ajuste', receipt: 'Entrada de compra', dispatch: 'Despacho' };
 
 // Lo que la interfaz ofrece en cada estado. La API lo vuelve a comprobar; esto solo evita
 // ofrecer un boton que acabaria en error.

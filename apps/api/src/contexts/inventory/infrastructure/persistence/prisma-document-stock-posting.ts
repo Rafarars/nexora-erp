@@ -3,6 +3,7 @@ import type { IdGenerator } from '../../../../shared/domain/ports/id-generator.j
 import { ID_GENERATOR } from '../../../../shared/domain/ports/id-generator.js';
 import type {
   DocumentStockEntry,
+  DocumentStockExit,
   DocumentStockPosting,
   StockDocument,
   TransactionClient,
@@ -45,6 +46,41 @@ export class PrismaDocumentStockPosting implements DocumentStockPosting {
     );
 
     await writeChanges(tx, tenantId, changes);
+  }
+
+  async release(tx: TransactionClient, tenantId: string, document: StockDocument, exits: DocumentStockExit[], now: Date): Promise<void> {
+    const ledger = await lockedLedger(
+      tx,
+      tenantId,
+      exits.map((exit) => [exit.itemId, exit.warehouseId]),
+      [],
+    );
+    const changes = this.movements.record(
+      ledger,
+      document,
+      exits.map((exit) => ({
+        lineId: exit.lineId,
+        itemId: ItemRef.of(exit.itemId),
+        warehouseId: WarehouseRef.of(exit.warehouseId),
+        direction: 'out' as const,
+        quantity: Quantity.of(exit.quantity),
+        unitCost: null,
+      })),
+      now,
+    );
+
+    await writeChanges(tx, tenantId, changes);
+  }
+
+  async lockAvailable(tx: TransactionClient, tenantId: string, keys: [itemId: string, warehouseId: string][]): Promise<Map<string, number>> {
+    const available = new Map<string, number>();
+    const ledger = await lockedLedger(tx, tenantId, keys, []);
+
+    for (const [itemId, warehouseId] of keys) {
+      available.set(`${itemId}|${warehouseId}`, ledger.stock(ItemRef.of(itemId), WarehouseRef.of(warehouseId)).available().toNumber());
+    }
+
+    return available;
   }
 
   async reverse(tx: TransactionClient, tenantId: string, document: StockDocument, now: Date): Promise<void> {
