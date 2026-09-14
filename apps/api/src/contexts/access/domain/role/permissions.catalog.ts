@@ -101,12 +101,23 @@ export const SALES_PERMISSIONS: PermissionDefinition[] = [
   { code: 'sales.availability.search', description: 'Consultar la existencia disponible para vender' },
 ];
 
+export const RECEIVABLES_PERMISSIONS: PermissionDefinition[] = [
+  { code: 'receivables.payments.search', description: 'Consultar los cobros' },
+  { code: 'receivables.payments.create', description: 'Registrar cobros en borrador' },
+  { code: 'receivables.payments.update', description: 'Editar cobros en borrador' },
+  { code: 'receivables.payments.confirm', description: 'Confirmar cobros: baja el saldo de las facturas' },
+  { code: 'receivables.payments.cancel', description: 'Anular cobros, devolviendo el saldo' },
+  { code: 'receivables.balances.search', description: 'Consultar saldos, vencidas y antigüedad' },
+  { code: 'receivables.statements.search', description: 'Consultar el estado de cuenta de un cliente' },
+];
+
 export const SYSTEM_PERMISSIONS: PermissionDefinition[] = [
   ...ACCESS_PERMISSIONS,
   ...CATALOG_PERMISSIONS,
   ...INVENTORY_PERMISSIONS,
   ...PURCHASING_PERMISSIONS,
   ...SALES_PERMISSIONS,
+  ...RECEIVABLES_PERMISSIONS,
 ];
 
 // Concede un permiso que no existe y la clave ajena lo rechazaria en la base con un

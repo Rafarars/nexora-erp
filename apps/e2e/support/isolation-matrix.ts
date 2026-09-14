@@ -22,6 +22,8 @@ export const GLOBEX = {
   confirmedDispatchId: 'f1000000-0000-4000-8000-000000000101',
   draftDispatchId: 'f1000000-0000-4000-8000-000000000102',
   issuedInvoiceId: 'f3000000-0000-4000-8000-000000000101',
+  confirmedPaymentId: 'd3000000-0000-4000-8000-000000000101',
+  draftPaymentId: 'd3000000-0000-4000-8000-000000000102',
 };
 
 export const ACME = {
@@ -390,5 +392,43 @@ export const ISOLATION_CASES: IsolationCase[] = [
     title: 'filter the availability by a warehouse of another tenant',
     method: 'get',
     path: `/api/v1/sales/availability?warehouseId=${GLOBEX.warehouseId}`,
+  },
+  {
+    route: 'POST /api/v1/receivables/payments',
+    title: 'register a payment for a customer and an invoice of another tenant',
+    method: 'post',
+    path: '/api/v1/receivables/payments',
+    body: { customerId: GLOBEX.customerId, method: 'cash', allocations: [{ invoiceId: GLOBEX.issuedInvoiceId, amount: 1 }] },
+  },
+  {
+    route: 'PUT /api/v1/receivables/payments/:paymentId',
+    title: 'rewrite a draft payment of another tenant',
+    method: 'put',
+    path: `/api/v1/receivables/payments/${GLOBEX.draftPaymentId}`,
+    body: { customerId: GLOBEX.customerId, method: 'cash', allocations: [{ invoiceId: GLOBEX.issuedInvoiceId, amount: 50 }] },
+  },
+  {
+    route: 'PUT /api/v1/receivables/payments/:paymentId/confirm',
+    title: 'confirm a payment of another tenant and lower its balances',
+    method: 'put',
+    path: `/api/v1/receivables/payments/${GLOBEX.draftPaymentId}/confirm`,
+  },
+  {
+    route: 'PUT /api/v1/receivables/payments/:paymentId/cancel',
+    title: 'cancel a payment of another tenant and raise its balances',
+    method: 'put',
+    path: `/api/v1/receivables/payments/${GLOBEX.confirmedPaymentId}/cancel`,
+  },
+  {
+    route: 'GET /api/v1/receivables/invoices',
+    title: 'list the receivables of a customer of another tenant',
+    method: 'get',
+    path: `/api/v1/receivables/invoices?customerId=${GLOBEX.customerId}`,
+  },
+  {
+    route: 'GET /api/v1/receivables/customers/:customerId/statement',
+    title: 'read the statement of a customer of another tenant',
+    method: 'get',
+    path: `/api/v1/receivables/customers/${GLOBEX.customerId}/statement`,
   },
 ];

@@ -1,6 +1,6 @@
 import { z } from 'zod';
 
-// La empresa sale de la sesion; las reglas (nombre, correo, plazo) las hace cumplir el dominio.
+// La empresa sale de la sesion; las reglas (nombre, correo, plazo, limite) las hace cumplir el dominio.
 export const customerRequestSchema = z.object({
   name: z.string(),
   fiscalId: z.string().nullable().optional(),
@@ -8,6 +8,7 @@ export const customerRequestSchema = z.object({
   phone: z.string().nullable().optional(),
   address: z.string().nullable().optional(),
   paymentTermDays: z.number().nullable().optional(),
+  creditLimit: z.number().nullable().optional(),
 });
 
 export type CustomerRequestDto = z.infer<typeof customerRequestSchema>;

@@ -6,6 +6,7 @@ import { ID_GENERATOR } from '../../../shared/domain/ports/id-generator.js';
 import { SharedModule } from '../../../shared/infrastructure/shared.module.js';
 import { PrismaModule } from '../../../shared/prisma/prisma.module.js';
 import { InventoryModule } from '../../inventory/infrastructure/inventory.module.js';
+import { ReceivablesModule } from '../../receivables/infrastructure/receivables.module.js';
 import { DispatchCanceller } from '../application/cancel-dispatch/dispatch-canceller.js';
 import { InvoiceCanceller } from '../application/cancel-invoice/invoice-canceller.js';
 import { SalesOrderCanceller } from '../application/cancel-order/sales-order-canceller.js';
@@ -83,9 +84,10 @@ import { PrismaSalesOrderRepository } from './persistence/prisma-sales-order.rep
 import { PrismaSalesStock } from './persistence/prisma-sales-stock.js';
 
 // El cableado de ventas. Como compras, importa el modulo del inventario solo por
-// DOCUMENT_STOCK_POSTING: reservar bloquea existencias y despachar las saca.
+// DOCUMENT_STOCK_POSTING: reservar bloquea existencias y despachar las saca. Importa cuentas por
+// cobrar solo por RECEIVABLE_BALANCES: facturar a credito y anular miran lo cobrado.
 @Module({
-  imports: [PrismaModule, SharedModule, InventoryModule],
+  imports: [PrismaModule, SharedModule, InventoryModule, ReceivablesModule],
   controllers: [
     SearchCustomersGetController,
     CreateCustomerPostController,
@@ -202,9 +204,9 @@ import { PrismaSalesStock } from './persistence/prisma-sales-stock.js';
 
     {
       provide: InvoiceIssuer,
-      useFactory: (d: DispatchFinder, o: SalesOrderFinder, c: CustomerFinder, v: InvoiceRepository, p: InvoicePosting, s: SalesCodeSequence, i: IdGenerator, k: Clock) =>
-        new InvoiceIssuer(d, o, c, v, p, s, i, k),
-      inject: [DispatchFinder, SalesOrderFinder, CustomerFinder, INVOICE_REPOSITORY, INVOICE_POSTING, SALES_CODE_SEQUENCE, ID_GENERATOR, CLOCK],
+      useFactory: (d: DispatchFinder, o: SalesOrderFinder, v: InvoiceRepository, p: InvoicePosting, s: SalesCodeSequence, i: IdGenerator, k: Clock) =>
+        new InvoiceIssuer(d, o, v, p, s, i, k),
+      inject: [DispatchFinder, SalesOrderFinder, INVOICE_REPOSITORY, INVOICE_POSTING, SALES_CODE_SEQUENCE, ID_GENERATOR, CLOCK],
     },
     { provide: InvoiceCanceller, useFactory: (p: InvoicePosting, k: Clock) => new InvoiceCanceller(p, k), inject: [INVOICE_POSTING, CLOCK] },
     {
