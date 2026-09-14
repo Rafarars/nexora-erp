@@ -17,8 +17,12 @@ export class InventoryPage {
   constructor(private readonly page: Page) {}
 
   async open(section: Section): Promise<void> {
+    // El modulo redirige a su primera seccion: si se elige la seccion antes de que termine esa
+    // redireccion, la redireccion llega despues y deja la pantalla en la seccion equivocada.
     await this.page.getByTestId('nav-inventario').click();
+    await expect(this.page).toHaveURL(/\/inventario\/[a-z-]+/);
     await this.page.getByTestId(`inventory-${section}`).click();
+    await expect(this.page).toHaveURL(new RegExp(`/inventario/${section}`));
     await expect(this.page.getByTestId('inventory-nav')).toBeVisible();
   }
 

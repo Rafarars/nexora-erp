@@ -92,6 +92,39 @@ const PURCHASING = {
   },
 };
 
+// Ventas de ejemplo. Globex tiene un pedido despachado en parte con su despacho y factura, un
+// despacho en borrador y un pedido en borrador: la matriz de aislamiento los ataca desde Acme.
+const SALES = {
+  acme: {
+    delta: 'ed000000-0000-4000-8000-000000000001',
+    corner: 'ed000000-0000-4000-8000-000000000002',
+    partialOrder: 'ee000000-0000-4000-8000-000000000001',
+    draftOrder: 'ee000000-0000-4000-8000-000000000002',
+    partialWater: 'ef000000-0000-4000-8000-000000000001',
+    partialDetergent: 'ef000000-0000-4000-8000-000000000002',
+    draftWater: 'ef000000-0000-4000-8000-000000000003',
+    dispatch: 'f1000000-0000-4000-8000-000000000001',
+    dispatchWater: 'f2000000-0000-4000-8000-000000000001',
+    invoice: 'f3000000-0000-4000-8000-000000000001',
+    invoiceWater: 'f4000000-0000-4000-8000-000000000001',
+    dispatchMovement: 'e7000000-0000-4000-8000-000000000004',
+  },
+  globex: {
+    customer: 'ed000000-0000-4000-8000-000000000101',
+    partialOrder: 'ee000000-0000-4000-8000-000000000101',
+    draftOrder: 'ee000000-0000-4000-8000-000000000102',
+    partialFilter: 'ef000000-0000-4000-8000-000000000101',
+    draftFilter: 'ef000000-0000-4000-8000-000000000102',
+    dispatch: 'f1000000-0000-4000-8000-000000000101',
+    dispatchFilter: 'f2000000-0000-4000-8000-000000000101',
+    draftDispatch: 'f1000000-0000-4000-8000-000000000102',
+    draftDispatchFilter: 'f2000000-0000-4000-8000-000000000102',
+    invoice: 'f3000000-0000-4000-8000-000000000101',
+    invoiceFilter: 'f4000000-0000-4000-8000-000000000101',
+    dispatchMovement: 'e7000000-0000-4000-8000-000000000102',
+  },
+};
+
 const INVENTORY = {
   acme: {
     opening: 'e5000000-0000-4000-8000-000000000001',
@@ -139,12 +172,14 @@ async function main(): Promise<void> {
     await seedCatalog(prisma);
     await seedInventory(prisma);
     await seedPurchasing(prisma);
+    await seedSales(prisma);
 
     console.log(
       '  semillas aplicadas: 3 empresas, 4 roles, 5 personas, 7 membresias; ' +
         'catalogo: 7 unidades, 3 categorias, 3 impuestos, 5 bodegas, 4 articulos; ' +
         'inventario: 4 ajustes (2 confirmados), 3 existencias; ' +
-        'compras: 3 proveedores, 4 ordenes, 2 entradas',
+        'compras: 3 proveedores, 4 ordenes, 2 entradas; ' +
+        'ventas: 3 clientes, 4 pedidos, 3 despachos, 2 facturas',
     );
   } finally {
     await prisma.$disconnect();
@@ -199,6 +234,11 @@ async function upsertRoles(prisma: PrismaClient): Promise<void> {
         'purchasing.orders.search',
         'purchasing.receipts.search',
         'purchasing.incoming.search',
+        'sales.customers.search',
+        'sales.orders.search',
+        'sales.dispatches.search',
+        'sales.invoices.search',
+        'sales.availability.search',
       ],
     },
     { id: GLOBEX_ADMIN_ROLE, tenantId: GLOBEX, name: 'Administrador', grantsAll: true, permissions: [] },
@@ -380,6 +420,10 @@ async function removeCatalogLeftovers(
 // confirman y anulan documentos, y dejar sus existencias haria que el seed no fuera el mismo
 // dos veces. Compras primero: sus documentos apuntan a articulos y bodegas.
 async function removeInventory(prisma: PrismaClient): Promise<void> {
+  await prisma.invoice.deleteMany();
+  await prisma.dispatch.deleteMany();
+  await prisma.salesOrder.deleteMany();
+  await prisma.customer.deleteMany();
   await prisma.goodsReceipt.deleteMany();
   await prisma.purchaseOrder.deleteMany();
   await prisma.supplier.deleteMany();
@@ -561,6 +605,128 @@ async function seedPurchasing(prisma: PrismaClient): Promise<void> {
   for (const [tenantId, prefix, lastValue] of [
     [ACME, 'PRV', 2], [ACME, 'OC', 2], [ACME, 'ENT', 1],
     [GLOBEX, 'PRV', 1], [GLOBEX, 'OC', 2], [GLOBEX, 'ENT', 1],
+  ] as const) {
+    await prisma.$executeRaw`
+      INSERT INTO code_sequences (tenant_id, prefix, last_value)
+      VALUES (${tenantId}::uuid, ${prefix}, ${lastValue})
+      ON CONFLICT (tenant_id, prefix)
+      DO UPDATE SET last_value = GREATEST(code_sequences.last_value, EXCLUDED.last_value)`;
+  }
+}
+
+// Un pedido de Acme despachado en parte, con su despacho y su factura escritos como los
+// escribiria el sistema: 2 cajas de agua salen al promedio de 0,50 y el agua pasa de 336 a 288. En
+// Globex, lo que ataca la matriz de aislamiento.
+async function seedSales(prisma: PrismaClient): Promise<void> {
+  const { acme, globex } = CATALOG;
+  const at = (day: string) => new Date(`${day}T12:00:00.000Z`);
+  const date = (day: string) => new Date(`${day}T00:00:00.000Z`);
+
+  await prisma.customer.createMany({
+    data: [
+      {
+        id: SALES.acme.delta, tenantId: ACME, code: 'CLI000001', name: 'Comercial Delta', fiscalId: 'J-40123456-7',
+        email: 'compras@delta.com', phone: '+58 212 555 0202', address: 'Calle Real de Sabana Grande', paymentTermDays: 15,
+      },
+      { id: SALES.acme.corner, tenantId: ACME, code: 'CLI000002', name: 'Bodegón La Esquina', paymentTermDays: 0 },
+      { id: SALES.globex.customer, tenantId: GLOBEX, code: 'CLI000001', name: 'Talleres Omega', paymentTermDays: 30 },
+    ],
+  });
+
+  const orders = [
+    {
+      id: SALES.acme.partialOrder, tenantId: ACME, code: 'PED000001', customerId: SALES.acme.delta, warehouseId: acme.warehouses.main,
+      orderDate: date('2026-09-06'), notes: 'Pedido semanal', status: 'partially_dispatched' as const, confirmedAt: at('2026-09-06'),
+      lines: [
+        { id: SALES.acme.partialWater, itemId: acme.items.water, unitId: acme.units.box, quantity: 5, baseQuantity: 120, unitPrice: 30, taxRate: 16, dispatchedQuantity: 2 },
+        { id: SALES.acme.partialDetergent, itemId: acme.items.detergent, unitId: acme.units.kilo, quantity: 10, baseQuantity: 10, unitPrice: 5.5, taxRate: 16, dispatchedQuantity: 0 },
+      ],
+    },
+    {
+      id: SALES.acme.draftOrder, tenantId: ACME, code: 'PED000002', customerId: SALES.acme.corner, warehouseId: acme.warehouses.main,
+      orderDate: date('2026-09-08'), notes: null, status: 'draft' as const, confirmedAt: null,
+      lines: [{ id: SALES.acme.draftWater, itemId: acme.items.water, unitId: acme.units.piece, quantity: 24, baseQuantity: 24, unitPrice: 1.5, taxRate: 16, dispatchedQuantity: 0 }],
+    },
+    {
+      id: SALES.globex.partialOrder, tenantId: GLOBEX, code: 'PED000001', customerId: SALES.globex.customer, warehouseId: globex.warehouses.main,
+      orderDate: date('2026-09-05'), notes: null, status: 'partially_dispatched' as const, confirmedAt: at('2026-09-05'),
+      lines: [{ id: SALES.globex.partialFilter, itemId: globex.items.filter, unitId: globex.units.piece, quantity: 10, baseQuantity: 10, unitPrice: 14, taxRate: 16, dispatchedQuantity: 5 }],
+    },
+    {
+      id: SALES.globex.draftOrder, tenantId: GLOBEX, code: 'PED000002', customerId: SALES.globex.customer, warehouseId: globex.warehouses.main,
+      orderDate: date('2026-09-07'), notes: null, status: 'draft' as const, confirmedAt: null,
+      lines: [{ id: SALES.globex.draftFilter, itemId: globex.items.filter, unitId: globex.units.piece, quantity: 3, baseQuantity: 3, unitPrice: 14, taxRate: 16, dispatchedQuantity: 0 }],
+    },
+  ];
+
+  for (const { lines, ...order } of orders) {
+    await prisma.salesOrder.create({ data: { ...order, createdAt: order.orderDate, updatedAt: order.confirmedAt ?? order.orderDate } });
+    await prisma.salesOrderLine.createMany({ data: lines.map((line, index) => ({ ...line, tenantId: order.tenantId, orderId: order.id, lineNumber: index + 1 })) });
+  }
+
+  const dispatches = [
+    {
+      id: SALES.acme.dispatch, tenantId: ACME, code: 'DES000001', orderId: SALES.acme.partialOrder, warehouseId: acme.warehouses.main,
+      dispatchDate: date('2026-09-07'), notes: 'Primera entrega', status: 'confirmed' as const, confirmedAt: at('2026-09-07'),
+      lines: [{ id: SALES.acme.dispatchWater, orderLineId: SALES.acme.partialWater, itemId: acme.items.water, unitId: acme.units.box, quantity: 2, baseQuantity: 48 }],
+    },
+    {
+      id: SALES.globex.dispatch, tenantId: GLOBEX, code: 'DES000001', orderId: SALES.globex.partialOrder, warehouseId: globex.warehouses.main,
+      dispatchDate: date('2026-09-06'), notes: null, status: 'confirmed' as const, confirmedAt: at('2026-09-06'),
+      lines: [{ id: SALES.globex.dispatchFilter, orderLineId: SALES.globex.partialFilter, itemId: globex.items.filter, unitId: globex.units.piece, quantity: 5, baseQuantity: 5 }],
+    },
+    {
+      id: SALES.globex.draftDispatch, tenantId: GLOBEX, code: 'DES000002', orderId: SALES.globex.partialOrder, warehouseId: globex.warehouses.main,
+      dispatchDate: date('2026-09-08'), notes: null, status: 'draft' as const, confirmedAt: null,
+      lines: [{ id: SALES.globex.draftDispatchFilter, orderLineId: SALES.globex.partialFilter, itemId: globex.items.filter, unitId: globex.units.piece, quantity: 2, baseQuantity: 2 }],
+    },
+  ];
+
+  for (const { lines, ...dispatch } of dispatches) {
+    await prisma.dispatch.create({ data: { ...dispatch, createdAt: dispatch.dispatchDate, updatedAt: dispatch.confirmedAt ?? dispatch.dispatchDate } });
+    await prisma.dispatchLine.createMany({ data: lines.map((line, index) => ({ ...line, tenantId: dispatch.tenantId, dispatchId: dispatch.id, lineNumber: index + 1 })) });
+  }
+
+  const invoices = [
+    {
+      id: SALES.acme.invoice, tenantId: ACME, code: 'FAC000001', dispatchId: SALES.acme.dispatch, orderId: SALES.acme.partialOrder, customerId: SALES.acme.delta,
+      issueDate: date('2026-09-07'), dueDate: date('2026-09-22'), subtotal: 60, tax: 9.6, total: 69.6,
+      line: { id: SALES.acme.invoiceWater, itemId: acme.items.water, unitId: acme.units.box, quantity: 2, unitPrice: 30, taxRate: 16, subtotal: 60, tax: 9.6 },
+    },
+    {
+      id: SALES.globex.invoice, tenantId: GLOBEX, code: 'FAC000001', dispatchId: SALES.globex.dispatch, orderId: SALES.globex.partialOrder, customerId: SALES.globex.customer,
+      issueDate: date('2026-09-06'), dueDate: date('2026-10-06'), subtotal: 70, tax: 11.2, total: 81.2,
+      line: { id: SALES.globex.invoiceFilter, itemId: globex.items.filter, unitId: globex.units.piece, quantity: 5, unitPrice: 14, taxRate: 16, subtotal: 70, tax: 11.2 },
+    },
+  ];
+
+  for (const { line, ...invoice } of invoices) {
+    await prisma.invoice.create({ data: { ...invoice, status: 'issued', createdAt: invoice.issueDate, updatedAt: invoice.issueDate } });
+    await prisma.invoiceLine.create({ data: { ...line, tenantId: invoice.tenantId, invoiceId: invoice.id, lineNumber: 1 } });
+  }
+
+  const exits = [
+    { id: SALES.acme.dispatchMovement, tenantId: ACME, itemId: acme.items.water, warehouseId: acme.warehouses.main, sequence: 3, quantity: 48, cost: 0.5, balance: 288, originId: SALES.acme.dispatch, lineId: SALES.acme.dispatchWater, day: '2026-09-07' },
+    { id: SALES.globex.dispatchMovement, tenantId: GLOBEX, itemId: globex.items.filter, warehouseId: globex.warehouses.main, sequence: 2, quantity: 5, cost: 8.5, balance: 25, originId: SALES.globex.dispatch, lineId: SALES.globex.dispatchFilter, day: '2026-09-06' },
+  ];
+
+  for (const exit of exits) {
+    await prisma.inventoryMovement.create({
+      data: {
+        id: exit.id, tenantId: exit.tenantId, itemId: exit.itemId, warehouseId: exit.warehouseId, sequence: exit.sequence, direction: 'out',
+        quantity: exit.quantity, unitCost: exit.cost, balanceQuantity: exit.balance, balanceAverageCost: exit.cost, originType: 'dispatch',
+        originId: exit.originId, originLineId: exit.lineId, occurredAt: at(exit.day),
+      },
+    });
+    await prisma.itemStock.update({
+      where: { tenantId_itemId_warehouseId: { tenantId: exit.tenantId, itemId: exit.itemId, warehouseId: exit.warehouseId } },
+      data: { quantity: exit.balance, lastSequence: exit.sequence, updatedAt: at(exit.day) },
+    });
+  }
+
+  for (const [tenantId, prefix, lastValue] of [
+    [ACME, 'CLI', 2], [ACME, 'PED', 2], [ACME, 'DES', 1], [ACME, 'FAC', 1],
+    [GLOBEX, 'CLI', 1], [GLOBEX, 'PED', 2], [GLOBEX, 'DES', 2], [GLOBEX, 'FAC', 1],
   ] as const) {
     await prisma.$executeRaw`
       INSERT INTO code_sequences (tenant_id, prefix, last_value)

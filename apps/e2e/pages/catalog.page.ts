@@ -10,8 +10,12 @@ export class CatalogPage {
   constructor(private readonly page: Page) {}
 
   async open(section: Section): Promise<void> {
+    // El modulo redirige a su primera seccion: si se elige la seccion antes de que termine esa
+    // redireccion, la redireccion llega despues y deja la pantalla en la seccion equivocada.
     await this.page.getByTestId('nav-catalogo').click();
+    await expect(this.page).toHaveURL(/\/catalogo\/[a-z-]+/);
     await this.page.getByTestId(`catalog-${section}`).click();
+    await expect(this.page).toHaveURL(new RegExp(`/catalogo/${section}`));
     await expect(this.page.getByTestId('catalog-nav')).toBeVisible();
   }
 
