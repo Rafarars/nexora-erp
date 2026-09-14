@@ -21,8 +21,12 @@ export class InventoryPage {
     // redireccion, la redireccion llega despues y deja la pantalla en la seccion equivocada.
     await this.page.getByTestId('nav-inventario').click();
     await expect(this.page).toHaveURL(/\/inventario\/[a-z-]+/);
-    await this.page.getByTestId(`inventory-${section}`).click();
-    await expect(this.page).toHaveURL(new RegExp(`/inventario/${section}`));
+    // Bajo carga, un clic que llega mientras termina la redireccion del modulo se pierde: si la
+    // direccion no cambia, se vuelve a pulsar dentro de la misma espera.
+    await expect(async () => {
+      await this.page.getByTestId(`inventory-${section}`).click();
+      await expect(this.page).toHaveURL(new RegExp(`/inventario/${section}`), { timeout: 2_000 });
+    }).toPass();
     await expect(this.page.getByTestId('inventory-nav')).toBeVisible();
   }
 

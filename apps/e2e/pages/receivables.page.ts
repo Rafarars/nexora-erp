@@ -12,8 +12,12 @@ export class ReceivablesPage {
     // Como en ventas: se espera la redireccion del modulo antes de elegir la seccion.
     await this.page.getByTestId('nav-cuentas-por-cobrar').click();
     await expect(this.page).toHaveURL(/\/cuentas-por-cobrar\/[a-z-]+/);
-    await this.page.getByTestId(`receivables-${section}`).click();
-    await expect(this.page).toHaveURL(new RegExp(`/cuentas-por-cobrar/${section}`));
+    // Bajo carga, un clic que llega mientras termina la redireccion del modulo se pierde: si la
+    // direccion no cambia, se vuelve a pulsar dentro de la misma espera.
+    await expect(async () => {
+      await this.page.getByTestId(`receivables-${section}`).click();
+      await expect(this.page).toHaveURL(new RegExp(`/cuentas-por-cobrar/${section}`), { timeout: 2_000 });
+    }).toPass();
     await expect(this.page.getByTestId('receivables-nav')).toBeVisible();
   }
 

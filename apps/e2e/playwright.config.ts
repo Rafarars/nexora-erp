@@ -39,10 +39,20 @@ export default defineConfig({
       use: { baseURL: API_URL },
     },
     {
+      // Guardas de tiempo sobre la empresa de volumen. Solas y despues de las demas: con las pruebas
+      // en paralelo midiendo a la vez, el umbral mediria la carga de la maquina y no el sistema.
+      name: 'performance',
+      testDir: './tests/performance',
+      dependencies: ['api', 'ui', 'isolation'],
+      fullyParallel: false,
+      workers: 1,
+      use: { baseURL: API_URL },
+    },
+    {
       // Apaga Postgres: siempre al final o tumbaria a los demas proyectos.
       name: 'resilience',
       testDir: './tests/resilience',
-      dependencies: ['api', 'ui', 'isolation'],
+      dependencies: ['api', 'ui', 'isolation', 'performance'],
       fullyParallel: false,
       workers: 1,
       use: { ...devices['Desktop Chrome'], baseURL: WEB_URL },

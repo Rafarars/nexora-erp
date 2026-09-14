@@ -21,12 +21,15 @@ const ACME_ADMIN_ROLE = 'a0000000-0000-4000-8000-000000000001';
 const ACME_VIEWER_ROLE = 'a0000000-0000-4000-8000-000000000002';
 const GLOBEX_ADMIN_ROLE = 'b0000000-0000-4000-8000-000000000001';
 const INITECH_ADMIN_ROLE = 'f0000000-0000-4000-8000-000000000001';
+const VOLUME = '44444444-4444-4444-8444-444444444444';
+const VOLUME_ADMIN_ROLE = 'f0000000-0000-4000-8000-000000000002';
 
 const ANA = 'c0000000-0000-4000-8000-000000000001';
 const BETO = 'c0000000-0000-4000-8000-000000000002';
 const CONTADOR = 'c0000000-0000-4000-8000-000000000003';
 const SUPERUSER = 'c0000000-0000-4000-8000-000000000004';
 const DORA = 'c0000000-0000-4000-8000-000000000005';
+const VERA = 'c0000000-0000-4000-8000-000000000006';
 
 const PASSWORD = process.env.SEED_PASSWORD ?? 'Nexora-2026!';
 
@@ -180,14 +183,16 @@ async function main(): Promise<void> {
     await seedPurchasing(prisma);
     await seedSales(prisma);
     await seedReceivables(prisma);
+    await seedVolume(prisma);
 
     console.log(
-      '  semillas aplicadas: 3 empresas, 4 roles, 5 personas, 7 membresias; ' +
+      '  semillas aplicadas: 4 empresas, 5 roles, 6 personas, 8 membresias; ' +
         'catalogo: 7 unidades, 3 categorias, 3 impuestos, 5 bodegas, 4 articulos; ' +
         'inventario: 4 ajustes (2 confirmados), 3 existencias; ' +
         'compras: 3 proveedores, 4 ordenes, 2 entradas; ' +
         'ventas: 3 clientes, 4 pedidos, 3 despachos, 2 facturas; ' +
-        'cuentas por cobrar: 3 cobros (2 confirmados)',
+        'cuentas por cobrar: 3 cobros (2 confirmados); ' +
+        'volumen: 50 clientes, 5000 facturas, 3000 cobros',
     );
   } finally {
     await prisma.$disconnect();
@@ -198,8 +203,8 @@ async function main(): Promise<void> {
 // acumula basura de corridas anteriores y las capturas del reporte salen con
 // veinte filas llamadas `colado-1789144380150@acme.com`.
 async function removeLeftovers(prisma: PrismaClient): Promise<void> {
-  const seeded = [ANA, BETO, CONTADOR, SUPERUSER, DORA];
-  const seededRoles = [ACME_ADMIN_ROLE, ACME_VIEWER_ROLE, GLOBEX_ADMIN_ROLE, INITECH_ADMIN_ROLE];
+  const seeded = [ANA, BETO, CONTADOR, SUPERUSER, DORA, VERA];
+  const seededRoles = [ACME_ADMIN_ROLE, ACME_VIEWER_ROLE, GLOBEX_ADMIN_ROLE, INITECH_ADMIN_ROLE, VOLUME_ADMIN_ROLE];
 
   await prisma.membership.deleteMany({ where: { userId: { notIn: seeded } } });
   await prisma.user.deleteMany({ where: { id: { notIn: seeded } } });
@@ -211,6 +216,7 @@ async function upsertTenants(prisma: PrismaClient): Promise<void> {
     { id: ACME, name: 'Acme Industrial', slug: 'acme' },
     { id: GLOBEX, name: 'Globex Servicios', slug: 'globex' },
     { id: INITECH, name: 'Initech Logística', slug: 'initech' },
+    { id: VOLUME, name: 'Volumen Distribuciones', slug: 'volumen' },
   ];
 
   for (const tenant of tenants) {
@@ -250,10 +256,15 @@ async function upsertRoles(prisma: PrismaClient): Promise<void> {
         'receivables.payments.search',
         'receivables.balances.search',
         'receivables.statements.search',
+        // Sin la valuacion del inventario: muestra costos.
+        'reports.dashboard.search',
+        'reports.receivables.search',
+        'reports.sales.search',
       ],
     },
     { id: GLOBEX_ADMIN_ROLE, tenantId: GLOBEX, name: 'Administrador', grantsAll: true, permissions: [] },
     { id: INITECH_ADMIN_ROLE, tenantId: INITECH, name: 'Administrador', grantsAll: true, permissions: [] },
+    { id: VOLUME_ADMIN_ROLE, tenantId: VOLUME, name: 'Administrador', grantsAll: true, permissions: [] },
   ];
 
   for (const { permissions, ...role } of roles) {
@@ -278,6 +289,7 @@ async function upsertUsers(prisma: PrismaClient, passwordHash: string): Promise<
     { id: SUPERUSER, email: 'admin@nexora.com', name: 'Superusuario' },
     // Solo en Initech: nadie mas entra ahi, asi que lo que ella mueve no pisa otra prueba.
     { id: DORA, email: 'dora@initech.com', name: 'Dora Paz' },
+    { id: VERA, email: 'vera@volumen.com', name: 'Vera Ruiz' },
   ];
 
   for (const user of users) {
@@ -296,6 +308,7 @@ async function upsertMemberships(prisma: PrismaClient): Promise<void> {
     { id: 'd0000000-0000-4000-8000-000000000005', userId: SUPERUSER, tenantId: ACME, roles: [ACME_ADMIN_ROLE] },
     { id: 'd0000000-0000-4000-8000-000000000006', userId: SUPERUSER, tenantId: GLOBEX, roles: [GLOBEX_ADMIN_ROLE] },
     { id: 'd0000000-0000-4000-8000-000000000007', userId: DORA, tenantId: INITECH, roles: [INITECH_ADMIN_ROLE] },
+    { id: 'd0000000-0000-4000-8000-000000000008', userId: VERA, tenantId: VOLUME, roles: [VOLUME_ADMIN_ROLE] },
   ];
 
   for (const { roles, ...membership } of memberships) {
@@ -784,6 +797,58 @@ async function seedReceivables(prisma: PrismaClient): Promise<void> {
     await prisma.$executeRaw`
       INSERT INTO code_sequences (tenant_id, prefix, last_value)
       VALUES (${tenantId}::uuid, 'COB', ${lastValue})
+      ON CONFLICT (tenant_id, prefix)
+      DO UPDATE SET last_value = GREATEST(code_sequences.last_value, EXCLUDED.last_value)`;
+  }
+}
+
+// La empresa de las guardas de rendimiento: 50 clientes, 5.000 facturas con su pedido y su despacho,
+// y 3.000 cobros confirmados. Se genera en SQL con identificadores derivados del numero de fila: en
+// segundos, y siempre igual.
+async function seedVolume(prisma: PrismaClient): Promise<void> {
+  const warehouse = 'e3000000-0000-4000-8000-000000000401';
+
+  await prisma.warehouse.create({ data: { id: warehouse, tenantId: VOLUME, code: 'BOD000001', name: 'Central', isDefault: true } });
+
+  await prisma.$executeRaw`
+    INSERT INTO customers (id, tenant_id, code, name, payment_term_days, updated_at)
+    SELECT md5('vol-customer-' || n)::uuid, ${VOLUME}::uuid, 'CLI' || lpad(n::text, 6, '0'), 'Cliente volumen ' || lpad(n::text, 2, '0'), 30, now()
+    FROM generate_series(1, 50) AS n`;
+
+  await prisma.$executeRaw`
+    INSERT INTO sales_orders (id, tenant_id, code, customer_id, warehouse_id, order_date, status, confirmed_at, updated_at)
+    SELECT md5('vol-order-' || n)::uuid, ${VOLUME}::uuid, 'PED' || lpad(n::text, 6, '0'), md5('vol-customer-' || (n % 50 + 1))::uuid, ${warehouse}::uuid,
+           date '2026-01-01' + (n % 250), 'dispatched'::sales_order_status, now(), now()
+    FROM generate_series(1, 5000) AS n`;
+
+  await prisma.$executeRaw`
+    INSERT INTO dispatches (id, tenant_id, code, order_id, warehouse_id, dispatch_date, status, confirmed_at, updated_at)
+    SELECT md5('vol-dispatch-' || n)::uuid, ${VOLUME}::uuid, 'DES' || lpad(n::text, 6, '0'), md5('vol-order-' || n)::uuid, ${warehouse}::uuid,
+           date '2026-01-01' + (n % 250), 'confirmed'::dispatch_status, now(), now()
+    FROM generate_series(1, 5000) AS n`;
+
+  await prisma.$executeRaw`
+    INSERT INTO invoices (id, tenant_id, code, dispatch_id, order_id, customer_id, issue_date, due_date, status, subtotal, tax, total, updated_at)
+    SELECT md5('vol-invoice-' || n)::uuid, ${VOLUME}::uuid, 'FAC' || lpad(n::text, 6, '0'), md5('vol-dispatch-' || n)::uuid, md5('vol-order-' || n)::uuid,
+           md5('vol-customer-' || (n % 50 + 1))::uuid, date '2026-01-01' + (n % 250), date '2026-01-31' + (n % 250), 'issued'::invoice_status,
+           10 + n % 90, 0, 10 + n % 90, now()
+    FROM generate_series(1, 5000) AS n`;
+
+  await prisma.$executeRaw`
+    INSERT INTO customer_payments (id, tenant_id, code, customer_id, payment_date, method, amount, status, confirmed_at, updated_at)
+    SELECT md5('vol-payment-' || n)::uuid, ${VOLUME}::uuid, 'COB' || lpad(n::text, 6, '0'), md5('vol-customer-' || (n % 50 + 1))::uuid,
+           date '2026-01-01' + (n % 250), 'transfer'::payment_method, 5, 'confirmed'::payment_status, now(), now()
+    FROM generate_series(1, 3000) AS n`;
+
+  await prisma.$executeRaw`
+    INSERT INTO payment_allocations (id, tenant_id, payment_id, invoice_id, amount)
+    SELECT md5('vol-allocation-' || n)::uuid, ${VOLUME}::uuid, md5('vol-payment-' || n)::uuid, md5('vol-invoice-' || n)::uuid, 5
+    FROM generate_series(1, 3000) AS n`;
+
+  for (const [prefix, lastValue] of [['CLI', 50], ['PED', 5000], ['DES', 5000], ['FAC', 5000], ['COB', 3000], ['BOD', 1]] as const) {
+    await prisma.$executeRaw`
+      INSERT INTO code_sequences (tenant_id, prefix, last_value)
+      VALUES (${VOLUME}::uuid, ${prefix}, ${lastValue})
       ON CONFLICT (tenant_id, prefix)
       DO UPDATE SET last_value = GREATEST(code_sequences.last_value, EXCLUDED.last_value)`;
   }

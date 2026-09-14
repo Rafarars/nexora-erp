@@ -20,8 +20,12 @@ export class PurchasingPage {
     // redireccion, la redireccion llega despues y deja la pantalla en la seccion equivocada.
     await this.page.getByTestId('nav-compras').click();
     await expect(this.page).toHaveURL(/\/compras\/[a-z-]+/);
-    await this.page.getByTestId(`purchasing-${section}`).click();
-    await expect(this.page).toHaveURL(new RegExp(`/compras/${section}`));
+    // Bajo carga, un clic que llega mientras termina la redireccion del modulo se pierde: si la
+    // direccion no cambia, se vuelve a pulsar dentro de la misma espera.
+    await expect(async () => {
+      await this.page.getByTestId(`purchasing-${section}`).click();
+      await expect(this.page).toHaveURL(new RegExp(`/compras/${section}`), { timeout: 2_000 });
+    }).toPass();
     await expect(this.page.getByTestId('purchasing-nav')).toBeVisible();
   }
 

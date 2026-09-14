@@ -13,8 +13,12 @@ export class SalesPage {
     // redireccion, la redireccion llega despues y deja la pantalla en la seccion equivocada.
     await this.page.getByTestId('nav-ventas').click();
     await expect(this.page).toHaveURL(/\/ventas\/[a-z-]+/);
-    await this.page.getByTestId(`sales-${section}`).click();
-    await expect(this.page).toHaveURL(new RegExp(`/ventas/${section}`));
+    // Bajo carga, un clic que llega mientras termina la redireccion del modulo se pierde: si la
+    // direccion no cambia, se vuelve a pulsar dentro de la misma espera.
+    await expect(async () => {
+      await this.page.getByTestId(`sales-${section}`).click();
+      await expect(this.page).toHaveURL(new RegExp(`/ventas/${section}`), { timeout: 2_000 });
+    }).toPass();
     await expect(this.page.getByTestId('sales-nav')).toBeVisible();
   }
 
