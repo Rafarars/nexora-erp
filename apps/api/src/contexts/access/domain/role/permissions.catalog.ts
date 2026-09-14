@@ -80,11 +80,33 @@ export const PURCHASING_PERMISSIONS: PermissionDefinition[] = [
   { code: 'purchasing.incoming.search', description: 'Consultar la mercancía en camino' },
 ];
 
+export const SALES_PERMISSIONS: PermissionDefinition[] = [
+  { code: 'sales.customers.search', description: 'Consultar los clientes' },
+  { code: 'sales.customers.create', description: 'Crear clientes' },
+  { code: 'sales.customers.update', description: 'Editar clientes' },
+  { code: 'sales.customers.deactivate', description: 'Desactivar y reactivar clientes' },
+  { code: 'sales.orders.search', description: 'Consultar los pedidos de venta' },
+  { code: 'sales.orders.create', description: 'Crear pedidos de venta en borrador' },
+  { code: 'sales.orders.update', description: 'Editar pedidos de venta en borrador' },
+  { code: 'sales.orders.confirm', description: 'Confirmar pedidos: reserva la existencia' },
+  { code: 'sales.orders.cancel', description: 'Anular pedidos sin mercancía despachada' },
+  { code: 'sales.dispatches.search', description: 'Consultar los despachos' },
+  { code: 'sales.dispatches.create', description: 'Crear despachos en borrador' },
+  { code: 'sales.dispatches.update', description: 'Editar despachos en borrador' },
+  { code: 'sales.dispatches.confirm', description: 'Confirmar despachos: baja la existencia' },
+  { code: 'sales.dispatches.cancel', description: 'Anular despachos, devolviendo la existencia' },
+  { code: 'sales.invoices.search', description: 'Consultar las facturas' },
+  { code: 'sales.invoices.issue', description: 'Emitir facturas de despachos confirmados' },
+  { code: 'sales.invoices.cancel', description: 'Anular facturas' },
+  { code: 'sales.availability.search', description: 'Consultar la existencia disponible para vender' },
+];
+
 export const SYSTEM_PERMISSIONS: PermissionDefinition[] = [
   ...ACCESS_PERMISSIONS,
   ...CATALOG_PERMISSIONS,
   ...INVENTORY_PERMISSIONS,
   ...PURCHASING_PERMISSIONS,
+  ...SALES_PERMISSIONS,
 ];
 
 // Concede un permiso que no existe y la clave ajena lo rechazaria en la base con un

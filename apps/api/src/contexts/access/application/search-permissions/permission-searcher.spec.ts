@@ -17,7 +17,7 @@ describe('PermissionSearcher', () => {
     const { permissions } = await searcher.run();
 
     expect(permissions.every((permission) => permission.code.startsWith(`${permission.module}.`))).toBe(true);
-    expect([...new Set(permissions.map((permission) => permission.module))]).toEqual(['access', 'catalog', 'inventory', 'purchasing']);
+    expect([...new Set(permissions.map((permission) => permission.module))]).toEqual(['access', 'catalog', 'inventory', 'purchasing', 'sales']);
   });
 
   it('describes every permission, because that is what a person reads', async () => {

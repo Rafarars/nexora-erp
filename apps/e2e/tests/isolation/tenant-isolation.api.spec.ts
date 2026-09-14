@@ -16,7 +16,7 @@ const auth = (token: string) => ({ authorization: `Bearer ${token}` });
 async function globexSnapshot(request: APIRequestContext) {
   const token = await tokenFor(request, 'beto@globex.com');
   const read = (path: string) => request.get(path, { headers: auth(token) }).then((r) => r.json());
-  const [users, roles, categories, units, taxes, warehouses, items, adjustments, stock, suppliers, orders, receipts, incoming] = await Promise.all([
+  const [users, roles, categories, units, taxes, warehouses, items, adjustments, stock, suppliers, orders, receipts, incoming, customers, salesOrders, dispatches, invoices, availability] = await Promise.all([
     read('/api/v1/users'),
     read('/api/v1/roles'),
     read('/api/v1/catalog/categories'),
@@ -30,9 +30,14 @@ async function globexSnapshot(request: APIRequestContext) {
     read('/api/v1/purchasing/orders'),
     read('/api/v1/purchasing/receipts'),
     read('/api/v1/purchasing/incoming'),
+    read('/api/v1/sales/customers'),
+    read('/api/v1/sales/orders'),
+    read('/api/v1/sales/dispatches'),
+    read('/api/v1/sales/invoices'),
+    read('/api/v1/sales/availability'),
   ]);
 
-  return { users, roles, categories, units, taxes, warehouses, items, adjustments, stock, suppliers, orders, receipts, incoming };
+  return { users, roles, categories, units, taxes, warehouses, items, adjustments, stock, suppliers, orders, receipts, incoming, customers, salesOrders, dispatches, invoices, availability };
 }
 
 // Ana solo esta en Acme. El superusuario esta en las dos y es administrador en ambas:

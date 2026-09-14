@@ -4,6 +4,7 @@ import {
   CATALOG_PERMISSIONS,
   INVENTORY_PERMISSIONS,
   PURCHASING_PERMISSIONS,
+  SALES_PERMISSIONS,
   SYSTEM_PERMISSIONS,
 } from './permissions.catalog.js';
 import { PermissionCode } from './permission-code.vo.js';
@@ -39,11 +40,15 @@ describe('permissions catalog', () => {
     expect(code.startsWith('inventory.')).toBe(true);
   });
 
+  it.each(SALES_PERMISSIONS)('$code belongs to the sales context', ({ code }) => {
+    expect(code.startsWith('sales.')).toBe(true);
+  });
+
   it.each(PURCHASING_PERMISSIONS)('$code belongs to the purchasing context', ({ code }) => {
     expect(code.startsWith('purchasing.')).toBe(true);
   });
 
   it('is exactly the permissions of every context, nothing more', () => {
-    expect(SYSTEM_PERMISSIONS).toEqual([...ACCESS_PERMISSIONS, ...CATALOG_PERMISSIONS, ...INVENTORY_PERMISSIONS, ...PURCHASING_PERMISSIONS]);
+    expect(SYSTEM_PERMISSIONS).toEqual([...ACCESS_PERMISSIONS, ...CATALOG_PERMISSIONS, ...INVENTORY_PERMISSIONS, ...PURCHASING_PERMISSIONS, ...SALES_PERMISSIONS]);
   });
 });
