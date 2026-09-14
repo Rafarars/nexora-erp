@@ -143,6 +143,6 @@ El pipeline **no tiene ni un secreto configurado**: no pide permisos que no usa.
 | **H4** Compras: proveedores, órdenes, entradas de mercancía y en camino | **Completado** |
 | **H5** Ventas: clientes, pedidos con reserva, despachos, facturas y disponibilidad | Implementado, en revisión |
 | **H6** Cuentas por cobrar: cobros, saldos, vencidas, límite de crédito, antigüedad y estado de cuenta | Implementado, en revisión |
-| H7 Reportes y tablero | Planificado |
+| **H7** Reportes y tablero: indicadores, PDF y Excel verificados por contenido, guarda de rendimiento | Implementado, en revisión |
 
 Plan completo en [`docs/PLAN.md`](docs/PLAN.md) · Configuración en [`docs/ENVIRONMENT.md`](docs/ENVIRONMENT.md)

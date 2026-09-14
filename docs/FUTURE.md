@@ -315,3 +315,18 @@ error de clave única del ORM a `EmailAlreadyInUseError` en el adaptador.
 **Limitar los intentos de contraseña actual.** Cambiar el correo o la contraseña pide la
 actual, pero no cuenta los fallos como el inicio de sesión. Exige una sesión abierta, así
 que el riesgo es bajo, pero quien la encuentre podría probar contraseñas sin límite.
+
+### Reportes: lo que quedó fuera del H7
+
+**Por qué:** el H7 cubre el tablero y los reportes que el ciclo ya genera. Lo demás es de un ERP
+completo o de más volumen.
+
+**Qué habría que hacer:**
+- **Reportes configurables** por el usuario (vistas guardadas, columnas elegidas) y **envío programado**
+  por correo: las tablas que propone `verlumyx/erp` en `docs/reportes.md` §3
+- **Exportaciones en cola** con aviso al terminar, cuando un reporte tarde más de lo razonable
+- **Gráficas** en el tablero y comparativo de periodos (mes contra mes)
+- **Más reportes**: kardex por artículo, compras por proveedor, cobros realizados, margen de utilidad
+- **Recibo de cobro** imprimible
+- **Logo y datos fiscales** de la empresa en el encabezado de los PDF
+- **Leer con una réplica** de solo lectura si los reportes cargan la base principal

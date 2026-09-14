@@ -352,6 +352,17 @@ consistencia entre cobros y saldo.
 
 ### H7 — Reportes y tablero
 Exportación a PDF y Excel, tablero con indicadores.
+
+**Fases** (informe detallado en [`docs/H7-REPORTES.md`](H7-REPORTES.md))
+
+- [x] **0. Alcance y herramientas** — reportes fijos en código; `exceljs`, `pdfkit` y `pdf-parse` aprobadas
+- [x] **1. Dominio** — periodo con tope, tramos, documento de reporte independiente del formato
+- [x] **2. Aplicación** — tablero y cuatro reportes, cada uno convertible en documento
+- [x] **3. Infraestructura** — modelo de lectura en SQL con contrato contra doble y PostgreSQL; PDF y Excel
+- [x] **4. API** — nueve rutas, cuatro permisos y cuatro ataques nuevos
+- [x] **5. Frontend** — tablero en el Panel, cuatro pantallas de reportes y descarga por el servidor de Next
+- [x] **6. Semillas y E2E** — empresa de volumen, contenido de los archivos verificado y guarda de rendimiento
+- [ ] **7. Cierre** — revisión de Rafael
 *Pruebas:* verificación del contenido de los documentos generados, **guarda de rendimiento** sobre
 un listado con volumen sembrado.
 

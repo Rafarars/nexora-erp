@@ -213,6 +213,10 @@ sirve a un endpoint. Tienen el mismo nombre y trabajos distintos.
   emitir a crédito (bloquea el cliente y lee su deuda) y al anular una factura (lee lo cobrado). El
   módulo de cuentas por cobrar **no importa ventas**: lee sus tablas por su adaptador. Así la
   composición no tiene ciclos
+- **Reportes de solo lectura, sin tablas**: `reporting` lee las tablas de los demás contextos por su
+  modelo de lectura en SQL y no importa ninguno. Cada reporte se convierte en un `ReportDocument`
+  (título, filtros, columnas, filas, totales) que un renderizador escribe como PDF (`pdfkit`) o Excel
+  (`exceljs`): el contenido se prueba sin abrir archivos y los dos formatos no pueden diferir
 - **La capa anticorrupción también traduce errores**: el inventario dice `InsufficientStockError` y
   compras lo convierte en `ReceivedGoodsAlreadyUsedError`
 - **Cantidades y costos en enteros escalados** (`BigInt`): la existencia es la suma exacta del
