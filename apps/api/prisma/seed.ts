@@ -108,6 +108,8 @@ const SALES = {
     invoice: 'f3000000-0000-4000-8000-000000000001',
     invoiceWater: 'f4000000-0000-4000-8000-000000000001',
     dispatchMovement: 'e7000000-0000-4000-8000-000000000004',
+    payment: 'd3000000-0000-4000-8000-000000000001',
+    paymentAllocation: 'd4000000-0000-4000-8000-000000000001',
   },
   globex: {
     customer: 'ed000000-0000-4000-8000-000000000101',
@@ -122,6 +124,10 @@ const SALES = {
     invoice: 'f3000000-0000-4000-8000-000000000101',
     invoiceFilter: 'f4000000-0000-4000-8000-000000000101',
     dispatchMovement: 'e7000000-0000-4000-8000-000000000102',
+    confirmedPayment: 'd3000000-0000-4000-8000-000000000101',
+    draftPayment: 'd3000000-0000-4000-8000-000000000102',
+    confirmedAllocation: 'd4000000-0000-4000-8000-000000000101',
+    draftAllocation: 'd4000000-0000-4000-8000-000000000102',
   },
 };
 
@@ -173,13 +179,15 @@ async function main(): Promise<void> {
     await seedInventory(prisma);
     await seedPurchasing(prisma);
     await seedSales(prisma);
+    await seedReceivables(prisma);
 
     console.log(
       '  semillas aplicadas: 3 empresas, 4 roles, 5 personas, 7 membresias; ' +
         'catalogo: 7 unidades, 3 categorias, 3 impuestos, 5 bodegas, 4 articulos; ' +
         'inventario: 4 ajustes (2 confirmados), 3 existencias; ' +
         'compras: 3 proveedores, 4 ordenes, 2 entradas; ' +
-        'ventas: 3 clientes, 4 pedidos, 3 despachos, 2 facturas',
+        'ventas: 3 clientes, 4 pedidos, 3 despachos, 2 facturas; ' +
+        'cuentas por cobrar: 3 cobros (2 confirmados)',
     );
   } finally {
     await prisma.$disconnect();
@@ -239,6 +247,9 @@ async function upsertRoles(prisma: PrismaClient): Promise<void> {
         'sales.dispatches.search',
         'sales.invoices.search',
         'sales.availability.search',
+        'receivables.payments.search',
+        'receivables.balances.search',
+        'receivables.statements.search',
       ],
     },
     { id: GLOBEX_ADMIN_ROLE, tenantId: GLOBEX, name: 'Administrador', grantsAll: true, permissions: [] },
@@ -420,6 +431,7 @@ async function removeCatalogLeftovers(
 // confirman y anulan documentos, y dejar sus existencias haria que el seed no fuera el mismo
 // dos veces. Compras primero: sus documentos apuntan a articulos y bodegas.
 async function removeInventory(prisma: PrismaClient): Promise<void> {
+  await prisma.customerPayment.deleteMany();
   await prisma.invoice.deleteMany();
   await prisma.dispatch.deleteMany();
   await prisma.salesOrder.deleteMany();
@@ -626,10 +638,10 @@ async function seedSales(prisma: PrismaClient): Promise<void> {
     data: [
       {
         id: SALES.acme.delta, tenantId: ACME, code: 'CLI000001', name: 'Comercial Delta', fiscalId: 'J-40123456-7',
-        email: 'compras@delta.com', phone: '+58 212 555 0202', address: 'Calle Real de Sabana Grande', paymentTermDays: 15,
+        email: 'compras@delta.com', phone: '+58 212 555 0202', address: 'Calle Real de Sabana Grande', paymentTermDays: 15, creditLimit: 1000,
       },
       { id: SALES.acme.corner, tenantId: ACME, code: 'CLI000002', name: 'Bodegón La Esquina', paymentTermDays: 0 },
-      { id: SALES.globex.customer, tenantId: GLOBEX, code: 'CLI000001', name: 'Talleres Omega', paymentTermDays: 30 },
+      { id: SALES.globex.customer, tenantId: GLOBEX, code: 'CLI000001', name: 'Talleres Omega', paymentTermDays: 30, creditLimit: 500 },
     ],
   });
 
@@ -731,6 +743,47 @@ async function seedSales(prisma: PrismaClient): Promise<void> {
     await prisma.$executeRaw`
       INSERT INTO code_sequences (tenant_id, prefix, last_value)
       VALUES (${tenantId}::uuid, ${prefix}, ${lastValue})
+      ON CONFLICT (tenant_id, prefix)
+      DO UPDATE SET last_value = GREATEST(code_sequences.last_value, EXCLUDED.last_value)`;
+  }
+}
+
+// Delta abono 30 a su factura de 69,60, que queda con 39,60 por cobrar. Globex tiene un cobro
+// confirmado y un borrador: son los blancos de la matriz de aislamiento.
+async function seedReceivables(prisma: PrismaClient): Promise<void> {
+  const at = (day: string) => new Date(`${day}T12:00:00.000Z`);
+  const date = (day: string) => new Date(`${day}T00:00:00.000Z`);
+
+  const payments = [
+    {
+      id: SALES.acme.payment, tenantId: ACME, code: 'COB000001', customerId: SALES.acme.delta, paymentDate: date('2026-09-10'), method: 'transfer' as const,
+      reference: 'TRF-88231', amount: 30, status: 'confirmed' as const, confirmedAt: at('2026-09-10'),
+      allocation: { id: SALES.acme.paymentAllocation, invoiceId: SALES.acme.invoice },
+    },
+    {
+      id: SALES.globex.confirmedPayment, tenantId: GLOBEX, code: 'COB000001', customerId: SALES.globex.customer, paymentDate: date('2026-09-08'), method: 'cash' as const,
+      reference: null, amount: 20, status: 'confirmed' as const, confirmedAt: at('2026-09-08'),
+      allocation: { id: SALES.globex.confirmedAllocation, invoiceId: SALES.globex.invoice },
+    },
+    {
+      id: SALES.globex.draftPayment, tenantId: GLOBEX, code: 'COB000002', customerId: SALES.globex.customer, paymentDate: date('2026-09-09'), method: 'transfer' as const,
+      reference: null, amount: 10, status: 'draft' as const, confirmedAt: null,
+      allocation: { id: SALES.globex.draftAllocation, invoiceId: SALES.globex.invoice },
+    },
+  ];
+
+  for (const { allocation, ...payment } of payments) {
+    await prisma.customerPayment.create({ data: { ...payment, createdAt: payment.paymentDate, updatedAt: payment.confirmedAt ?? payment.paymentDate } });
+    await prisma.paymentAllocation.create({ data: { ...allocation, tenantId: payment.tenantId, paymentId: payment.id, amount: payment.amount } });
+  }
+
+  for (const [tenantId, lastValue] of [
+    [ACME, 1],
+    [GLOBEX, 2],
+  ] as const) {
+    await prisma.$executeRaw`
+      INSERT INTO code_sequences (tenant_id, prefix, last_value)
+      VALUES (${tenantId}::uuid, 'COB', ${lastValue})
       ON CONFLICT (tenant_id, prefix)
       DO UPDATE SET last_value = GREATEST(code_sequences.last_value, EXCLUDED.last_value)`;
   }
