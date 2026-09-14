@@ -1,5 +1,5 @@
 import { Uuid } from '../../../../shared/domain/uuid.vo.js';
-import { InvalidPaymentTermError, InvalidCustomerEmailError } from '../errors/sales.errors.js';
+import { InvalidCreditLimitError, InvalidPaymentTermError, InvalidCustomerEmailError } from '../errors/sales.errors.js';
 import { optionalText, requiredText } from '../shared/text.js';
 import { TenantId } from '../shared/tenant-id.vo.js';
 
@@ -16,6 +16,7 @@ export interface CustomerDetails {
   phone?: string | null;
   address?: string | null;
   paymentTermDays?: number | null;
+  creditLimit?: number | null;
 }
 
 export interface CustomerPrimitives {
@@ -28,12 +29,15 @@ export interface CustomerPrimitives {
   phone: string | null;
   address: string | null;
   paymentTermDays: number;
+  creditLimit: number | null;
   isActive: boolean;
   createdAt: Date;
   updatedAt: Date;
 }
 
 type Contact = Omit<CustomerPrimitives, 'id' | 'tenantId' | 'code' | 'isActive' | 'createdAt' | 'updatedAt'>;
+
+const MAX_CREDIT_CENTS = 999_999_999_999_999_999n;
 
 const EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
@@ -80,6 +84,14 @@ export class Customer {
     return this.active;
   }
 
+  paymentTermDays(): number {
+    return this.contact.paymentTermDays;
+  }
+
+  creditLimit(): number | null {
+    return this.contact.creditLimit;
+  }
+
   update(details: CustomerDetails, now: Date): void {
     this.contact = validated(details);
     this.updatedAt = now;
@@ -106,6 +118,16 @@ function validated(details: CustomerDetails): Contact {
     throw new InvalidPaymentTermError(paymentTermDays);
   }
 
+  const creditLimit = details.creditLimit ?? null;
+
+  if (creditLimit !== null) {
+    const scaled = Math.round(creditLimit * 100);
+
+    if (!Number.isFinite(creditLimit) || creditLimit < 0 || Math.abs(scaled - creditLimit * 100) > 1e-6 || BigInt(scaled) > MAX_CREDIT_CENTS) {
+      throw new InvalidCreditLimitError(creditLimit);
+    }
+  }
+
   return {
     name: requiredText(details.name, 150, 'CustomerName'),
     // Texto libre: validar el RIF u otra identificacion fiscal queda para mas adelante.
@@ -114,5 +136,6 @@ function validated(details: CustomerDetails): Contact {
     phone: optionalText(details.phone, 40, 'CustomerPhone'),
     address: optionalText(details.address, 500, 'CustomerAddress'),
     paymentTermDays,
+    creditLimit,
   };
 }

@@ -59,6 +59,12 @@ export class InvalidPaymentTermError extends InvalidArgumentError {
   }
 }
 
+export class InvalidCreditLimitError extends InvalidArgumentError {
+  constructor(value: number) {
+    super(`Credit limit must be zero or more with up to two decimals, received <${value}>.`, 'The credit limit must be an amount of zero or more.');
+  }
+}
+
 export class InactiveCustomerError extends ConflictError {
   constructor(id: string) {
     super(`Customer <${id}> is inactive.`, 'The order uses a customer that is inactive.');
@@ -258,5 +264,28 @@ export class DispatchAlreadyInvoicedError extends ConflictError {
 export class InvoiceAlreadyCancelledError extends ConflictError {
   constructor(id: string) {
     super(`Invoice <${id}> is already cancelled.`, 'The invoice is already cancelled.');
+  }
+}
+
+// ---------------------------------------------------------------- credito y cobros
+
+export class CustomerWithOverdueInvoicesError extends ConflictError {
+  constructor(customerId: string) {
+    super(`Customer <${customerId}> has overdue invoices and cannot be invoiced on credit.`, 'The customer has overdue invoices and cannot be invoiced on credit.');
+  }
+}
+
+export class CreditLimitExceededError extends ConflictError {
+  constructor(customerId: string, limit: number, balance: number, total: number) {
+    super(
+      `Customer <${customerId}> owes <${balance}> and the invoice adds <${total}>, over the credit limit <${limit}>.`,
+      'The invoice exceeds the customer credit limit.',
+    );
+  }
+}
+
+export class InvoiceWithPaymentsError extends ConflictError {
+  constructor(invoiceId: string) {
+    super(`Invoice <${invoiceId}> has confirmed payments applied.`, 'The invoice has payments applied; cancel them first.');
   }
 }

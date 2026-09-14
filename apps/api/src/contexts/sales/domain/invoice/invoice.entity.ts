@@ -1,6 +1,7 @@
 import { Uuid } from '../../../../shared/domain/uuid.vo.js';
-import { DispatchAlreadyInvoicedError, DispatchNotInvoiceableError, InvoiceAlreadyCancelledError } from '../errors/sales.errors.js';
+import { DispatchAlreadyInvoicedError, DispatchNotInvoiceableError, InvoiceAlreadyCancelledError, InvoiceWithPaymentsError } from '../errors/sales.errors.js';
 import { CustomerId } from '../customer/customer.entity.js';
+import { CustomerCredit, ensureCreditAllows } from './credit/customer-credit.js';
 import { Dispatch, DispatchId } from '../dispatch/dispatch.entity.js';
 import { SalesOrder, SalesOrderId } from '../order/sales-order.entity.js';
 import { centsToNumber, lineSubtotalCents, taxCents } from '../shared/money.js';
@@ -54,7 +55,8 @@ export interface InvoiceIssue {
   order: SalesOrder;
   // Si el despacho ya tiene una factura emitida, leido con el despacho bloqueado.
   alreadyInvoiced: boolean;
-  paymentTermDays: number;
+  // El plazo, el limite y la deuda del cliente de hoy, leidos con el cliente bloqueado.
+  credit: CustomerCredit;
   date: SalesDate;
   notes: string | null;
   lineIds: () => string;
@@ -94,6 +96,8 @@ export class Invoice {
     const subtotal = lines.reduce((sum, line) => sum + line.subtotalCents, 0n);
     const tax = lines.reduce((sum, line) => sum + line.taxCents, 0n);
 
+    ensureCreditAllows(issue.credit, subtotal + tax);
+
     return new Invoice({
       id: id.value,
       tenantId: tenantId.value,
@@ -102,7 +106,7 @@ export class Invoice {
       orderId: order.id.value,
       customerId: order.customerId().value,
       issueDate: issue.date.value,
-      dueDate: issue.date.plusDays(issue.paymentTermDays).value,
+      dueDate: issue.date.plusDays(issue.credit.paymentTermDays).value,
       notes: optionalText(issue.notes, 500, 'InvoiceNotes'),
       status: 'issued',
       subtotal: centsToNumber(subtotal),
@@ -151,8 +155,14 @@ export class Invoice {
     return this.row.lines.map((line) => ({ itemId: ItemRef.of(line.itemId), unitId: UnitRef.of(line.unitId) }));
   }
 
-  cancel(now: Date): void {
+  total(): number {
+    return this.row.total;
+  }
+
+  // Lo cobrado se anula antes: si no, el cobro quedaria aplicado a una factura que no existe.
+  cancel(now: Date, paid: number): void {
     if (this.row.status === 'cancelled') throw new InvoiceAlreadyCancelledError(this.row.id);
+    if (paid > 0) throw new InvoiceWithPaymentsError(this.row.id);
 
     this.row = { ...this.row, status: 'cancelled', cancelledAt: now, updatedAt: now };
   }

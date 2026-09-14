@@ -14,6 +14,7 @@ const cases: Array<[DomainError, typeof DomainError]> = [
   [new errors.DuplicateCustomerNameError('Delta', ID), ConflictError],
   [new errors.InvalidCustomerEmailError('x'), InvalidArgumentError],
   [new errors.InvalidPaymentTermError(400), InvalidArgumentError],
+  [new errors.InvalidCreditLimitError(-1), InvalidArgumentError],
   [new errors.InactiveCustomerError(ID), ConflictError],
   [new errors.InactiveSalesItemError(ID), ConflictError],
   [new errors.InactiveSalesWarehouseError(ID), ConflictError],
@@ -45,6 +46,9 @@ const cases: Array<[DomainError, typeof DomainError]> = [
   [new errors.DispatchNotInvoiceableError(ID, 'draft'), ConflictError],
   [new errors.DispatchAlreadyInvoicedError(ID), ConflictError],
   [new errors.InvoiceAlreadyCancelledError(ID), ConflictError],
+  [new errors.CustomerWithOverdueInvoicesError(ID), ConflictError],
+  [new errors.CreditLimitExceededError(ID, 10, 5, 6), ConflictError],
+  [new errors.InvoiceWithPaymentsError(ID), ConflictError],
 ];
 
 describe('sales domain errors', () => {

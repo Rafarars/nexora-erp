@@ -1,3 +1,5 @@
+import { CustomerCredit } from '../invoice/credit/customer-credit.js';
+import { CreditLimitExceededError, CustomerWithOverdueInvoicesError, InvoiceWithPaymentsError } from '../errors/sales.errors.js';
 import { describe, expect, it } from 'vitest';
 import {
   DispatchAlreadyCancelledError,
@@ -16,7 +18,7 @@ import { SalesOrder } from '../order/sales-order.entity.js';
 import { Quantity } from '../shared/quantity.vo.js';
 import { SalesDate } from '../shared/sales-date.vo.js';
 import { TenantId } from '../shared/tenant-id.vo.js';
-import { NOW, SOAP, TENANT_A, TODAY, aConfirmedOrder, anOrderLine } from '../testing/sales.mother.js';
+import { CUSTOMER, NOW, SOAP, TENANT_A, TODAY, aConfirmedOrder, anOrderLine } from '../testing/sales.mother.js';
 import { DispatchLine, DispatchLineId } from './dispatch-line.js';
 import { Dispatch, DispatchId } from './dispatch.entity.js';
 import { DispatchCancellation } from './posting/dispatch-cancellation.js';
@@ -55,12 +57,14 @@ function aConfirmedDispatch(order: SalesOrder, lines: DispatchLine[]): Dispatch 
   return dispatch;
 }
 
-const issue = (dispatch: Dispatch, order: SalesOrder, overrides: { alreadyInvoiced?: boolean; paymentTermDays?: number } = {}) =>
+const credit = (overrides: Partial<CustomerCredit> = {}): CustomerCredit => ({ customerId: CUSTOMER, paymentTermDays: 30, creditLimit: null, openBalance: 0, hasOverdue: false, ...overrides });
+
+const issue = (dispatch: Dispatch, order: SalesOrder, overrides: { alreadyInvoiced?: boolean; credit?: Partial<CustomerCredit> } = {}) =>
   Invoice.issue(InvoiceId.of(nextId()), TenantId.of(TENANT_A), 'FAC000001', {
     dispatch,
     order,
     alreadyInvoiced: overrides.alreadyInvoiced ?? false,
-    paymentTermDays: overrides.paymentTermDays ?? 30,
+    credit: credit(overrides.credit),
     date: SalesDate.of(TODAY),
     notes: null,
     lineIds: nextId,
@@ -153,7 +157,7 @@ describe('Invoice', () => {
     const order = aConfirmedOrder([water, soap]);
     const dispatch = aConfirmedDispatch(order, [dispatchLine(water, 4), dispatchLine(soap, 5)]);
 
-    const invoice = issue(dispatch, order, { paymentTermDays: 30 }).toPrimitives();
+    const invoice = issue(dispatch, order, { credit: { paymentTermDays: 30 } }).toPrimitives();
 
     expect(invoice).toMatchObject({
       status: 'issued',
@@ -173,7 +177,7 @@ describe('Invoice', () => {
     const line = anOrderLine();
     const order = aConfirmedOrder([line]);
 
-    expect(issue(aConfirmedDispatch(order, [dispatchLine(line, 1)]), order, { paymentTermDays: 0 }).toPrimitives().dueDate).toBe(TODAY);
+    expect(issue(aConfirmedDispatch(order, [dispatchLine(line, 1)]), order, { credit: { paymentTermDays: 0 } }).toPrimitives().dueDate).toBe(TODAY);
   });
 
   it('invoices only a confirmed dispatch, once', () => {
@@ -191,10 +195,48 @@ describe('Invoice', () => {
     const order = aConfirmedOrder([line]);
     const invoice = issue(aConfirmedDispatch(order, [dispatchLine(line, 1)]), order);
 
-    invoice.cancel(NOW);
+    invoice.cancel(NOW, 0);
 
     expect(invoice.toPrimitives()).toMatchObject({ status: 'cancelled', total: 34.8 });
-    expect(() => invoice.cancel(NOW)).toThrow(InvoiceAlreadyCancelledError);
+    expect(() => invoice.cancel(NOW, 0)).toThrow(InvoiceAlreadyCancelledError);
     expect(Invoice.fromPrimitives(invoice.toPrimitives()).toPrimitives()).toEqual(invoice.toPrimitives());
   });
+
+describe('Invoice credit', () => {
+  // Una linea de una unidad: 30 mas 16 % de impuesto, 34,80.
+  const oneUnit = () => {
+    const line = anOrderLine();
+    const order = aConfirmedOrder([line]);
+
+    return { order, dispatch: aConfirmedDispatch(order, [dispatchLine(line, 1)]) };
+  };
+
+  it('lets a cash invoice through even with overdue invoices and no room left', () => {
+    const { order, dispatch } = oneUnit();
+
+    expect(issue(dispatch, order, { credit: { paymentTermDays: 0, hasOverdue: true, creditLimit: 10, openBalance: 10 } }).toPrimitives()).toMatchObject({ dueDate: TODAY });
+  });
+
+  it('refuses a credit invoice while the customer has overdue invoices', () => {
+    const { order, dispatch } = oneUnit();
+
+    expect(() => issue(dispatch, order, { credit: { hasOverdue: true } })).toThrow(CustomerWithOverdueInvoicesError);
+  });
+
+  it('allows a credit invoice up to the limit and not one cent over', () => {
+    const { order, dispatch } = oneUnit();
+
+    expect(() => issue(dispatch, order, { credit: { creditLimit: 100, openBalance: 65.2 } })).not.toThrow();
+    expect(() => issue(dispatch, order, { credit: { creditLimit: 100, openBalance: 65.21 } })).toThrow(CreditLimitExceededError);
+    expect(() => issue(dispatch, order, { credit: { creditLimit: null, openBalance: 1_000_000 } })).not.toThrow();
+  });
+
+  it('is not cancelled while it has payments applied', () => {
+    const { order, dispatch } = oneUnit();
+    const invoice = issue(dispatch, order);
+
+    expect(() => invoice.cancel(NOW, 0.01)).toThrow(InvoiceWithPaymentsError);
+    expect(invoice.currentStatus()).toBe('issued');
+  });
+});
 });

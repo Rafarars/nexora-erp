@@ -1,14 +1,25 @@
+import { CustomerId } from '../../customer/customer.entity.js';
 import { Dispatch, DispatchId } from '../../dispatch/dispatch.entity.js';
 import { SalesOrder } from '../../order/sales-order.entity.js';
+import { SalesDate } from '../../shared/sales-date.vo.js';
 import { TenantId } from '../../shared/tenant-id.vo.js';
+import { CustomerCredit } from '../credit/customer-credit.js';
 import { Invoice, InvoiceId } from '../invoice.entity.js';
 
 export const INVOICE_POSTING = Symbol('InvoicePosting');
 
-// Emitir bloquea el despacho y lee, ya bloqueado, si tiene una factura emitida: dos emisiones a la
-// vez del mismo despacho van en fila y la segunda se rechaza. La base lo respalda con un indice
-// unico parcial. Anular bloquea la factura. Los trabajos son sincronos y puros.
+// Emitir bloquea el despacho, su pedido y el cliente, en ese orden, y lee ya bloqueados si el
+// despacho tiene factura y cuanto debe el cliente: dos emisiones del mismo despacho, o dos a
+// credito del mismo cliente, van en fila. La base respalda la primera regla con un indice unico
+// parcial. Anular bloquea la factura y lee lo cobrado. Los trabajos son sincronos y puros.
 export interface InvoicePosting {
-  issue(tenantId: TenantId, dispatchId: DispatchId, work: (dispatch: Dispatch, order: SalesOrder, alreadyInvoiced: boolean) => Invoice): Promise<void>;
-  cancel(tenantId: TenantId, invoiceId: InvoiceId, work: (invoice: Invoice) => void): Promise<void>;
+  // Sin bloqueo, para rechazar antes de gastar un numero.
+  credit(tenantId: TenantId, customerId: CustomerId, today: SalesDate): Promise<CustomerCredit>;
+  issue(
+    tenantId: TenantId,
+    dispatchId: DispatchId,
+    today: SalesDate,
+    work: (dispatch: Dispatch, order: SalesOrder, alreadyInvoiced: boolean, credit: CustomerCredit) => Invoice,
+  ): Promise<void>;
+  cancel(tenantId: TenantId, invoiceId: InvoiceId, work: (invoice: Invoice, paid: number) => void): Promise<void>;
 }
