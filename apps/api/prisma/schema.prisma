@@ -43,6 +43,8 @@ model Tenant {
   dispatchLines    DispatchLine[]
   invoices         Invoice[]
   invoiceLines     InvoiceLine[]
+  payments         CustomerPayment[]
+  allocations      PaymentAllocation[]
 
   @@map("tenants")
 }
@@ -617,13 +619,15 @@ model Customer {
   phone           String?  @db.VarChar(40)
   address         String?  @db.VarChar(500)
   paymentTermDays Int      @default(0) @map("payment_term_days")
+  creditLimit     Decimal? @map("credit_limit") @db.Decimal(18, 2)
   isActive        Boolean  @default(true) @map("is_active")
   createdAt       DateTime @default(now()) @map("created_at")
   updatedAt       DateTime @updatedAt @map("updated_at")
 
-  tenant   Tenant       @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  tenant   Tenant            @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   orders   SalesOrder[]
   invoices Invoice[]
+  payments CustomerPayment[]
 
   @@unique([tenantId, id])
   @@unique([tenantId, code])
@@ -783,11 +787,12 @@ model Invoice {
   createdAt   DateTime      @default(now()) @map("created_at")
   updatedAt   DateTime      @updatedAt @map("updated_at")
 
-  tenant   Tenant        @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  dispatch Dispatch      @relation(fields: [tenantId, dispatchId], references: [tenantId, id], onDelete: Restrict)
-  order    SalesOrder    @relation(fields: [tenantId, orderId], references: [tenantId, id], onDelete: Restrict)
-  customer Customer      @relation(fields: [tenantId, customerId], references: [tenantId, id], onDelete: Restrict)
-  lines    InvoiceLine[]
+  tenant      Tenant              @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  dispatch    Dispatch            @relation(fields: [tenantId, dispatchId], references: [tenantId, id], onDelete: Restrict)
+  order       SalesOrder          @relation(fields: [tenantId, orderId], references: [tenantId, id], onDelete: Restrict)
+  customer    Customer            @relation(fields: [tenantId, customerId], references: [tenantId, id], onDelete: Restrict)
+  lines       InvoiceLine[]
+  allocations PaymentAllocation[]
 
   @@unique([tenantId, id])
   @@unique([tenantId, code])
@@ -816,4 +821,70 @@ model InvoiceLine {
 
   @@unique([invoiceId, lineNumber])
   @@map("invoice_lines")
+}
+
+// ---------------------------------------------------------------- cuentas por cobrar
+
+/// Borrador, confirmado (baja el saldo de sus facturas) o anulado.
+enum PaymentStatus {
+  draft
+  confirmed
+  cancelled
+
+  @@map("payment_status")
+}
+
+enum PaymentMethod {
+  cash
+  transfer
+  card
+  check
+
+  @@map("payment_method")
+}
+
+/// Un cobro de un cliente, repartido entre sus facturas emitidas.
+model CustomerPayment {
+  id          String        @id @db.Uuid
+  tenantId    String        @map("tenant_id") @db.Uuid
+  code        String        @db.VarChar(12)
+  customerId  String        @map("customer_id") @db.Uuid
+  paymentDate DateTime      @map("payment_date") @db.Date
+  method      PaymentMethod
+  reference   String?       @db.VarChar(100)
+  notes       String?       @db.VarChar(500)
+  amount      Decimal       @db.Decimal(18, 2)
+  status      PaymentStatus @default(draft)
+  confirmedAt DateTime?     @map("confirmed_at")
+  cancelledAt DateTime?     @map("cancelled_at")
+  createdAt   DateTime      @default(now()) @map("created_at")
+  updatedAt   DateTime      @updatedAt @map("updated_at")
+
+  tenant      Tenant              @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  customer    Customer            @relation(fields: [tenantId, customerId], references: [tenantId, id], onDelete: Restrict)
+  allocations PaymentAllocation[]
+
+  @@unique([tenantId, id])
+  @@unique([tenantId, code])
+  @@index([tenantId, customerId])
+  @@index([tenantId, status])
+  @@map("customer_payments")
+}
+
+/// Cuanto de un cobro va a una factura.
+model PaymentAllocation {
+  id        String  @id @db.Uuid
+  tenantId  String  @map("tenant_id") @db.Uuid
+  paymentId String  @map("payment_id") @db.Uuid
+  invoiceId String  @map("invoice_id") @db.Uuid
+  amount    Decimal @db.Decimal(18, 2)
+
+  tenant  Tenant          @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  payment CustomerPayment @relation(fields: [tenantId, paymentId], references: [tenantId, id], onDelete: Cascade)
+  invoice Invoice         @relation(fields: [tenantId, invoiceId], references: [tenantId, id], onDelete: Restrict)
+
+  @@unique([tenantId, id])
+  @@unique([paymentId, invoiceId])
+  @@index([tenantId, invoiceId])
+  @@map("payment_allocations")
 }
