@@ -28,6 +28,6 @@ describe('moduleLabel', () => {
 
   // Un modulo nuevo sin traducir se ve con su prefijo en vez de desaparecer.
   it('shows the raw prefix of a module it does not know yet', () => {
-    expect(moduleLabel('sales')).toBe('sales');
+    expect(moduleLabel('receivables')).toBe('receivables');
   });
 });

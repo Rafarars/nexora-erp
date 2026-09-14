@@ -17,6 +17,7 @@ const MODULE_LABELS: Record<string, string> = {
   catalog: 'Catálogo',
   inventory: 'Inventario',
   purchasing: 'Compras',
+  sales: 'Ventas',
 };
 
 export function moduleLabel(module: string): string {
