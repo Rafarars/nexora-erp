@@ -1,0 +1,114 @@
+import { ConfigService } from '@nestjs/config';
+import type { Env } from '../../../../shared/config/env.schema.js';
+import { SequentialIdGenerator } from '../../../../shared/infrastructure/testing/sequential-id-generator.js';
+import { PrismaService } from '../../../../shared/prisma/prisma.service.js';
+// El arnes compone el sistema de verdad como lo hace el modulo: ventas con el inventario real
+// detras de DOCUMENT_STOCK_POSTING. Es composicion de prueba, no dependencia del dominio.
+import { PrismaDocumentStockPosting } from '../../../inventory/infrastructure/persistence/prisma-document-stock-posting.js';
+import { BOX, MAIN, NORTH, PIECE, TENANT_A, TENANT_B, WATER } from '../../domain/testing/sales.mother.js';
+import { SalesPorts, SalesPortsHarness } from '../../testing/sales-ports.harness.js';
+import { PrismaCustomerRepository } from '../persistence/prisma-customer.repository.js';
+import { PrismaDispatchPosting } from '../persistence/prisma-dispatch-posting.js';
+import { PrismaDispatchRepository } from '../persistence/prisma-dispatch.repository.js';
+import { PrismaInvoicePosting } from '../persistence/prisma-invoice-posting.js';
+import { PrismaInvoiceRepository } from '../persistence/prisma-invoice.repository.js';
+import { PrismaSalesCodeSequence } from '../persistence/prisma-sales-code-sequence.js';
+import { PrismaSalesOrderPosting } from '../persistence/prisma-sales-order-posting.js';
+import { PrismaSalesOrderRepository } from '../persistence/prisma-sales-order.repository.js';
+
+function connectionString(): string {
+  const url = process.env.DATABASE_URL;
+
+  if (!url) throw new Error('DATABASE_URL is required to run the contract against PostgreSQL.');
+
+  return url;
+}
+
+export class PrismaSalesPortsHarness implements SalesPortsHarness {
+  private readonly prisma = new PrismaService(new ConfigService<Env, true>({ DATABASE_URL: connectionString() }));
+
+  ports(): SalesPorts {
+    const ids = new SequentialIdGenerator();
+    const stock = new PrismaDocumentStockPosting({ next: () => `8${ids.next().slice(1)}` });
+
+    return {
+      customers: new PrismaCustomerRepository(this.prisma),
+      orders: new PrismaSalesOrderRepository(this.prisma),
+      dispatches: new PrismaDispatchRepository(this.prisma),
+      invoices: new PrismaInvoiceRepository(this.prisma),
+      orderPosting: new PrismaSalesOrderPosting(this.prisma, stock),
+      dispatchPosting: new PrismaDispatchPosting(this.prisma, stock),
+      invoicePosting: new PrismaInvoicePosting(this.prisma),
+      codes: new PrismaSalesCodeSequence(this.prisma),
+    };
+  }
+
+  // Pone la existencia sin kardex: la prueba parte de una cantidad conocida.
+  async stock(itemId: string, warehouseId: string, quantity: number): Promise<void> {
+    await this.prisma.itemStock.upsert({
+      where: { tenantId_itemId_warehouseId: { tenantId: TENANT_A, itemId, warehouseId } },
+      create: { tenantId: TENANT_A, itemId, warehouseId, quantity, averageCost: 1, lastSequence: 0, updatedAt: new Date() },
+      update: { quantity },
+    });
+  }
+
+  async stockOf(itemId: string, warehouseId: string): Promise<number> {
+    const row = await this.prisma.itemStock.findFirst({ where: { tenantId: TENANT_A, itemId, warehouseId } });
+
+    return row ? row.quantity.toNumber() : 0;
+  }
+
+  async reset(): Promise<void> {
+    await this.prisma.invoice.deleteMany();
+    await this.prisma.dispatch.deleteMany();
+    await this.prisma.salesOrder.deleteMany();
+    await this.prisma.customer.deleteMany();
+    await this.prisma.goodsReceipt.deleteMany();
+    await this.prisma.purchaseOrder.deleteMany();
+    await this.prisma.supplier.deleteMany();
+    await this.prisma.inventoryMovement.updateMany({ data: { reversalOfId: null } });
+    await this.prisma.inventoryMovement.deleteMany();
+    await this.prisma.itemStock.deleteMany();
+    await this.prisma.codeSequence.deleteMany({ where: { prefix: { in: ['CLI', 'PED', 'DES', 'FAC'] } } });
+
+    for (const [id, slug] of [
+      [TENANT_A, 'contract-sales-a'],
+      [TENANT_B, 'contract-sales-b'],
+    ]) {
+      await this.prisma.tenant.upsert({ where: { id }, create: { id, name: slug, slug }, update: {} });
+    }
+
+    const unit = (id: string, code: string, name: string, abbreviation: string) =>
+      this.prisma.measurementUnit.upsert({ where: { id }, create: { id, tenantId: TENANT_A, code, name, abbreviation }, update: {} });
+    await unit(PIECE, 'UOM900001', 'Contrato unidad', 'cu');
+    await unit(BOX, 'UOM900002', 'Contrato caja', 'cc');
+
+    for (const [id, code, name] of [
+      [MAIN, 'BOD900001', 'Contrato principal'],
+      [NORTH, 'BOD900002', 'Contrato norte'],
+    ]) {
+      await this.prisma.warehouse.upsert({ where: { id }, create: { id, tenantId: TENANT_A, code, name }, update: {} });
+    }
+
+    await this.prisma.item.upsert({
+      where: { id: WATER },
+      create: { id: WATER, tenantId: TENANT_A, code: 'ART900001', sku: 'CONTRATO-AGUA', name: 'Contrato agua', type: 'inventoried' },
+      update: {},
+    });
+
+    for (const [unitId, factor, isBase] of [
+      [PIECE, 1, true],
+      [BOX, 24, false],
+    ] as const) {
+      await this.prisma.itemUnit.upsert({
+        where: { itemId_unitId: { itemId: WATER, unitId } },
+        create: { tenantId: TENANT_A, itemId: WATER, unitId, conversionFactor: factor, isBase },
+        update: {},
+      });
+    }
+  }
+
+  async close(): Promise<void> {
+    await this.prisma.$disconnect();
+  }
+}
