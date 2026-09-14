@@ -3,8 +3,10 @@ import type { Env } from '../../../../shared/config/env.schema.js';
 import { SequentialIdGenerator } from '../../../../shared/infrastructure/testing/sequential-id-generator.js';
 import { PrismaService } from '../../../../shared/prisma/prisma.service.js';
 // El arnes compone el sistema de verdad como lo hace el modulo: ventas con el inventario real
-// detras de DOCUMENT_STOCK_POSTING. Es composicion de prueba, no dependencia del dominio.
+// detras de DOCUMENT_STOCK_POSTING y
+// cuentas por cobrar detras de RECEIVABLE_BALANCES. Es composicion de prueba, no dependencia del dominio.
 import { PrismaDocumentStockPosting } from '../../../inventory/infrastructure/persistence/prisma-document-stock-posting.js';
+import { PrismaReceivableBalances } from '../../../receivables/infrastructure/persistence/prisma-receivable-balances.js';
 import { BOX, MAIN, NORTH, PIECE, TENANT_A, TENANT_B, WATER } from '../../domain/testing/sales.mother.js';
 import { SalesPorts, SalesPortsHarness } from '../../testing/sales-ports.harness.js';
 import { PrismaCustomerRepository } from '../persistence/prisma-customer.repository.js';
@@ -38,7 +40,7 @@ export class PrismaSalesPortsHarness implements SalesPortsHarness {
       invoices: new PrismaInvoiceRepository(this.prisma),
       orderPosting: new PrismaSalesOrderPosting(this.prisma, stock),
       dispatchPosting: new PrismaDispatchPosting(this.prisma, stock),
-      invoicePosting: new PrismaInvoicePosting(this.prisma),
+      invoicePosting: new PrismaInvoicePosting(this.prisma, new PrismaReceivableBalances()),
       codes: new PrismaSalesCodeSequence(this.prisma),
     };
   }
@@ -58,7 +60,27 @@ export class PrismaSalesPortsHarness implements SalesPortsHarness {
     return row ? row.quantity.toNumber() : 0;
   }
 
+  async pay(invoiceId: string, customerId: string, amount: number): Promise<void> {
+    const id = crypto.randomUUID();
+
+    await this.prisma.customerPayment.create({
+      data: {
+        id,
+        tenantId: TENANT_A,
+        code: `COB${String(Math.floor(Math.random() * 1e6)).padStart(6, '0')}`,
+        customerId,
+        paymentDate: new Date('2026-01-15T00:00:00.000Z'),
+        method: 'cash',
+        amount,
+        status: 'confirmed',
+        updatedAt: new Date(),
+      },
+    });
+    await this.prisma.paymentAllocation.create({ data: { id: crypto.randomUUID(), tenantId: TENANT_A, paymentId: id, invoiceId, amount } });
+  }
+
   async reset(): Promise<void> {
+    await this.prisma.customerPayment.deleteMany();
     await this.prisma.invoice.deleteMany();
     await this.prisma.dispatch.deleteMany();
     await this.prisma.salesOrder.deleteMany();

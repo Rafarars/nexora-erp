@@ -19,11 +19,13 @@ export interface SalesPorts {
 }
 
 // Deja ventas vacio y garantiza empresas, articulos, unidades y bodegas. Ademas pone y lee la
-// existencia, que en la base escribe el inventario.
+// existencia, que en la base escribe el inventario, y simula cobros.
 export interface SalesPortsHarness {
   ports(): SalesPorts;
   stock(itemId: string, warehouseId: string, quantity: number): Promise<void>;
   stockOf(itemId: string, warehouseId: string): Promise<number>;
+  // Un cobro confirmado aplicado a una factura, que en la base escribe cuentas por cobrar.
+  pay(invoiceId: string, customerId: string, amount: number): Promise<void>;
   reset(): Promise<void>;
   close(): Promise<void>;
 }

@@ -6,7 +6,8 @@ import { InMemorySalesCodeSequence } from './in-memory-sales-code-sequence.js';
 import { InMemorySalesStore } from './in-memory-sales-store.js';
 
 class InMemorySalesPortsHarness implements SalesPortsHarness {
-  private store = new InMemorySalesStore();
+  private customers = new InMemoryCustomerRepository();
+  private store = new InMemorySalesStore(this.customers);
   private current = this.build();
 
   ports(): SalesPorts {
@@ -21,8 +22,13 @@ class InMemorySalesPortsHarness implements SalesPortsHarness {
     return this.store.stockOf(TENANT_A, itemId, warehouseId);
   }
 
+  async pay(invoiceId: string, _customerId: string, amount: number): Promise<void> {
+    this.store.pay(invoiceId, amount);
+  }
+
   async reset(): Promise<void> {
-    this.store = new InMemorySalesStore();
+    this.customers = new InMemoryCustomerRepository();
+    this.store = new InMemorySalesStore(this.customers);
     this.current = this.build();
   }
 
@@ -30,7 +36,7 @@ class InMemorySalesPortsHarness implements SalesPortsHarness {
 
   private build(): SalesPorts {
     return {
-      customers: new InMemoryCustomerRepository(),
+      customers: this.customers,
       orders: this.store.orders,
       dispatches: this.store.dispatches,
       invoices: this.store.invoices,

@@ -5,12 +5,15 @@ import { Dispatch, DispatchId } from '../domain/dispatch/dispatch.entity.js';
 import { DispatchCancellation } from '../domain/dispatch/posting/dispatch-cancellation.js';
 import { DispatchConfirmation } from '../domain/dispatch/posting/dispatch-confirmation.js';
 import {
+  CreditLimitExceededError,
+  CustomerWithOverdueInvoicesError,
   DispatchAlreadyInvoicedError,
   DispatchExceedsPendingError,
   DispatchInvoicedError,
   DispatchNotFoundError,
   InsufficientAvailabilityError,
   InsufficientStockForDispatchError,
+  InvoiceWithPaymentsError,
   SalesOrderNotEditableError,
 } from '../domain/errors/sales.errors.js';
 import { Invoice, InvoiceId } from '../domain/invoice/invoice.entity.js';
@@ -95,14 +98,14 @@ export function describeSalesPortsContract(implementation: string, createHarness
 
     const confirmDispatch = (id: DispatchId) => ports.dispatchPosting.post(tenant, id, (d, o) => new DispatchConfirmation().apply(d, o, NOW));
     const cancelDispatch = (id: DispatchId) => ports.dispatchPosting.post(tenant, id, (d, o, invoiced) => new DispatchCancellation().apply(d, o, invoiced, NOW));
-    const issue = (id: DispatchId) =>
-      ports.invoicePosting.issue(tenant, id, (dispatch, order, alreadyInvoiced) =>
+    const issue = (id: DispatchId, date = TODAY) =>
+      ports.invoicePosting.issue(tenant, id, SalesDate.of(TODAY), (dispatch, order, alreadyInvoiced, credit) =>
         Invoice.issue(InvoiceId.of(`5f000000-0000-4000-8000-${next()}`), tenant, `FAC${next().slice(-6)}`, {
           dispatch,
           order,
           alreadyInvoiced,
-          paymentTermDays: 10,
-          date: SalesDate.of(TODAY),
+          credit,
+          date: SalesDate.of(date),
           notes: null,
           lineIds: () => `5f100000-0000-4000-8000-${next()}`,
         }, NOW),
@@ -224,7 +227,7 @@ export function describeSalesPortsContract(implementation: string, createHarness
         expect(await ports.invoices.issuedForDispatch(tenant, id)).toBe(true);
         await expect(cancelDispatch(id)).rejects.toThrow(DispatchInvoicedError);
 
-        await ports.invoicePosting.cancel(tenant, invoice.id, (found) => found.cancel(NOW));
+        await ports.invoicePosting.cancel(tenant, invoice.id, (found, paid) => found.cancel(NOW, paid));
         expect(await ports.invoices.issuedForDispatch(tenant, id)).toBe(false);
         await expect(cancelDispatch(id)).resolves.toBeUndefined();
       });
@@ -240,6 +243,59 @@ export function describeSalesPortsContract(implementation: string, createHarness
         expect(results.map((r) => r.status).sort()).toEqual(['fulfilled', 'rejected']);
         expect((results.find((r) => r.status === 'rejected') as PromiseRejectedResult).reason).toBeInstanceOf(DispatchAlreadyInvoicedError);
         expect(await ports.invoices.searchByTenant(tenant)).toHaveLength(1);
+      });
+
+      async function invoicedDispatch(quantity: number): Promise<DispatchId> {
+        const id = await draftDispatch(await confirmedOrder(quantity), quantity);
+        await confirmDispatch(id);
+
+        return id;
+      }
+
+      async function limitCredit(creditLimit: number | null): Promise<void> {
+        const customer = (await ports.customers.find(tenant, CustomerId.of(CUSTOMER)))!;
+        customer.update({ name: customer.name(), paymentTermDays: 10, creditLimit }, NOW);
+        await ports.customers.save(customer);
+      }
+
+      // Dos facturas de 9,28 con 15 de limite: si no fueran en fila, las dos verian saldo cero.
+      it('lets only one of two concurrent credit invoices through when both do not fit the limit', async () => {
+        await harness.stock(WATER, MAIN, 10);
+        const [first, second] = [await invoicedDispatch(4), await invoicedDispatch(4)];
+        await limitCredit(15);
+
+        const results = await Promise.allSettled([issue(first), issue(second)]);
+
+        expect(results.map((r) => r.status).sort()).toEqual(['fulfilled', 'rejected']);
+        expect((results.find((r) => r.status === 'rejected') as PromiseRejectedResult).reason).toBeInstanceOf(CreditLimitExceededError);
+      });
+
+      it('counts only what is still owed, and refuses credit while an invoice is overdue', async () => {
+        await harness.stock(WATER, MAIN, 10);
+        const [old, recent, next] = [await invoicedDispatch(4), await invoicedDispatch(4), await invoicedDispatch(1)];
+        await limitCredit(20);
+
+        // Vence el 11 y hoy es 15.
+        await issue(old, '2026-01-01');
+        await expect(issue(recent)).rejects.toThrow(CustomerWithOverdueInvoicesError);
+
+        const [overdue] = await ports.invoices.searchByTenant(tenant);
+        await harness.pay(overdue.id.value, CUSTOMER, 9.28);
+
+        await issue(recent);
+        expect((await ports.invoicePosting.credit(tenant, CustomerId.of(CUSTOMER), SalesDate.of(TODAY))).openBalance).toBe(9.28);
+        await expect(issue(next)).resolves.toBeUndefined();
+      });
+
+      it('refuses to cancel an invoice with payments applied', async () => {
+        await harness.stock(WATER, MAIN, 10);
+        await issue(await invoicedDispatch(2));
+        const [invoice] = await ports.invoices.searchByTenant(tenant);
+
+        await harness.pay(invoice.id.value, CUSTOMER, 1);
+
+        await expect(ports.invoicePosting.cancel(tenant, invoice.id, (found, paid) => found.cancel(NOW, paid))).rejects.toThrow(InvoiceWithPaymentsError);
+        expect((await ports.invoices.find(tenant, invoice.id))?.currentStatus()).toBe('issued');
       });
     });
 
