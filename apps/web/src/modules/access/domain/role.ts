@@ -18,6 +18,7 @@ const MODULE_LABELS: Record<string, string> = {
   inventory: 'Inventario',
   purchasing: 'Compras',
   sales: 'Ventas',
+  receivables: 'Cuentas por cobrar',
 };
 
 export function moduleLabel(module: string): string {

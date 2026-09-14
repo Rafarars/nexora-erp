@@ -3,13 +3,14 @@
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 
-// Solo los modulos del negocio: aqui crecera cuentas por cobrar. La
-// administracion vive en el menu de la cuenta para no mezclarse con ellos.
+// Solo los modulos del negocio. La administracion vive en el menu de la cuenta para no
+// mezclarse con ellos.
 const PANEL = { href: '/', label: 'Panel', testId: 'nav-panel' };
 const CATALOG = { href: '/catalogo', label: 'Catálogo', testId: 'nav-catalogo' };
 const INVENTORY = { href: '/inventario', label: 'Inventario', testId: 'nav-inventario' };
 const PURCHASING = { href: '/compras', label: 'Compras', testId: 'nav-compras' };
 const SALES = { href: '/ventas', label: 'Ventas', testId: 'nav-ventas' };
+const RECEIVABLES = { href: '/cuentas-por-cobrar', label: 'Cuentas por cobrar', testId: 'nav-cuentas-por-cobrar' };
 
 // Cada modulo aparece solo si el rol puede ver algo dentro. Un modulo se marca activo
 // en todas sus secciones, no solo en su portada.
@@ -18,11 +19,13 @@ export function Sidebar({
   showInventory,
   showPurchasing,
   showSales,
+  showReceivables,
 }: {
   showCatalog: boolean;
   showInventory: boolean;
   showPurchasing: boolean;
   showSales: boolean;
+  showReceivables: boolean;
 }) {
   const pathname = usePathname();
 
@@ -33,6 +36,7 @@ export function Sidebar({
       {showInventory ? <SidebarLink {...INVENTORY} active={pathname.startsWith(INVENTORY.href)} /> : null}
       {showPurchasing ? <SidebarLink {...PURCHASING} active={pathname.startsWith(PURCHASING.href)} /> : null}
       {showSales ? <SidebarLink {...SALES} active={pathname.startsWith(SALES.href)} /> : null}
+      {showReceivables ? <SidebarLink {...RECEIVABLES} active={pathname.startsWith(RECEIVABLES.href)} /> : null}
     </nav>
   );
 }

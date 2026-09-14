@@ -13,6 +13,7 @@ export interface Customer {
   phone: string | null;
   address: string | null;
   paymentTermDays: number;
+  creditLimit: number | null;
   isActive: boolean;
 }
 

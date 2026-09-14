@@ -11,6 +11,7 @@ const BY_CODE: Record<string, string> = {
   DuplicateCustomerNameError: 'Ya existe un cliente con ese nombre.',
   InvalidCustomerEmailError: 'El correo del cliente no es válido.',
   InvalidPaymentTermError: 'El plazo de pago debe ser un número entero de días, de 0 a 365.',
+  InvalidCreditLimitError: 'El límite de crédito debe ser un monto de cero o más, con hasta dos decimales.',
   InactiveCustomerError: 'El cliente está inactivo: no se le pueden hacer pedidos.',
   InactiveSalesItemError: 'El documento usa un artículo inactivo.',
   InactiveSalesWarehouseError: 'El documento usa una bodega inactiva.',
@@ -42,6 +43,9 @@ const BY_CODE: Record<string, string> = {
   DispatchNotInvoiceableError: 'Solo se factura un despacho confirmado.',
   DispatchAlreadyInvoicedError: 'Este despacho ya tiene una factura emitida.',
   InvoiceAlreadyCancelledError: 'La factura ya está anulada.',
+  CustomerWithOverdueInvoicesError: 'El cliente tiene facturas vencidas: no se le puede facturar a crédito hasta que pague.',
+  CreditLimitExceededError: 'La factura supera el límite de crédito del cliente.',
+  InvoiceWithPaymentsError: 'La factura tiene cobros aplicados: anula primero esos cobros.',
 };
 
 // Los mensajes de ventas y, para lo demas, los de compras, inventario, catalogo y acceso.

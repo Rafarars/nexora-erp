@@ -16,7 +16,7 @@ export class HttpSalesApi implements SalesApi {
   }
 
   async saveCustomer(token: string, id: string | null, input: CustomerInput): Promise<void> {
-    await this.request(id ? 'PUT' : 'POST', id ? `${BASE}/customers/${id}` : `${BASE}/customers`, token, { ...input, paymentTermDays: numeric(input.paymentTermDays) });
+    await this.request(id ? 'PUT' : 'POST', id ? `${BASE}/customers/${id}` : `${BASE}/customers`, token, { ...input, paymentTermDays: numeric(input.paymentTermDays), creditLimit: numeric(input.creditLimit) });
   }
 
   async changeCustomerStatus(token: string, id: string, active: boolean): Promise<void> {

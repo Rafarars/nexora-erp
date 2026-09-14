@@ -28,6 +28,8 @@ async function attempt(fallback: string, work: (token: string) => Promise<void>)
 
 export async function saveCustomer(_state: FormState, form: FormData): Promise<FormState> {
   const term = text(form, 'paymentTermDays').trim();
+  // Vacio es sin limite; un cero es no fiarle nada.
+  const limit = text(form, 'creditLimit').trim();
 
   return attempt('No se pudo guardar el cliente.', (token) =>
     salesApi().saveCustomer(token, optional(form, 'id'), {
@@ -37,6 +39,7 @@ export async function saveCustomer(_state: FormState, form: FormData): Promise<F
       phone: optional(form, 'phone'),
       address: optional(form, 'address'),
       paymentTermDays: term === '' ? null : parseDecimal(term),
+      creditLimit: limit === '' ? null : parseDecimal(limit),
     }),
   );
 }

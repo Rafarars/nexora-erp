@@ -7,6 +7,7 @@ export interface CustomerInput {
   phone: string | null;
   address: string | null;
   paymentTermDays: number | null;
+  creditLimit: number | null;
 }
 
 export interface OrderInput {

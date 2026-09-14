@@ -3,6 +3,7 @@
 import { changeCustomerStatus, saveCustomer } from '@/app/(app)/ventas/actions';
 import { CatalogTable } from '@/sections/catalog/catalog-table';
 import { Field, TextArea } from '@/sections/shared/field';
+import { formatAmount } from '@/modules/purchasing/domain/purchasing';
 import type { Customer } from '@/modules/sales/domain/sales';
 
 // Un cliente es un maestro como los del catalogo: la misma tabla, el mismo panel y la
@@ -20,7 +21,7 @@ export function CustomersTable({
     <CatalogTable
       resource="customer"
       title="Clientes"
-      description="A quién se le vende. Uno inactivo no recibe pedidos nuevos. El plazo decide cuándo vence su factura."
+      description="A quién se le vende. Uno inactivo no recibe pedidos nuevos. El plazo decide cuándo vence su factura y el límite, cuánto se le puede fiar."
       newLabel="Nuevo cliente"
       rows={customers}
       columns={[
@@ -43,6 +44,12 @@ export function CustomersTable({
             <span data-testid={`customer-term-${customer.name}`}>{customer.paymentTermDays === 0 ? 'Contado' : `${customer.paymentTermDays} días`}</span>
           ),
         },
+        {
+          header: 'Límite de crédito',
+          cell: (customer) => (
+            <span data-testid={`customer-credit-${customer.name}`}>{customer.creditLimit === null ? 'Sin límite' : formatAmount(customer.creditLimit)}</span>
+          ),
+        },
       ]}
       renderFields={(customer) => (
         <>
@@ -56,6 +63,15 @@ export function CustomersTable({
             testId="customer-term"
             defaultValue={String(customer?.paymentTermDays ?? 0)}
             inputMode="numeric"
+            required={false}
+            autoComplete="off"
+          />
+          <Field
+            label="Límite de crédito (vacío: sin límite)"
+            name="creditLimit"
+            testId="customer-credit-limit"
+            defaultValue={customer?.creditLimit === null || customer?.creditLimit === undefined ? '' : formatAmount(customer.creditLimit)}
+            inputMode="decimal"
             required={false}
             autoComplete="off"
           />
