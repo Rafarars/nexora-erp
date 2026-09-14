@@ -136,7 +136,6 @@ la guarda de rendimiento del H7.
 **Por qué:** el H5 cierra vender → despachar → facturar. Lo demás cabe sobre lo construido.
 
 **Qué habría que hacer:**
-- **Límite de crédito y cobros**: es el H6
 - **Avisar cuando un ajuste de salida deja pedidos sin existencia**: hoy el ajuste se aplica sin mirar
   las reservas (a propósito: registra algo que ya pasó) y el despacho falla después con un mensaje
   claro. La mejora es avisar al confirmar el ajuste qué pedidos quedan afectados, sin bloquearlo.
@@ -148,6 +147,21 @@ la guarda de rendimiento del H7.
 - **Vender servicios**, que no salen de bodega
 - **Facturar varios despachos en una factura**, o un pedido entero
 - **Pasar el ciclo completo a Gherkin** con `playwright-bdd`, si se aprueba la herramienta
+
+### Cuentas por cobrar: lo que quedó fuera del H6
+
+**Por qué:** el H6 cierra facturar → cobrar con saldo, vencidas y crédito. Lo demás cabe encima.
+
+**Qué habría que hacer:**
+- **Anticipos y pagos de más**: hoy el importe de un cobro es la suma de lo que aplica a facturas
+- **Notas de crédito** que bajen el saldo sin dinero (devoluciones, descuentos posteriores)
+- **Avisar del crédito en el pedido**: hoy se frena al facturar, que es cuando nace la deuda
+- **Días de gracia** antes de bloquear por vencidas, e **intereses de mora**
+- **Recibo de cobro** imprimible y estado de cuenta en PDF (encaja con el H7)
+- **Multimoneda** en cobros y facturas
+- **Paginación** de cobros y facturas por cobrar, y la guarda de rendimiento del H7
+- **Guardar lo cobrado en la base con un `CHECK`** si el volumen hiciera caro sumar cobros: hoy lo
+  protege el bloqueo de las facturas
 
 ### Compras: lo que quedó fuera del H4
 

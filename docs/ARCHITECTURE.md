@@ -208,6 +208,11 @@ sirve a un endpoint. Tienen el mismo nombre y trabajos distintos.
   importan el del inventario solo para eso: es la única composición entre contextos
 - **Una reserva no se guarda aparte**: es lo pendiente de los pedidos confirmados. Reservar bloquea
   las filas de existencia del inventario y suma las reservas dentro de la misma transacción
+- **Un segundo contrato publicado, solo de lectura**: `shared/prisma/receivable-balances.ts`
+  (`RECEIVABLE_BALANCES`). Lo implementa cuentas por cobrar, dueña de los cobros, y lo usa ventas al
+  emitir a crédito (bloquea el cliente y lee su deuda) y al anular una factura (lee lo cobrado). El
+  módulo de cuentas por cobrar **no importa ventas**: lee sus tablas por su adaptador. Así la
+  composición no tiene ciclos
 - **La capa anticorrupción también traduce errores**: el inventario dice `InsufficientStockError` y
   compras lo convierte en `ReceivedGoodsAlreadyUsedError`
 - **Cantidades y costos en enteros escalados** (`BigInt`): la existencia es la suma exacta del

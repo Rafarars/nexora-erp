@@ -23,13 +23,14 @@ de ninguna conversación anterior**.
 |---|---|
 | Repositorio | github.com/Rafarars/nexora-erp |
 | Reporte de pruebas | https://rafarars.github.io/nexora-erp/ |
-| Pruebas | 1861 + 122 unitarias · 108 de contrato · 255 end-to-end |
+| Pruebas | 2020 + 136 unitarias · 120 de contrato · 279 end-to-end |
 | **H0 — Fundación** | **Completado** |
 | **H1 — Multiempresa y acceso** | **Completado** y revisado |
 | **H2 — Catálogo** | **Completado** ([`H2-CATALOGO.md`](H2-CATALOGO.md)) |
 | **H3 — Inventario** | **Completado** ([`H3-INVENTARIO.md`](H3-INVENTARIO.md)) |
 | **H4 — Compras** | **Completado** ([`H4-COMPRAS.md`](H4-COMPRAS.md)) |
-| **H5 — Ventas** | Fases 0 a 6 **implementadas**, pendientes de revisión de Rafael. Informe en [`H5-VENTAS.md`](H5-VENTAS.md) |
+| **H5 — Ventas** | **Completado** y commiteado, pendiente de revisión de Rafael. Informe en [`H5-VENTAS.md`](H5-VENTAS.md) |
+| **H6 — Cuentas por cobrar** | Fases 0 a 6 **implementadas**, pendientes de revisión de Rafael. Informe en [`H6-CUENTAS-POR-COBRAR.md`](H6-CUENTAS-POR-COBRAR.md) |
 
 Lo que ya funciona: monorepo con API, frontend y suite E2E; PostgreSQL en Docker;
 endpoint de salud que verifica la base; CI con cuatro trabajos publicando el reporte;
@@ -378,8 +379,21 @@ Git que él lee y borra.
 Para retomar:
 
 1. Leer `docs/PENDIENTE-REVISION.md` si todavía existe
-2. Siguiente hito: **H6 — Cuentas por cobrar** (cobros contra facturas, saldos, vencidas y límite de
-   crédito del cliente). La factura ya guarda su vencimiento
+2. Siguiente hito: **H6 — Cuentas por cobrar** (hecho, ver abajo)
+
+## H6 — Cuentas por cobrar
+
+Todo lo hecho, fase por fase, en [`docs/H6-CUENTAS-POR-COBRAR.md`](H6-CUENTAS-POR-COBRAR.md); las
+reglas, con ejemplos para explicarlas a un cliente, en
+[`docs/modulos/cuentas-por-cobrar.md`](modulos/cuentas-por-cobrar.md). Alcance aprobado por Rafael;
+lo decidido sin preguntar, en `docs/PENDIENTE-REVISION.md`.
+
+Para retomar:
+
+1. Leer `docs/PENDIENTE-REVISION.md` si todavía existe
+2. Siguiente hito: **H7 — Reportes y tablero** (exportar a PDF y Excel, tablero con indicadores,
+   guarda de rendimiento sobre un listado con volumen). El estado de cuenta y la antigüedad ya son
+   candidatos naturales a PDF y Excel
 
 Empresas de demostración: Acme Industrial, Globex Servicios e **Initech Logística**
 (`dora@initech.com`), esta última solo para la prueba que mueve la bodega por defecto.

@@ -336,6 +336,17 @@ Clientes, pedido de venta con reserva, despacho y factura.
 
 ### H6 — Cuentas por cobrar
 Cobros, saldos, cuentas vencidas, límite de crédito del cliente.
+
+**Fases** (informe detallado en [`docs/H6-CUENTAS-POR-COBRAR.md`](H6-CUENTAS-POR-COBRAR.md))
+
+- [x] **0. Modelo y migración** — límite de crédito, cobros y aplicaciones; el saldo se calcula
+- [x] **1. Dominio** — cobro con aplicación parcial, saldo, vencidas, tramos y la regla de crédito al facturar
+- [x] **2. Aplicación** — ocho casos de uso con estado de cuenta y antigüedad
+- [x] **3. Infraestructura** — contrato publicado de saldos y bloqueos sin ciclo; concurrencia real en los dos contratos
+- [x] **4. API** — ocho rutas, siete permisos y seis ataques nuevos
+- [x] **5. Frontend** — cobros, facturas por cobrar, antigüedad, estado de cuenta y límite en clientes
+- [x] **6. Semillas y E2E** — las tres pruebas del plan por API y el cobro en pasos Dado/Cuando/Entonces
+- [ ] **7. Cierre** — revisión de Rafael
 *Pruebas:* **anular un cobro revierte el saldo**, cliente con vencidas no puede facturar a crédito,
 consistencia entre cobros y saldo.
 

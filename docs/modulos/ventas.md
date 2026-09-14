@@ -8,7 +8,7 @@ Contexto: `apps/api/src/contexts/sales` · Pantallas: `/ventas/*` · Informe té
 
 | Submódulo | Tabla | Prefijo | Qué es |
 |---|---|---|---|
-| Clientes | `customers` | `CLI` | A quién se le vende, con su plazo de pago |
+| Clientes | `customers` | `CLI` | A quién se le vende, con su plazo de pago y su límite de crédito |
 | Pedidos | `sales_orders`, `sales_order_lines` | `PED` | Lo que pide un cliente; confirmado, **reserva** existencia |
 | Despachos | `dispatches`, `dispatch_lines` | `DES` | Lo que sale de un pedido; confirmado, **baja** la existencia |
 | Facturas | `invoices`, `invoice_lines` | `FAC` | Lo que se cobra de un despacho; **no toca** la existencia |
@@ -16,7 +16,9 @@ Contexto: `apps/api/src/contexts/sales` · Pantallas: `/ventas/*` · Informe té
 
 **Depende de** Catálogo (artículos, unidades, impuestos, bodegas), que lee por su puerto, y de
 **Inventario**, al que le pide bloquear existencias para reservar y sacarlas al despachar, por el
-mismo contrato publicado que usa Compras.
+mismo contrato publicado que usa Compras. Y de **Cuentas por cobrar**, a la que le pregunta cuánto debe
+el cliente al facturar a crédito y si una factura tiene cobros al anularla
+([cuentas-por-cobrar.md](cuentas-por-cobrar.md)).
 
 ---
 
@@ -39,6 +41,9 @@ nombre único por empresa, identificación fiscal libre, correo, teléfono, dire
 **plazo de pago de 0 a 365 días** (0 es contado). Uno inactivo no recibe pedidos nuevos.
 
 **El plazo decide cuándo vence la factura**: se toma el plazo del cliente **al emitirla**.
+
+**Límite de crédito**: monto de cero o más, o vacío para no tener límite. Decide cuánto se le puede
+fiar; se explica con ejemplos en [cuentas-por-cobrar.md §3](cuentas-por-cobrar.md#3-límite-de-crédito-y-facturas-a-crédito).
 
 ---
 
@@ -141,6 +146,10 @@ Se emiten **desde un despacho confirmado**. No tienen borrador: nacen emitidas.
   un índice único parcial en la base (`invoices_one_issued_per_dispatch`).
 - **No mueve existencia.** Anularla tampoco.
 - Anular una factura deja al despacho volver a facturarse o anularse.
+- **A crédito** (cliente con plazo > 0) no se emite si el cliente tiene **facturas vencidas** o si
+  **lo que debe + esta factura supera su límite**. La de contado no se frena. Con el cliente bloqueado
+  ([cuentas-por-cobrar.md §3.2](cuentas-por-cobrar.md#32-la-regla-al-emitir)).
+- **Una factura con cobros confirmados no se anula**: primero se anulan los cobros.
 
 Ejemplo: 4 cajas a 30 con 16 % → subtotal 120,00, IVA 19,20, total 139,20. Con plazo de 15 días,
 emitida el 15 de enero vence el 30.
@@ -182,6 +191,9 @@ confirmar, con las filas bloqueadas.
 | `DispatchInvoicedError` | 409 | Anular un despacho facturado |
 | `DispatchAlreadyInvoicedError` | 409 | Facturar dos veces un despacho |
 | `DispatchNotInvoiceableError` | 409 | Facturar un despacho que no está confirmado |
+| `CustomerWithOverdueInvoicesError` | 409 | Facturar a crédito a un cliente con vencidas |
+| `CreditLimitExceededError` | 409 | La factura a crédito supera el límite |
+| `InvoiceWithPaymentsError` | 409 | Anular una factura con cobros |
 
 ---
 
@@ -193,7 +205,7 @@ confirmar, con las filas bloqueadas.
 | `/ventas/despachos` | Despachos con su pedido y cliente, lo que salió, estado y factura. Menú: editar, confirmar, **facturar**, anular |
 | `/ventas/facturas` | Facturas con cliente, despacho, líneas a su precio, total, **vencimiento** y estado. Menú: anular |
 | `/ventas/disponibilidad` | Existencia, reservado y disponible por artículo y bodega |
-| `/ventas/clientes` | Maestro con identificación fiscal, contacto y plazo |
+| `/ventas/clientes` | Maestro con identificación fiscal, contacto, plazo y límite de crédito |
 
 Los despachos se crean desde su pedido y las facturas desde su despacho: nunca se elige un documento
 que no admite el paso siguiente.
@@ -204,10 +216,10 @@ que no admite el paso siguiente.
 
 | Empresa | Qué hay |
 |---|---|
-| Acme | **Comercial Delta** (`J-40123456-7`, 15 días) y **Bodegón La Esquina** (contado) |
+| Acme | **Comercial Delta** (`J-40123456-7`, 15 días, límite 1000) y **Bodegón La Esquina** (contado) |
 | Acme | `PED000001` a Delta, **despachado en parte**: 5 cajas de agua a 30 (2 despachadas) y 10 kg de detergente a 5,50 |
 | Acme | `DES000001` confirmado: 2 cajas = 48 un al promedio 0,50. El agua pasa de 336 a **288** |
-| Acme | `FAC000001` emitida: 69,60, **vence el 22-09-2026** |
+| Acme | `FAC000001` emitida: 69,60, **vence el 22-09-2026**; Delta abonó 30 y debe 39,60 |
 | Acme | `PED000002` a La Esquina, borrador |
 | Acme | Disponibilidad en Principal: agua 288 − 72 reservadas = **216**; detergente 50 − 10 = **40** |
 | Globex | Talleres Omega; pedido despachado en parte con despacho y factura, despacho en borrador y pedido en borrador: blancos de la matriz |
