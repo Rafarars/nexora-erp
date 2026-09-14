@@ -39,7 +39,7 @@ export function aSalesScenario() {
   const clock = new FixedClock(NOW);
   const ids = new SequentialIdGenerator();
   const customers = new InMemoryCustomerRepository();
-  const store = new InMemorySalesStore();
+  const store = new InMemorySalesStore(customers);
   const catalog = new InMemorySalesCatalog(sellableItems(), salesWarehouses());
   const codes = new InMemorySalesCodeSequence();
   const customerFinder = new CustomerFinder(customers);
@@ -68,7 +68,7 @@ export function aSalesScenario() {
     confirmDispatch: new DispatchConfirmer(dispatchFinder, orderFinder, dispatchLines, store.dispatches, store.dispatchPosting, new DispatchConfirmation(), clock),
     cancelDispatch: new DispatchCanceller(store.dispatchPosting, new DispatchCancellation(), clock),
     searchDispatches: new DispatchSearcher(store.dispatches, store.orders, store.invoices, customers, catalog),
-    issueInvoice: new InvoiceIssuer(dispatchFinder, orderFinder, customerFinder, store.invoices, store.invoicePosting, codes, ids, clock),
+    issueInvoice: new InvoiceIssuer(dispatchFinder, orderFinder, store.invoices, store.invoicePosting, codes, ids, clock),
     cancelInvoice: new InvoiceCanceller(store.invoicePosting, clock),
     searchInvoices: new InvoiceSearcher(store.invoices, store.dispatches, store.orders, customers, catalog),
     searchAvailability: new AvailabilitySearcher(store.salesStock, store.orders, catalog),

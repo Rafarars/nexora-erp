@@ -10,6 +10,7 @@ export interface CustomerResponse {
   phone: string | null;
   address: string | null;
   paymentTermDays: number;
+  creditLimit: number | null;
   isActive: boolean;
 }
 
@@ -23,9 +24,9 @@ export class CustomerSearcher {
     return {
       customers: customers
         .map((customer) => {
-          const { id, code, name, fiscalId, email, phone, address, paymentTermDays, isActive } = customer.toPrimitives();
+          const { id, code, name, fiscalId, email, phone, address, paymentTermDays, creditLimit, isActive } = customer.toPrimitives();
 
-          return { id, code, name, fiscalId, email, phone, address, paymentTermDays, isActive };
+          return { id, code, name, fiscalId, email, phone, address, paymentTermDays, creditLimit, isActive };
         })
         .sort((a, b) => a.name.localeCompare(b.name)),
     };

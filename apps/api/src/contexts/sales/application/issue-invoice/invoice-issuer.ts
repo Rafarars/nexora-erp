@@ -1,8 +1,8 @@
 import { Clock } from '../../../../shared/domain/ports/clock.js';
 import { IdGenerator } from '../../../../shared/domain/ports/id-generator.js';
-import { CustomerFinder } from '../../domain/customer/find/customer-finder.js';
 import { DispatchId } from '../../domain/dispatch/dispatch.entity.js';
 import { DispatchFinder } from '../../domain/dispatch/find/dispatch-finder.js';
+import { CustomerCredit } from '../../domain/invoice/credit/customer-credit.js';
 import { Invoice, InvoiceId } from '../../domain/invoice/invoice.entity.js';
 import { InvoiceRepository } from '../../domain/invoice/invoice.repository.js';
 import { InvoicePosting } from '../../domain/invoice/posting/invoice-posting.js';
@@ -19,12 +19,11 @@ export interface InvoiceIssuerRequest {
 }
 
 // Emite la factura de un despacho confirmado. Se valida antes de pedir el numero, para no gastar
-// correlativos en facturas imposibles, y otra vez con el despacho bloqueado.
+// correlativos en facturas imposibles, y otra vez con el despacho y el cliente bloqueados.
 export class InvoiceIssuer {
   constructor(
     private readonly dispatches: DispatchFinder,
     private readonly orders: SalesOrderFinder,
-    private readonly customers: CustomerFinder,
     private readonly invoices: InvoiceRepository,
     private readonly posting: InvoicePosting,
     private readonly codes: SalesCodeSequence,
@@ -37,16 +36,17 @@ export class InvoiceIssuer {
     const now = this.clock.now();
     const dispatch = await this.dispatches.find(tenantId, DispatchId.of(request.dispatchId));
     const order = await this.orders.find(tenantId, dispatch.orderId);
-    const customer = await this.customers.find(tenantId, order.customerId());
+    const today = SalesDate.fromDate(now);
+    const credit = await this.posting.credit(tenantId, order.customerId(), today);
     const id = InvoiceId.of(this.ids.next());
-    const date = request.date ? SalesDate.of(request.date) : SalesDate.fromDate(now);
-    const issue = (code: string, current = dispatch, currentOrder = order, alreadyInvoiced = false) =>
+    const date = request.date ? SalesDate.of(request.date) : today;
+    const issue = (code: string, current = dispatch, currentOrder = order, alreadyInvoiced = false, currentCredit: CustomerCredit = credit) =>
       Invoice.issue(id, tenantId, code, {
         dispatch: current,
         order: currentOrder,
         alreadyInvoiced,
-        // El plazo del cliente de hoy: es el que rige desde que se emite.
-        paymentTermDays: customer.toPrimitives().paymentTermDays,
+        // El plazo y el limite del cliente de hoy: son los que rigen desde que se emite.
+        credit: currentCredit,
         date,
         notes: request.notes ?? null,
         lineIds: () => this.ids.next(),
@@ -56,6 +56,6 @@ export class InvoiceIssuer {
 
     const code = salesCode('FAC', await this.codes.next(tenantId, 'FAC'));
 
-    await this.posting.issue(tenantId, dispatch.id, (locked, lockedOrder, alreadyInvoiced) => issue(code, locked, lockedOrder, alreadyInvoiced));
+    await this.posting.issue(tenantId, dispatch.id, today, (locked, lockedOrder, alreadyInvoiced, lockedCredit) => issue(code, locked, lockedOrder, alreadyInvoiced, lockedCredit));
   }
 }

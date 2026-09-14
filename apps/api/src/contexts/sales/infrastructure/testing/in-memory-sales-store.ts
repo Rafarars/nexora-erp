@@ -1,7 +1,10 @@
+import { CustomerId } from '../../domain/customer/customer.entity.js';
+import { CustomerRepository } from '../../domain/customer/customer.repository.js';
 import { Dispatch, DispatchPrimitives } from '../../domain/dispatch/dispatch.entity.js';
 import { DispatchRepository } from '../../domain/dispatch/dispatch.repository.js';
 import { DispatchPosting } from '../../domain/dispatch/posting/dispatch-posting.js';
 import {
+  CustomerNotFoundError,
   DispatchNotEditableError,
   DispatchNotFoundError,
   InsufficientStockForDispatchError,
@@ -9,6 +12,7 @@ import {
   SalesOrderNotEditableError,
   SalesOrderNotFoundError,
 } from '../../domain/errors/sales.errors.js';
+import { CustomerCredit } from '../../domain/invoice/credit/customer-credit.js';
 import { Invoice, InvoicePrimitives } from '../../domain/invoice/invoice.entity.js';
 import { InvoiceRepository } from '../../domain/invoice/invoice.repository.js';
 import { InvoicePosting } from '../../domain/invoice/posting/invoice-posting.js';
@@ -26,14 +30,22 @@ const key = (tenantId: string, itemId: string, warehouseId: string) => `${tenant
 // una que falla no deja nada escrito y la existencia nunca queda negativa.
 //
 // El inventario de juguete solo cuenta unidades por articulo y bodega. `stock` pone la existencia
-// de partida y `withdraw` simula una salida por otro documento.
+// de partida y `withdraw` simula una salida por otro documento. `pay` simula un cobro confirmado,
+// que en la base escribe cuentas por cobrar.
 export class InMemorySalesStore {
   private readonly orderRows = new Map<string, SalesOrderPrimitives>();
   private readonly dispatchRows = new Map<string, DispatchPrimitives>();
   private readonly invoiceRows = new Map<string, InvoicePrimitives>();
   private readonly onHand = new Map<string, number>();
   private readonly released: { dispatchId: string; key: string; quantity: number; reversed: boolean }[] = [];
+  private readonly paid = new Map<string, number>();
   private queue: Promise<unknown> = Promise.resolve();
+
+  constructor(private readonly customers: CustomerRepository) {}
+
+  pay(invoiceId: string, amount: number): void {
+    this.paid.set(invoiceId, (this.paid.get(invoiceId) ?? 0) + amount);
+  }
 
   stock(tenantId: string, itemId: string, warehouseId: string, quantity: number): void {
     this.onHand.set(key(tenantId, itemId, warehouseId), quantity);
@@ -188,13 +200,16 @@ export class InMemorySalesStore {
 
   get invoicePosting(): InvoicePosting {
     return {
-      issue: (tenantId, dispatchId, work) =>
+      credit: (tenantId, customerId, today) => this.credit(tenantId, customerId.value, today.value),
+      issue: (tenantId, dispatchId, today, work) =>
         this.serial(async () => {
           const dispatch = this.loadDispatch(tenantId, dispatchId.value);
 
           if (!dispatch) throw new DispatchNotFoundError(dispatchId.value);
 
-          const invoice = work(dispatch, this.loadOrder(tenantId, dispatch.orderId.value) as SalesOrder, this.invoiced(tenantId.value, dispatch.id.value));
+          const order = this.loadOrder(tenantId, dispatch.orderId.value) as SalesOrder;
+          const credit = await this.credit(tenantId, order.customerId().value, today.value);
+          const invoice = work(dispatch, order, this.invoiced(tenantId.value, dispatch.id.value), credit);
 
           this.invoiceRows.set(invoice.id.value, invoice.toPrimitives());
         }),
@@ -204,9 +219,28 @@ export class InMemorySalesStore {
 
           if (!invoice) throw new InvoiceNotFoundError(invoiceId.value);
 
-          work(invoice);
+          work(invoice, this.paid.get(invoice.id.value) ?? 0);
           this.invoiceRows.set(invoice.id.value, invoice.toPrimitives());
         }),
+    };
+  }
+
+  private async credit(tenantId: TenantId, customerId: string, today: string): Promise<CustomerCredit> {
+    const customer = await this.customers.find(tenantId, CustomerId.of(customerId));
+
+    if (!customer) throw new CustomerNotFoundError(customerId);
+
+    const open = [...this.invoiceRows.values()]
+      .filter((row) => row.tenantId === tenantId.value && row.customerId === customerId && row.status === 'issued')
+      .map((row) => ({ dueDate: row.dueDate, balance: Math.round((row.total - (this.paid.get(row.id) ?? 0)) * 100) }))
+      .filter((row) => row.balance > 0);
+
+    return {
+      customerId,
+      paymentTermDays: customer.paymentTermDays(),
+      creditLimit: customer.creditLimit(),
+      openBalance: open.reduce((sum, row) => sum + row.balance, 0) / 100,
+      hasOverdue: open.some((row) => row.dueDate < today),
     };
   }
 
