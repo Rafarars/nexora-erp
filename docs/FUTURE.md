@@ -131,13 +131,23 @@ empresa grande, se devuelven enteros.
 **Qué habría que hacer:** paginar por `sequence` en el kardex y por código en los ajustes, y
 la guarda de rendimiento del H7.
 
-### Despachos por el mismo contrato que las entradas
+### Ventas: lo que quedó fuera del H5
 
-**Por qué:** en el H4 la entrada de mercancía ya mueve existencia por `DocumentStockPosting`, con
-el motor `StockMovements` que comparte con el ajuste. El despacho de ventas (H5) es su espejo.
+**Por qué:** el H5 cierra vender → despachar → facturar. Lo demás cabe sobre lo construido.
 
-**Qué habría que hacer:** añadir `release` al contrato publicado y `'dispatch'` a los tipos de
-origen del kardex, y leer su código en `MovementDocuments`. Nada del motor cambia.
+**Qué habría que hacer:**
+- **Límite de crédito y cobros**: es el H6
+- **Avisar cuando un ajuste de salida deja pedidos sin existencia**: hoy el ajuste se aplica sin mirar
+  las reservas (a propósito: registra algo que ya pasó) y el despacho falla después con un mensaje
+  claro. La mejora es avisar al confirmar el ajuste qué pedidos quedan afectados, sin bloquearlo.
+  Explicado en `modulos/inventario.md` §1.0.1
+- **Motivo obligatorio en los ajustes** (conteo inicial, conteo, merma, daño, hallazgo), para saber
+  para qué se usó cada uno y sacar reportes de mermas
+- **Devoluciones de venta y notas de crédito**
+- **Listas de precio y descuentos**; hoy el precio se escribe en cada pedido
+- **Vender servicios**, que no salen de bodega
+- **Facturar varios despachos en una factura**, o un pedido entero
+- **Pasar el ciclo completo a Gherkin** con `playwright-bdd`, si se aprueba la herramienta
 
 ### Compras: lo que quedó fuera del H4
 

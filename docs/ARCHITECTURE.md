@@ -201,10 +201,13 @@ sirve a un endpoint. Tienen el mismo nombre y trabajos distintos.
   existencias, en orden fijo**, ejecuta un trabajo **síncrono y puro** y escribe todo en una
   transacción. Si el dominio lanza, no queda nada escrito
 - **Otro contexto mueve existencia por un contrato publicado**: `shared/prisma/document-stock-posting.ts`
-  (`DOCUMENT_STOCK_POSTING`). Lo implementa el inventario y es lo **único que exporta su módulo**;
-  recibe la transacción de quien llama porque la entrada, su orden y la existencia cambian juntas.
-  Vive en infraestructura: ningún dominio sabe de transacciones. El módulo de compras importa el del
-  inventario solo para eso, y es la única composición entre contextos
+  (`DOCUMENT_STOCK_POSTING`). Lo implementa el inventario y es lo **único que exporta su módulo**:
+  `receive` (entradas), `release` (despachos), `reverse` y `lockAvailable` (reservar). Recibe la
+  transacción de quien llama porque el documento, su orden o pedido y la existencia cambian juntos.
+  Vive en infraestructura: ningún dominio sabe de transacciones. Los módulos de compras y ventas
+  importan el del inventario solo para eso: es la única composición entre contextos
+- **Una reserva no se guarda aparte**: es lo pendiente de los pedidos confirmados. Reservar bloquea
+  las filas de existencia del inventario y suma las reservas dentro de la misma transacción
 - **La capa anticorrupción también traduce errores**: el inventario dice `InsufficientStockError` y
   compras lo convierte en `ReceivedGoodsAlreadyUsedError`
 - **Cantidades y costos en enteros escalados** (`BigInt`): la existencia es la suma exacta del
@@ -414,6 +417,8 @@ de que la arquitectura está bien hecha**. Si necesitan base de datos, algo se f
 | Regenerar los identificadores de las líneas al revalidar un borrador | Conservarlos: quien leyó el borrador los usa después (recibir por `orderLineId`) |
 | Nombrar `taxId` a algo que no es una referencia a un impuesto | Un nombre propio (`fiscalId`): la vigilancia de aislamiento lee los nombres de campo |
 | Que otro contexto escriba las tablas del inventario | Pedírselo por `DocumentStockPosting`, dentro de la misma transacción |
+| En un page object, elegir la sección justo después de hacer clic en el módulo | Esperar la URL del módulo: su redirección a la primera sección puede llegar después y ganar |
+| Guardar la reserva de un pedido en una tabla aparte | Calcularla de lo pendiente: nunca se desincroniza |
 
 ---
 

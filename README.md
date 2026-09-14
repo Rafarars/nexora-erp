@@ -140,7 +140,8 @@ El pipeline **no tiene ni un secreto configurado**: no pide permisos que no usa.
 | **H1** Multiempresa y acceso: inquilinos, usuarios, roles y permisos | **Completado** |
 | **H2** Catálogo: categorías, unidades, impuestos, bodegas y artículos | **Completado** |
 | **H3** Inventario: ajustes, kardex y existencias | **Completado** |
-| **H4** Compras: proveedores, órdenes, entradas de mercancía y en camino | Implementado, en revisión |
-| H5–H7 Ventas, cobranza, reportes | Planificado |
+| **H4** Compras: proveedores, órdenes, entradas de mercancía y en camino | **Completado** |
+| **H5** Ventas: clientes, pedidos con reserva, despachos, facturas y disponibilidad | Implementado, en revisión |
+| H6–H7 Cobranza, reportes | Planificado |
 
 Plan completo en [`docs/PLAN.md`](docs/PLAN.md) · Configuración en [`docs/ENVIRONMENT.md`](docs/ENVIRONMENT.md)

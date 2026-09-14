@@ -103,7 +103,7 @@ Contexto: `apps/api/src/contexts/access` · Pantallas: `/login`, `/perfil`, `/ad
 - El cambio tiene **efecto inmediato**: con el mismo token, la persona pierde el acceso en su
   siguiente petición.
 
-**Catálogo de permisos** (50): 8 de acceso, 20 de catálogo, 7 de inventario y 15 de compras. Se listan en cada
+**Catálogo de permisos** (68): 8 de acceso, 20 de catálogo, 7 de inventario, 15 de compras y 18 de ventas. Se listan en cada
 documento de módulo.
 
 | Código | Qué permite |

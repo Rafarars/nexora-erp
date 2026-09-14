@@ -20,7 +20,7 @@ el código del catálogo.
 
 1. **Un solo motor mueve existencia** (`StockMovements`). Lo usan el ajuste y, desde el H4, la
    entrada de mercancía de [Compras](compras.md), que se lo pide al inventario por un contrato
-   publicado. Los despachos (H5) pasarán por el mismo camino.
+   publicado, y el despacho de [Ventas](ventas.md).
 2. **El kardex no se edita ni se borra.** Un error se corrige con un movimiento de contrapartida
    que cita al original.
 3. **La existencia es derivada.** Siempre es igual a la suma de sus movimientos, y el saldo del
@@ -33,6 +33,54 @@ el código del catálogo.
 ---
 
 ## 1. Ajustes
+
+### 1.0 Para qué sirve un ajuste
+
+Un ajuste **corrige el sistema cuando no coincide con lo que hay físicamente**. No es la forma de
+meter mercancía comprada.
+
+| Situación | Documento correcto |
+|---|---|
+| Carga inicial: el sistema arranca y ya hay mercancía en la bodega | **Ajuste** de entrada («Conteo inicial») |
+| Un conteo encuentra más o menos de lo registrado | **Ajuste** de entrada o de salida |
+| Mercancía rota, vencida, perdida o robada (merma) | **Ajuste** de salida |
+| Aparece mercancía que no estaba registrada (hallazgo) | **Ajuste** de entrada |
+| Llega mercancía de un proveedor | **Entrada de mercancía** ([compras.md](compras.md)), no un ajuste |
+| Sale mercancía a un cliente | **Despacho** ([ventas.md](ventas.md)), no un ajuste |
+
+**Por qué importa la diferencia.** La entrada queda ligada al proveedor, a la orden y a su costo
+real, y actualiza lo que viene en camino. Un ajuste no dice de dónde vino la mercancía: si se usa para
+compras, se pierde esa trazabilidad y lo pendiente de las órdenes nunca se cierra.
+
+Antes del H4 no existía compras, y el ajuste era la única forma de dar existencia a un artículo (así
+se hacía también en Flexio). Desde el H4, lo comprado entra por su entrada.
+
+Referencias: la documentación de [verlumyx/erp](https://github.com/verlumyx/erp/blob/main/docs/inventario.md)
+(«cuadres, mermas y hallazgos») y la de
+[Odoo](https://www.odoo.com/documentation/19.0/applications/inventory_and_mrp/inventory/warehouses_storage/inventory_management/count_products.html).
+
+### 1.0.1 Un ajuste de salida y las reservas de ventas
+
+**Comportamiento actual:** un ajuste de salida **no mira las reservas** de los pedidos de venta. El
+inventario no conoce ventas.
+
+Ejemplo: hay 10 teléfonos y un pedido confirmado reservó 8. Un conteo encuentra 5 y se confirma un
+ajuste de salida de 5.
+
+1. El ajuste se confirma: la existencia queda en **5**.
+2. La disponibilidad muestra existencia 5, reservado 8 y **disponible 0**. Nunca muestra negativos.
+3. Al confirmar el despacho de los 8, se rechaza con **«La bodega ya no tiene la existencia de este
+   despacho»** y no cambia nada.
+4. Para seguir: despachar solo lo que hay (editando el borrador del despacho) o anular el pedido si
+   no se va a poder cumplir.
+
+**Por qué es así.** Un ajuste de salida registra algo que **ya pasó**: si los teléfonos se rompieron,
+se rompieron aunque estuvieran vendidos. Bloquear el ajuste dejaría al sistema diciendo que hay
+mercancía que no existe. Odoo hace lo mismo: aplica el ajuste y las entregas afectadas pierden su
+reserva.
+
+**Mejoras anotadas** (en `FUTURE.md`): avisar al confirmar el ajuste qué pedidos quedan sin
+existencia, y un motivo obligatorio en cada ajuste (conteo inicial, conteo, merma, daño, hallazgo).
 
 ### 1.1 Cabecera — `adjustments`
 
@@ -116,7 +164,7 @@ borrador ───────────▶ confirmado ───────�
 | `unit_cost` | Costo por unidad base del movimiento |
 | `balance_quantity` | Existencia **después** del movimiento |
 | `balance_average_cost` | Costo promedio **después** del movimiento |
-| `origin_type`, `origin_id`, `origin_line_id` | Documento y línea que lo originaron: `adjustment` o `receipt` (entrada de compra) |
+| `origin_type`, `origin_id`, `origin_line_id` | Documento y línea que lo originaron: `adjustment`, `receipt` (entrada de compra) o `dispatch` (despacho de venta) |
 | `reversal_of_id` | Movimiento que revierte, si es una anulación |
 | `occurred_at` | Cuándo |
 
@@ -153,7 +201,8 @@ Confirmar o anular cualquier documento pasa por el mismo servicio puro, `StockMo
 - `reverse(documento)`: revierte, del último al primero, los movimientos que ese documento escribió.
 
 El ajuste lo usa desde `AdjustmentConfirmation` y `AdjustmentCancellation`. La entrada de compra lo
-usa a través de `DocumentStockPosting`, el contrato publicado que el inventario exporta y que recibe
+usan, como el despacho, a través de `DocumentStockPosting` (`receive`, `release`, `reverse` y
+`lockAvailable` para que ventas reserve), el contrato publicado que el inventario exporta y que recibe
 la transacción de quien llama, para que documento y existencia cambien juntos. Ver
 [compras.md §5](compras.md#5-cómo-se-mueve-la-existencia).
 
@@ -235,12 +284,14 @@ Probado contra PostgreSQL: dos salidas de 6 sobre 10 enviadas a la vez → pasa 
 | Empresa | Ajuste | Estado | Contenido | Existencia resultante |
 |---|---|---|---|---|
 | Acme | `AJU000001` | Confirmado | 10 cajas de agua a 12; 50 kg de detergente a 3,20 | Agua 240 un a 0,50; detergente 50 kg a 3,20 (Principal) |
-| Acme | `ENT000001` (compras) | Confirmada | 4 cajas de agua a 12 | Agua **336 un** a 0,50: segundo movimiento de su kardex |
+| Acme | `ENT000001` (compras) | Confirmada | 4 cajas de agua a 12 | Agua 336 un a 0,50: segundo movimiento de su kardex |
+| Acme | `DES000001` (ventas) | Confirmado | Salen 2 cajas al promedio | Agua **288 un**: tercer movimiento |
+| Globex | `DES000001` (ventas) | Confirmado | Salen 5 filtros a 8,50 | Filtro **25 un** |
 | Acme | `AJU000002` | Borrador | Salida de 6 un de agua («Merma por rotura») | — |
 | Globex | `AJU000001` | Confirmado | 30 filtros a 8,50 | Filtro 30 un (Central) |
 | Globex | `AJU000002` | Borrador | Salida de 2 filtros | — |
 
-Se rehace entero en cada corrida de semillas, junto con las compras.
+Se rehace entero en cada corrida de semillas, junto con compras y ventas.
 
 ---
 

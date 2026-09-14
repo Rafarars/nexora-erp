@@ -314,12 +314,23 @@ Proveedores, orden de compra y entrada de mercancía.
 - [x] **4. API** — quince rutas, quince permisos y once ataques nuevos
 - [x] **5. Frontend** — órdenes con recepción, entradas, en camino y proveedores
 - [x] **6. Semillas y E2E** — compras de demostración y suites de API e interfaz
-- [ ] **7. Cierre** — revisión de Rafael y commits por fase
+- [x] **7. Cierre** — commits por fase
 *Pruebas:* la orden confirmada anuncia el stock en camino, la entrada sube el stock y recalcula el
 costo promedio, recepción parcial y retroceso del estado al anular.
 
 ### H5 — Ventas
 Clientes, pedido de venta con reserva, despacho y factura.
+
+**Fases** (informe detallado en [`docs/H5-VENTAS.md`](H5-VENTAS.md))
+
+- [x] **0. Modelo y migración** — la base prohíbe despachar más de lo vendido y facturar dos veces un despacho
+- [x] **1. Dominio** — reserva sobre lo disponible, despacho y factura con vencimiento; contrato del inventario ampliado
+- [x] **2. Aplicación** — dieciocho casos de uso y la disponibilidad
+- [x] **3. Infraestructura** — reserva con filas de existencia bloqueadas y contrato con concurrencia real
+- [x] **4. API** — dieciocho rutas, dieciocho permisos y trece ataques nuevos
+- [x] **5. Frontend** — pedidos, despachos, facturas, disponibilidad y clientes
+- [x] **6. Semillas y E2E** — ventas de demostración y el ciclo completo en pasos Dado/Cuando/Entonces
+- [ ] **7. Cierre** — revisión de Rafael
 *Pruebas:* el pedido no reserva más de lo disponible, el despacho baja el stock y la factura no,
 **el ciclo completo en Gherkin** (comprar → recibir → vender → despachar → facturar).
 

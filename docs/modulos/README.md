@@ -3,7 +3,7 @@
 Qué hace cada módulo, con qué reglas de negocio, cómo guarda los datos, qué expone por API,
 qué pantallas tiene y qué pruebas lo protegen. Es la referencia **funcional**; la convención
 técnica está en [`../ARCHITECTURE.md`](../ARCHITECTURE.md) y el porqué de cada hito, en los
-informes `H2-CATALOGO.md`, `H3-INVENTARIO.md` y `H4-COMPRAS.md`.
+informes `H2-CATALOGO.md`, `H3-INVENTARIO.md`, `H4-COMPRAS.md` y `H5-VENTAS.md`.
 
 | Archivo | Módulo | Submódulos | Hito |
 |---|---|---|---|
@@ -11,11 +11,12 @@ informes `H2-CATALOGO.md`, `H3-INVENTARIO.md` y `H4-COMPRAS.md`.
 | [catalogo.md](catalogo.md) | Catálogo | Categorías, unidades de medida, impuestos, bodegas, artículos | H2 |
 | [inventario.md](inventario.md) | Inventario | Ajustes, kardex, existencias | H3 |
 | [compras.md](compras.md) | Compras | Proveedores, órdenes de compra, entradas de mercancía, en camino | H4 |
+| [ventas.md](ventas.md) | Ventas | Clientes, pedidos con reserva, despachos, facturas, disponibilidad | H5 |
 
 Orden de dependencia: **Acceso → Catálogo → Inventario → Compras → Ventas → Cobranza → Reportes**.
 Cada módulo usa los anteriores y ninguno importa código de otro: se leen por puertos propios. La
-única escritura entre módulos es la entrada de mercancía, que le pide al inventario mover la
-existencia por un contrato publicado ([compras.md §5](compras.md#5-cómo-se-mueve-la-existencia)).
+única escritura entre módulos es la del inventario pedida por compras (entradas) y ventas (reservas
+y despachos), por un contrato publicado ([compras.md §5](compras.md#5-cómo-se-mueve-la-existencia)).
 
 ---
 

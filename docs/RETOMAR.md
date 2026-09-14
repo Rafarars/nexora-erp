@@ -23,12 +23,13 @@ de ninguna conversación anterior**.
 |---|---|
 | Repositorio | github.com/Rafarars/nexora-erp |
 | Reporte de pruebas | https://rafarars.github.io/nexora-erp/ |
-| Pruebas | 1543 + 107 unitarias · 96 de contrato · 217 end-to-end |
+| Pruebas | 1861 + 122 unitarias · 108 de contrato · 255 end-to-end |
 | **H0 — Fundación** | **Completado** |
 | **H1 — Multiempresa y acceso** | **Completado** y revisado |
 | **H2 — Catálogo** | **Completado** ([`H2-CATALOGO.md`](H2-CATALOGO.md)) |
 | **H3 — Inventario** | **Completado** ([`H3-INVENTARIO.md`](H3-INVENTARIO.md)) |
-| **H4 — Compras** | Fases 0 a 6 **implementadas y sin commitear**, pendientes de revisión. Informe en [`H4-COMPRAS.md`](H4-COMPRAS.md) |
+| **H4 — Compras** | **Completado** ([`H4-COMPRAS.md`](H4-COMPRAS.md)) |
+| **H5 — Ventas** | Fases 0 a 6 **implementadas**, pendientes de revisión de Rafael. Informe en [`H5-VENTAS.md`](H5-VENTAS.md) |
 
 Lo que ya funciona: monorepo con API, frontend y suite E2E; PostgreSQL en Docker;
 endpoint de salud que verifica la base; CI con cuatro trabajos publicando el reporte;
@@ -367,21 +368,18 @@ problema.
 
 ---
 
-## H4 — Compras (sin commitear)
+## H5 — Ventas
 
-Todo lo hecho, fase por fase, en [`docs/H4-COMPRAS.md`](H4-COMPRAS.md); las reglas de negocio, en
-[`docs/modulos/compras.md`](modulos/compras.md). Para retomar:
+Todo lo hecho, fase por fase, en [`docs/H5-VENTAS.md`](H5-VENTAS.md); las reglas, en
+[`docs/modulos/ventas.md`](modulos/ventas.md). Rafael pidió avanzar sin revisar cada hito: las
+decisiones tomadas sin preguntar están en **`docs/PENDIENTE-REVISION.md`**, archivo local excluido de
+Git que él lee y borra.
 
-1. Rafael revisa el informe, el código y el sistema (`make up`, `make seed`, `ana@acme.com`)
-2. Commits por fase, en el orden del informe
-3. Decidir la regla propuesta desde el H2: que `architecture.spec.ts` prohíba importar entre
-   contextos salvo en módulos y arneses de prueba
-4. Siguiente hito: **H5 — Ventas** (clientes, pedido con reserva, despacho y factura). El despacho
-   reutiliza `DocumentStockPosting` añadiendo `release`
+Para retomar:
 
-Lo que cambió fuera de compras: el motor del inventario (`StockMovements`), el contrato publicado
-`shared/prisma/document-stock-posting.ts`, el kardex con tipo de origen y `unique-violation.ts`
-movido a `shared/prisma/`.
+1. Leer `docs/PENDIENTE-REVISION.md` si todavía existe
+2. Siguiente hito: **H6 — Cuentas por cobrar** (cobros contra facturas, saldos, vencidas y límite de
+   crédito del cliente). La factura ya guarda su vencimiento
 
 Empresas de demostración: Acme Industrial, Globex Servicios e **Initech Logística**
 (`dora@initech.com`), esta última solo para la prueba que mueve la bodega por defecto.
