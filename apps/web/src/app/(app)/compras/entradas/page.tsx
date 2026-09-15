@@ -1,6 +1,7 @@
 import { ReceiptsBoard } from '@/sections/purchasing/receipts-board';
 import { can } from '@/modules/access/domain/session';
 import { purchasingApi } from '@/shared/session/purchasing-api';
+import { companyApi } from '@/shared/session/company-api';
 import { requireSession } from '@/shared/session/current-session';
 
 export const dynamic = 'force-dynamic';
@@ -27,7 +28,7 @@ export default async function ReceiptsPage() {
     <ReceiptsBoard
       receipts={receipts}
       orders={orders}
-      today={new Date().toISOString().slice(0, 10)}
+      today={(await companyApi().settings(token)).today}
       canUpdate={canUpdate}
       canConfirm={can(session, 'purchasing.receipts.confirm')}
       canCancel={can(session, 'purchasing.receipts.cancel')}

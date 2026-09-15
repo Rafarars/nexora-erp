@@ -14,6 +14,7 @@ export interface Permission {
 // El prefijo del codigo es tecnico; lo que lee una persona es el nombre del modulo.
 const MODULE_LABELS: Record<string, string> = {
   access: 'Acceso y administración',
+  company: 'Empresa',
   catalog: 'Catálogo',
   inventory: 'Inventario',
   purchasing: 'Compras',

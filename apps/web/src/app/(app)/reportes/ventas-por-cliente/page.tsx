@@ -8,6 +8,7 @@ import { DownloadLinks } from '@/sections/reports/download-links';
 import { ReportTable } from '@/sections/reports/report-table';
 import { FormError } from '@/sections/shared/field';
 import { reportsApi } from '@/shared/session/reports-api';
+import { companyApi } from '@/shared/session/company-api';
 import { requireSession } from '@/shared/session/current-session';
 
 export const dynamic = 'force-dynamic';
@@ -23,7 +24,7 @@ export default async function SalesByCustomerPage({ searchParams }: { searchPara
     );
   }
 
-  const month = monthToDate(new Date().toISOString().slice(0, 10));
+  const month = monthToDate((await companyApi().settings(token)).today);
   const { desde = month.from, hasta = month.to } = await searchParams;
   let report: SalesByCustomerReport | null = null;
   let error: string | null = null;

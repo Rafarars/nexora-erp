@@ -46,7 +46,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
         <AccountMenu
           name={session.name}
           email={session.email}
-          canAdminister={can(session, 'access.users.search') || can(session, 'access.roles.search')}
+          canAdminister={['access.users.search', 'access.roles.search', 'company.profile.search', 'company.settings.update'].some((permission) => can(session, permission))}
         />
       </aside>
 

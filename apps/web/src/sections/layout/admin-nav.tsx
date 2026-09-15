@@ -3,11 +3,12 @@
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 
-// Administracion de la empresa: quien entra y que puede hacer. No compite por
+// Administracion de la empresa: quien entra, que puede hacer y como trabaja la empresa. No compite por
 // espacio con los modulos del negocio, y la cuenta propia vive en el menu del nombre.
 const SECTIONS = [
   { href: '/administracion/usuarios', label: 'Usuarios', testId: 'admin-usuarios' },
   { href: '/administracion/roles', label: 'Roles', testId: 'admin-roles' },
+  { href: '/administracion/empresa', label: 'Empresa', testId: 'admin-empresa' },
 ];
 
 export function AdminNav() {

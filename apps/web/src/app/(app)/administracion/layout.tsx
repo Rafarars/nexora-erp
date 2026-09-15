@@ -6,7 +6,7 @@ export default function AdministrationLayout({ children }: { children: React.Rea
       <div>
         <h1 className="text-lg font-semibold">Administración</h1>
         <p className="text-muted mt-1 text-sm">
-          Quién entra a esta empresa y qué puede hacer cada quien.
+          Quién entra a esta empresa, qué puede hacer cada quien y cómo trabaja la empresa.
         </p>
       </div>
 

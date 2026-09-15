@@ -3,6 +3,7 @@ import { can } from '@/modules/access/domain/session';
 import { catalogApi } from '@/shared/session/catalog-api';
 import { inventoryApi } from '@/shared/session/inventory-api';
 import { purchasingApi } from '@/shared/session/purchasing-api';
+import { companyApi } from '@/shared/session/company-api';
 import { requireSession } from '@/shared/session/current-session';
 
 export const dynamic = 'force-dynamic';
@@ -37,7 +38,7 @@ export default async function OrdersPage() {
       suppliers={suppliers}
       items={items}
       warehouses={warehouses}
-      today={new Date().toISOString().slice(0, 10)}
+      today={(await companyApi().settings(token)).today}
       canCreate={canCreate}
       canUpdate={canUpdate}
       canConfirm={can(session, 'purchasing.orders.confirm')}

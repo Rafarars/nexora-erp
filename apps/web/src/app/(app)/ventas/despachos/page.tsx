@@ -1,6 +1,7 @@
 import { DispatchesBoard } from '@/sections/sales/dispatches-board';
 import { can } from '@/modules/access/domain/session';
 import { salesApi } from '@/shared/session/sales-api';
+import { companyApi } from '@/shared/session/company-api';
 import { requireSession } from '@/shared/session/current-session';
 
 export const dynamic = 'force-dynamic';
@@ -23,7 +24,7 @@ export default async function DispatchesPage() {
     <DispatchesBoard
       dispatches={dispatches}
       orders={orders}
-      today={new Date().toISOString().slice(0, 10)}
+      today={(await companyApi().settings(token)).today}
       canUpdate={canUpdate}
       canConfirm={can(session, 'sales.dispatches.confirm')}
       canCancel={can(session, 'sales.dispatches.cancel')}
