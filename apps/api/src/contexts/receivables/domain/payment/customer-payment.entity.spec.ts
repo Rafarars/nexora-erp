@@ -17,10 +17,10 @@ import {
 } from '../errors/receivables.errors.js';
 import { ReceivablesDate } from '../shared/receivables-date.vo.js';
 import { TenantId } from '../shared/tenant-id.vo.js';
-import { NOW, OTHER_CUSTOMER, OTHER_INVOICE, PAYMENT, TENANT_A, anInvoice, paymentDetails } from '../testing/receivables.mother.js';
+import { NOW, OTHER_CUSTOMER, OTHER_INVOICE, PAYMENT, TENANT_A, TODAY, anInvoice, paymentDetails } from '../testing/receivables.mother.js';
 import { CustomerPayment, PaymentDetails, PaymentId } from './customer-payment.entity.js';
 
-const draft = (overrides: Partial<PaymentDetails> = {}) => CustomerPayment.draft(PaymentId.of(PAYMENT), TenantId.of(TENANT_A), 'COB000001', paymentDetails(overrides), NOW);
+const draft = (overrides: Partial<PaymentDetails> = {}) => CustomerPayment.draft(PaymentId.of(PAYMENT), TenantId.of(TENANT_A), 'COB000001', paymentDetails(overrides), NOW, TODAY);
 const allocation = (invoiceId: string, amount: number, n = 1) => ({ id: `a1000000-0000-4000-8000-00000000000${n}`, invoiceId, amount });
 
 describe('CustomerPayment', () => {
@@ -49,41 +49,41 @@ describe('CustomerPayment', () => {
   it('is edited only while it is a draft', () => {
     const payment = draft();
 
-    payment.update(paymentDetails({ method: 'cash' }), NOW);
+    payment.update(paymentDetails({ method: 'cash' }), NOW, TODAY);
     expect(payment.toPrimitives().method).toBe('cash');
 
-    payment.confirm([anInvoice()], NOW);
-    expect(() => payment.update(paymentDetails(), NOW)).toThrow(PaymentNotEditableError);
+    payment.confirm([anInvoice()], NOW, TODAY);
+    expect(() => payment.update(paymentDetails(), NOW, TODAY)).toThrow(PaymentNotEditableError);
   });
 
   it('confirms when every invoice accepts what it applies, up to the last cent', () => {
     const payment = draft({ allocations: [allocation(anInvoice().id, 60)] });
 
-    payment.confirm([anInvoice({ paid: 40 })], NOW);
+    payment.confirm([anInvoice({ paid: 40 })], NOW, TODAY);
 
     expect(payment.toPrimitives()).toMatchObject({ status: 'confirmed', confirmedAt: NOW });
-    expect(() => payment.confirm([anInvoice()], NOW)).toThrow(PaymentNotConfirmableError);
+    expect(() => payment.confirm([anInvoice()], NOW, TODAY)).toThrow(PaymentNotConfirmableError);
   });
 
   it('refuses to apply more than the invoice owes, even by one cent', () => {
     const payment = draft({ allocations: [allocation(anInvoice().id, 60.01)] });
 
-    expect(() => payment.confirm([anInvoice({ paid: 40 })], NOW)).toThrow(PaymentExceedsBalanceError);
+    expect(() => payment.confirm([anInvoice({ paid: 40 })], NOW, TODAY)).toThrow(PaymentExceedsBalanceError);
     expect(payment.currentStatus()).toBe('draft');
   });
 
   it('refuses invoices that are missing, cancelled, of another customer or later than the payment', () => {
     const payment = draft();
 
-    expect(() => payment.confirm([], NOW)).toThrow(ReceivableInvoiceNotFoundError);
-    expect(() => payment.confirm([anInvoice({ status: 'cancelled' })], NOW)).toThrow(InvoiceNotPayableError);
-    expect(() => payment.confirm([anInvoice({ customerId: OTHER_CUSTOMER })], NOW)).toThrow(InvoiceOfAnotherCustomerError);
-    expect(() => payment.confirm([anInvoice({ issueDate: '2026-01-16' })], NOW)).toThrow(PaymentBeforeInvoiceError);
+    expect(() => payment.confirm([], NOW, TODAY)).toThrow(ReceivableInvoiceNotFoundError);
+    expect(() => payment.confirm([anInvoice({ status: 'cancelled' })], NOW, TODAY)).toThrow(InvoiceNotPayableError);
+    expect(() => payment.confirm([anInvoice({ customerId: OTHER_CUSTOMER })], NOW, TODAY)).toThrow(InvoiceOfAnotherCustomerError);
+    expect(() => payment.confirm([anInvoice({ issueDate: '2026-01-16' })], NOW, TODAY)).toThrow(PaymentBeforeInvoiceError);
   });
 
   it('is cancelled once, from draft or from confirmed', () => {
     const confirmed = draft();
-    confirmed.confirm([anInvoice()], NOW);
+    confirmed.confirm([anInvoice()], NOW, TODAY);
 
     confirmed.cancel(NOW);
     draft().cancel(NOW);

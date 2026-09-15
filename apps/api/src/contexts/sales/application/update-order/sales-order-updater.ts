@@ -1,4 +1,5 @@
 import { Clock } from '../../../../shared/domain/ports/clock.js';
+import { BusinessCalendar } from '../../../../shared/domain/ports/business-calendar.js';
 import { SalesOrderFinder } from '../../domain/order/find/sales-order-finder.js';
 import { SalesOrderReferences } from '../../domain/order/lines/sales-order-references.js';
 import { SalesOrderId } from '../../domain/order/sales-order.entity.js';
@@ -18,14 +19,16 @@ export class SalesOrderUpdater {
     private readonly references: SalesOrderReferences,
     private readonly orders: SalesOrderRepository,
     private readonly clock: Clock,
+    private readonly calendar: BusinessCalendar,
   ) {}
 
   async run(request: SalesOrderUpdaterRequest): Promise<void> {
     const tenantId = TenantId.of(request.tenantId);
     const order = await this.finder.find(tenantId, SalesOrderId.of(request.orderId));
     const now = this.clock.now();
+    const today = await this.calendar.today(request.tenantId);
 
-    order.update(await salesOrderDetails(this.references, tenantId, request, now), now);
+    order.update(await salesOrderDetails(this.references, tenantId, request, today), now, today);
     await this.orders.save(order);
   }
 }

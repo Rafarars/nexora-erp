@@ -15,7 +15,7 @@ import { CustomerId } from '../customer/customer.entity.js';
 import { Quantity } from '../shared/quantity.vo.js';
 import { WarehouseRef } from '../shared/references.vo.js';
 import { SalesDate } from '../shared/sales-date.vo.js';
-import { CUSTOMER, MAIN, NOW, SOAP, WATER, aConfirmedOrder, aDraftOrder, anAvailability, anOrderLine } from '../testing/sales.mother.js';
+import { CUSTOMER, MAIN, NOW, SOAP, TODAY, WATER, aConfirmedOrder, aDraftOrder, anAvailability, anOrderLine } from '../testing/sales.mother.js';
 import { StockReservation } from './posting/stock-reservation.js';
 import { SalesOrderLineId } from './sales-order-line.js';
 import { SalesOrder } from './sales-order.entity.js';
@@ -29,7 +29,7 @@ describe('SalesOrder', () => {
       expect(() =>
         aDraftOrder().update(
           { customerId: CustomerId.of(CUSTOMER), warehouseId: WarehouseRef.of(MAIN), orderDate: SalesDate.of('2026-01-16'), notes: null, lines: [anOrderLine()] },
-          NOW,
+          NOW, TODAY,
         ),
       ).toThrow(FutureSalesDateError);
     });
@@ -43,7 +43,7 @@ describe('SalesOrder', () => {
     it('is editable until it is confirmed, and confirmed only once', () => {
       const order = aConfirmedOrder();
 
-      expect(() => order.update({ customerId: order.customerId(), warehouseId: order.warehouseId(), orderDate: order.orderDate(), notes: null, lines: [anOrderLine()] }, NOW)).toThrow(
+      expect(() => order.update({ customerId: order.customerId(), warehouseId: order.warehouseId(), orderDate: order.orderDate(), notes: null, lines: [anOrderLine()] }, NOW, TODAY)).toThrow(
         SalesOrderNotEditableError,
       );
       expect(() => order.confirm(NOW)).toThrow(SalesOrderNotConfirmableError);

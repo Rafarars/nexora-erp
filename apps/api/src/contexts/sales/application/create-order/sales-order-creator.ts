@@ -1,4 +1,5 @@
 import { Clock } from '../../../../shared/domain/ports/clock.js';
+import { BusinessCalendar } from '../../../../shared/domain/ports/business-calendar.js';
 import { IdGenerator } from '../../../../shared/domain/ports/id-generator.js';
 import { SalesOrderLineInput, SalesOrderReferences } from '../../domain/order/lines/sales-order-references.js';
 import { SalesOrder, SalesOrderDetails, SalesOrderId } from '../../domain/order/sales-order.entity.js';
@@ -24,12 +25,12 @@ export async function salesOrderDetails(
   references: SalesOrderReferences,
   tenantId: TenantId,
   input: SalesOrderInput,
-  now: Date,
+  today: string,
 ): Promise<SalesOrderDetails> {
   return {
     customerId: await references.customer(tenantId, input.customerId),
     warehouseId: await references.warehouse(tenantId, input.warehouseId),
-    orderDate: input.date ? SalesDate.of(input.date) : SalesDate.fromDate(now),
+    orderDate: input.date ? SalesDate.of(input.date) : SalesDate.of(today),
     notes: input.notes ?? null,
     lines: await references.lines(tenantId, input.lines),
   };
@@ -43,19 +44,21 @@ export class SalesOrderCreator {
     private readonly codes: SalesCodeSequence,
     private readonly ids: IdGenerator,
     private readonly clock: Clock,
+    private readonly calendar: BusinessCalendar,
   ) {}
 
   async run(request: SalesOrderCreatorRequest): Promise<void> {
     const tenantId = TenantId.of(request.tenantId);
     const now = this.clock.now();
-    const details = await salesOrderDetails(this.references, tenantId, request, now);
+    const today = await this.calendar.today(request.tenantId);
+    const details = await salesOrderDetails(this.references, tenantId, request, today);
     const id = SalesOrderId.of(this.ids.next());
 
     // Se valida entero antes de pedir el numero: un pedido invalido no gasta correlativo.
-    SalesOrder.draft(id, tenantId, salesCode('PED', 0), details, now);
+    SalesOrder.draft(id, tenantId, salesCode('PED', 0), details, now, today);
 
     const code = salesCode('PED', await this.codes.next(tenantId, 'PED'));
 
-    await this.orders.save(SalesOrder.draft(id, tenantId, code, details, now));
+    await this.orders.save(SalesOrder.draft(id, tenantId, code, details, now, today));
   }
 }

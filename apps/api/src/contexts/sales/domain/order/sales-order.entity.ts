@@ -76,8 +76,8 @@ export class SalesOrder {
     private updatedAt: Date,
   ) {}
 
-  static draft(id: SalesOrderId, tenantId: TenantId, code: string, details: SalesOrderDetails, now: Date): SalesOrder {
-    return new SalesOrder(id, tenantId, code, validated(details, now), 'draft', null, null, now, now);
+  static draft(id: SalesOrderId, tenantId: TenantId, code: string, details: SalesOrderDetails, now: Date, today: string): SalesOrder {
+    return new SalesOrder(id, tenantId, code, validated(details, today), 'draft', null, null, now, now);
   }
 
   static fromPrimitives(row: SalesOrderPrimitives): SalesOrder {
@@ -174,10 +174,10 @@ export class SalesOrder {
     return reserved;
   }
 
-  update(details: SalesOrderDetails, now: Date): void {
+  update(details: SalesOrderDetails, now: Date, today: string): void {
     if (this.status !== 'draft') throw new SalesOrderNotEditableError(this.id.value, this.status);
 
-    this.details = validated(details, now);
+    this.details = validated(details, today);
     this.updatedAt = now;
   }
 
@@ -249,10 +249,10 @@ export class SalesOrder {
   }
 }
 
-function validated(details: SalesOrderDetails, now: Date): SalesOrderDetails {
+function validated(details: SalesOrderDetails, today: string): SalesOrderDetails {
   if (details.lines.length === 0) throw new EmptySalesOrderError();
 
-  details.orderDate.ensureNotAfter(now);
+  details.orderDate.ensureNotAfter(today);
 
   return { ...details, notes: optionalText(details.notes, NOTES_MAX, 'SalesOrderNotes') };
 }

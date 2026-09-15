@@ -26,11 +26,9 @@ export class PurchaseDate {
     return PurchaseDate.of(date.toISOString().slice(0, 10));
   }
 
-  // Una orden o una entrada registran algo que ya paso. Contra el dia UTC del reloj.
-  ensureNotAfter(now: Date): void {
-    if (this.value > now.toISOString().slice(0, 10)) {
-      throw new FuturePurchaseDateError(this.value);
-    }
+  // Un documento registra algo que ya paso: contra el dia de hoy de la empresa, en su zona horaria.
+  ensureNotAfter(today: string): void {
+    if (this.value > today) throw new FuturePurchaseDateError(this.value);
   }
 
   isBefore(other: PurchaseDate): boolean {

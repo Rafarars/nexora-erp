@@ -1,3 +1,4 @@
+import { ClockBusinessCalendar } from '../../../../shared/infrastructure/testing/clock-business-calendar.js';
 import { FixedClock } from '../../../../shared/infrastructure/testing/fixed-clock.js';
 import { SequentialIdGenerator } from '../../../../shared/infrastructure/testing/sequential-id-generator.js';
 import { PurchaseOrderFinder } from '../../domain/order/find/purchase-order-finder.js';
@@ -33,6 +34,7 @@ import { SupplierUpdater } from '../update-supplier/supplier-updater.js';
 // inventario de juguete y reloj congelado. Sin base de datos ni NestJS.
 export function aPurchasingScenario() {
   const clock = new FixedClock(NOW);
+  const calendar = new ClockBusinessCalendar(clock);
   const ids = new SequentialIdGenerator();
   const suppliers = new InMemorySupplierRepository();
   const catalog = new InMemoryPurchasingCatalog(purchasableItems(), purchaseWarehouses());
@@ -47,6 +49,7 @@ export function aPurchasingScenario() {
 
   return {
     clock,
+    calendar,
     suppliers,
     store,
     catalog,
@@ -54,14 +57,14 @@ export function aPurchasingScenario() {
     updateSupplier: new SupplierUpdater(supplierFinder, uniqueness, suppliers, clock),
     changeSupplierStatus: new SupplierStatusChanger(supplierFinder, suppliers, clock),
     searchSuppliers: new SupplierSearcher(suppliers),
-    createOrder: new PurchaseOrderCreator(references, store.orders, codes, ids, clock),
-    updateOrder: new PurchaseOrderUpdater(orderFinder, references, store.orders, clock),
-    confirmOrder: new PurchaseOrderConfirmer(orderFinder, references, store.orders, store.orderPosting, clock),
+    createOrder: new PurchaseOrderCreator(references, store.orders, codes, ids, clock, calendar),
+    updateOrder: new PurchaseOrderUpdater(orderFinder, references, store.orders, clock, calendar),
+    confirmOrder: new PurchaseOrderConfirmer(orderFinder, references, store.orders, store.orderPosting, clock, calendar),
     cancelOrder: new PurchaseOrderCanceller(store.orderPosting, clock),
     searchOrders: new PurchaseOrderSearcher(store.orders, suppliers, catalog),
-    createReceipt: new GoodsReceiptCreator(orderFinder, receiptLines, store.receipts, codes, ids, clock),
-    updateReceipt: new GoodsReceiptUpdater(receiptFinder, orderFinder, receiptLines, store.receipts, clock),
-    confirmReceipt: new GoodsReceiptConfirmer(receiptFinder, orderFinder, receiptLines, store.receipts, store.receiptPosting, new ReceiptConfirmation(), clock),
+    createReceipt: new GoodsReceiptCreator(orderFinder, receiptLines, store.receipts, codes, ids, clock, calendar),
+    updateReceipt: new GoodsReceiptUpdater(receiptFinder, orderFinder, receiptLines, store.receipts, clock, calendar),
+    confirmReceipt: new GoodsReceiptConfirmer(receiptFinder, orderFinder, receiptLines, store.receipts, store.receiptPosting, new ReceiptConfirmation(), clock, calendar),
     cancelReceipt: new GoodsReceiptCanceller(store.receiptPosting, new ReceiptCancellation(), clock),
     searchReceipts: new GoodsReceiptSearcher(store.receipts, store.orders, suppliers, catalog),
     searchIncoming: new IncomingStockSearcher(store.orders, catalog),

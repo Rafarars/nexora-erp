@@ -1,3 +1,4 @@
+import { ClockBusinessCalendar } from '../../../../shared/infrastructure/testing/clock-business-calendar.js';
 import { FixedClock } from '../../../../shared/infrastructure/testing/fixed-clock.js';
 import { SequentialIdGenerator } from '../../../../shared/infrastructure/testing/sequential-id-generator.js';
 import { CustomerFinder } from '../../domain/customer/find/customer-finder.js';
@@ -37,6 +38,7 @@ import { SalesOrderUpdater } from '../update-order/sales-order-updater.js';
 // inventario de juguete y reloj congelado. Sin base de datos ni NestJS.
 export function aSalesScenario() {
   const clock = new FixedClock(NOW);
+  const calendar = new ClockBusinessCalendar(clock);
   const ids = new SequentialIdGenerator();
   const customers = new InMemoryCustomerRepository();
   const catalog = new InMemorySalesCatalog(sellableItems(), salesWarehouses());
@@ -51,6 +53,7 @@ export function aSalesScenario() {
 
   return {
     clock,
+    calendar,
     customers,
     store,
     catalog,
@@ -58,17 +61,17 @@ export function aSalesScenario() {
     updateCustomer: new CustomerUpdater(customerFinder, uniqueness, customers, clock),
     changeCustomerStatus: new CustomerStatusChanger(customerFinder, customers, clock),
     searchCustomers: new CustomerSearcher(customers),
-    createOrder: new SalesOrderCreator(references, store.orders, codes, ids, clock),
-    updateOrder: new SalesOrderUpdater(orderFinder, references, store.orders, clock),
-    confirmOrder: new SalesOrderConfirmer(orderFinder, references, store.orders, store.orderPosting, new StockReservation(), clock),
+    createOrder: new SalesOrderCreator(references, store.orders, codes, ids, clock, calendar),
+    updateOrder: new SalesOrderUpdater(orderFinder, references, store.orders, clock, calendar),
+    confirmOrder: new SalesOrderConfirmer(orderFinder, references, store.orders, store.orderPosting, new StockReservation(), clock, calendar),
     cancelOrder: new SalesOrderCanceller(store.orderPosting, clock),
     searchOrders: new SalesOrderSearcher(store.orders, customers, catalog),
-    createDispatch: new DispatchCreator(orderFinder, dispatchLines, store.dispatches, codes, ids, clock),
-    updateDispatch: new DispatchUpdater(dispatchFinder, orderFinder, dispatchLines, store.dispatches, clock),
-    confirmDispatch: new DispatchConfirmer(dispatchFinder, orderFinder, dispatchLines, store.dispatches, store.dispatchPosting, new DispatchConfirmation(), clock),
+    createDispatch: new DispatchCreator(orderFinder, dispatchLines, store.dispatches, codes, ids, clock, calendar),
+    updateDispatch: new DispatchUpdater(dispatchFinder, orderFinder, dispatchLines, store.dispatches, clock, calendar),
+    confirmDispatch: new DispatchConfirmer(dispatchFinder, orderFinder, dispatchLines, store.dispatches, store.dispatchPosting, new DispatchConfirmation(), clock, calendar),
     cancelDispatch: new DispatchCanceller(store.dispatchPosting, new DispatchCancellation(), clock),
     searchDispatches: new DispatchSearcher(store.dispatches, store.orders, store.invoices, customers, catalog),
-    issueInvoice: new InvoiceIssuer(dispatchFinder, orderFinder, store.invoices, store.invoicePosting, codes, ids, clock),
+    issueInvoice: new InvoiceIssuer(dispatchFinder, orderFinder, store.invoices, store.invoicePosting, codes, ids, clock, calendar),
     cancelInvoice: new InvoiceCanceller(store.invoicePosting, clock),
     searchInvoices: new InvoiceSearcher(store.invoices, store.dispatches, store.orders, customers, catalog),
     searchAvailability: new AvailabilitySearcher(store.salesStock, store.orders, catalog),

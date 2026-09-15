@@ -1,4 +1,5 @@
 import { Clock } from '../../../../shared/domain/ports/clock.js';
+import { BusinessCalendar } from '../../../../shared/domain/ports/business-calendar.js';
 import { DispatchId } from '../../domain/dispatch/dispatch.entity.js';
 import { DispatchRepository } from '../../domain/dispatch/dispatch.repository.js';
 import { DispatchFinder } from '../../domain/dispatch/find/dispatch-finder.js';
@@ -22,12 +23,14 @@ export class DispatchUpdater {
     private readonly factory: DispatchLineFactory,
     private readonly dispatches: DispatchRepository,
     private readonly clock: Clock,
+    private readonly calendar: BusinessCalendar,
   ) {}
 
   async run(request: DispatchUpdaterRequest): Promise<void> {
     const tenantId = TenantId.of(request.tenantId);
     const dispatch = await this.finder.find(tenantId, DispatchId.of(request.dispatchId));
     const now = this.clock.now();
+    const today = await this.calendar.today(request.tenantId);
 
     // Primero el estado: lo confirmado se rechaza aunque su pedido ya no admita despachos.
     if (dispatch.currentStatus() !== 'draft') throw new DispatchNotEditableError(dispatch.id.value, dispatch.currentStatus());
@@ -36,11 +39,12 @@ export class DispatchUpdater {
 
     dispatch.update(
       {
-        date: request.date ? SalesDate.of(request.date) : SalesDate.fromDate(now),
+        date: request.date ? SalesDate.of(request.date) : SalesDate.of(today),
         notes: request.notes ?? null,
         lines: await this.factory.lines(tenantId, order, request.lines),
       },
       now,
+      today,
     );
     await this.dispatches.save(dispatch);
   }

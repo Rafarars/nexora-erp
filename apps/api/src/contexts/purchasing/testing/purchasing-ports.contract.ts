@@ -62,7 +62,7 @@ export function describePurchasingPortsContract(implementation: string, createHa
         expectedDate: null,
         notes: 'contrato',
         lines,
-      }, NOW);
+      }, NOW, TODAY);
 
       await ports.orders.save(order);
       await ports.orderPosting.post(tenant, id, (locked) => locked.confirm(NOW));
@@ -91,7 +91,7 @@ export function describePurchasingPortsContract(implementation: string, createHa
         date: PurchaseDate.of(TODAY),
         notes: null,
         lines,
-      }, NOW));
+      }, NOW, TODAY));
 
       return id;
     }
@@ -148,7 +148,7 @@ export function describePurchasingPortsContract(implementation: string, createHa
             expectedDate: null,
             notes: 'contrato',
             lines: [anOrderLine({ quantity: 10, factor: 12, unitCost: 12 })],
-          }, NOW),
+          }, NOW, TODAY),
         );
 
         await expect(

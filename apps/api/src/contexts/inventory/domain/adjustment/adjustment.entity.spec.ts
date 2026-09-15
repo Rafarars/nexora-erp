@@ -35,7 +35,7 @@ function details(overrides: Partial<AdjustmentDetails> = {}): AdjustmentDetails 
   return { warehouseId: WarehouseRef.of(MAIN), date: AdjustmentDate.of(TODAY), notes: null, lines: [aLine()], ...overrides };
 }
 
-const aDraft = () => Adjustment.draft(AdjustmentId.of(ID), TenantId.of(TENANT_A), 'AJU000001', details(), NOW);
+const aDraft = () => Adjustment.draft(AdjustmentId.of(ID), TenantId.of(TENANT_A), 'AJU000001', details(), NOW, TODAY);
 
 describe('AdjustmentDate', () => {
   it.each(['2026-02-30', '2026-13-01', '15/01/2026', '2026-1-5', ''])('rejects %j', (value) => {
@@ -48,8 +48,8 @@ describe('AdjustmentDate', () => {
 
   // Un ajuste corrige lo que ya paso.
   it('refuses a date after today', () => {
-    expect(() => AdjustmentDate.of('2026-01-16').ensureNotAfter(NOW)).toThrow(FutureAdjustmentDateError);
-    expect(() => AdjustmentDate.of(TODAY).ensureNotAfter(NOW)).not.toThrow();
+    expect(() => AdjustmentDate.of('2026-01-16').ensureNotAfter(TODAY)).toThrow(FutureAdjustmentDateError);
+    expect(() => AdjustmentDate.of(TODAY).ensureNotAfter(TODAY)).not.toThrow();
   });
 });
 
@@ -59,7 +59,7 @@ describe('Adjustment', () => {
   });
 
   it('needs at least one line', () => {
-    expect(() => Adjustment.draft(AdjustmentId.of(ID), TenantId.of(TENANT_A), 'AJU000001', details({ lines: [] }), NOW)).toThrow(
+    expect(() => Adjustment.draft(AdjustmentId.of(ID), TenantId.of(TENANT_A), 'AJU000001', details({ lines: [] }), NOW, TODAY)).toThrow(
       EmptyAdjustmentError,
     );
   });
@@ -67,10 +67,10 @@ describe('Adjustment', () => {
   it('trims its notes and refuses them past 500 characters', () => {
     const adjustment = aDraft();
 
-    adjustment.update(details({ notes: '  conteo de enero  ' }), NOW);
+    adjustment.update(details({ notes: '  conteo de enero  ' }), NOW, TODAY);
     expect(adjustment.toPrimitives().notes).toBe('conteo de enero');
 
-    expect(() => adjustment.update(details({ notes: 'x'.repeat(501) }), NOW)).toThrow(InventoryTextTooLongError);
+    expect(() => adjustment.update(details({ notes: 'x'.repeat(501) }), NOW, TODAY)).toThrow(InventoryTextTooLongError);
   });
 
   it('goes from draft to confirmed to cancelled', () => {
@@ -88,7 +88,7 @@ describe('Adjustment', () => {
     const adjustment = aDraft();
     adjustment.confirm(NOW);
 
-    expect(() => adjustment.update(details(), NOW)).toThrow(AdjustmentNotEditableError);
+    expect(() => adjustment.update(details(), NOW, TODAY)).toThrow(AdjustmentNotEditableError);
   });
 
   it('cannot be confirmed twice', () => {

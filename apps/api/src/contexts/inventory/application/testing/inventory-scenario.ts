@@ -1,3 +1,4 @@
+import { ClockBusinessCalendar } from '../../../../shared/infrastructure/testing/clock-business-calendar.js';
 import { FixedClock } from '../../../../shared/infrastructure/testing/fixed-clock.js';
 import { SequentialIdGenerator } from '../../../../shared/infrastructure/testing/sequential-id-generator.js';
 import { AdjustmentFinder } from '../../domain/adjustment/find/adjustment-finder.js';
@@ -15,12 +16,14 @@ import { InMemoryMovementDocuments } from '../../infrastructure/testing/in-memor
 // reloj congelado. Sin base de datos ni NestJS.
 export function anInventoryScenario() {
   const clock = new FixedClock(NOW);
+  const calendar = new ClockBusinessCalendar(clock);
   const ids = new SequentialIdGenerator();
   const catalog = new InMemoryInventoryCatalog(stockableItems(), stockWarehouses());
   const store = new InMemoryInventoryStore(catalog, () => clock.now());
 
   return {
     clock,
+    calendar,
     ids,
     store,
     catalog,

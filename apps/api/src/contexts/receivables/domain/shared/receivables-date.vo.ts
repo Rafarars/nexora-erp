@@ -27,9 +27,9 @@ export class ReceivablesDate {
     return ReceivablesDate.of(date.toISOString().slice(0, 10));
   }
 
-  // Un cobro registra algo que ya paso. Contra el dia UTC del reloj, como ventas.
-  ensureNotAfter(now: Date): void {
-    if (this.value > now.toISOString().slice(0, 10)) throw new FutureReceivablesDateError(this.value);
+  // Un documento registra algo que ya paso: contra el dia de hoy de la empresa, en su zona horaria.
+  ensureNotAfter(today: string): void {
+    if (this.value > today) throw new FutureReceivablesDateError(this.value);
   }
 
   isBefore(other: ReceivablesDate): boolean {

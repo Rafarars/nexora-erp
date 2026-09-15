@@ -1,3 +1,4 @@
+import { ClockBusinessCalendar } from '../../../../shared/infrastructure/testing/clock-business-calendar.js';
 import { FixedClock } from '../../../../shared/infrastructure/testing/fixed-clock.js';
 import { SequentialIdGenerator } from '../../../../shared/infrastructure/testing/sequential-id-generator.js';
 import { PaymentFinder } from '../../domain/payment/find/payment-finder.js';
@@ -17,6 +18,7 @@ import { PaymentUpdater } from '../update-payment/payment-updater.js';
 // escribe ventas, reloj congelado y sin base de datos ni NestJS.
 export function aReceivablesScenario() {
   const clock = new FixedClock(NOW);
+  const calendar = new ClockBusinessCalendar(clock);
   const ids = new SequentialIdGenerator();
   const store = new InMemoryReceivablesStore();
   const codes = new InMemoryReceivablesCodeSequence();
@@ -24,16 +26,17 @@ export function aReceivablesScenario() {
 
   return {
     clock,
+    calendar,
     store,
     codes,
-    createPayment: new PaymentCreator(store.ledger, store.payments, codes, ids, clock),
-    updatePayment: new PaymentUpdater(finder, store.ledger, store.payments, ids, clock),
-    confirmPayment: new PaymentConfirmer(store.posting, clock),
+    createPayment: new PaymentCreator(store.ledger, store.payments, codes, ids, clock, calendar),
+    updatePayment: new PaymentUpdater(finder, store.ledger, store.payments, ids, clock, calendar),
+    confirmPayment: new PaymentConfirmer(store.posting, clock, calendar),
     cancelPayment: new PaymentCanceller(store.posting, clock),
     searchPayments: new PaymentSearcher(store.payments, store.ledger),
-    searchReceivables: new ReceivableSearcher(store.ledger, clock),
-    searchCustomerBalances: new CustomerBalanceSearcher(store.ledger, clock),
-    searchCustomerStatement: new CustomerStatementSearcher(store.ledger, store.payments, clock),
+    searchReceivables: new ReceivableSearcher(store.ledger, calendar),
+    searchCustomerBalances: new CustomerBalanceSearcher(store.ledger, calendar),
+    searchCustomerStatement: new CustomerStatementSearcher(store.ledger, store.payments, calendar),
   };
 }
 

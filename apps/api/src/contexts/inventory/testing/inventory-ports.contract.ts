@@ -72,7 +72,7 @@ export function describeInventoryPortsContract(implementation: string, createHar
           date: AdjustmentDate.of(TODAY),
           notes: 'contrato',
           lines,
-        }, NOW),
+        }, NOW, TODAY),
       );
 
       return id;
@@ -129,7 +129,7 @@ export function describeInventoryPortsContract(implementation: string, createHar
         const id = await draft([line('in', 1), line('in', 2)]);
         const adjustment = (await ports.adjustments.find(tenant, id))!;
 
-        adjustment.update({ warehouseId: WarehouseRef.of(NORTH), date: AdjustmentDate.of(TODAY), notes: null, lines: [line('in', 7)] }, NOW);
+        adjustment.update({ warehouseId: WarehouseRef.of(NORTH), date: AdjustmentDate.of(TODAY), notes: null, lines: [line('in', 7)] }, NOW, TODAY);
         await ports.adjustments.save(adjustment);
 
         expect((await ports.adjustments.find(tenant, id))?.toPrimitives()).toMatchObject({
@@ -145,7 +145,7 @@ export function describeInventoryPortsContract(implementation: string, createHar
         const stale = (await ports.adjustments.find(tenant, id))!;
         await confirm(id);
 
-        stale.update({ warehouseId: WarehouseRef.of(MAIN), date: AdjustmentDate.of(TODAY), notes: 'tarde', lines: [line('in', 1)] }, NOW);
+        stale.update({ warehouseId: WarehouseRef.of(MAIN), date: AdjustmentDate.of(TODAY), notes: 'tarde', lines: [line('in', 1)] }, NOW, TODAY);
 
         await expect(ports.adjustments.save(stale)).rejects.toThrow(AdjustmentNotEditableError);
         expect((await ports.adjustments.find(tenant, id))?.currentStatus()).toBe('confirmed');

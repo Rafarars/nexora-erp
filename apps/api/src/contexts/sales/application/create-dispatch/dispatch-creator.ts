@@ -1,4 +1,5 @@
 import { Clock } from '../../../../shared/domain/ports/clock.js';
+import { BusinessCalendar } from '../../../../shared/domain/ports/business-calendar.js';
 import { IdGenerator } from '../../../../shared/domain/ports/id-generator.js';
 import { Dispatch, DispatchId } from '../../domain/dispatch/dispatch.entity.js';
 import { DispatchRepository } from '../../domain/dispatch/dispatch.repository.js';
@@ -29,24 +30,26 @@ export class DispatchCreator {
     private readonly codes: SalesCodeSequence,
     private readonly ids: IdGenerator,
     private readonly clock: Clock,
+    private readonly calendar: BusinessCalendar,
   ) {}
 
   async run(request: DispatchCreatorRequest): Promise<void> {
     const tenantId = TenantId.of(request.tenantId);
     const now = this.clock.now();
+    const today = await this.calendar.today(request.tenantId);
     const order = await this.orders.find(tenantId, SalesOrderId.of(request.orderId));
     const details = {
-      date: request.date ? SalesDate.of(request.date) : SalesDate.fromDate(now),
+      date: request.date ? SalesDate.of(request.date) : SalesDate.of(today),
       notes: request.notes ?? null,
       lines: await this.factory.lines(tenantId, order, request.lines),
     };
     const id = DispatchId.of(this.ids.next());
     const target = { id: order.id, warehouseId: order.warehouseId() };
 
-    Dispatch.draft(id, tenantId, salesCode('DES', 0), target, details, now);
+    Dispatch.draft(id, tenantId, salesCode('DES', 0), target, details, now, today);
 
     const code = salesCode('DES', await this.codes.next(tenantId, 'DES'));
 
-    await this.dispatches.save(Dispatch.draft(id, tenantId, code, target, details, now));
+    await this.dispatches.save(Dispatch.draft(id, tenantId, code, target, details, now, today));
   }
 }

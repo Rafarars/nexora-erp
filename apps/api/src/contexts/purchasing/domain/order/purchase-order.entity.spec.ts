@@ -15,7 +15,7 @@ import { PurchaseDate } from '../shared/purchase-date.vo.js';
 import { Quantity } from '../shared/quantity.vo.js';
 import { WarehouseRef } from '../shared/references.vo.js';
 import { SupplierId } from '../supplier/supplier.entity.js';
-import { MAIN, NOW, SUPPLIER, aConfirmedOrder, aDraftOrder, anOrderLine } from '../testing/purchasing.mother.js';
+import { MAIN, NOW, SUPPLIER, TODAY, aConfirmedOrder, aDraftOrder, anOrderLine } from '../testing/purchasing.mother.js';
 import { PurchaseOrderLineId } from './purchase-order-line.js';
 import { PurchaseOrder } from './purchase-order.entity.js';
 
@@ -39,12 +39,12 @@ describe('PurchaseOrder', () => {
     it('cannot be dated in the future, but can expect the goods later', () => {
       const order = aDraftOrder();
 
-      expect(() => order.update(details({ orderDate: PurchaseDate.of('2026-01-16') }), NOW)).toThrow(FuturePurchaseDateError);
-      expect(() => order.update(details({ expectedDate: PurchaseDate.of('2026-03-01') }), NOW)).not.toThrow();
+      expect(() => order.update(details({ orderDate: PurchaseDate.of('2026-01-16') }), NOW, TODAY)).toThrow(FuturePurchaseDateError);
+      expect(() => order.update(details({ expectedDate: PurchaseDate.of('2026-03-01') }), NOW, TODAY)).not.toThrow();
     });
 
     it('cannot expect the goods before it was ordered', () => {
-      expect(() => aDraftOrder().update(details({ expectedDate: PurchaseDate.of('2026-01-09') }), NOW)).toThrow(
+      expect(() => aDraftOrder().update(details({ expectedDate: PurchaseDate.of('2026-01-09') }), NOW, TODAY)).toThrow(
         ExpectedDateBeforeOrderError,
       );
     });
@@ -61,7 +61,7 @@ describe('PurchaseOrder', () => {
       order.confirm(NOW);
 
       expect(order.currentStatus()).toBe('confirmed');
-      expect(() => order.update(details(), NOW)).toThrow(PurchaseOrderNotEditableError);
+      expect(() => order.update(details(), NOW, TODAY)).toThrow(PurchaseOrderNotEditableError);
       expect(() => order.confirm(NOW)).toThrow(PurchaseOrderNotConfirmableError);
     });
 

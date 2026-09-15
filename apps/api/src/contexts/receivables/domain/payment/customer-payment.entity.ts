@@ -67,12 +67,12 @@ type Body = Pick<PaymentPrimitives, 'customerId' | 'paymentDate' | 'method' | 'r
 export class CustomerPayment {
   private constructor(private row: PaymentPrimitives) {}
 
-  static draft(id: PaymentId, tenantId: TenantId, code: string, details: PaymentDetails, now: Date): CustomerPayment {
+  static draft(id: PaymentId, tenantId: TenantId, code: string, details: PaymentDetails, now: Date, today: string): CustomerPayment {
     return new CustomerPayment({
       id: id.value,
       tenantId: tenantId.value,
       code,
-      ...validated(details, now),
+      ...validated(details, today),
       status: 'draft',
       confirmedAt: null,
       cancelledAt: null,
@@ -109,10 +109,10 @@ export class CustomerPayment {
     return this.row.allocations.map((allocation) => allocation.invoiceId);
   }
 
-  update(details: PaymentDetails, now: Date): void {
+  update(details: PaymentDetails, now: Date, today: string): void {
     if (this.row.status !== 'draft') throw new PaymentNotEditableError(this.row.id, this.row.status);
 
-    this.row = { ...this.row, ...validated(details, now), updatedAt: now };
+    this.row = { ...this.row, ...validated(details, today), updatedAt: now };
   }
 
   // Cada factura, con lo que ya le cobraron OTROS cobros, tiene que aceptar lo que este le aplica.
@@ -128,10 +128,10 @@ export class CustomerPayment {
     }
   }
 
-  confirm(invoices: ReceivableInvoice[], now: Date): void {
+  confirm(invoices: ReceivableInvoice[], now: Date, today: string): void {
     if (this.row.status !== 'draft') throw new PaymentNotConfirmableError(this.row.id, this.row.status);
 
-    ReceivablesDate.of(this.row.paymentDate).ensureNotAfter(now);
+    ReceivablesDate.of(this.row.paymentDate).ensureNotAfter(today);
     this.ensureFits(invoices);
 
     this.row = { ...this.row, status: 'confirmed', confirmedAt: now, updatedAt: now };
@@ -145,11 +145,11 @@ export class CustomerPayment {
   }
 }
 
-function validated(details: PaymentDetails, now: Date): Body {
+function validated(details: PaymentDetails, today: string): Body {
   if (!PAYMENT_METHODS.includes(details.method as PaymentMethod)) throw new InvalidPaymentMethodError(details.method);
   if (details.allocations.length === 0) throw new EmptyPaymentError();
 
-  details.date.ensureNotAfter(now);
+  details.date.ensureNotAfter(today);
 
   const seen = new Set<string>();
   const allocations = details.allocations.map((allocation) => {

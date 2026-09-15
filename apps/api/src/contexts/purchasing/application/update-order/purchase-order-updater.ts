@@ -1,4 +1,5 @@
 import { Clock } from '../../../../shared/domain/ports/clock.js';
+import { BusinessCalendar } from '../../../../shared/domain/ports/business-calendar.js';
 import { PurchaseOrderFinder } from '../../domain/order/find/purchase-order-finder.js';
 import { PurchaseOrderReferences } from '../../domain/order/lines/purchase-order-references.js';
 import { PurchaseOrderId } from '../../domain/order/purchase-order.entity.js';
@@ -18,14 +19,16 @@ export class PurchaseOrderUpdater {
     private readonly references: PurchaseOrderReferences,
     private readonly orders: PurchaseOrderRepository,
     private readonly clock: Clock,
+    private readonly calendar: BusinessCalendar,
   ) {}
 
   async run(request: PurchaseOrderUpdaterRequest): Promise<void> {
     const tenantId = TenantId.of(request.tenantId);
     const order = await this.finder.find(tenantId, PurchaseOrderId.of(request.orderId));
     const now = this.clock.now();
+    const today = await this.calendar.today(request.tenantId);
 
-    order.update(await orderDetails(this.references, tenantId, request, now), now);
+    order.update(await orderDetails(this.references, tenantId, request, today), now, today);
     await this.orders.save(order);
   }
 }

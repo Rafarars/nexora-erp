@@ -1,8 +1,11 @@
+import { BUSINESS_CALENDAR } from '../../../shared/domain/ports/business-calendar.js';
+import type { BusinessCalendar } from '../../../shared/domain/ports/business-calendar.js';
 import { Module } from '@nestjs/common';
 import type { Clock } from '../../../shared/domain/ports/clock.js';
 import { CLOCK } from '../../../shared/domain/ports/clock.js';
 import type { IdGenerator } from '../../../shared/domain/ports/id-generator.js';
 import { ID_GENERATOR } from '../../../shared/domain/ports/id-generator.js';
+import { CompanyModule } from '../../company/infrastructure/company.module.js';
 import { SharedModule } from '../../../shared/infrastructure/shared.module.js';
 import { PrismaModule } from '../../../shared/prisma/prisma.module.js';
 import { RECEIVABLE_BALANCES } from '../../../shared/prisma/receivable-balances.js';
@@ -40,7 +43,7 @@ import { PrismaReceivablesLedger } from './persistence/prisma-receivables-ledger
 // El cableado de cuentas por cobrar. No importa ventas: lee sus tablas por su propio adaptador.
 // Exporta RECEIVABLE_BALANCES, lo que ventas necesita para facturar a credito y anular.
 @Module({
-  imports: [PrismaModule, SharedModule],
+  imports: [PrismaModule, SharedModule, CompanyModule],
   controllers: [
     SearchPaymentsGetController,
     CreatePaymentPostController,
@@ -61,23 +64,23 @@ import { PrismaReceivablesLedger } from './persistence/prisma-receivables-ledger
     { provide: PaymentFinder, useFactory: (r: PaymentRepository) => new PaymentFinder(r), inject: [PAYMENT_REPOSITORY] },
     {
       provide: PaymentCreator,
-      useFactory: (l: ReceivablesLedger, r: PaymentRepository, c: ReceivablesCodeSequence, i: IdGenerator, k: Clock) => new PaymentCreator(l, r, c, i, k),
-      inject: [RECEIVABLES_LEDGER, PAYMENT_REPOSITORY, RECEIVABLES_CODE_SEQUENCE, ID_GENERATOR, CLOCK],
+      useFactory: (l: ReceivablesLedger, r: PaymentRepository, c: ReceivablesCodeSequence, i: IdGenerator, k: Clock, cal: BusinessCalendar) => new PaymentCreator(l, r, c, i, k, cal),
+      inject: [RECEIVABLES_LEDGER, PAYMENT_REPOSITORY, RECEIVABLES_CODE_SEQUENCE, ID_GENERATOR, CLOCK, BUSINESS_CALENDAR],
     },
     {
       provide: PaymentUpdater,
-      useFactory: (f: PaymentFinder, l: ReceivablesLedger, r: PaymentRepository, i: IdGenerator, k: Clock) => new PaymentUpdater(f, l, r, i, k),
-      inject: [PaymentFinder, RECEIVABLES_LEDGER, PAYMENT_REPOSITORY, ID_GENERATOR, CLOCK],
+      useFactory: (f: PaymentFinder, l: ReceivablesLedger, r: PaymentRepository, i: IdGenerator, k: Clock, cal: BusinessCalendar) => new PaymentUpdater(f, l, r, i, k, cal),
+      inject: [PaymentFinder, RECEIVABLES_LEDGER, PAYMENT_REPOSITORY, ID_GENERATOR, CLOCK, BUSINESS_CALENDAR],
     },
-    { provide: PaymentConfirmer, useFactory: (p: PaymentPosting, k: Clock) => new PaymentConfirmer(p, k), inject: [PAYMENT_POSTING, CLOCK] },
+    { provide: PaymentConfirmer, useFactory: (p: PaymentPosting, k: Clock, cal: BusinessCalendar) => new PaymentConfirmer(p, k, cal), inject: [PAYMENT_POSTING, CLOCK, BUSINESS_CALENDAR] },
     { provide: PaymentCanceller, useFactory: (p: PaymentPosting, k: Clock) => new PaymentCanceller(p, k), inject: [PAYMENT_POSTING, CLOCK] },
     { provide: PaymentSearcher, useFactory: (r: PaymentRepository, l: ReceivablesLedger) => new PaymentSearcher(r, l), inject: [PAYMENT_REPOSITORY, RECEIVABLES_LEDGER] },
-    { provide: ReceivableSearcher, useFactory: (l: ReceivablesLedger, k: Clock) => new ReceivableSearcher(l, k), inject: [RECEIVABLES_LEDGER, CLOCK] },
-    { provide: CustomerBalanceSearcher, useFactory: (l: ReceivablesLedger, k: Clock) => new CustomerBalanceSearcher(l, k), inject: [RECEIVABLES_LEDGER, CLOCK] },
+    { provide: ReceivableSearcher, useFactory: (l: ReceivablesLedger, cal: BusinessCalendar) => new ReceivableSearcher(l, cal), inject: [RECEIVABLES_LEDGER, BUSINESS_CALENDAR] },
+    { provide: CustomerBalanceSearcher, useFactory: (l: ReceivablesLedger, cal: BusinessCalendar) => new CustomerBalanceSearcher(l, cal), inject: [RECEIVABLES_LEDGER, BUSINESS_CALENDAR] },
     {
       provide: CustomerStatementSearcher,
-      useFactory: (l: ReceivablesLedger, r: PaymentRepository, k: Clock) => new CustomerStatementSearcher(l, r, k),
-      inject: [RECEIVABLES_LEDGER, PAYMENT_REPOSITORY, CLOCK],
+      useFactory: (l: ReceivablesLedger, r: PaymentRepository, cal: BusinessCalendar) => new CustomerStatementSearcher(l, r, cal),
+      inject: [RECEIVABLES_LEDGER, PAYMENT_REPOSITORY, BUSINESS_CALENDAR],
     },
   ],
   exports: [RECEIVABLE_BALANCES],

@@ -66,7 +66,7 @@ export function describeSalesPortsContract(implementation: string, createHarness
           orderDate: SalesDate.of(TODAY),
           notes: 'contrato',
           lines,
-        }, NOW),
+        }, NOW, TODAY),
       );
 
       return id;
@@ -91,7 +91,7 @@ export function describeSalesPortsContract(implementation: string, createHarness
           date: SalesDate.of(TODAY),
           notes: null,
           lines: [DispatchLine.of({ id: DispatchLineId.of(`5e000000-0000-4000-8000-${next()}`), lineNumber: 1, orderLineId: line.id, itemId: line.itemId, unitId: line.unitId, quantity: q, baseQuantity: line.baseOf(q) })],
-        }, NOW),
+        }, NOW, TODAY),
       );
 
       return id;
@@ -109,7 +109,7 @@ export function describeSalesPortsContract(implementation: string, createHarness
           date: SalesDate.of(date),
           notes: null,
           lineIds: () => `5f100000-0000-4000-8000-${next()}`,
-        }, NOW),
+        }, NOW, TODAY),
       );
 
     describe('SalesOrderPosting', () => {

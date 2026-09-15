@@ -1,4 +1,5 @@
 import { Clock } from '../../../../shared/domain/ports/clock.js';
+import { BusinessCalendar } from '../../../../shared/domain/ports/business-calendar.js';
 import { IdGenerator } from '../../../../shared/domain/ports/id-generator.js';
 import { AdjustmentDate } from '../../domain/adjustment/adjustment-date.vo.js';
 import { Adjustment, AdjustmentId } from '../../domain/adjustment/adjustment.entity.js';
@@ -26,22 +27,24 @@ export class AdjustmentCreator {
     private readonly codes: InventoryCodeSequence,
     private readonly ids: IdGenerator,
     private readonly clock: Clock,
+    private readonly calendar: BusinessCalendar,
   ) {}
 
   async run(request: AdjustmentCreatorRequest): Promise<void> {
     const tenantId = TenantId.of(request.tenantId);
     const now = this.clock.now();
-    const date = request.date ? AdjustmentDate.of(request.date) : AdjustmentDate.fromDate(now);
+    const today = await this.calendar.today(request.tenantId);
+    const date = request.date ? AdjustmentDate.of(request.date) : AdjustmentDate.of(today);
     const warehouseId = await this.factory.warehouse(tenantId, request.warehouseId);
     const lines = await this.factory.lines(tenantId, request.lines);
     const details = { warehouseId, date, notes: request.notes ?? null, lines };
     const id = AdjustmentId.of(this.ids.next());
 
     // Se valida entero antes de pedir el numero: un borrador invalido no gasta correlativo.
-    Adjustment.draft(id, tenantId, documentCode('AJU', 0), details, now);
+    Adjustment.draft(id, tenantId, documentCode('AJU', 0), details, now, today);
 
     const code = documentCode('AJU', await this.codes.next(tenantId, 'AJU'));
 
-    await this.adjustments.save(Adjustment.draft(id, tenantId, code, details, now));
+    await this.adjustments.save(Adjustment.draft(id, tenantId, code, details, now, today));
   }
 }

@@ -1,4 +1,5 @@
 import { Clock } from '../../../../shared/domain/ports/clock.js';
+import { BusinessCalendar } from '../../../../shared/domain/ports/business-calendar.js';
 import { DispatchId } from '../../domain/dispatch/dispatch.entity.js';
 import { DispatchRepository } from '../../domain/dispatch/dispatch.repository.js';
 import { DispatchFinder } from '../../domain/dispatch/find/dispatch-finder.js';
@@ -17,12 +18,14 @@ export class DispatchConfirmer {
     private readonly posting: DispatchPosting,
     private readonly confirmation: DispatchConfirmation,
     private readonly clock: Clock,
+    private readonly calendar: BusinessCalendar,
   ) {}
 
   async run(request: { tenantId: string; dispatchId: string }): Promise<void> {
     const tenantId = TenantId.of(request.tenantId);
     const dispatch = await this.finder.find(tenantId, DispatchId.of(request.dispatchId));
     const now = this.clock.now();
+    const today = await this.calendar.today(request.tenantId);
 
     // Se revalida el borrador contra el pedido y el catalogo de hoy, conservando sus lineas. Lo
     // pendiente se vuelve a comprobar con el pedido bloqueado, que es la comprobacion que cuenta.
@@ -40,6 +43,7 @@ export class DispatchConfirmer {
           ),
         },
         now,
+        today,
       );
       await this.dispatches.save(dispatch);
     }

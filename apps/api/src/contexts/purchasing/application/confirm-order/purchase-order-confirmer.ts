@@ -1,4 +1,5 @@
 import { Clock } from '../../../../shared/domain/ports/clock.js';
+import { BusinessCalendar } from '../../../../shared/domain/ports/business-calendar.js';
 import { PurchaseOrderFinder } from '../../domain/order/find/purchase-order-finder.js';
 import { PurchaseOrderReferences } from '../../domain/order/lines/purchase-order-references.js';
 import { ensureBaseQuantitiesUnchanged } from '../../domain/order/lines/unchanged-base-quantities.js';
@@ -16,12 +17,14 @@ export class PurchaseOrderConfirmer {
     private readonly orders: PurchaseOrderRepository,
     private readonly posting: PurchaseOrderPosting,
     private readonly clock: Clock,
+    private readonly calendar: BusinessCalendar,
   ) {}
 
   async run(request: { tenantId: string; orderId: string }): Promise<void> {
     const tenantId = TenantId.of(request.tenantId);
     const order = await this.finder.find(tenantId, PurchaseOrderId.of(request.orderId));
     const now = this.clock.now();
+    const today = await this.calendar.today(request.tenantId);
 
     // El borrador pudo quedar viejo: se revalida con el catalogo de hoy, conservando lo que la
     // persona escribio y la identidad de cada linea. Si el proveedor o un articulo se desactivo, se
@@ -39,11 +42,11 @@ export class PurchaseOrderConfirmer {
           notes: row.notes,
           lines: row.lines.map(({ id, itemId, unitId, quantity, unitCost }) => ({ id, itemId, unitId, quantity, unitCost })),
         },
-        now,
+        today,
       );
 
       ensureBaseQuantitiesUnchanged(order.lines(), details.lines);
-      order.update(details, now);
+      order.update(details, now, today);
       await this.orders.save(order);
     }
 

@@ -1,4 +1,4 @@
-import { Clock } from '../../../../shared/domain/ports/clock.js';
+import { BusinessCalendar } from '../../../../shared/domain/ports/business-calendar.js';
 import { AgingBucket, bucketOf } from '../../domain/aging/aging.js';
 import { ReceivableCustomerNotFoundError } from '../../domain/errors/receivables.errors.js';
 import { CollectionStatus } from '../../domain/ledger/receivable-invoice.js';
@@ -26,12 +26,12 @@ export interface ReceivableResponse {
 export class ReceivableSearcher {
   constructor(
     private readonly ledger: ReceivablesLedger,
-    private readonly clock: Clock,
+    private readonly calendar: BusinessCalendar,
   ) {}
 
   async run(request: { tenantId: string; customerId?: string }): Promise<{ receivables: ReceivableResponse[] }> {
     const tenantId = TenantId.of(request.tenantId);
-    const today = ReceivablesDate.fromDate(this.clock.now());
+    const today = ReceivablesDate.of(await this.calendar.today(request.tenantId));
     const [customers, invoices] = await Promise.all([this.ledger.customers(tenantId), this.ledger.invoices(tenantId, { customerId: request.customerId })]);
 
     if (request.customerId && !customers.some((customer) => customer.id === request.customerId)) throw new ReceivableCustomerNotFoundError(request.customerId);

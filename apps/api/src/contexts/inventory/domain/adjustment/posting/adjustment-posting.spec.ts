@@ -44,7 +44,7 @@ async function draft(store: InMemoryInventoryStore, id: string, lines: Adjustmen
     date: AdjustmentDate.of(TODAY),
     notes: null,
     lines,
-  }, NOW);
+  }, NOW, TODAY);
 
   await store.save(adjustment);
 

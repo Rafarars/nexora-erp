@@ -26,11 +26,9 @@ export class SalesDate {
     return SalesDate.of(date.toISOString().slice(0, 10));
   }
 
-  // Un pedido, un despacho o una factura registran algo que ya paso. Contra el dia UTC del reloj.
-  ensureNotAfter(now: Date): void {
-    if (this.value > now.toISOString().slice(0, 10)) {
-      throw new FutureSalesDateError(this.value);
-    }
+  // Un documento registra algo que ya paso: contra el dia de hoy de la empresa, en su zona horaria.
+  ensureNotAfter(today: string): void {
+    if (this.value > today) throw new FutureSalesDateError(this.value);
   }
 
   // El vencimiento de una factura: la fecha mas el plazo del cliente.

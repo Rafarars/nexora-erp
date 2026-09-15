@@ -1,4 +1,5 @@
 import { Clock } from '../../../../shared/domain/ports/clock.js';
+import { BusinessCalendar } from '../../../../shared/domain/ports/business-calendar.js';
 import { AdjustmentId } from '../../domain/adjustment/adjustment.entity.js';
 import { AdjustmentRepository } from '../../domain/adjustment/adjustment.repository.js';
 import { AdjustmentFinder } from '../../domain/adjustment/find/adjustment-finder.js';
@@ -16,12 +17,14 @@ export class AdjustmentConfirmer {
     private readonly posting: AdjustmentPosting,
     private readonly confirmation: AdjustmentConfirmation,
     private readonly clock: Clock,
+    private readonly calendar: BusinessCalendar,
   ) {}
 
   async run(request: { tenantId: string; adjustmentId: string }): Promise<void> {
     const tenantId = TenantId.of(request.tenantId);
     const adjustment = await this.finder.find(tenantId, AdjustmentId.of(request.adjustmentId));
     const now = this.clock.now();
+    const today = await this.calendar.today(request.tenantId);
 
     // El borrador pudo quedar viejo: se revalida con el catalogo de hoy antes de mover nada. Si el
     // articulo se desactivo, se rechaza; si su caja paso de 24 a 12, tambien, para que la persona
@@ -42,6 +45,7 @@ export class AdjustmentConfirmer {
           lines,
         },
         now,
+        today,
       );
 
       await this.adjustments.save(adjustment);

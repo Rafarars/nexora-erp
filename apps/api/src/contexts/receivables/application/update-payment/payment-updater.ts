@@ -1,4 +1,5 @@
 import { Clock } from '../../../../shared/domain/ports/clock.js';
+import { BusinessCalendar } from '../../../../shared/domain/ports/business-calendar.js';
 import { IdGenerator } from '../../../../shared/domain/ports/id-generator.js';
 import { ReceivableCustomerNotFoundError } from '../../domain/errors/receivables.errors.js';
 import { ReceivablesLedger } from '../../domain/ledger/receivables-ledger.js';
@@ -17,11 +18,13 @@ export class PaymentUpdater {
     private readonly payments: PaymentRepository,
     private readonly ids: IdGenerator,
     private readonly clock: Clock,
+    private readonly calendar: BusinessCalendar,
   ) {}
 
   async run(request: PaymentRequest & { paymentId: string }): Promise<void> {
     const tenantId = TenantId.of(request.tenantId);
     const now = this.clock.now();
+    const today = await this.calendar.today(request.tenantId);
     const payment = await this.finder.find(tenantId, PaymentId.of(request.paymentId));
     const previous = payment.toPrimitives().allocations;
 
@@ -30,7 +33,7 @@ export class PaymentUpdater {
     payment.update(
       {
         customerId: request.customerId,
-        date: request.date ? ReceivablesDate.of(request.date) : ReceivablesDate.fromDate(now),
+        date: request.date ? ReceivablesDate.of(request.date) : ReceivablesDate.of(today),
         method: request.method,
         reference: request.reference,
         notes: request.notes,
@@ -40,6 +43,7 @@ export class PaymentUpdater {
         })),
       },
       now,
+      today,
     );
     payment.ensureFits(await this.ledger.invoices(tenantId, { ids: payment.invoiceIds() }));
 

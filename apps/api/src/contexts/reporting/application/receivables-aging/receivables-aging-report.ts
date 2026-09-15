@@ -1,4 +1,4 @@
-import { Clock } from '../../../../shared/domain/ports/clock.js';
+import { BusinessCalendar } from '../../../../shared/domain/ports/business-calendar.js';
 import { AgingTotals, agingOf } from '../../domain/aging/aging.js';
 import { ReportingReadModel } from '../../domain/read-model/reporting-read-model.js';
 import { ReportDate } from '../../domain/shared/report-date.vo.js';
@@ -14,12 +14,12 @@ export interface ReceivablesAgingResponse {
 export class ReceivablesAgingReport {
   constructor(
     private readonly readModel: ReportingReadModel,
-    private readonly clock: Clock,
+    private readonly calendar: BusinessCalendar,
   ) {}
 
   async run(request: { tenantId: string }): Promise<ReceivablesAgingResponse> {
     const tenantId = TenantId.of(request.tenantId);
-    const today = ReportDate.fromDate(this.clock.now());
+    const today = ReportDate.of(await this.calendar.today(request.tenantId));
     const [customers, invoices] = await Promise.all([this.readModel.customers(tenantId), this.readModel.issuedInvoices(tenantId)]);
     const balances = invoices.map((invoice) => ({ customerId: invoice.customerId, dueDate: invoice.dueDate, balance: invoice.total - invoice.paid }));
 

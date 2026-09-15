@@ -1,4 +1,5 @@
 import { Clock } from '../../../../shared/domain/ports/clock.js';
+import { BusinessCalendar } from '../../../../shared/domain/ports/business-calendar.js';
 import { SalesOrderFinder } from '../../domain/order/find/sales-order-finder.js';
 import { SalesOrderReferences } from '../../domain/order/lines/sales-order-references.js';
 import { ensureBaseQuantitiesUnchanged } from '../../domain/order/lines/unchanged-base-quantities.js';
@@ -17,12 +18,14 @@ export class SalesOrderConfirmer {
     private readonly posting: SalesOrderPosting,
     private readonly reservation: StockReservation,
     private readonly clock: Clock,
+    private readonly calendar: BusinessCalendar,
   ) {}
 
   async run(request: { tenantId: string; orderId: string }): Promise<void> {
     const tenantId = TenantId.of(request.tenantId);
     const order = await this.finder.find(tenantId, SalesOrderId.of(request.orderId));
     const now = this.clock.now();
+    const today = await this.calendar.today(request.tenantId);
 
     // El borrador pudo quedar viejo: se revalida con el catalogo de hoy conservando la identidad de
     // cada linea. Si el cliente o un articulo se desactivo, se rechaza; si la caja paso de 24 a 12,
@@ -39,11 +42,11 @@ export class SalesOrderConfirmer {
           notes: row.notes,
           lines: row.lines.map(({ id, itemId, unitId, quantity, unitPrice }) => ({ id, itemId, unitId, quantity, unitPrice })),
         },
-        now,
+        today,
       );
 
       ensureBaseQuantitiesUnchanged(order.lines(), details.lines);
-      order.update(details, now);
+      order.update(details, now, today);
       await this.orders.save(order);
     }
 

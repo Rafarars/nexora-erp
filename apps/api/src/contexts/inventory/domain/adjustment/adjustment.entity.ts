@@ -59,8 +59,8 @@ export class Adjustment {
     private updatedAt: Date,
   ) {}
 
-  static draft(id: AdjustmentId, tenantId: TenantId, code: string, details: AdjustmentDetails, now: Date): Adjustment {
-    return new Adjustment(id, tenantId, code, validated(details, now), 'draft', null, null, now, now);
+  static draft(id: AdjustmentId, tenantId: TenantId, code: string, details: AdjustmentDetails, now: Date, today: string): Adjustment {
+    return new Adjustment(id, tenantId, code, validated(details, today), 'draft', null, null, now, now);
   }
 
   static fromPrimitives(row: AdjustmentPrimitives): Adjustment {
@@ -115,12 +115,12 @@ export class Adjustment {
     return [...this.details.lines];
   }
 
-  update(details: AdjustmentDetails, now: Date): void {
+  update(details: AdjustmentDetails, now: Date, today: string): void {
     if (this.status !== 'draft') {
       throw new AdjustmentNotEditableError(this.id.value, this.status);
     }
 
-    this.details = validated(details, now);
+    this.details = validated(details, today);
     this.updatedAt = now;
   }
 
@@ -145,12 +145,12 @@ export class Adjustment {
   }
 }
 
-function validated(details: AdjustmentDetails, now: Date): AdjustmentDetails {
+function validated(details: AdjustmentDetails, today: string): AdjustmentDetails {
   if (details.lines.length === 0) {
     throw new EmptyAdjustmentError();
   }
 
-  details.date.ensureNotAfter(now);
+  details.date.ensureNotAfter(today);
 
   const notes = details.notes?.trim() || null;
 

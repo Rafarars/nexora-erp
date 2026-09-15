@@ -1,4 +1,5 @@
 import { Clock } from '../../../../shared/domain/ports/clock.js';
+import { BusinessCalendar } from '../../../../shared/domain/ports/business-calendar.js';
 import { PurchaseOrderFinder } from '../../domain/order/find/purchase-order-finder.js';
 import { GoodsReceiptFinder } from '../../domain/receipt/find/goods-receipt-finder.js';
 import { GoodsReceiptId } from '../../domain/receipt/goods-receipt.entity.js';
@@ -17,12 +18,14 @@ export class GoodsReceiptConfirmer {
     private readonly posting: ReceiptPosting,
     private readonly confirmation: ReceiptConfirmation,
     private readonly clock: Clock,
+    private readonly calendar: BusinessCalendar,
   ) {}
 
   async run(request: { tenantId: string; receiptId: string }): Promise<void> {
     const tenantId = TenantId.of(request.tenantId);
     const receipt = await this.finder.find(tenantId, GoodsReceiptId.of(request.receiptId));
     const now = this.clock.now();
+    const today = await this.calendar.today(request.tenantId);
 
     // El borrador pudo quedar viejo: el articulo se desactivo o cambio su factor. Se
     // revalida contra la orden y el catalogo de hoy. Lo pendiente se vuelve a comprobar con
@@ -41,6 +44,7 @@ export class GoodsReceiptConfirmer {
           ),
         },
         now,
+        today,
       );
       await this.receipts.save(receipt);
     }

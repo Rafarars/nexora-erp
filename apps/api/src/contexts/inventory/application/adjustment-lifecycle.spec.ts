@@ -24,9 +24,9 @@ import { AdjustmentUpdater } from './update-adjustment/adjustment-updater.js';
 // confirmar, consultar, anular y volver a consultar.
 function useCases(s: InventoryScenario) {
   return {
-    create: new AdjustmentCreator(s.factory, s.store, s.codes, s.ids, s.clock),
-    update: new AdjustmentUpdater(s.finder, s.factory, s.store, s.clock),
-    confirm: new AdjustmentConfirmer(s.finder, s.factory, s.store, s.store, s.confirmation, s.clock),
+    create: new AdjustmentCreator(s.factory, s.store, s.codes, s.ids, s.clock, s.calendar),
+    update: new AdjustmentUpdater(s.finder, s.factory, s.store, s.clock, s.calendar),
+    confirm: new AdjustmentConfirmer(s.finder, s.factory, s.store, s.store, s.confirmation, s.clock, s.calendar),
     cancel: new AdjustmentCanceller(s.store, s.cancellation, s.clock),
     adjustments: new AdjustmentSearcher(s.store, s.catalog),
     stock: new StockSearcher(s.store, s.catalog),

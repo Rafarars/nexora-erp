@@ -81,8 +81,8 @@ export class PurchaseOrder {
     private updatedAt: Date,
   ) {}
 
-  static draft(id: PurchaseOrderId, tenantId: TenantId, code: string, details: PurchaseOrderDetails, now: Date): PurchaseOrder {
-    return new PurchaseOrder(id, tenantId, code, validated(details, now), 'draft', null, null, now, now);
+  static draft(id: PurchaseOrderId, tenantId: TenantId, code: string, details: PurchaseOrderDetails, now: Date, today: string): PurchaseOrder {
+    return new PurchaseOrder(id, tenantId, code, validated(details, today), 'draft', null, null, now, now);
   }
 
   static fromPrimitives(row: PurchaseOrderPrimitives): PurchaseOrder {
@@ -173,10 +173,10 @@ export class PurchaseOrder {
     return { subtotal: centsToNumber(subtotal), tax: centsToNumber(tax), total: centsToNumber(subtotal + tax) };
   }
 
-  update(details: PurchaseOrderDetails, now: Date): void {
+  update(details: PurchaseOrderDetails, now: Date, today: string): void {
     if (this.status !== 'draft') throw new PurchaseOrderNotEditableError(this.id.value, this.status);
 
-    this.details = validated(details, now);
+    this.details = validated(details, today);
     this.updatedAt = now;
   }
 
@@ -250,10 +250,10 @@ export class PurchaseOrder {
   }
 }
 
-function validated(details: PurchaseOrderDetails, now: Date): PurchaseOrderDetails {
+function validated(details: PurchaseOrderDetails, today: string): PurchaseOrderDetails {
   if (details.lines.length === 0) throw new EmptyPurchaseOrderError();
 
-  details.orderDate.ensureNotAfter(now);
+  details.orderDate.ensureNotAfter(today);
 
   // La fecha esperada si puede ser futura: es cuando el proveedor promete entregar.
   if (details.expectedDate && details.expectedDate.isBefore(details.orderDate)) {

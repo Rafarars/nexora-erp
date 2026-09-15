@@ -87,7 +87,7 @@ export function aDraftOrder(lines: SalesOrderLine[] = [anOrderLine()], id = '5b0
     orderDate: SalesDate.of(TODAY),
     notes: null,
     lines,
-  }, NOW);
+  }, NOW, TODAY);
 }
 
 export function aConfirmedOrder(lines: SalesOrderLine[] = [anOrderLine()]): SalesOrder {

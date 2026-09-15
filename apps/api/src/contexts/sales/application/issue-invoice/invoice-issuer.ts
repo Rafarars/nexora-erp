@@ -1,4 +1,5 @@
 import { Clock } from '../../../../shared/domain/ports/clock.js';
+import { BusinessCalendar } from '../../../../shared/domain/ports/business-calendar.js';
 import { IdGenerator } from '../../../../shared/domain/ports/id-generator.js';
 import { DispatchId } from '../../domain/dispatch/dispatch.entity.js';
 import { DispatchFinder } from '../../domain/dispatch/find/dispatch-finder.js';
@@ -29,6 +30,7 @@ export class InvoiceIssuer {
     private readonly codes: SalesCodeSequence,
     private readonly ids: IdGenerator,
     private readonly clock: Clock,
+    private readonly calendar: BusinessCalendar,
   ) {}
 
   async run(request: InvoiceIssuerRequest): Promise<void> {
@@ -36,7 +38,7 @@ export class InvoiceIssuer {
     const now = this.clock.now();
     const dispatch = await this.dispatches.find(tenantId, DispatchId.of(request.dispatchId));
     const order = await this.orders.find(tenantId, dispatch.orderId);
-    const today = SalesDate.fromDate(now);
+    const today = SalesDate.of(await this.calendar.today(request.tenantId));
     const credit = await this.posting.credit(tenantId, order.customerId(), today);
     const id = InvoiceId.of(this.ids.next());
     const date = request.date ? SalesDate.of(request.date) : today;
@@ -50,7 +52,7 @@ export class InvoiceIssuer {
         date,
         notes: request.notes ?? null,
         lineIds: () => this.ids.next(),
-      }, now);
+      }, now, today.value);
 
     issue(salesCode('FAC', 0), dispatch, order, await this.invoices.issuedForDispatch(tenantId, dispatch.id));
 

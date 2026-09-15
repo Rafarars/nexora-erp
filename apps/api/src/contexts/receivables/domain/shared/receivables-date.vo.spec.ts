@@ -12,6 +12,6 @@ describe('ReceivablesDate', () => {
   it('counts days across months and refuses a future date', () => {
     expect(ReceivablesDate.of('2026-01-31').daysUntil(ReceivablesDate.of('2026-03-01'))).toBe(29);
     expect(ReceivablesDate.of('2026-03-01').daysUntil(ReceivablesDate.of('2026-01-31'))).toBe(-29);
-    expect(() => ReceivablesDate.of('2026-01-16').ensureNotAfter(new Date('2026-01-15T23:59:59Z'))).toThrow(FutureReceivablesDateError);
+    expect(() => ReceivablesDate.of('2026-01-16').ensureNotAfter('2026-01-15')).toThrow(FutureReceivablesDateError);
   });
 });

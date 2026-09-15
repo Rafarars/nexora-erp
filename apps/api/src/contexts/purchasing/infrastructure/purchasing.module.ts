@@ -1,8 +1,11 @@
+import { BUSINESS_CALENDAR } from '../../../shared/domain/ports/business-calendar.js';
+import type { BusinessCalendar } from '../../../shared/domain/ports/business-calendar.js';
 import { Module } from '@nestjs/common';
 import type { Clock } from '../../../shared/domain/ports/clock.js';
 import { CLOCK } from '../../../shared/domain/ports/clock.js';
 import type { IdGenerator } from '../../../shared/domain/ports/id-generator.js';
 import { ID_GENERATOR } from '../../../shared/domain/ports/id-generator.js';
+import { CompanyModule } from '../../company/infrastructure/company.module.js';
 import { SharedModule } from '../../../shared/infrastructure/shared.module.js';
 import { PrismaModule } from '../../../shared/prisma/prisma.module.js';
 import { InventoryModule } from '../../inventory/infrastructure/inventory.module.js';
@@ -70,7 +73,7 @@ import { PrismaSupplierRepository } from './persistence/prisma-supplier.reposito
 // publicacion de documentos que mueve existencia (DOCUMENT_STOCK_POSTING). Es el unico punto
 // donde un contexto nombra a otro, y es composicion, no dependencia de su codigo.
 @Module({
-  imports: [PrismaModule, SharedModule, InventoryModule],
+  imports: [PrismaModule, SharedModule, CompanyModule, InventoryModule],
   controllers: [
     SearchSuppliersGetController,
     CreateSupplierPostController,
@@ -134,21 +137,21 @@ import { PrismaSupplierRepository } from './persistence/prisma-supplier.reposito
 
     {
       provide: PurchaseOrderCreator,
-      useFactory: (x: PurchaseOrderReferences, r: PurchaseOrderRepository, c: PurchasingCodeSequence, i: IdGenerator, k: Clock) =>
-        new PurchaseOrderCreator(x, r, c, i, k),
-      inject: [PurchaseOrderReferences, PURCHASE_ORDER_REPOSITORY, PURCHASING_CODE_SEQUENCE, ID_GENERATOR, CLOCK],
+      useFactory: (x: PurchaseOrderReferences, r: PurchaseOrderRepository, c: PurchasingCodeSequence, i: IdGenerator, k: Clock, cal: BusinessCalendar) =>
+        new PurchaseOrderCreator(x, r, c, i, k, cal),
+      inject: [PurchaseOrderReferences, PURCHASE_ORDER_REPOSITORY, PURCHASING_CODE_SEQUENCE, ID_GENERATOR, CLOCK, BUSINESS_CALENDAR],
     },
     {
       provide: PurchaseOrderUpdater,
-      useFactory: (f: PurchaseOrderFinder, x: PurchaseOrderReferences, r: PurchaseOrderRepository, k: Clock) =>
-        new PurchaseOrderUpdater(f, x, r, k),
-      inject: [PurchaseOrderFinder, PurchaseOrderReferences, PURCHASE_ORDER_REPOSITORY, CLOCK],
+      useFactory: (f: PurchaseOrderFinder, x: PurchaseOrderReferences, r: PurchaseOrderRepository, k: Clock, cal: BusinessCalendar) =>
+        new PurchaseOrderUpdater(f, x, r, k, cal),
+      inject: [PurchaseOrderFinder, PurchaseOrderReferences, PURCHASE_ORDER_REPOSITORY, CLOCK, BUSINESS_CALENDAR],
     },
     {
       provide: PurchaseOrderConfirmer,
-      useFactory: (f: PurchaseOrderFinder, x: PurchaseOrderReferences, r: PurchaseOrderRepository, p: PurchaseOrderPosting, k: Clock) =>
-        new PurchaseOrderConfirmer(f, x, r, p, k),
-      inject: [PurchaseOrderFinder, PurchaseOrderReferences, PURCHASE_ORDER_REPOSITORY, PURCHASE_ORDER_POSTING, CLOCK],
+      useFactory: (f: PurchaseOrderFinder, x: PurchaseOrderReferences, r: PurchaseOrderRepository, p: PurchaseOrderPosting, k: Clock, cal: BusinessCalendar) =>
+        new PurchaseOrderConfirmer(f, x, r, p, k, cal),
+      inject: [PurchaseOrderFinder, PurchaseOrderReferences, PURCHASE_ORDER_REPOSITORY, PURCHASE_ORDER_POSTING, CLOCK, BUSINESS_CALENDAR],
     },
     {
       provide: PurchaseOrderCanceller,
@@ -163,15 +166,15 @@ import { PrismaSupplierRepository } from './persistence/prisma-supplier.reposito
 
     {
       provide: GoodsReceiptCreator,
-      useFactory: (o: PurchaseOrderFinder, f: GoodsReceiptLineFactory, r: GoodsReceiptRepository, c: PurchasingCodeSequence, i: IdGenerator, k: Clock) =>
-        new GoodsReceiptCreator(o, f, r, c, i, k),
-      inject: [PurchaseOrderFinder, GoodsReceiptLineFactory, GOODS_RECEIPT_REPOSITORY, PURCHASING_CODE_SEQUENCE, ID_GENERATOR, CLOCK],
+      useFactory: (o: PurchaseOrderFinder, f: GoodsReceiptLineFactory, r: GoodsReceiptRepository, c: PurchasingCodeSequence, i: IdGenerator, k: Clock, cal: BusinessCalendar) =>
+        new GoodsReceiptCreator(o, f, r, c, i, k, cal),
+      inject: [PurchaseOrderFinder, GoodsReceiptLineFactory, GOODS_RECEIPT_REPOSITORY, PURCHASING_CODE_SEQUENCE, ID_GENERATOR, CLOCK, BUSINESS_CALENDAR],
     },
     {
       provide: GoodsReceiptUpdater,
-      useFactory: (g: GoodsReceiptFinder, o: PurchaseOrderFinder, f: GoodsReceiptLineFactory, r: GoodsReceiptRepository, k: Clock) =>
-        new GoodsReceiptUpdater(g, o, f, r, k),
-      inject: [GoodsReceiptFinder, PurchaseOrderFinder, GoodsReceiptLineFactory, GOODS_RECEIPT_REPOSITORY, CLOCK],
+      useFactory: (g: GoodsReceiptFinder, o: PurchaseOrderFinder, f: GoodsReceiptLineFactory, r: GoodsReceiptRepository, k: Clock, cal: BusinessCalendar) =>
+        new GoodsReceiptUpdater(g, o, f, r, k, cal),
+      inject: [GoodsReceiptFinder, PurchaseOrderFinder, GoodsReceiptLineFactory, GOODS_RECEIPT_REPOSITORY, CLOCK, BUSINESS_CALENDAR],
     },
     {
       provide: GoodsReceiptConfirmer,
@@ -182,9 +185,8 @@ import { PrismaSupplierRepository } from './persistence/prisma-supplier.reposito
         r: GoodsReceiptRepository,
         p: ReceiptPosting,
         c: ReceiptConfirmation,
-        k: Clock,
-      ) => new GoodsReceiptConfirmer(g, o, f, r, p, c, k),
-      inject: [GoodsReceiptFinder, PurchaseOrderFinder, GoodsReceiptLineFactory, GOODS_RECEIPT_REPOSITORY, RECEIPT_POSTING, ReceiptConfirmation, CLOCK],
+        k: Clock, cal: BusinessCalendar) => new GoodsReceiptConfirmer(g, o, f, r, p, c, k, cal),
+      inject: [GoodsReceiptFinder, PurchaseOrderFinder, GoodsReceiptLineFactory, GOODS_RECEIPT_REPOSITORY, RECEIPT_POSTING, ReceiptConfirmation, CLOCK, BUSINESS_CALENDAR],
     },
     {
       provide: GoodsReceiptCanceller,

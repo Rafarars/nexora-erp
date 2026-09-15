@@ -1,4 +1,5 @@
 import { Clock } from '../../../../shared/domain/ports/clock.js';
+import { BusinessCalendar } from '../../../../shared/domain/ports/business-calendar.js';
 import { GoodsReceiptNotEditableError } from '../../domain/errors/purchasing.errors.js';
 import { PurchaseOrderFinder } from '../../domain/order/find/purchase-order-finder.js';
 import { GoodsReceiptFinder } from '../../domain/receipt/find/goods-receipt-finder.js';
@@ -23,12 +24,14 @@ export class GoodsReceiptUpdater {
     private readonly factory: GoodsReceiptLineFactory,
     private readonly receipts: GoodsReceiptRepository,
     private readonly clock: Clock,
+    private readonly calendar: BusinessCalendar,
   ) {}
 
   async run(request: GoodsReceiptUpdaterRequest): Promise<void> {
     const tenantId = TenantId.of(request.tenantId);
     const receipt = await this.finder.find(tenantId, GoodsReceiptId.of(request.receiptId));
     const now = this.clock.now();
+    const today = await this.calendar.today(request.tenantId);
 
     // Primero el estado: lo confirmado se rechaza aunque su orden ya no admita entradas.
     if (receipt.currentStatus() !== 'draft') {
@@ -39,11 +42,12 @@ export class GoodsReceiptUpdater {
 
     receipt.update(
       {
-        date: request.date ? PurchaseDate.of(request.date) : PurchaseDate.fromDate(now),
+        date: request.date ? PurchaseDate.of(request.date) : PurchaseDate.of(today),
         notes: request.notes ?? null,
         lines: await this.factory.lines(tenantId, order, request.lines),
       },
       now,
+      today,
     );
     await this.receipts.save(receipt);
   }

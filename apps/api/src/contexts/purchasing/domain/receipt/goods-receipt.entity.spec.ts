@@ -45,7 +45,7 @@ function aReceipt(order: PurchaseOrder, lines: GoodsReceiptLine[], date = TODAY)
     'ENT000001',
     { id: order.id, warehouseId: order.warehouseId() },
     { date: PurchaseDate.of(date), notes: '  Llego completo ', lines },
-    NOW,
+    NOW, TODAY,
   );
 }
 
@@ -106,7 +106,7 @@ describe('GoodsReceipt', () => {
       new ReceiptConfirmation().apply(receipt, order, NOW);
 
       expect(() => receipt.confirm(NOW)).toThrow(GoodsReceiptNotConfirmableError);
-      expect(() => receipt.update({ date: PurchaseDate.of(TODAY), notes: null, lines: [receiptLine(line, 1)] }, NOW)).toThrow(
+      expect(() => receipt.update({ date: PurchaseDate.of(TODAY), notes: null, lines: [receiptLine(line, 1)] }, NOW, TODAY)).toThrow(
         GoodsReceiptNotEditableError,
       );
     });

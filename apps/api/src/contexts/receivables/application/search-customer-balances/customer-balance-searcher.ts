@@ -1,4 +1,4 @@
-import { Clock } from '../../../../shared/domain/ports/clock.js';
+import { BusinessCalendar } from '../../../../shared/domain/ports/business-calendar.js';
 import { AgingTotals, agingOf } from '../../domain/aging/aging.js';
 import { ReceivableInvoice } from '../../domain/ledger/receivable-invoice.js';
 import { ReceivablesLedger } from '../../domain/ledger/receivables-ledger.js';
@@ -24,12 +24,12 @@ export interface CustomerBalanceResponse {
 export class CustomerBalanceSearcher {
   constructor(
     private readonly ledger: ReceivablesLedger,
-    private readonly clock: Clock,
+    private readonly calendar: BusinessCalendar,
   ) {}
 
   async run(request: { tenantId: string }): Promise<{ customers: CustomerBalanceResponse[]; totals: AgingTotals }> {
     const tenantId = TenantId.of(request.tenantId);
-    const today = ReceivablesDate.fromDate(this.clock.now());
+    const today = ReceivablesDate.of(await this.calendar.today(request.tenantId));
     const [customers, invoices] = await Promise.all([this.ledger.customers(tenantId), this.ledger.invoices(tenantId)]);
 
     return {

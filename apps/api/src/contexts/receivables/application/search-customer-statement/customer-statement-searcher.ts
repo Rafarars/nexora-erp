@@ -1,4 +1,4 @@
-import { Clock } from '../../../../shared/domain/ports/clock.js';
+import { BusinessCalendar } from '../../../../shared/domain/ports/business-calendar.js';
 import { ReceivableCustomerNotFoundError } from '../../domain/errors/receivables.errors.js';
 import { ReceivablesLedger } from '../../domain/ledger/receivables-ledger.js';
 import { PaymentRepository } from '../../domain/payment/payment.repository.js';
@@ -24,12 +24,12 @@ export class CustomerStatementSearcher {
   constructor(
     private readonly ledger: ReceivablesLedger,
     private readonly payments: PaymentRepository,
-    private readonly clock: Clock,
+    private readonly calendar: BusinessCalendar,
   ) {}
 
   async run(request: { tenantId: string; customerId: string }): Promise<{ summary: CustomerBalanceResponse; movements: StatementMovement[] }> {
     const tenantId = TenantId.of(request.tenantId);
-    const today = ReceivablesDate.fromDate(this.clock.now());
+    const today = ReceivablesDate.of(await this.calendar.today(request.tenantId));
     const customer = await this.ledger.customer(tenantId, request.customerId);
 
     if (!customer) throw new ReceivableCustomerNotFoundError(request.customerId);

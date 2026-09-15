@@ -44,13 +44,13 @@ export function describeReceivablesPortsContract(implementation: string, createH
       const id = PaymentId.of(`d0000000-0000-4000-8000-${next()}`);
 
       await ports.payments.save(
-        CustomerPayment.draft(id, tenant, `COB${next().slice(-6)}`, { customerId, date: ReceivablesDate.of(TODAY), method: 'transfer', reference: 'TRF', notes: 'contrato', allocations }, NOW),
+        CustomerPayment.draft(id, tenant, `COB${next().slice(-6)}`, { customerId, date: ReceivablesDate.of(TODAY), method: 'transfer', reference: 'TRF', notes: 'contrato', allocations }, NOW, TODAY),
       );
 
       return id;
     }
 
-    const confirm = (id: PaymentId) => ports.posting.post(tenant, id, (payment, invoices) => payment.confirm(invoices, NOW));
+    const confirm = (id: PaymentId) => ports.posting.post(tenant, id, (payment, invoices) => payment.confirm(invoices, NOW, TODAY));
     const cancel = (id: PaymentId) => ports.posting.post(tenant, id, (payment) => payment.cancel(NOW));
     const invoice = async (id = INVOICE) => (await ports.ledger.invoices(tenant, { ids: [id] }))[0];
 
@@ -62,7 +62,7 @@ export function describeReceivablesPortsContract(implementation: string, createH
         expect(stored.toPrimitives()).toMatchObject({ status: 'draft', amount: 40.3, paymentDate: TODAY, method: 'transfer', notes: 'contrato' });
 
         const kept = stored.toPrimitives().allocations[0];
-        stored.update({ customerId: CUSTOMER, date: ReceivablesDate.of('2026-01-10'), method: 'cash', allocations: [{ ...kept, amount: 12 }] }, NOW);
+        stored.update({ customerId: CUSTOMER, date: ReceivablesDate.of('2026-01-10'), method: 'cash', allocations: [{ ...kept, amount: 12 }] }, NOW, TODAY);
         await ports.payments.save(stored);
 
         expect((await ports.payments.find(tenant, id))?.toPrimitives()).toMatchObject({ method: 'cash', amount: 12, paymentDate: '2026-01-10', reference: null, allocations: [{ ...kept, amount: 12 }] });

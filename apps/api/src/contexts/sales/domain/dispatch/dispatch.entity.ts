@@ -70,8 +70,9 @@ export class Dispatch {
     order: { id: SalesOrderId; warehouseId: WarehouseRef },
     details: DispatchDetails,
     now: Date,
+    today: string,
   ): Dispatch {
-    return new Dispatch(id, tenantId, code, order.id, order.warehouseId, validated(details, now), 'draft', null, null, now, now);
+    return new Dispatch(id, tenantId, code, order.id, order.warehouseId, validated(details, today), 'draft', null, null, now, now);
   }
 
   static fromPrimitives(row: DispatchPrimitives): Dispatch {
@@ -128,10 +129,10 @@ export class Dispatch {
     return [...this.details.lines];
   }
 
-  update(details: DispatchDetails, now: Date): void {
+  update(details: DispatchDetails, now: Date, today: string): void {
     if (this.status !== 'draft') throw new DispatchNotEditableError(this.id.value, this.status);
 
-    this.details = validated(details, now);
+    this.details = validated(details, today);
     this.updatedAt = now;
   }
 
@@ -154,7 +155,7 @@ export class Dispatch {
   }
 }
 
-function validated(details: DispatchDetails, now: Date): DispatchDetails {
+function validated(details: DispatchDetails, today: string): DispatchDetails {
   if (details.lines.length === 0) throw new EmptyDispatchError();
 
   const seen = new Set<string>();
@@ -164,7 +165,7 @@ function validated(details: DispatchDetails, now: Date): DispatchDetails {
     seen.add(line.orderLineId.value);
   }
 
-  details.date.ensureNotAfter(now);
+  details.date.ensureNotAfter(today);
 
   return { ...details, notes: optionalText(details.notes, NOTES_MAX, 'DispatchNotes') };
 }

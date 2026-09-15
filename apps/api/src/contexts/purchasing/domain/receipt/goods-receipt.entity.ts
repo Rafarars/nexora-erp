@@ -69,8 +69,9 @@ export class GoodsReceipt {
     order: { id: PurchaseOrderId; warehouseId: WarehouseRef },
     details: GoodsReceiptDetails,
     now: Date,
+    today: string,
   ): GoodsReceipt {
-    return new GoodsReceipt(id, tenantId, code, order.id, order.warehouseId, validated(details, now), 'draft', null, null, now, now);
+    return new GoodsReceipt(id, tenantId, code, order.id, order.warehouseId, validated(details, today), 'draft', null, null, now, now);
   }
 
   static fromPrimitives(row: GoodsReceiptPrimitives): GoodsReceipt {
@@ -127,10 +128,10 @@ export class GoodsReceipt {
     return [...this.details.lines];
   }
 
-  update(details: GoodsReceiptDetails, now: Date): void {
+  update(details: GoodsReceiptDetails, now: Date, today: string): void {
     if (this.status !== 'draft') throw new GoodsReceiptNotEditableError(this.id.value, this.status);
 
-    this.details = validated(details, now);
+    this.details = validated(details, today);
     this.updatedAt = now;
   }
 
@@ -151,7 +152,7 @@ export class GoodsReceipt {
   }
 }
 
-function validated(details: GoodsReceiptDetails, now: Date): GoodsReceiptDetails {
+function validated(details: GoodsReceiptDetails, today: string): GoodsReceiptDetails {
   if (details.lines.length === 0) throw new EmptyGoodsReceiptError();
 
   const seen = new Set<string>();
@@ -161,7 +162,7 @@ function validated(details: GoodsReceiptDetails, now: Date): GoodsReceiptDetails
     seen.add(line.orderLineId.value);
   }
 
-  details.date.ensureNotAfter(now);
+  details.date.ensureNotAfter(today);
 
   return { ...details, notes: optionalText(details.notes, NOTES_MAX, 'GoodsReceiptNotes') };
 }

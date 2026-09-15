@@ -1,6 +1,7 @@
+import { BUSINESS_CALENDAR } from '../../../shared/domain/ports/business-calendar.js';
+import type { BusinessCalendar } from '../../../shared/domain/ports/business-calendar.js';
 import { Module } from '@nestjs/common';
-import type { Clock } from '../../../shared/domain/ports/clock.js';
-import { CLOCK } from '../../../shared/domain/ports/clock.js';
+import { CompanyModule } from '../../company/infrastructure/company.module.js';
 import { SharedModule } from '../../../shared/infrastructure/shared.module.js';
 import { PrismaModule } from '../../../shared/prisma/prisma.module.js';
 import { CustomerStatementReport } from '../application/customer-statement/customer-statement-report.js';
@@ -28,7 +29,7 @@ import { PdfExcelReportRenderer } from './rendering/report-renderer.js';
 // El cableado de los reportes. No importa ningun modulo: lee las tablas de los demas por su
 // adaptador y no escribe nada.
 @Module({
-  imports: [PrismaModule, SharedModule],
+  imports: [PrismaModule, SharedModule, CompanyModule],
   controllers: [
     SearchDashboardGetController,
     ReceivablesAgingGetController,
@@ -43,9 +44,9 @@ import { PdfExcelReportRenderer } from './rendering/report-renderer.js';
   providers: [
     { provide: REPORTING_READ_MODEL, useClass: PrismaReportingReadModel },
     { provide: REPORT_RENDERER, useClass: PdfExcelReportRenderer },
-    { provide: DashboardSearcher, useFactory: (r: ReportingReadModel, k: Clock) => new DashboardSearcher(r, k), inject: [REPORTING_READ_MODEL, CLOCK] },
-    { provide: ReceivablesAgingReport, useFactory: (r: ReportingReadModel, k: Clock) => new ReceivablesAgingReport(r, k), inject: [REPORTING_READ_MODEL, CLOCK] },
-    { provide: CustomerStatementReport, useFactory: (r: ReportingReadModel, k: Clock) => new CustomerStatementReport(r, k), inject: [REPORTING_READ_MODEL, CLOCK] },
+    { provide: DashboardSearcher, useFactory: (r: ReportingReadModel, cal: BusinessCalendar) => new DashboardSearcher(r, cal), inject: [REPORTING_READ_MODEL, BUSINESS_CALENDAR] },
+    { provide: ReceivablesAgingReport, useFactory: (r: ReportingReadModel, cal: BusinessCalendar) => new ReceivablesAgingReport(r, cal), inject: [REPORTING_READ_MODEL, BUSINESS_CALENDAR] },
+    { provide: CustomerStatementReport, useFactory: (r: ReportingReadModel, cal: BusinessCalendar) => new CustomerStatementReport(r, cal), inject: [REPORTING_READ_MODEL, BUSINESS_CALENDAR] },
     { provide: SalesByCustomerReport, useFactory: (r: ReportingReadModel) => new SalesByCustomerReport(r), inject: [REPORTING_READ_MODEL] },
     { provide: InventoryValuationReport, useFactory: (r: ReportingReadModel) => new InventoryValuationReport(r), inject: [REPORTING_READ_MODEL] },
     {

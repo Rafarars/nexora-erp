@@ -1,4 +1,5 @@
 import { Clock } from '../../../../shared/domain/ports/clock.js';
+import { BusinessCalendar } from '../../../../shared/domain/ports/business-calendar.js';
 import { AdjustmentDate } from '../../domain/adjustment/adjustment-date.vo.js';
 import { AdjustmentId } from '../../domain/adjustment/adjustment.entity.js';
 import { AdjustmentRepository } from '../../domain/adjustment/adjustment.repository.js';
@@ -19,21 +20,24 @@ export class AdjustmentUpdater {
     private readonly factory: AdjustmentLineFactory,
     private readonly adjustments: AdjustmentRepository,
     private readonly clock: Clock,
+    private readonly calendar: BusinessCalendar,
   ) {}
 
   async run(request: AdjustmentUpdaterRequest): Promise<void> {
     const tenantId = TenantId.of(request.tenantId);
     const adjustment = await this.finder.find(tenantId, AdjustmentId.of(request.adjustmentId));
     const now = this.clock.now();
+    const today = await this.calendar.today(request.tenantId);
 
     adjustment.update(
       {
         warehouseId: await this.factory.warehouse(tenantId, request.warehouseId),
-        date: request.date ? AdjustmentDate.of(request.date) : AdjustmentDate.fromDate(now),
+        date: request.date ? AdjustmentDate.of(request.date) : AdjustmentDate.of(today),
         notes: request.notes ?? null,
         lines: await this.factory.lines(tenantId, request.lines),
       },
       now,
+      today,
     );
 
     await this.adjustments.save(adjustment);

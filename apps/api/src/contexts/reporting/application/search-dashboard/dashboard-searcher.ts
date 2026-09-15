@@ -1,4 +1,4 @@
-import { Clock } from '../../../../shared/domain/ports/clock.js';
+import { BusinessCalendar } from '../../../../shared/domain/ports/business-calendar.js';
 import { ReportPeriod } from '../../domain/period/report-period.js';
 import { ReportingReadModel } from '../../domain/read-model/reporting-read-model.js';
 import { centsToNumber, toCents } from '../../domain/shared/money.js';
@@ -24,12 +24,12 @@ const TOP = 5;
 export class DashboardSearcher {
   constructor(
     private readonly readModel: ReportingReadModel,
-    private readonly clock: Clock,
+    private readonly calendar: BusinessCalendar,
   ) {}
 
   async run(request: { tenantId: string }): Promise<DashboardResponse> {
     const tenantId = TenantId.of(request.tenantId);
-    const today = ReportDate.fromDate(this.clock.now());
+    const today = ReportDate.of(await this.calendar.today(request.tenantId));
     const month = ReportPeriod.monthToDate(today);
 
     const [sales, purchases, collected, invoices, customers, items, stock] = await Promise.all([

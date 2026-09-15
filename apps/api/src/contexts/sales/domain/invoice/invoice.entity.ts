@@ -68,13 +68,13 @@ export interface InvoiceIssue {
 export class Invoice {
   private constructor(private row: InvoicePrimitives) {}
 
-  static issue(id: InvoiceId, tenantId: TenantId, code: string, issue: InvoiceIssue, now: Date): Invoice {
+  static issue(id: InvoiceId, tenantId: TenantId, code: string, issue: InvoiceIssue, now: Date, today: string): Invoice {
     const { dispatch, order } = issue;
 
     if (dispatch.currentStatus() !== 'confirmed') throw new DispatchNotInvoiceableError(dispatch.id.value, dispatch.currentStatus());
     if (issue.alreadyInvoiced) throw new DispatchAlreadyInvoicedError(dispatch.id.value);
 
-    issue.date.ensureNotAfter(now);
+    issue.date.ensureNotAfter(today);
 
     const lines = dispatch.lines().map((line, index) => {
       const orderLine = order.line(line.orderLineId);

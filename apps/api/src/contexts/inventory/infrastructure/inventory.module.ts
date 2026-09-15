@@ -1,9 +1,12 @@
+import { BUSINESS_CALENDAR } from '../../../shared/domain/ports/business-calendar.js';
+import type { BusinessCalendar } from '../../../shared/domain/ports/business-calendar.js';
 import { Module } from '@nestjs/common';
 import type { Clock } from '../../../shared/domain/ports/clock.js';
 import { CLOCK } from '../../../shared/domain/ports/clock.js';
 import type { IdGenerator } from '../../../shared/domain/ports/id-generator.js';
 import { ID_GENERATOR } from '../../../shared/domain/ports/id-generator.js';
 import { DOCUMENT_STOCK_POSTING } from '../../../shared/prisma/document-stock-posting.js';
+import { CompanyModule } from '../../company/infrastructure/company.module.js';
 import { SharedModule } from '../../../shared/infrastructure/shared.module.js';
 import { PrismaModule } from '../../../shared/prisma/prisma.module.js';
 import { AdjustmentCanceller } from '../application/cancel-adjustment/adjustment-canceller.js';
@@ -69,7 +72,7 @@ import { PrismaStockRepository } from './persistence/prisma-stock.repository.js'
 // articulos, las existencias, el kardex y los ajustes. Exporta solo la publicacion de documentos:
 // es lo unico que otro contexto puede pedirle.
 @Module({
-  imports: [PrismaModule, SharedModule],
+  imports: [PrismaModule, SharedModule, CompanyModule],
   controllers: [
     SearchItemsGetController,
     CreateItemPostController,
@@ -135,15 +138,15 @@ import { PrismaStockRepository } from './persistence/prisma-stock.repository.js'
 
     {
       provide: AdjustmentCreator,
-      useFactory: (f: AdjustmentLineFactory, r: AdjustmentRepository, c: InventoryCodeSequence, i: IdGenerator, k: Clock) =>
-        new AdjustmentCreator(f, r, c, i, k),
-      inject: [AdjustmentLineFactory, ADJUSTMENT_REPOSITORY, INVENTORY_CODE_SEQUENCE, ID_GENERATOR, CLOCK],
+      useFactory: (f: AdjustmentLineFactory, r: AdjustmentRepository, c: InventoryCodeSequence, i: IdGenerator, k: Clock, cal: BusinessCalendar) =>
+        new AdjustmentCreator(f, r, c, i, k, cal),
+      inject: [AdjustmentLineFactory, ADJUSTMENT_REPOSITORY, INVENTORY_CODE_SEQUENCE, ID_GENERATOR, CLOCK, BUSINESS_CALENDAR],
     },
     {
       provide: AdjustmentUpdater,
-      useFactory: (finder: AdjustmentFinder, f: AdjustmentLineFactory, r: AdjustmentRepository, k: Clock) =>
-        new AdjustmentUpdater(finder, f, r, k),
-      inject: [AdjustmentFinder, AdjustmentLineFactory, ADJUSTMENT_REPOSITORY, CLOCK],
+      useFactory: (finder: AdjustmentFinder, f: AdjustmentLineFactory, r: AdjustmentRepository, k: Clock, cal: BusinessCalendar) =>
+        new AdjustmentUpdater(finder, f, r, k, cal),
+      inject: [AdjustmentFinder, AdjustmentLineFactory, ADJUSTMENT_REPOSITORY, CLOCK, BUSINESS_CALENDAR],
     },
     {
       provide: AdjustmentConfirmer,
@@ -153,9 +156,8 @@ import { PrismaStockRepository } from './persistence/prisma-stock.repository.js'
         r: AdjustmentRepository,
         p: AdjustmentPosting,
         c: AdjustmentConfirmation,
-        k: Clock,
-      ) => new AdjustmentConfirmer(finder, f, r, p, c, k),
-      inject: [AdjustmentFinder, AdjustmentLineFactory, ADJUSTMENT_REPOSITORY, ADJUSTMENT_POSTING, AdjustmentConfirmation, CLOCK],
+        k: Clock, cal: BusinessCalendar) => new AdjustmentConfirmer(finder, f, r, p, c, k, cal),
+      inject: [AdjustmentFinder, AdjustmentLineFactory, ADJUSTMENT_REPOSITORY, ADJUSTMENT_POSTING, AdjustmentConfirmation, CLOCK, BUSINESS_CALENDAR],
     },
     {
       provide: AdjustmentCanceller,

@@ -1,4 +1,4 @@
-import { Clock } from '../../../../shared/domain/ports/clock.js';
+import { BusinessCalendar } from '../../../../shared/domain/ports/business-calendar.js';
 import { ReportCustomerNotFoundError } from '../../domain/errors/reporting.errors.js';
 import { ReportCustomer, ReportingReadModel } from '../../domain/read-model/reporting-read-model.js';
 import { centsToNumber, toCents } from '../../domain/shared/money.js';
@@ -18,12 +18,12 @@ export interface CustomerStatementResponse {
 export class CustomerStatementReport {
   constructor(
     private readonly readModel: ReportingReadModel,
-    private readonly clock: Clock,
+    private readonly calendar: BusinessCalendar,
   ) {}
 
   async run(request: { tenantId: string; customerId: string }): Promise<CustomerStatementResponse> {
     const tenantId = TenantId.of(request.tenantId);
-    const today = ReportDate.fromDate(this.clock.now());
+    const today = ReportDate.of(await this.calendar.today(request.tenantId));
     const customer = (await this.readModel.customers(tenantId)).find((candidate) => candidate.id === request.customerId);
 
     if (!customer) throw new ReportCustomerNotFoundError(request.customerId);

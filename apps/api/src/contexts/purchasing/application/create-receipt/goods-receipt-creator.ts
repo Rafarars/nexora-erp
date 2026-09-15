@@ -1,4 +1,5 @@
 import { Clock } from '../../../../shared/domain/ports/clock.js';
+import { BusinessCalendar } from '../../../../shared/domain/ports/business-calendar.js';
 import { IdGenerator } from '../../../../shared/domain/ports/id-generator.js';
 import { PurchaseOrderFinder } from '../../domain/order/find/purchase-order-finder.js';
 import { PurchaseOrderId } from '../../domain/order/purchase-order.entity.js';
@@ -29,24 +30,26 @@ export class GoodsReceiptCreator {
     private readonly codes: PurchasingCodeSequence,
     private readonly ids: IdGenerator,
     private readonly clock: Clock,
+    private readonly calendar: BusinessCalendar,
   ) {}
 
   async run(request: GoodsReceiptCreatorRequest): Promise<void> {
     const tenantId = TenantId.of(request.tenantId);
     const now = this.clock.now();
+    const today = await this.calendar.today(request.tenantId);
     const order = await this.orders.find(tenantId, PurchaseOrderId.of(request.orderId));
     const details = {
-      date: request.date ? PurchaseDate.of(request.date) : PurchaseDate.fromDate(now),
+      date: request.date ? PurchaseDate.of(request.date) : PurchaseDate.of(today),
       notes: request.notes ?? null,
       lines: await this.factory.lines(tenantId, order, request.lines),
     };
     const id = GoodsReceiptId.of(this.ids.next());
     const target = { id: order.id, warehouseId: order.warehouseId() };
 
-    GoodsReceipt.draft(id, tenantId, purchasingCode('ENT', 0), target, details, now);
+    GoodsReceipt.draft(id, tenantId, purchasingCode('ENT', 0), target, details, now, today);
 
     const code = purchasingCode('ENT', await this.codes.next(tenantId, 'ENT'));
 
-    await this.receipts.save(GoodsReceipt.draft(id, tenantId, code, target, details, now));
+    await this.receipts.save(GoodsReceipt.draft(id, tenantId, code, target, details, now, today));
   }
 }

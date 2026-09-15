@@ -46,7 +46,7 @@ function aDispatch(order: SalesOrder, lines: DispatchLine[], date = TODAY): Disp
     date: SalesDate.of(date),
     notes: null,
     lines,
-  }, NOW);
+  }, NOW, TODAY);
 }
 
 function aConfirmedDispatch(order: SalesOrder, lines: DispatchLine[]): Dispatch {
@@ -68,7 +68,7 @@ const issue = (dispatch: Dispatch, order: SalesOrder, overrides: { alreadyInvoic
     date: SalesDate.of(TODAY),
     notes: null,
     lineIds: nextId,
-  }, NOW);
+  }, NOW, TODAY);
 
 describe('Dispatch', () => {
   it('needs lines, each order line once', () => {

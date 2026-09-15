@@ -85,7 +85,7 @@ export function aDraftOrder(lines: PurchaseOrderLine[] = [anOrderLine()], id = '
     expectedDate: null,
     notes: null,
     lines,
-  }, NOW);
+  }, NOW, TODAY);
 }
 
 export function aConfirmedOrder(lines: PurchaseOrderLine[] = [anOrderLine()]): PurchaseOrder {
