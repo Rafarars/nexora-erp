@@ -437,6 +437,21 @@ Informe completo en [`revision/inventario/articulos.md`](revision/inventario/art
 | 6 · Servicios (H3) | Corregir documentación y pantalla. Comprar y vender servicios se hace en Compras y Facturas con la regla del compañero: la línea de servicio no cuenta para recibido o despachado | ⬜ |
 | 7 · Cierre | Informe, checklist en ✅, `make verify` | ⬜ |
 
+**Dónde quedamos (15-sep-2026).** Fases 1 y 2 de Artículos cerradas. Fase 3, configuración de la empresa y monedas:
+investigada, decidida y con el **paso 1 hecho** (contexto `company`, datos, parámetros, monedas, «hoy» por zona horaria,
+RIF en reportes; CI en verde en `32a829f`). **Sigue el paso 2, monedas y tasas**, sin empezar:
+
+- Tasas por empresa, moneda, fecha y tipo (`legal` del BCV o `manual`), **cargadas a mano**. Una por moneda, fecha y
+  tipo; cargar la misma combinación la corrige. Una tasa errada no se borra: se desactiva.
+- Semántica del compañero: `rate` = bolívares por 1 unidad de la moneda; el bolívar no lleva tasa.
+- Resolución de la tasa de un documento: la de su fecha o la **última anterior**, nunca una posterior; sin tasa, el
+  documento en esa moneda no se emite.
+- Pantalla en Administración › Empresa (sección de tasas), permisos propios, e2e y documentación en
+  [`modulos/empresa.md`](modulos/empresa.md).
+- Después: paso 3 compras, paso 4 ventas y cobranza (importes en bolívares en factura y cobro, diferencial cambiario,
+  redondeo según los decimales de la empresa), paso 5 reportes. Detalle en
+  [`revision/temas/configuracion-empresa.md`](revision/temas/configuracion-empresa.md) §8.
+
 **Decisiones de Rafael que no hay que volver a discutir:**
 
 - Artículos va bajo **Inventario**, también el código («con hexagonal es más sencillo migrar todo»)
