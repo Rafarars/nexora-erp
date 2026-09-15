@@ -1,4 +1,5 @@
 import { IdGenerator } from '../../../../../shared/domain/ports/id-generator.js';
+import { InactiveStockItemError, ServiceHasNoStockError } from '../../errors/inventory.errors.js';
 import { MovementId, MovementOrigin, StockDirection } from '../../movement/inventory-movement.entity.js';
 import { Quantity } from '../../quantity/quantity.vo.js';
 import { UnitCost } from '../../quantity/unit-cost.vo.js';
@@ -26,6 +27,8 @@ export class StockMovements {
   record(ledger: Ledger, document: { type: MovementOrigin['type']; id: string }, entries: StockEntry[], now: Date): StockChanges {
     const touched = new Map<string, ItemStock>();
     const movements = entries.map((entry) => {
+      ensureMovable(ledger, entry.itemId);
+
       const stock = ledger.stock(entry.itemId, entry.warehouseId);
       const origin = { type: document.type, id: document.id, lineId: entry.lineId };
       const id = MovementId.of(this.ids.next());
@@ -48,6 +51,8 @@ export class StockMovements {
     const movements = [...originals]
       .sort((a, b) => b.sequence - a.sequence)
       .map((original) => {
+        ensureMovable(ledger, original.itemId);
+
         const stock = ledger.stock(original.itemId, original.warehouseId);
         touched.set(keyOf(stock), stock);
 
@@ -61,6 +66,16 @@ export class StockMovements {
 
     return { stocks: [...touched.values()], movements };
   }
+}
+
+// El documento se valido contra el catalogo antes de bloquear nada: si entretanto el articulo se
+// desactivo o se volvio servicio, no mueve existencia. Tampoco al anular: devolveria mercancia a
+// un articulo que ya no se ofrece, o la sacaria de uno que no puede tenerla.
+function ensureMovable(ledger: Ledger, itemId: ItemRef): void {
+  const item = ledger.item(itemId);
+
+  if (!item.isActive) throw new InactiveStockItemError(itemId.value);
+  if (item.type === 'service') throw new ServiceHasNoStockError(itemId.value);
 }
 
 // Por articulo Y bodega: un documento podria tocar el mismo articulo en dos bodegas.

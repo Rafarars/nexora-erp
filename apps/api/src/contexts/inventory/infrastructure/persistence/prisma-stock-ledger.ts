@@ -1,3 +1,4 @@
+import { lockCatalogItems } from '../../../../shared/prisma/catalog-items.js';
 import type { TransactionClient } from '../../../../shared/prisma/document-stock-posting.js';
 import { InventoryMovement, MovementOriginType } from '../../domain/movement/inventory-movement.entity.js';
 import { ItemRef, WarehouseRef } from '../../domain/shared/references.vo.js';
@@ -21,8 +22,9 @@ export async function movementsOf(tx: TransactionClient, tenantId: string, type:
   return rows.map(movementFromRow);
 }
 
-// Crea las existencias que falten y las bloquea. Si el trabajo que sigue lanza, la
-// transaccion revierte tambien las filas creadas.
+// Bloquea los articulos en modo compartido y despues crea las existencias que falten y las
+// bloquea, siempre en ese orden. Si el trabajo que sigue lanza, la transaccion revierte tambien
+// las filas creadas.
 export async function lockedLedger(
   tx: TransactionClient,
   tenantId: string,
@@ -32,6 +34,7 @@ export async function lockedLedger(
   const unique = [...new Map(keys.map(([item, warehouse]) => [keyOf(item, warehouse), [item, warehouse] as const])).values()].sort(
     ([a, b], [c, d]) => a.localeCompare(c) || b.localeCompare(d),
   );
+  const items = await lockCatalogItems(tx, tenantId, unique.map(([itemId]) => itemId));
   const stocks = new Map<string, ItemStock>();
 
   for (const [itemId, warehouseId] of unique) {
@@ -52,6 +55,14 @@ export async function lockedLedger(
   }
 
   return {
+    item: (itemId: ItemRef) => {
+      const item = items.get(itemId.value);
+
+      // No deberia pasar: la clave ajena impide existencia de un articulo que no existe.
+      if (!item) throw new Error(`Item <${itemId.value}> was not locked.`);
+
+      return { isActive: item.isActive, type: item.type, factorOf: (unitId) => item.factorOf(unitId.value) };
+    },
     stock: (itemId: ItemRef, warehouseId: WarehouseRef) => {
       const stock = stocks.get(keyOf(itemId.value, warehouseId.value));
 

@@ -16,8 +16,8 @@ import { InMemoryMovementDocuments } from '../../infrastructure/testing/in-memor
 export function anInventoryScenario() {
   const clock = new FixedClock(NOW);
   const ids = new SequentialIdGenerator();
-  const store = new InMemoryInventoryStore(() => clock.now());
   const catalog = new InMemoryInventoryCatalog(stockableItems(), stockWarehouses());
+  const store = new InMemoryInventoryStore(catalog, () => clock.now());
 
   return {
     clock,

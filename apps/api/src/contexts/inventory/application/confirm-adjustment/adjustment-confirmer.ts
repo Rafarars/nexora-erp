@@ -3,6 +3,7 @@ import { AdjustmentId } from '../../domain/adjustment/adjustment.entity.js';
 import { AdjustmentRepository } from '../../domain/adjustment/adjustment.repository.js';
 import { AdjustmentFinder } from '../../domain/adjustment/find/adjustment-finder.js';
 import { AdjustmentLineFactory } from '../../domain/adjustment/lines/adjustment-line-factory.js';
+import { ensureBaseQuantitiesUnchanged } from '../../domain/adjustment/lines/unchanged-base-quantities.js';
 import { AdjustmentConfirmation } from '../../domain/adjustment/posting/adjustment-confirmation.js';
 import { AdjustmentPosting } from '../../domain/adjustment/posting/adjustment-posting.js';
 import { TenantId } from '../../domain/shared/tenant-id.vo.js';
@@ -22,21 +23,23 @@ export class AdjustmentConfirmer {
     const adjustment = await this.finder.find(tenantId, AdjustmentId.of(request.adjustmentId));
     const now = this.clock.now();
 
-    // El borrador pudo quedar viejo: el articulo se desactivo, o su caja paso de 24 a 12.
-    // Se revalida con el catalogo de hoy y se recalculan las cantidades base antes de mover
-    // nada. Si ya no es borrador, `update` lo rechaza aqui mismo.
+    // El borrador pudo quedar viejo: se revalida con el catalogo de hoy antes de mover nada. Si el
+    // articulo se desactivo, se rechaza; si su caja paso de 24 a 12, tambien, para que la persona
+    // revise las cantidades y guarde el borrador. Si ya no es borrador, `update` lo rechaza.
     if (adjustment.currentStatus() === 'draft') {
       const primitives = adjustment.toPrimitives();
+      const lines = await this.factory.lines(
+        tenantId,
+        primitives.lines.map(({ itemId, unitId, direction, quantity, unitCost }) => ({ itemId, unitId, direction, quantity, unitCost })),
+      );
 
+      ensureBaseQuantitiesUnchanged(adjustment.lines(), lines);
       adjustment.update(
         {
           warehouseId: await this.factory.warehouse(tenantId, primitives.warehouseId),
           date: adjustment.date(),
           notes: primitives.notes,
-          lines: await this.factory.lines(
-            tenantId,
-            primitives.lines.map(({ itemId, unitId, direction, quantity, unitCost }) => ({ itemId, unitId, direction, quantity, unitCost })),
-          ),
+          lines,
         },
         now,
       );

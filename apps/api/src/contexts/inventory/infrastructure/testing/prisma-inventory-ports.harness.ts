@@ -62,16 +62,27 @@ export class PrismaInventoryPortsHarness implements InventoryPortsHarness {
       await this.prisma.warehouse.upsert({ where: { id }, create: { id, tenantId: TENANT_A, code, name }, update: {} });
     }
 
+    // Activo en cada vuelta: una prueba lo desactiva.
     await this.prisma.item.upsert({
       where: { id: WATER },
       create: { id: WATER, tenantId: TENANT_A, code: 'ART900001', sku: 'CONTRATO-AGUA', name: 'Contrato agua', type: 'inventoried' },
-      update: {},
+      update: { isActive: true },
     });
-    await this.prisma.itemUnit.upsert({
-      where: { itemId_unitId: { itemId: WATER, unitId: PIECE } },
-      create: { tenantId: TENANT_A, itemId: WATER, unitId: PIECE, conversionFactor: 1, isBase: true },
-      update: {},
-    });
+
+    for (const [unitId, factor, isBase] of [
+      [PIECE, 1, true],
+      [BOX, 24, false],
+    ] as const) {
+      await this.prisma.itemUnit.upsert({
+        where: { itemId_unitId: { itemId: WATER, unitId } },
+        create: { tenantId: TENANT_A, itemId: WATER, unitId, conversionFactor: factor, isBase },
+        update: {},
+      });
+    }
+  }
+
+  async deactivateItem(itemId: string): Promise<void> {
+    await this.prisma.item.update({ where: { id: itemId }, data: { isActive: false } });
   }
 
   async close(): Promise<void> {

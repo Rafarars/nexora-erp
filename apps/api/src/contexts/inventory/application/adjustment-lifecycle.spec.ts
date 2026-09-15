@@ -5,6 +5,7 @@ import {
   AdjustmentNotFoundError,
   InactiveStockItemError,
   InsufficientStockError,
+  StockItemChangedError,
   StockItemNotFoundError,
   StockWarehouseNotFoundError,
 } from '../domain/errors/inventory.errors.js';
@@ -145,14 +146,19 @@ describe('confirming', () => {
     expect((await useCases(s).adjustments.run({ tenantId: TENANT_A })).adjustments[0].status).toBe('draft');
   });
 
-  // El borrador se escribio cuando la caja traia 24; hoy trae 12. Se confirma con lo de hoy.
-  it('recalculates base quantities with the conversion the item has today', async () => {
+  // El borrador se escribio cuando la caja traia 24; hoy trae 12. No entra en silencio como 120:
+  // se revisa, se guarda (guardar recalcula con lo de hoy) y se confirma.
+  it('refuses to confirm a draft whose box changed until it is saved again', async () => {
     const s = anInventoryScenario();
     const id = await created(s);
     (s.catalog as unknown as { items: { id: string; units: { conversionFactor: number }[] }[] }).items.find(
       (item) => item.id === WATER,
     )!.units[1].conversionFactor = 12;
 
+    await expect(useCases(s).confirm.run({ tenantId: TENANT_A, adjustmentId: id })).rejects.toThrow(StockItemChangedError);
+    expect((await useCases(s).stock.run({ tenantId: TENANT_A })).stocks).toEqual([]);
+
+    await useCases(s).update.run({ ...request(), adjustmentId: id });
     await useCases(s).confirm.run({ tenantId: TENANT_A, adjustmentId: id });
 
     expect((await useCases(s).stock.run({ tenantId: TENANT_A })).stocks[0].quantity).toBe(120);

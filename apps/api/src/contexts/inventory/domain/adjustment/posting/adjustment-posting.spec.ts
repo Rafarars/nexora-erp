@@ -1,12 +1,18 @@
 import { describe, expect, it } from 'vitest';
 import { SequentialIdGenerator } from '../../../../../shared/infrastructure/testing/sequential-id-generator.js';
+import { InMemoryInventoryCatalog } from '../../../infrastructure/testing/in-memory-inventory-catalog.js';
 import { InMemoryInventoryStore } from '../../../infrastructure/testing/in-memory-inventory-store.js';
-import { AdjustmentAlreadyCancelledError, InsufficientStockError } from '../../errors/inventory.errors.js';
+import {
+  AdjustmentAlreadyCancelledError,
+  InactiveStockItemError,
+  InsufficientStockError,
+  StockItemChangedError,
+} from '../../errors/inventory.errors.js';
 import { Quantity } from '../../quantity/quantity.vo.js';
 import { UnitCost } from '../../quantity/unit-cost.vo.js';
 import { ItemRef, UnitRef, WarehouseRef } from '../../shared/references.vo.js';
 import { TenantId } from '../../shared/tenant-id.vo.js';
-import { BOX, MAIN, NOW, PIECE, TENANT_A, TODAY, WATER } from '../../testing/inventory.mother.js';
+import { BOX, MAIN, NOW, PIECE, TENANT_A, TODAY, WATER, stockWarehouses, stockableItems } from '../../testing/inventory.mother.js';
 import { AdjustmentDate } from '../adjustment-date.vo.js';
 import { AdjustmentLine, AdjustmentLineId } from '../adjustment-line.js';
 import { Adjustment, AdjustmentId } from '../adjustment.entity.js';
@@ -46,10 +52,12 @@ async function draft(store: InMemoryInventoryStore, id: string, lines: Adjustmen
 }
 
 function world() {
-  const store = new InMemoryInventoryStore(() => NOW);
+  const catalog = new InMemoryInventoryCatalog(stockableItems(), stockWarehouses());
+  const store = new InMemoryInventoryStore(catalog, () => NOW);
   const ids = new SequentialIdGenerator();
 
   return {
+    catalog,
     store,
     confirm: (id: AdjustmentId) => store.post(tenant, id, (adjustment, ledger) => new AdjustmentConfirmation(new StockMovements(ids)).apply(adjustment, ledger, NOW)),
     cancel: (id: AdjustmentId) => store.post(tenant, id, (adjustment, ledger) => new AdjustmentCancellation(new StockMovements(ids)).apply(adjustment, ledger, NOW)),
@@ -158,4 +166,28 @@ it('confirms an adjustment once even when asked twice at the same time', async (
 
   expect(results.map((result) => result.status).sort()).toEqual(['fulfilled', 'rejected']);
   expect(await w.available()).toBe(10);
+});
+
+// El catalogo pudo cambiar entre la revalidacion del borrador y el bloqueo del ajuste.
+describe('an item that changed while the adjustment was being confirmed', () => {
+  it('refuses base quantities that no longer match the factor of the unit', async () => {
+    const w = world();
+    // Una caja de 24 anotada como 12: lo que quedaria si la caja cambio en ese instante.
+    const id = await draft(w.store, 'ad000000-0000-4000-8000-000000000901', [line('in', 12, 1, BOX, 1)]);
+
+    await expect(w.confirm(id)).rejects.toThrow(StockItemChangedError);
+    expect(await w.available()).toBe(0);
+  });
+
+  it('refuses to move the stock of an item deactivated in the meantime, also to cancel', async () => {
+    const w = world();
+    const entry = await draft(w.store, 'ad000000-0000-4000-8000-000000000902', [line('in', 5, 1)]);
+    await w.confirm(entry);
+    w.catalog.deactivate(WATER);
+    const exit = await draft(w.store, 'ad000000-0000-4000-8000-000000000903', [line('out', 5)]);
+
+    await expect(w.confirm(exit)).rejects.toThrow(InactiveStockItemError);
+    await expect(w.cancel(entry)).rejects.toThrow(InactiveStockItemError);
+    expect(await w.available()).toBe(5);
+  });
 });

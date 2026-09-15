@@ -9,7 +9,9 @@ import {
   AdjustmentAlreadyCancelledError,
   AdjustmentNotEditableError,
   AdjustmentNotFoundError,
+  InactiveStockItemError,
   InsufficientStockError,
+  StockItemChangedError,
 } from '../domain/errors/inventory.errors.js';
 import { Quantity } from '../domain/quantity/quantity.vo.js';
 import { UnitCost } from '../domain/quantity/unit-cost.vo.js';
@@ -17,7 +19,7 @@ import { ItemRef, UnitRef, WarehouseRef } from '../domain/shared/references.vo.j
 import { TenantId } from '../domain/shared/tenant-id.vo.js';
 import { StockMovements } from '../domain/stock/posting/stock-movements.js';
 
-import { MAIN, NORTH, NOW, PIECE, TENANT_A, TENANT_B, TODAY, WATER } from '../domain/testing/inventory.mother.js';
+import { BOX, MAIN, NORTH, NOW, PIECE, TENANT_A, TENANT_B, TODAY, WATER } from '../domain/testing/inventory.mother.js';
 import { InventoryPorts, InventoryPortsHarness } from './inventory-store.harness.js';
 
 const tenant = TenantId.of(TENANT_A);
@@ -185,6 +187,40 @@ export function describeInventoryPortsContract(implementation: string, createHar
         expect((await ports.adjustments.find(tenant, id))?.currentStatus()).toBe('draft');
         expect(await ports.stocks.searchStocks(tenant)).toEqual([]);
         expect(await ports.stocks.searchMovements(tenant, ItemRef.of(WATER))).toEqual([]);
+      });
+
+      // Entre la revalidacion del borrador y el bloqueo, la caja del articulo pudo cambiar: una caja
+      // de 24 anotada como 12 es lo que quedaria.
+      it('refuses base quantities that no longer match the unit of the item, and writes nothing', async () => {
+        counter += 1;
+        const boxAsTwelve = AdjustmentLine.of({
+          id: AdjustmentLineId.of(`11111111-bbbb-4bbb-8bbb-${String(counter).padStart(12, '0')}`),
+          lineNumber: 1,
+          itemId: ItemRef.of(WATER),
+          unitId: UnitRef.of(BOX),
+          direction: 'in',
+          quantity: Quantity.of(1),
+          baseQuantity: Quantity.of(12),
+          unitCost: UnitCost.of(1),
+        });
+        const id = await draft([boxAsTwelve]);
+
+        await expect(confirm(id)).rejects.toThrow(StockItemChangedError);
+        expect((await ports.adjustments.find(tenant, id))?.currentStatus()).toBe('draft');
+        expect(await ports.stocks.searchStocks(tenant)).toEqual([]);
+      });
+
+      // Lo que el catalogo ya no ofrece no mueve existencia, tampoco para anular.
+      it('refuses to move the stock of an item deactivated after it was validated', async () => {
+        const entry = await draft([line('in', 5, 1)]);
+        await confirm(entry);
+        await harness.deactivateItem(WATER);
+        const exit = await draft([line('out', 5)]);
+
+        await expect(confirm(exit)).rejects.toThrow(InactiveStockItemError);
+        await expect(cancel(entry)).rejects.toThrow(InactiveStockItemError);
+        expect(await available()).toBe(5);
+        await expectStockMatchesKardex();
       });
 
       it('answers not found for an adjustment of another tenant', async () => {

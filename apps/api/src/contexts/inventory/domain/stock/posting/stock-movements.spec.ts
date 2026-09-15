@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { SequentialIdGenerator } from '../../../../../shared/infrastructure/testing/sequential-id-generator.js';
-import { InsufficientStockError } from '../../errors/inventory.errors.js';
+import { InactiveStockItemError, InsufficientStockError, ServiceHasNoStockError } from '../../errors/inventory.errors.js';
 import { InventoryMovement } from '../../movement/inventory-movement.entity.js';
 import { Quantity } from '../../quantity/quantity.vo.js';
 import { UnitCost } from '../../quantity/unit-cost.vo.js';
@@ -8,15 +8,19 @@ import { ItemRef, WarehouseRef } from '../../shared/references.vo.js';
 import { TenantId } from '../../shared/tenant-id.vo.js';
 import { MAIN, NORTH, NOW, TENANT_A, WATER } from '../../testing/inventory.mother.js';
 import { ItemStock } from '../item-stock.entity.js';
-import { Ledger } from './stock-ledger.js';
+import { Ledger, LedgerItem } from './stock-ledger.js';
 import { StockMovements } from './stock-movements.js';
 
-// Un libro en memoria: existencias vacias que se crean al pedirlas y los movimientos ya escritos.
-function aLedger(previous: InventoryMovement[] = []): Ledger & { stocks: Map<string, ItemStock> } {
+const activeItem: LedgerItem = { isActive: true, type: 'inventoried', factorOf: () => 1 };
+
+// Un libro en memoria: el articulo como esta en el catalogo, existencias vacias que se crean al
+// pedirlas y los movimientos ya escritos.
+function aLedger(previous: InventoryMovement[] = [], item: LedgerItem = activeItem): Ledger & { stocks: Map<string, ItemStock> } {
   const stocks = new Map<string, ItemStock>();
 
   return {
     stocks,
+    item: () => item,
     stock: (itemId, warehouseId) => {
       const key = `${itemId.value}|${warehouseId.value}`;
       const stock = stocks.get(key) ?? ItemStock.empty(TenantId.of(TENANT_A), itemId, warehouseId, NOW);
@@ -95,9 +99,34 @@ describe('StockMovements', () => {
 
     expect(() => movements.reverse(aLedgerSharing(ledger, written), document, NOW)).toThrow(InsufficientStockError);
   });
+
+  // El documento se valido contra el catalogo antes del bloqueo: si entretanto el articulo dejo de
+  // ofrecerse o se volvio servicio, no mueve existencia.
+  it('moves nothing for an item that became inactive or a service', () => {
+    const movements = new StockMovements(new SequentialIdGenerator());
+    const origin = { type: 'adjustment' as const, id: 'ad000000-0000-4000-8000-000000000001' };
+
+    expect(() => movements.record(aLedger([], { ...activeItem, isActive: false }), origin, [entry(MAIN, 'in', 5, 1)], NOW)).toThrow(
+      InactiveStockItemError,
+    );
+    expect(() => movements.record(aLedger([], { ...activeItem, type: 'service' }), origin, [entry(MAIN, 'in', 5, 1)], NOW)).toThrow(
+      ServiceHasNoStockError,
+    );
+  });
+
+  // Anular devolveria mercancia a un articulo que ya no se ofrece.
+  it('does not reverse the movements of an item that became inactive', () => {
+    const movements = new StockMovements(new SequentialIdGenerator());
+    const origin = { type: 'adjustment' as const, id: 'ad000000-0000-4000-8000-000000000002' };
+    const ledger = aLedger();
+    const { movements: written } = movements.record(ledger, origin, [entry(MAIN, 'in', 5, 1)], NOW);
+    const inactive = { ...aLedgerSharing(ledger, written), item: () => ({ ...activeItem, isActive: false }) };
+
+    expect(() => movements.reverse(inactive, origin, NOW)).toThrow(InactiveStockItemError);
+  });
 });
 
 // El mismo libro, pero sabiendo que movimientos escribio el documento que se revierte.
 function aLedgerSharing(ledger: ReturnType<typeof aLedger>, previous: InventoryMovement[]): Ledger {
-  return { stock: ledger.stock, movementsOf: () => previous };
+  return { item: ledger.item, stock: ledger.stock, movementsOf: () => previous };
 }

@@ -14,6 +14,8 @@ export interface InventoryPorts {
 // bodegas del object mother: sin ellos la base rechazaria cada fila.
 export interface InventoryPortsHarness {
   ports(): InventoryPorts;
+  // Desactiva un articulo del catalogo sembrado, como lo haria el catalogo.
+  deactivateItem(itemId: string): Promise<void>;
   reset(): Promise<void>;
   close(): Promise<void>;
 }

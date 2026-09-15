@@ -17,6 +17,20 @@ export class InMemoryInventoryCatalog implements InventoryCatalog {
       .map(({ tenantId: _tenant, ...item }) => item);
   }
 
+  // Lo que en la base haria el catalogo: dejar de ofrecer un articulo.
+  deactivate(itemId: string): void {
+    const item = this.items.find((candidate) => candidate.id === itemId);
+
+    if (item) item.isActive = false;
+  }
+
+  // Lo mismo sin esperar: el libro de una publicacion lo lee dentro de un trabajo sincrono.
+  itemOf(tenantId: string, itemId: string): StockableItem | null {
+    const item = this.items.find((candidate) => candidate.tenantId === tenantId && candidate.id === itemId);
+
+    return item ?? null;
+  }
+
   async findWarehouses(tenantId: TenantId, ids: WarehouseRef[]): Promise<StockWarehouse[]> {
     const wanted = new Set(ids.map((id) => id.value));
 

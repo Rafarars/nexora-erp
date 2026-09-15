@@ -11,6 +11,7 @@ import { ItemRef, WarehouseRef } from '../../domain/shared/references.vo.js';
 import { TenantId } from '../../domain/shared/tenant-id.vo.js';
 import { ItemStock, ItemStockPrimitives } from '../../domain/stock/item-stock.entity.js';
 import { StockRepository } from '../../domain/stock/stock.repository.js';
+import { InMemoryInventoryCatalog } from './in-memory-inventory-catalog.js';
 
 const stockKey = (tenantId: string, itemId: string, warehouseId: string) => `${tenantId}|${itemId}|${warehouseId}`;
 
@@ -24,7 +25,12 @@ export class InMemoryInventoryStore implements AdjustmentRepository, StockReposi
   private movements: InventoryMovementPrimitives[] = [];
   private queue: Promise<unknown> = Promise.resolve();
 
-  constructor(private readonly now: () => Date = () => new Date()) {}
+  // El catalogo de la prueba hace de tabla de articulos: la publicacion lo lee como si lo
+  // tuviera bloqueado.
+  constructor(
+    private readonly catalog: InMemoryInventoryCatalog,
+    private readonly now: () => Date = () => new Date(),
+  ) {}
 
   // Como la base: un borrador guardado no puede pisar un ajuste que entretanto se
   // confirmo o se anulo. Los cambios de estado los escribe `post`.
@@ -96,6 +102,17 @@ export class InMemoryInventoryStore implements AdjustmentRepository, StockReposi
 
     const loaded = new Map<string, ItemStock>();
     const ledger: Ledger = {
+      item: (itemId) => {
+        const item = this.catalog.itemOf(tenantId.value, itemId.value);
+
+        if (!item) throw new Error(`Item <${itemId.value}> is not in the catalog of the test.`);
+
+        return {
+          isActive: item.isActive,
+          type: item.type,
+          factorOf: (unitId) => item.units.find((unit) => unit.unitId === unitId.value)?.conversionFactor ?? null,
+        };
+      },
       stock: (itemId, warehouseId) => {
         const key = stockKey(tenantId.value, itemId.value, warehouseId.value);
         const row = this.stocks.get(key);

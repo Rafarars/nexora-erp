@@ -24,9 +24,19 @@ export class StockWarehouseNotFoundError extends NotFoundError {
   }
 }
 
+// Guarda el articulo: compras y ventas lo traducen a su propio error sin perder cual fue.
 export class InactiveStockItemError extends ConflictError {
+  constructor(readonly itemId: string) {
+    super(`Item <${itemId}> is inactive.`, 'The adjustment uses an item that is inactive.');
+  }
+}
+
+// El articulo cambio su unidad desde que se escribio el documento, o en el instante entre
+// revalidarlo y bloquearlo: confirmar con esas cantidades base contaria otra cosa. Se revisa el
+// documento, se guarda y se vuelve a confirmar.
+export class StockItemChangedError extends ConflictError {
   constructor(id: string) {
-    super(`Item <${id}> is inactive.`, 'The adjustment uses an item that is inactive.');
+    super(`Item <${id}> changed while the document was being confirmed.`, 'An item changed since the document was written: review the document and save it again.');
   }
 }
 
@@ -38,8 +48,8 @@ export class InactiveStockWarehouseError extends ConflictError {
 
 // Un servicio se compra y se vende, pero no se guarda en ninguna bodega.
 export class ServiceHasNoStockError extends InvalidArgumentError {
-  constructor(id: string) {
-    super(`Item <${id}> is a service and has no stock.`, 'A service cannot be adjusted: it has no stock.');
+  constructor(readonly itemId: string) {
+    super(`Item <${itemId}> is a service and has no stock.`, 'A service cannot be adjusted: it has no stock.');
   }
 }
 

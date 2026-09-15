@@ -15,6 +15,7 @@ const cases: Array<[DomainError, typeof DomainError]> = [
   [new errors.AdjustmentNotConfirmableError(ID, 'cancelled'), ConflictError],
   [new errors.AdjustmentAlreadyCancelledError(ID), ConflictError],
   [new errors.ServiceHasNoStockError(ID), InvalidArgumentError],
+  [new errors.StockItemChangedError(ID), ConflictError],
   [new errors.UnitNotOfItemError(ID, ID), InvalidArgumentError],
   [new errors.EmptyAdjustmentError(), InvalidArgumentError],
   [new errors.InvalidQuantityError(-1), InvalidArgumentError],
