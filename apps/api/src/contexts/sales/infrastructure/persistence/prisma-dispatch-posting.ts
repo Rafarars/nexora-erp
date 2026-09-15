@@ -4,7 +4,7 @@ import type { DocumentStockPosting } from '../../../../shared/prisma/document-st
 import { PrismaService } from '../../../../shared/prisma/prisma.service.js';
 import { Dispatch, DispatchId } from '../../domain/dispatch/dispatch.entity.js';
 import { DispatchPosting, DispatchPostingResult } from '../../domain/dispatch/posting/dispatch-posting.js';
-import { InsufficientStockForDispatchError } from '../../domain/errors/sales.errors.js';
+import { InactiveSalesItemError, InsufficientStockForDispatchError, ServiceNotSellableError } from '../../domain/errors/sales.errors.js';
 import { SalesOrder } from '../../domain/order/sales-order.entity.js';
 import { TenantId } from '../../domain/shared/tenant-id.vo.js';
 import { lockDispatch, lockOrder, writeDispatchState, writeOrderState } from './prisma-sales-writer.js';
@@ -60,8 +60,19 @@ export class PrismaDispatchPosting implements DispatchPosting {
           throw new InsufficientStockForDispatchError(dispatch.id.value);
         }
 
+        // El articulo se desactivo o se volvio servicio: anular el despacho le devolveria mercancia.
+        if (error instanceof Error && error.name === 'InactiveStockItemError') {
+          throw new InactiveSalesItemError(itemOf(error));
+        }
+
+        if (error instanceof Error && error.name === 'ServiceHasNoStockError') {
+          throw new ServiceNotSellableError(itemOf(error));
+        }
+
         throw error;
       }
     });
   }
 }
+
+const itemOf = (error: Error) => String((error as Error & { itemId?: string }).itemId);

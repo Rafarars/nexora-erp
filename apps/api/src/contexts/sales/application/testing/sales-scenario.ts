@@ -39,8 +39,8 @@ export function aSalesScenario() {
   const clock = new FixedClock(NOW);
   const ids = new SequentialIdGenerator();
   const customers = new InMemoryCustomerRepository();
-  const store = new InMemorySalesStore(customers);
   const catalog = new InMemorySalesCatalog(sellableItems(), salesWarehouses());
+  const store = new InMemorySalesStore(customers, catalog);
   const codes = new InMemorySalesCodeSequence();
   const customerFinder = new CustomerFinder(customers);
   const uniqueness = new CustomerUniqueness(customers);

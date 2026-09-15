@@ -22,6 +22,7 @@ import { SalesOrderRepository } from '../../domain/order/sales-order.repository.
 import { Quantity } from '../../domain/shared/quantity.vo.js';
 import { TenantId } from '../../domain/shared/tenant-id.vo.js';
 import { SalesStock } from '../../domain/stock/sales-stock.js';
+import { InMemorySalesCatalog } from './in-memory-sales-catalog.js';
 
 const key = (tenantId: string, itemId: string, warehouseId: string) => `${tenantId}|${itemId}|${warehouseId}`;
 
@@ -41,7 +42,12 @@ export class InMemorySalesStore {
   private readonly paid = new Map<string, number>();
   private queue: Promise<unknown> = Promise.resolve();
 
-  constructor(private readonly customers: CustomerRepository) {}
+  // El catalogo de la prueba hace de tabla de articulos: la reserva lo lee como si lo tuviera
+  // bloqueado.
+  constructor(
+    private readonly customers: CustomerRepository,
+    private readonly catalog: InMemorySalesCatalog,
+  ) {}
 
   pay(invoiceId: string, amount: number): void {
     this.paid.set(invoiceId, (this.paid.get(invoiceId) ?? 0) + amount);
@@ -139,6 +145,17 @@ export class InMemorySalesStore {
                 .map((row) => SalesOrder.fromPrimitives(structuredClone(row)))
                 .filter((other) => other.isDispatchable())
                 .reduce((sum, other) => sum.plus(other.reservedByItem().get(itemId.value) ?? Quantity.zero()), Quantity.zero()),
+            item: (itemId) => {
+              const item = this.catalog.items.find((candidate) => candidate.tenantId === tenantId.value && candidate.id === itemId.value);
+
+              return item
+                ? {
+                    isActive: item.isActive,
+                    type: item.type,
+                    factorOf: (unitId) => item.units.find((unit) => unit.unitId === unitId.value)?.conversionFactor ?? null,
+                  }
+                : null;
+            },
           });
           this.orderRows.set(order.id.value, structuredClone(order.toPrimitives()));
         }),

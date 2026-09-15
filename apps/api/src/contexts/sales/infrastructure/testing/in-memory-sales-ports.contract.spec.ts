@@ -1,13 +1,14 @@
-import { TENANT_A } from '../../domain/testing/sales.mother.js';
+import { TENANT_A, salesWarehouses, sellableItems } from '../../domain/testing/sales.mother.js';
 import { describeSalesPortsContract } from '../../testing/sales-ports.contract.js';
 import { SalesPorts, SalesPortsHarness } from '../../testing/sales-ports.harness.js';
 import { InMemoryCustomerRepository } from './in-memory-customer.repository.js';
+import { InMemorySalesCatalog } from './in-memory-sales-catalog.js';
 import { InMemorySalesCodeSequence } from './in-memory-sales-code-sequence.js';
 import { InMemorySalesStore } from './in-memory-sales-store.js';
 
 class InMemorySalesPortsHarness implements SalesPortsHarness {
   private customers = new InMemoryCustomerRepository();
-  private store = new InMemorySalesStore(this.customers);
+  private store = new InMemorySalesStore(this.customers, new InMemorySalesCatalog(sellableItems(), salesWarehouses()));
   private current = this.build();
 
   ports(): SalesPorts {
@@ -28,7 +29,7 @@ class InMemorySalesPortsHarness implements SalesPortsHarness {
 
   async reset(): Promise<void> {
     this.customers = new InMemoryCustomerRepository();
-    this.store = new InMemorySalesStore(this.customers);
+    this.store = new InMemorySalesStore(this.customers, new InMemorySalesCatalog(sellableItems(), salesWarehouses()));
     this.current = this.build();
   }
 

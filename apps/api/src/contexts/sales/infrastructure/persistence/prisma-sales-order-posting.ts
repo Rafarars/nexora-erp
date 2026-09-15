@@ -1,4 +1,5 @@
 import { Inject, Injectable } from '@nestjs/common';
+import { lockCatalogItems } from '../../../../shared/prisma/catalog-items.js';
 import { DOCUMENT_STOCK_POSTING } from '../../../../shared/prisma/document-stock-posting.js';
 import type { DocumentStockPosting } from '../../../../shared/prisma/document-stock-posting.js';
 import { PrismaService } from '../../../../shared/prisma/prisma.service.js';
@@ -9,8 +10,9 @@ import { Quantity } from '../../domain/shared/quantity.vo.js';
 import { TenantId } from '../../domain/shared/tenant-id.vo.js';
 import { lockOrder, writeOrderState } from './prisma-sales-writer.js';
 
-// En una transaccion: bloquea el pedido, luego las filas de existencia de sus articulos en su
-// bodega (por el contrato del inventario) y solo entonces suma lo que reservan los demas pedidos.
+// En una transaccion: bloquea el pedido, luego sus articulos en modo compartido (un cambio del
+// articulo espera a la reserva), luego las filas de existencia en su bodega (por el contrato del
+// inventario) y solo entonces suma lo que reservan los demas pedidos.
 // Dos pedidos del mismo articulo bloquean la misma fila: el segundo espera y ve la reserva del
 // primero. Un pedido de un articulo sin fila de existencia la crea en cero y tambien la bloquea.
 @Injectable()
@@ -27,6 +29,7 @@ export class PrismaSalesOrderPosting implements SalesOrderPosting {
       const order = await lockOrder(tx, tenant, orderId.value);
       const warehouseId = order.warehouseId().value;
       const itemIds = [...order.reservedByItem().keys()];
+      const items = await lockCatalogItems(tx, tenant, order.lines().map((line) => line.itemId.value));
       const onHand = await this.stock.lockAvailable(tx, tenant, itemIds.map((itemId) => [itemId, warehouseId]));
 
       const reserved = await tx.$queryRaw<{ item_id: string; units: string }[]>`
@@ -50,6 +53,11 @@ export class PrismaSalesOrderPosting implements SalesOrderPosting {
       work(order, {
         onHand: (itemId) => Quantity.of(Math.max(0, onHand.get(`${itemId.value}|${warehouseId}`) ?? 0)),
         reservedByOthers: (itemId) => reservedOf(itemId.value),
+        item: (itemId) => {
+          const item = items.get(itemId.value);
+
+          return item ? { isActive: item.isActive, type: item.type, factorOf: (unitId) => item.factorOf(unitId.value) } : null;
+        },
       });
 
       await writeOrderState(tx, order);

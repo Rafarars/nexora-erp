@@ -1,6 +1,7 @@
 import { Clock } from '../../../../shared/domain/ports/clock.js';
 import { SalesOrderFinder } from '../../domain/order/find/sales-order-finder.js';
 import { SalesOrderReferences } from '../../domain/order/lines/sales-order-references.js';
+import { ensureBaseQuantitiesUnchanged } from '../../domain/order/lines/unchanged-base-quantities.js';
 import { SalesOrderPosting } from '../../domain/order/posting/sales-order-posting.js';
 import { StockReservation } from '../../domain/order/posting/stock-reservation.js';
 import { SalesOrderId } from '../../domain/order/sales-order.entity.js';
@@ -23,26 +24,26 @@ export class SalesOrderConfirmer {
     const order = await this.finder.find(tenantId, SalesOrderId.of(request.orderId));
     const now = this.clock.now();
 
-    // El borrador pudo quedar viejo: el cliente se desactivo o la caja paso de 24 a 12. Se
-    // revalida con el catalogo de hoy conservando la identidad de cada linea.
+    // El borrador pudo quedar viejo: se revalida con el catalogo de hoy conservando la identidad de
+    // cada linea. Si el cliente o un articulo se desactivo, se rechaza; si la caja paso de 24 a 12,
+    // tambien, para que la persona revise y guarde el pedido.
     if (order.currentStatus() === 'draft') {
       const row = order.toPrimitives();
-
-      order.update(
-        await salesOrderDetails(
-          this.references,
-          tenantId,
-          {
-            customerId: row.customerId,
-            warehouseId: row.warehouseId,
-            date: row.orderDate,
-            notes: row.notes,
-            lines: row.lines.map(({ id, itemId, unitId, quantity, unitPrice }) => ({ id, itemId, unitId, quantity, unitPrice })),
-          },
-          now,
-        ),
+      const details = await salesOrderDetails(
+        this.references,
+        tenantId,
+        {
+          customerId: row.customerId,
+          warehouseId: row.warehouseId,
+          date: row.orderDate,
+          notes: row.notes,
+          lines: row.lines.map(({ id, itemId, unitId, quantity, unitPrice }) => ({ id, itemId, unitId, quantity, unitPrice })),
+        },
         now,
       );
+
+      ensureBaseQuantitiesUnchanged(order.lines(), details.lines);
+      order.update(details, now);
       await this.orders.save(order);
     }
 

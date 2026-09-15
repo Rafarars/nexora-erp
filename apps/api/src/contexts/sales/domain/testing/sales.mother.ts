@@ -1,6 +1,6 @@
 import { SalesCatalog, SalesWarehouse, SellableItem } from '../catalog/sales-catalog.js';
 import { CustomerId } from '../customer/customer.entity.js';
-import { StockAvailability } from '../order/posting/stock-availability.js';
+import { ReservableItem, StockAvailability } from '../order/posting/stock-availability.js';
 import { SalesOrderLine, SalesOrderLineId } from '../order/sales-order-line.js';
 import { SalesOrder, SalesOrderId } from '../order/sales-order.entity.js';
 import { TaxRate, UnitPrice } from '../shared/money.js';
@@ -98,11 +98,17 @@ export function aConfirmedOrder(lines: SalesOrderLine[] = [anOrderLine()]): Sale
   return order;
 }
 
-// Existencia y reservas de otros pedidos, en unidad base, por articulo en cualquier bodega.
-export function anAvailability(onHand: Record<string, number>, reserved: Record<string, number> = {}): StockAvailability {
+// Existencia y reservas de otros pedidos, en unidad base, por articulo en cualquier bodega. Los
+// articulos estan como en el catalogo sembrado (caja de 24) salvo lo que la prueba cambie.
+export function anAvailability(
+  onHand: Record<string, number>,
+  reserved: Record<string, number> = {},
+  item: Partial<ReservableItem> = {},
+): StockAvailability {
   return {
     onHand: (itemId) => Quantity.of(onHand[itemId.value] ?? 0),
     reservedByOthers: (itemId) => Quantity.of(reserved[itemId.value] ?? 0),
+    item: () => ({ isActive: true, type: 'inventoried', factorOf: (unitId) => (unitId.value === BOX ? 24 : 1), ...item }),
   };
 }
 

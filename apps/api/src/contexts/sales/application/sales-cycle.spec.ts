@@ -9,6 +9,7 @@ import {
   InactiveSalesItemError,
   InsufficientAvailabilityError,
   InsufficientStockForDispatchError,
+  SalesItemChangedError,
   SalesOrderNotDispatchableError,
   SalesOrderNotEditableError,
   SalesOrderNotFoundError,
@@ -136,6 +137,22 @@ describe('sales orders', () => {
 
     expect((await latestOrder(s)).lines.map((line) => line.id)).toEqual(draft.lines.map((line) => line.id));
     await expect(s.updateOrder.run({ ...orderRequest(customerId), orderId: draft.id })).rejects.toThrow(SalesOrderNotEditableError);
+  });
+
+  // 10 cajas pedidas cuando traian 24 no se reservan como 120 en silencio: se revisa y se guarda.
+  it('refuses to confirm a draft whose box changed until the draft is saved again', async () => {
+    const { s, customerId } = await world();
+    await s.createOrder.run(orderRequest(customerId));
+    const { id } = await latestOrder(s);
+    s.catalog.items.find((item) => item.id === WATER)!.units.find((unit) => unit.unitId === BOX)!.conversionFactor = 12;
+
+    await expect(s.confirmOrder.run({ tenantId: TENANT_A, orderId: id })).rejects.toThrow(SalesItemChangedError);
+    expect((await latestOrder(s)).status).toBe('draft');
+
+    await s.updateOrder.run({ ...orderRequest(customerId), orderId: id });
+    await s.confirmOrder.run({ tenantId: TENANT_A, orderId: id });
+
+    expect(await latestOrder(s)).toMatchObject({ status: 'confirmed', lines: [{ quantity: 10, baseQuantity: 120 }, {}] });
   });
 
   it('refuses to confirm a draft whose item was deactivated after it was written', async () => {

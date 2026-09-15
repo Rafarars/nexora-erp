@@ -14,6 +14,7 @@ import {
   InsufficientAvailabilityError,
   InsufficientStockForDispatchError,
   InvoiceWithPaymentsError,
+  SalesItemChangedError,
   SalesOrderNotEditableError,
 } from '../domain/errors/sales.errors.js';
 import { Invoice, InvoiceId } from '../domain/invoice/invoice.entity.js';
@@ -24,7 +25,7 @@ import { Quantity } from '../domain/shared/quantity.vo.js';
 import { WarehouseRef } from '../domain/shared/references.vo.js';
 import { SalesDate } from '../domain/shared/sales-date.vo.js';
 import { TenantId } from '../domain/shared/tenant-id.vo.js';
-import { CUSTOMER, MAIN, NOW, PIECE, TENANT_A, TENANT_B, TODAY, WATER, anOrderLine } from '../domain/testing/sales.mother.js';
+import { BOX, CUSTOMER, MAIN, NOW, PIECE, TENANT_A, TENANT_B, TODAY, WATER, anOrderLine } from '../domain/testing/sales.mother.js';
 import { SalesPorts, SalesPortsHarness } from './sales-ports.harness.js';
 
 const tenant = TenantId.of(TENANT_A);
@@ -122,6 +123,15 @@ export function describeSalesPortsContract(implementation: string, createHarness
         await expect(confirmOrder(tooBig)).rejects.toThrow(InsufficientAvailabilityError);
         expect((await ports.orders.find(tenant, tooBig))?.currentStatus()).toBe('draft');
         expect(await harness.stockOf(WATER, MAIN)).toBe(10);
+      });
+
+      // Con los articulos bloqueados se ve la caja de hoy: 1 caja anotada como 12 no se reserva.
+      it('refuses to reserve base quantities that no longer match the unit of the item', async () => {
+        await harness.stock(WATER, MAIN, 100);
+        const stale = await draftOrder([anOrderLine({ quantity: 1, unit: BOX, factor: 12, unitPrice: 2 })]);
+
+        await expect(confirmOrder(stale)).rejects.toThrow(SalesItemChangedError);
+        expect((await ports.orders.find(tenant, stale))?.currentStatus()).toBe('draft');
       });
 
       // La guarda de la reserva bajo concurrencia real: dos pedidos de 6 sobre 10.
