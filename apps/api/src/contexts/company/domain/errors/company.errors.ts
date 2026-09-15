@@ -1,4 +1,4 @@
-import { ConflictError, InvalidArgumentError } from '../../../../shared/domain/domain.error.js';
+import { ConflictError, InvalidArgumentError, NotFoundError } from '../../../../shared/domain/domain.error.js';
 
 export class InvalidCurrencyCodeError extends InvalidArgumentError {
   constructor(value: string) {
@@ -57,5 +57,50 @@ export class CompanyTextTooLongError extends InvalidArgumentError {
 export class InvalidCompanyEmailError extends InvalidArgumentError {
   constructor(value: string) {
     super(`Invalid company email <${value}>.`, 'The email is not valid.');
+  }
+}
+
+export class InvalidRateDateError extends InvalidArgumentError {
+  constructor(value: string) {
+    super(`A rate date must be a calendar day as YYYY-MM-DD, received <${value}>.`, 'The date of the rate is not valid.');
+  }
+}
+
+export class InvalidRateTypeError extends InvalidArgumentError {
+  constructor(value: string) {
+    super(`A rate type must be legal or manual, received <${value}>.`, 'The type of the rate is not valid.');
+  }
+}
+
+export class InvalidExchangeRateError extends InvalidArgumentError {
+  constructor(value: number, max: number) {
+    super(`An exchange rate must be above zero, at most ${max} and with up to eight decimals, received <${value}>.`, 'The exchange rate is not valid.');
+  }
+}
+
+// El bolivar vale siempre 1 bolivar: una tasa suya no significa nada.
+export class LocalCurrencyRateError extends InvalidArgumentError {
+  constructor(code: string) {
+    super(`Currency <${code}> is the local currency and takes no exchange rate.`, 'The local currency takes no exchange rate.');
+  }
+}
+
+export class ExchangeRateNotFoundError extends NotFoundError {
+  constructor(id: string) {
+    super(`Exchange rate <${id}> not found.`, 'The exchange rate does not exist.');
+  }
+}
+
+// Sin tasa, un documento en esa moneda no se emite: es preferible a emitirlo con tasa 1.
+export class MissingExchangeRateError extends ConflictError {
+  constructor(currency: string, type: string, date: string) {
+    super(`No active ${type} rate for <${currency}> on or before <${date}>.`, 'There is no exchange rate for that currency on that date.');
+  }
+}
+
+// Dos cargas simultaneas de la misma moneda, fecha y tipo: la segunda no pisa a ciegas.
+export class DuplicateExchangeRateError extends ConflictError {
+  constructor(currency: string, type: string, date: string) {
+    super(`A ${type} rate for <${currency}> on <${date}> already exists.`, 'That exchange rate was just recorded by someone else.');
   }
 }

@@ -5,6 +5,9 @@ const CODE_PATTERN = /^[A-Z]{3}$/;
 
 // Codigo ISO 4217: USD, EUR, VES. Se guarda en mayusculas.
 export class CurrencyCode extends StringValueObject {
+  // Toda tasa esta expresada en bolivares: el bolivar vale 1 y no lleva tasa.
+  static readonly LOCAL = 'VES';
+
   private constructor(value: string) {
     super(value.trim().toUpperCase());
 
@@ -13,5 +16,9 @@ export class CurrencyCode extends StringValueObject {
 
   static of(value: string): CurrencyCode {
     return new CurrencyCode(value);
+  }
+
+  isLocal(): boolean {
+    return this.value === CurrencyCode.LOCAL;
   }
 }

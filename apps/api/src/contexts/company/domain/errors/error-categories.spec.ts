@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { ConflictError, DomainError, InvalidArgumentError } from '../../../../shared/domain/domain.error.js';
+import { ConflictError, DomainError, InvalidArgumentError, NotFoundError } from '../../../../shared/domain/domain.error.js';
 import * as errors from './company.errors.js';
 
 const ID = '11111111-1111-4111-8111-111111111111';
@@ -14,6 +14,13 @@ const cases: Array<[DomainError, typeof DomainError]> = [
   [new errors.RequiredCompanyTextError('CompanyLegalName'), InvalidArgumentError],
   [new errors.CompanyTextTooLongError('CompanyAddress', 300), InvalidArgumentError],
   [new errors.InvalidCompanyEmailError('x'), InvalidArgumentError],
+  [new errors.InvalidRateDateError('2026-02-30'), InvalidArgumentError],
+  [new errors.InvalidRateTypeError('paralela'), InvalidArgumentError],
+  [new errors.InvalidExchangeRateError(0, 9_999_999.99999999), InvalidArgumentError],
+  [new errors.LocalCurrencyRateError('VES'), InvalidArgumentError],
+  [new errors.ExchangeRateNotFoundError(ID), NotFoundError],
+  [new errors.MissingExchangeRateError('USD', 'legal', '2026-01-15'), ConflictError],
+  [new errors.DuplicateExchangeRateError('USD', 'legal', '2026-01-15'), ConflictError],
 ];
 
 describe('company domain errors', () => {

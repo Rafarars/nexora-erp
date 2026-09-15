@@ -24,6 +24,7 @@ describe('company settings', () => {
       timeZone: 'America/Caracas',
       amountDecimals: 2,
       priceDecimals: 6,
+      rateType: 'legal',
       today: '2026-01-15',
     });
   });

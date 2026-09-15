@@ -173,6 +173,7 @@ async function main(): Promise<void> {
     await removeLeftovers(prisma);
     await upsertTenants(prisma);
     await upsertCompanies(prisma);
+    await upsertExchangeRates(prisma);
     await upsertRoles(prisma);
     await upsertUsers(prisma, passwordHash);
     await upsertMemberships(prisma);
@@ -234,7 +235,7 @@ async function upsertCompanies(prisma: PrismaClient): Promise<void> {
     { tenantId: INITECH, legalName: 'Initech Logística, C.A.', tradeName: null, fiscalId: 'J-40000003-9', address: null, phone: null, email: null },
     { tenantId: VOLUME, legalName: 'Volumen Distribuciones, C.A.', tradeName: null, fiscalId: 'J-40000004-7', address: null, phone: null, email: null },
   ];
-  const settings = { baseCurrency: 'USD', secondaryCurrency: 'VES', timeZone: 'America/Caracas', amountDecimals: 2, priceDecimals: 6 };
+  const settings = { baseCurrency: 'USD', secondaryCurrency: 'VES', timeZone: 'America/Caracas', amountDecimals: 2, priceDecimals: 6, rateType: 'legal' as const };
   const updatedAt = new Date('2026-09-01T12:00:00.000Z');
 
   for (const profile of profiles) {
@@ -246,6 +247,27 @@ async function upsertCompanies(prisma: PrismaClient): Promise<void> {
       create: { tenantId: profile.tenantId, ...settings, updatedAt },
       update: { ...settings, updatedAt },
     });
+  }
+}
+
+// Unas tasas de septiembre para que la pantalla no nazca vacia: la legal del dolar y del euro, y una
+// interna del dolar. La de Globex existe para que las pruebas de aislamiento tengan que atacar.
+async function upsertExchangeRates(prisma: PrismaClient): Promise<void> {
+  const rates = [
+    { id: 'f6000000-0000-4000-8000-000000000001', tenantId: ACME, currency: 'USD', rateDate: '2026-09-01', type: 'legal', rate: '150.25', source: 'BCV' },
+    { id: 'f6000000-0000-4000-8000-000000000002', tenantId: ACME, currency: 'USD', rateDate: '2026-09-08', type: 'legal', rate: '152.40', source: 'BCV' },
+    { id: 'f6000000-0000-4000-8000-000000000003', tenantId: ACME, currency: 'USD', rateDate: '2026-09-11', type: 'legal', rate: '153.10', source: 'BCV' },
+    { id: 'f6000000-0000-4000-8000-000000000004', tenantId: ACME, currency: 'EUR', rateDate: '2026-09-01', type: 'legal', rate: '171.30', source: 'BCV' },
+    { id: 'f6000000-0000-4000-8000-000000000005', tenantId: ACME, currency: 'EUR', rateDate: '2026-09-11', type: 'legal', rate: '175.05', source: 'BCV' },
+    { id: 'f6000000-0000-4000-8000-000000000006', tenantId: ACME, currency: 'USD', rateDate: '2026-09-11', type: 'manual', rate: '160.00', source: 'Tasa interna de compras' },
+    { id: 'f6000000-0000-4000-8000-000000000101', tenantId: GLOBEX, currency: 'USD', rateDate: '2026-09-10', type: 'legal', rate: '152.80', source: 'BCV' },
+  ] as const;
+  const createdAt = new Date('2026-09-01T12:00:00.000Z');
+
+  for (const { rateDate, ...rate } of rates) {
+    const row = { ...rate, rateDate: new Date(`${rateDate}T00:00:00.000Z`), isActive: true, createdAt, updatedAt: createdAt };
+
+    await prisma.exchangeRate.upsert({ where: { id: rate.id }, create: row, update: row });
   }
 }
 
@@ -262,6 +284,7 @@ async function upsertRoles(prisma: PrismaClient): Promise<void> {
       permissions: [
         'access.users.search',
         'company.profile.search',
+        'company.rates.search',
         'catalog.categories.search',
         'catalog.units.search',
         'catalog.taxes.search',

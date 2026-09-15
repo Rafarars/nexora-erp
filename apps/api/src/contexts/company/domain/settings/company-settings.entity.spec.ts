@@ -1,11 +1,11 @@
 import { describe, expect, it } from 'vitest';
-import { InvalidCurrencyCodeError, InvalidDecimalPlacesError } from '../errors/company.errors.js';
+import { InvalidCurrencyCodeError, InvalidDecimalPlacesError, InvalidRateTypeError } from '../errors/company.errors.js';
 import { TenantId } from '../shared/tenant-id.vo.js';
 import { LATER, TENANT_A, aSettingsInput } from '../testing/company.mother.js';
 import { CompanySettings, settingsDetailsOf } from './company-settings.entity.js';
 
 describe('CompanySettings', () => {
-  it('starts with USD and VES, Caracas and two decimals for amounts', () => {
+  it('starts with USD and VES, Caracas, two decimals for amounts and the legal rate', () => {
     expect(CompanySettings.defaults(TenantId.of(TENANT_A)).toPrimitives()).toEqual({
       tenantId: TENANT_A,
       baseCurrency: 'USD',
@@ -13,6 +13,7 @@ describe('CompanySettings', () => {
       timeZone: 'America/Caracas',
       amountDecimals: 2,
       priceDecimals: 6,
+      rateType: 'legal',
       updatedAt: null,
     });
   });
@@ -35,6 +36,10 @@ describe('CompanySettings', () => {
 
   it('rejects a currency code that is not three letters', () => {
     expect(() => settingsDetailsOf(aSettingsInput({ baseCurrency: 'US$' }))).toThrow(InvalidCurrencyCodeError);
+  });
+
+  it('rejects a rate type that is neither legal nor manual', () => {
+    expect(() => settingsDetailsOf(aSettingsInput({ rateType: 'paralela' }))).toThrow(InvalidRateTypeError);
   });
 
   it('knows whether the base currency changes', () => {

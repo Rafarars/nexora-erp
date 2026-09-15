@@ -1,4 +1,5 @@
 import { CurrencyCode } from '../currency/currency-code.vo.js';
+import { RateType } from '../rate/rate-type.vo.js';
 import { TenantId } from '../shared/tenant-id.vo.js';
 import { DecimalPlaces } from './decimal-places.vo.js';
 import { TimeZone } from './time-zone.vo.js';
@@ -14,6 +15,7 @@ export const DEFAULT_SETTINGS = {
   timeZone: 'America/Caracas',
   amountDecimals: 2,
   priceDecimals: 6,
+  rateType: 'legal',
 } as const;
 
 export interface CompanySettingsPrimitives {
@@ -23,6 +25,8 @@ export interface CompanySettingsPrimitives {
   timeZone: string;
   amountDecimals: number;
   priceDecimals: number;
+  // La serie de tasas que valora los documentos.
+  rateType: string;
   updatedAt: Date | null;
 }
 
@@ -32,6 +36,7 @@ export interface CompanySettingsDetails {
   timeZone: TimeZone;
   amountDecimals: DecimalPlaces;
   priceDecimals: DecimalPlaces;
+  rateType: RateType;
 }
 
 export interface CompanySettingsInput {
@@ -40,6 +45,7 @@ export interface CompanySettingsInput {
   timeZone: string;
   amountDecimals: number;
   priceDecimals: number;
+  rateType: string;
 }
 
 // Todo valor invalido se rechaza antes de consultar nada.
@@ -50,6 +56,7 @@ export function settingsDetailsOf(input: CompanySettingsInput): CompanySettingsD
     timeZone: TimeZone.of(input.timeZone),
     amountDecimals: DecimalPlaces.of(input.amountDecimals, AMOUNT_DECIMALS_MAX, 'AmountDecimals'),
     priceDecimals: DecimalPlaces.of(input.priceDecimals, PRICE_DECIMALS_MAX, 'PriceDecimals'),
+    rateType: RateType.of(input.rateType),
   };
 }
 
@@ -70,7 +77,7 @@ export class CompanySettings {
   }
 
   toPrimitives(): CompanySettingsPrimitives {
-    const { baseCurrency, secondaryCurrency, timeZone, amountDecimals, priceDecimals } = this.details;
+    const { baseCurrency, secondaryCurrency, timeZone, amountDecimals, priceDecimals, rateType } = this.details;
 
     return {
       tenantId: this.tenantId.value,
@@ -79,6 +86,7 @@ export class CompanySettings {
       timeZone: timeZone.value,
       amountDecimals: amountDecimals.value,
       priceDecimals: priceDecimals.value,
+      rateType: rateType.value,
       updatedAt: this.updatedAt,
     };
   }
@@ -98,6 +106,10 @@ export class CompanySettings {
 
   secondaryCurrency(): CurrencyCode | null {
     return this.details.secondaryCurrency;
+  }
+
+  rateType(): RateType {
+    return this.details.rateType;
   }
 
   // Con la misma moneda principal y secundaria no hay nada que convertir.

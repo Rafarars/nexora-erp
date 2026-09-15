@@ -16,7 +16,8 @@ export class PrismaCompanySettingsRepository implements CompanySettingsRepositor
 
   async save(settings: CompanySettings): Promise<void> {
     const { tenantId, updatedAt, ...values } = settings.toPrimitives();
-    const data = { ...values, updatedAt: updatedAt ?? new Date() };
+    // El tipo de tasa sale del objeto de valor: la base lo guarda como enum.
+    const data = { ...values, rateType: settings.rateType().value, updatedAt: updatedAt ?? new Date() };
 
     await this.prisma.companySettings.upsert({ where: { tenantId }, create: { tenantId, ...data }, update: data });
   }

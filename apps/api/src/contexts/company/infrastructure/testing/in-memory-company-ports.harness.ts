@@ -4,6 +4,7 @@ import { InMemoryCompanyActivity } from './in-memory-company-activity.js';
 import { InMemoryCompanyProfileRepository } from './in-memory-company-profile.repository.js';
 import { InMemoryCompanySettingsRepository } from './in-memory-company-settings.repository.js';
 import { InMemoryCurrencyCatalog } from './in-memory-currency-catalog.js';
+import { InMemoryExchangeRateRepository } from './in-memory-exchange-rate.repository.js';
 import { InMemoryTenantNames } from './in-memory-tenant-names.js';
 
 export class InMemoryCompanyPortsHarness implements CompanyPortsHarness {
@@ -31,6 +32,7 @@ export class InMemoryCompanyPortsHarness implements CompanyPortsHarness {
       currencies: new InMemoryCurrencyCatalog(),
       names: new InMemoryTenantNames({ [TENANT_A]: 'Contrato A', [TENANT_B]: 'Contrato B' }),
       activity: new InMemoryCompanyActivity(),
+      rates: new InMemoryExchangeRateRepository(),
     };
   }
 }

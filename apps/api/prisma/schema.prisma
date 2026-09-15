@@ -47,6 +47,7 @@ model Tenant {
   allocations      PaymentAllocation[]
   profile          CompanyProfile?
   settings         CompanySettings?
+  exchangeRates    ExchangeRate[]
 
   @@map("tenants")
 }
@@ -154,6 +155,7 @@ model Currency {
 
   baseOf      CompanySettings[] @relation("BaseCurrency")
   secondaryOf CompanySettings[] @relation("SecondaryCurrency")
+  rates       ExchangeRate[]
 
   @@map("currencies")
 }
@@ -177,19 +179,48 @@ model CompanyProfile {
 /// Moneda principal y secundaria, zona horaria y decimales. Los rangos de decimales los repite un
 /// CHECK en la migracion.
 model CompanySettings {
-  tenantId          String   @id @map("tenant_id") @db.Uuid
-  baseCurrency      String   @map("base_currency") @db.Char(3)
-  secondaryCurrency String?  @map("secondary_currency") @db.Char(3)
-  timeZone          String   @map("time_zone") @db.VarChar(64)
-  amountDecimals    Int      @map("amount_decimals")
-  priceDecimals     Int      @map("price_decimals")
-  updatedAt         DateTime @map("updated_at")
+  tenantId          String           @id @map("tenant_id") @db.Uuid
+  baseCurrency      String           @map("base_currency") @db.Char(3)
+  secondaryCurrency String?          @map("secondary_currency") @db.Char(3)
+  timeZone          String           @map("time_zone") @db.VarChar(64)
+  amountDecimals    Int              @map("amount_decimals")
+  priceDecimals     Int              @map("price_decimals")
+  rateType          ExchangeRateType @default(legal) @map("rate_type")
+  updatedAt         DateTime         @map("updated_at")
 
   tenant    Tenant    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   base      Currency  @relation("BaseCurrency", fields: [baseCurrency], references: [code], onDelete: Restrict)
   secondary Currency? @relation("SecondaryCurrency", fields: [secondaryCurrency], references: [code], onDelete: Restrict)
 
   @@map("company_settings")
+}
+
+// Legal: la oficial del BCV. Manual: una interna de la empresa. Series independientes.
+enum ExchangeRateType {
+  legal
+  manual
+}
+
+// Bolivares por 1 unidad de la moneda, por empresa, fecha y tipo. El bolivar no lleva tasa.
+model ExchangeRate {
+  id        String           @id @db.Uuid
+  tenantId  String           @map("tenant_id") @db.Uuid
+  currency  String           @db.Char(3)
+  rateDate  DateTime         @map("rate_date") @db.Date
+  type      ExchangeRateType
+  rate      Decimal          @db.Decimal(18, 8)
+  source    String?          @db.VarChar(150)
+  isActive  Boolean          @default(true) @map("is_active")
+  createdAt DateTime         @map("created_at")
+  updatedAt DateTime         @map("updated_at")
+
+  tenant       Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  currencyInfo Currency @relation(fields: [currency], references: [code], onDelete: Restrict)
+
+  @@unique([tenantId, id])
+  @@unique([tenantId, currency, type, rateDate])
+  @@index([tenantId, rateDate])
+  @@map("exchange_rates")
 }
 
 // ---------------------------------------------------------------- catalogo

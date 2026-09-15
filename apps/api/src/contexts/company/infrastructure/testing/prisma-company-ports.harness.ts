@@ -8,6 +8,7 @@ import { PrismaCompanyActivity } from '../persistence/prisma-company-activity.js
 import { PrismaCompanyProfileRepository } from '../persistence/prisma-company-profile.repository.js';
 import { PrismaCompanySettingsRepository } from '../persistence/prisma-company-settings.repository.js';
 import { PrismaCurrencyCatalog } from '../persistence/prisma-currency-catalog.js';
+import { PrismaExchangeRateRepository } from '../persistence/prisma-exchange-rate.repository.js';
 import { PrismaTenantNames } from '../persistence/prisma-tenant-names.js';
 
 function connectionString(): string {
@@ -29,6 +30,7 @@ export class PrismaCompanyPortsHarness implements CompanyPortsHarness {
       currencies: new PrismaCurrencyCatalog(this.prisma),
       names: new PrismaTenantNames(this.prisma),
       activity: new PrismaCompanyActivity(this.prisma),
+      rates: new PrismaExchangeRateRepository(this.prisma),
     };
   }
 
@@ -49,6 +51,7 @@ export class PrismaCompanyPortsHarness implements CompanyPortsHarness {
 
     await this.prisma.adjustment.deleteMany({ where: { tenantId: { in: tenants } } });
     await this.prisma.warehouse.deleteMany({ where: { tenantId: { in: tenants }, code: { startsWith: 'BOD9' } } });
+    await this.prisma.exchangeRate.deleteMany({ where: { tenantId: { in: tenants } } });
     await this.prisma.companySettings.deleteMany({ where: { tenantId: { in: tenants } } });
     await this.prisma.companyProfile.deleteMany({ where: { tenantId: { in: tenants } } });
 

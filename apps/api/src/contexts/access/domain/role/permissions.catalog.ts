@@ -32,7 +32,10 @@ export const ACCESS_PERMISSIONS: PermissionDefinition[] = [
 export const COMPANY_PERMISSIONS: PermissionDefinition[] = [
   { code: 'company.profile.search', description: 'Consultar los datos de la empresa' },
   { code: 'company.profile.update', description: 'Editar la razón social, el RIF, la dirección y el contacto de la empresa' },
-  { code: 'company.settings.update', description: 'Cambiar la moneda, la zona horaria y los decimales de la empresa' },
+  { code: 'company.settings.update', description: 'Cambiar la moneda, la zona horaria, los decimales y la tasa que usan los documentos' },
+  { code: 'company.rates.search', description: 'Consultar las tasas de cambio' },
+  { code: 'company.rates.record', description: 'Cargar y corregir tasas de cambio' },
+  { code: 'company.rates.deactivate', description: 'Desactivar y reactivar tasas de cambio' },
 ];
 
 export const CATALOG_PERMISSIONS: PermissionDefinition[] = [
