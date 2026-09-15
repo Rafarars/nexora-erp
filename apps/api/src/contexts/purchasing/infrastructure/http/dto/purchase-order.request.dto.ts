@@ -6,6 +6,8 @@ export const purchaseOrderRequestSchema = z.object({
   date: z.string().nullable().optional(),
   expectedDate: z.string().nullable().optional(),
   notes: z.string().nullable().optional(),
+  currency: z.string().nullable().optional(),
+  exchangeRate: z.number().nullable().optional(),
   lines: z.array(
     z.object({
       itemId: z.string(),

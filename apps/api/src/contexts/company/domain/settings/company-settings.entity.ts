@@ -16,6 +16,7 @@ export const DEFAULT_SETTINGS = {
   amountDecimals: 2,
   priceDecimals: 6,
   rateType: 'legal',
+  allowsRateOverride: true,
 } as const;
 
 export interface CompanySettingsPrimitives {
@@ -27,6 +28,8 @@ export interface CompanySettingsPrimitives {
   priceDecimals: number;
   // La serie de tasas que valora los documentos.
   rateType: string;
+  // Si un documento puede llevar una tasa escrita a mano.
+  allowsRateOverride: boolean;
   updatedAt: Date | null;
 }
 
@@ -37,6 +40,7 @@ export interface CompanySettingsDetails {
   amountDecimals: DecimalPlaces;
   priceDecimals: DecimalPlaces;
   rateType: RateType;
+  allowsRateOverride: boolean;
 }
 
 export interface CompanySettingsInput {
@@ -46,6 +50,7 @@ export interface CompanySettingsInput {
   amountDecimals: number;
   priceDecimals: number;
   rateType: string;
+  allowsRateOverride: boolean;
 }
 
 // Todo valor invalido se rechaza antes de consultar nada.
@@ -57,6 +62,7 @@ export function settingsDetailsOf(input: CompanySettingsInput): CompanySettingsD
     amountDecimals: DecimalPlaces.of(input.amountDecimals, AMOUNT_DECIMALS_MAX, 'AmountDecimals'),
     priceDecimals: DecimalPlaces.of(input.priceDecimals, PRICE_DECIMALS_MAX, 'PriceDecimals'),
     rateType: RateType.of(input.rateType),
+    allowsRateOverride: input.allowsRateOverride,
   };
 }
 
@@ -77,7 +83,7 @@ export class CompanySettings {
   }
 
   toPrimitives(): CompanySettingsPrimitives {
-    const { baseCurrency, secondaryCurrency, timeZone, amountDecimals, priceDecimals, rateType } = this.details;
+    const { baseCurrency, secondaryCurrency, timeZone, amountDecimals, priceDecimals, rateType, allowsRateOverride } = this.details;
 
     return {
       tenantId: this.tenantId.value,
@@ -87,6 +93,7 @@ export class CompanySettings {
       amountDecimals: amountDecimals.value,
       priceDecimals: priceDecimals.value,
       rateType: rateType.value,
+      allowsRateOverride,
       updatedAt: this.updatedAt,
     };
   }
@@ -110,6 +117,10 @@ export class CompanySettings {
 
   rateType(): RateType {
     return this.details.rateType;
+  }
+
+  allowsRateOverride(): boolean {
+    return this.details.allowsRateOverride;
   }
 
   // Con la misma moneda principal y secundaria no hay nada que convertir.

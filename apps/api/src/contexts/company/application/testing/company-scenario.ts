@@ -43,7 +43,7 @@ export function aCompanyScenario() {
     rateFinder: new ExchangeRateFinder(rates),
     ratePolicy: new RateCurrencyPolicy(currencies),
     resolver,
-    documentRates: new CompanyDocumentRates(settingsFinder, resolver),
+    documentRates: new CompanyDocumentRates(settingsFinder, resolver, currencies),
   };
 }
 

@@ -88,8 +88,8 @@ import { PrismaTenantNames } from './persistence/prisma-tenant-names.js';
     { provide: RateResolver, useFactory: (r: ExchangeRateRepository) => new RateResolver(r), inject: [EXCHANGE_RATE_REPOSITORY] },
     {
       provide: DOCUMENT_RATES,
-      useFactory: (f: CompanySettingsFinder, r: RateResolver) => new CompanyDocumentRates(f, r),
-      inject: [CompanySettingsFinder, RateResolver],
+      useFactory: (f: CompanySettingsFinder, r: RateResolver, c: CurrencyCatalog) => new CompanyDocumentRates(f, r, c),
+      inject: [CompanySettingsFinder, RateResolver, CURRENCY_CATALOG],
     },
     { provide: BUSINESS_CALENDAR, useFactory: (f: CompanySettingsFinder, k: Clock) => new CompanyCalendar(f, k), inject: [CompanySettingsFinder, CLOCK] },
 

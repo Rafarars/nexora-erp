@@ -21,7 +21,7 @@ export const CURRENCIES: Currency[] = [
 export const RETIRED_CURRENCY: Currency = { code: 'VEF', name: 'Bolívar fuerte', symbol: 'Bs.F', decimals: 2, isActive: false };
 
 export function aSettingsInput(overrides: Partial<CompanySettingsInput> = {}): CompanySettingsInput {
-  return { baseCurrency: 'USD', secondaryCurrency: 'VES', timeZone: 'America/Caracas', amountDecimals: 2, priceDecimals: 6, rateType: 'legal', ...overrides };
+  return { baseCurrency: 'USD', secondaryCurrency: 'VES', timeZone: 'America/Caracas', amountDecimals: 2, priceDecimals: 6, rateType: 'legal', allowsRateOverride: true, ...overrides };
 }
 
 export const RATE_ID = '0000000a-0000-4000-8000-000000000000';

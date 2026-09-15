@@ -2,6 +2,7 @@ import { PurchasingCatalog } from '../../domain/catalog/purchasing-catalog.js';
 import { PurchaseOrderRepository } from '../../domain/order/purchase-order.repository.js';
 import { GoodsReceiptStatus } from '../../domain/receipt/goods-receipt.entity.js';
 import { GoodsReceiptRepository } from '../../domain/receipt/goods-receipt.repository.js';
+import { DocumentCurrencyPrimitives } from '../../domain/shared/document-currency.js';
 import { ItemRef, WarehouseRef } from '../../domain/shared/references.vo.js';
 import { TenantId } from '../../domain/shared/tenant-id.vo.js';
 import { SupplierRepository } from '../../domain/supplier/supplier.repository.js';
@@ -20,7 +21,7 @@ export interface GoodsReceiptLineResponse {
   unitCost: number;
 }
 
-export interface GoodsReceiptResponse {
+export interface GoodsReceiptResponse extends DocumentCurrencyPrimitives {
   id: string;
   code: string;
   order: { id: string; code: string };
@@ -67,6 +68,11 @@ export class GoodsReceiptSearcher {
             date: row.receiptDate,
             notes: row.notes,
             status: row.status,
+            currency: row.currency,
+            exchangeRate: row.exchangeRate,
+            baseCurrency: row.baseCurrency,
+            baseExchangeRate: row.baseExchangeRate,
+            manualExchangeRate: row.manualExchangeRate,
             lines: row.lines.map((line) => {
               const item = items.find((candidate) => candidate.id === line.itemId);
 

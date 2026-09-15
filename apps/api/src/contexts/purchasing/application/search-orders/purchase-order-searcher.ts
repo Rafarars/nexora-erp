@@ -1,6 +1,7 @@
 import { PurchasingCatalog } from '../../domain/catalog/purchasing-catalog.js';
 import { PurchaseOrderRepository } from '../../domain/order/purchase-order.repository.js';
 import { PurchaseOrderStatus } from '../../domain/order/purchase-order.entity.js';
+import { DocumentCurrencyPrimitives } from '../../domain/shared/document-currency.js';
 import { centsToNumber } from '../../domain/shared/money.js';
 import { ItemRef, WarehouseRef } from '../../domain/shared/references.vo.js';
 import { TenantId } from '../../domain/shared/tenant-id.vo.js';
@@ -23,7 +24,7 @@ export interface PurchaseOrderLineResponse {
   subtotal: number;
 }
 
-export interface PurchaseOrderResponse {
+export interface PurchaseOrderResponse extends DocumentCurrencyPrimitives {
   id: string;
   code: string;
   supplier: { id: string; name: string };
@@ -71,6 +72,7 @@ export class PurchaseOrderSearcher {
             expectedDate: row.expectedDate,
             notes: row.notes,
             status: row.status,
+            ...order.currency().toPrimitives(),
             totals: order.totals(),
             lines: order.lines().map((line) => {
               const item = items.find((candidate) => candidate.id === line.itemId.value);

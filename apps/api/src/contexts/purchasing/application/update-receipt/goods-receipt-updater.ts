@@ -1,5 +1,6 @@
 import { Clock } from '../../../../shared/domain/ports/clock.js';
 import { BusinessCalendar } from '../../../../shared/domain/ports/business-calendar.js';
+import { DocumentRates } from '../../../../shared/domain/ports/document-rates.js';
 import { GoodsReceiptNotEditableError } from '../../domain/errors/purchasing.errors.js';
 import { PurchaseOrderFinder } from '../../domain/order/find/purchase-order-finder.js';
 import { GoodsReceiptFinder } from '../../domain/receipt/find/goods-receipt-finder.js';
@@ -8,7 +9,7 @@ import { GoodsReceiptRepository } from '../../domain/receipt/goods-receipt.repos
 import { GoodsReceiptLineFactory } from '../../domain/receipt/lines/goods-receipt-line-factory.js';
 import { PurchaseDate } from '../../domain/shared/purchase-date.vo.js';
 import { TenantId } from '../../domain/shared/tenant-id.vo.js';
-import { GoodsReceiptInput } from '../create-receipt/goods-receipt-creator.js';
+import { GoodsReceiptInput, receiptCurrency } from '../create-receipt/goods-receipt-creator.js';
 
 export interface GoodsReceiptUpdaterRequest extends GoodsReceiptInput {
   tenantId: string;
@@ -25,6 +26,7 @@ export class GoodsReceiptUpdater {
     private readonly receipts: GoodsReceiptRepository,
     private readonly clock: Clock,
     private readonly calendar: BusinessCalendar,
+    private readonly rates: DocumentRates,
   ) {}
 
   async run(request: GoodsReceiptUpdaterRequest): Promise<void> {
@@ -40,12 +42,11 @@ export class GoodsReceiptUpdater {
 
     const order = await this.orders.find(tenantId, receipt.orderId);
 
+    const date = request.date ? PurchaseDate.of(request.date) : PurchaseDate.of(today);
+    const lines = await this.factory.lines(tenantId, order, request.lines);
+
     receipt.update(
-      {
-        date: request.date ? PurchaseDate.of(request.date) : PurchaseDate.of(today),
-        notes: request.notes ?? null,
-        lines: await this.factory.lines(tenantId, order, request.lines),
-      },
+      { date, notes: request.notes ?? null, lines, currency: await receiptCurrency(this.rates, request.tenantId, order, date, request.exchangeRate, today) },
       now,
       today,
     );

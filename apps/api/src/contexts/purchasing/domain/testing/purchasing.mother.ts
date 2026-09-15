@@ -1,4 +1,6 @@
+import { DocumentRateSet } from '../../../../shared/domain/ports/document-rates.js';
 import { PurchaseWarehouse, PurchasableItem } from '../catalog/purchasing-catalog.js';
+import { DocumentCurrency } from '../shared/document-currency.js';
 import { TaxRate, UnitCost } from '../shared/money.js';
 import { PurchaseDate } from '../shared/purchase-date.vo.js';
 import { Quantity } from '../shared/quantity.vo.js';
@@ -85,6 +87,7 @@ export function aDraftOrder(lines: PurchaseOrderLine[] = [anOrderLine()], id = '
     expectedDate: null,
     notes: null,
     lines,
+    currency: aDocumentCurrency(),
   }, NOW, TODAY);
 }
 
@@ -94,4 +97,9 @@ export function aConfirmedOrder(lines: PurchaseOrderLine[] = [anOrderLine()]): P
   order.confirm(NOW);
 
   return order;
+}
+
+// En dolares, la moneda de la empresa, a 36,50 Bs.
+export function aDocumentCurrency(overrides: Partial<DocumentRateSet> = {}): DocumentCurrency {
+  return DocumentCurrency.of({ currency: 'USD', exchangeRate: 36.5, baseCurrency: 'USD', baseExchangeRate: 36.5, manualRate: false, ...overrides });
 }

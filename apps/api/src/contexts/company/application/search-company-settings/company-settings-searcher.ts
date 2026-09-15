@@ -14,6 +14,7 @@ export interface CompanySettingsResponse {
   amountDecimals: number;
   priceDecimals: number;
   rateType: string;
+  allowsRateOverride: boolean;
   // Hoy en la zona de la empresa: la interfaz lo propone como fecha de cada documento.
   today: string;
 }
@@ -38,6 +39,7 @@ export class CompanySettingsSearcher {
       amountDecimals: row.amountDecimals,
       priceDecimals: row.priceDecimals,
       rateType: row.rateType,
+      allowsRateOverride: row.allowsRateOverride,
       today: settings.todayAt(this.clock.now()),
     };
   }

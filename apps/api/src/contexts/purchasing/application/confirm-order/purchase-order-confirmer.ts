@@ -1,5 +1,6 @@
 import { Clock } from '../../../../shared/domain/ports/clock.js';
 import { BusinessCalendar } from '../../../../shared/domain/ports/business-calendar.js';
+import { DocumentRates } from '../../../../shared/domain/ports/document-rates.js';
 import { PurchaseOrderFinder } from '../../domain/order/find/purchase-order-finder.js';
 import { PurchaseOrderReferences } from '../../domain/order/lines/purchase-order-references.js';
 import { ensureBaseQuantitiesUnchanged } from '../../domain/order/lines/unchanged-base-quantities.js';
@@ -18,6 +19,7 @@ export class PurchaseOrderConfirmer {
     private readonly posting: PurchaseOrderPosting,
     private readonly clock: Clock,
     private readonly calendar: BusinessCalendar,
+    private readonly rates: DocumentRates,
   ) {}
 
   async run(request: { tenantId: string; orderId: string }): Promise<void> {
@@ -33,6 +35,7 @@ export class PurchaseOrderConfirmer {
       const row = order.toPrimitives();
       const details = await orderDetails(
         this.references,
+        this.rates,
         tenantId,
         {
           supplierId: row.supplierId,
@@ -40,9 +43,13 @@ export class PurchaseOrderConfirmer {
           date: row.orderDate,
           expectedDate: row.expectedDate,
           notes: row.notes,
+          // Confirmar congela la tasa del dia de la orden, salvo la escrita a mano.
+          currency: row.currency,
+          exchangeRate: order.currency().manualRate(),
           lines: row.lines.map(({ id, itemId, unitId, quantity, unitCost }) => ({ id, itemId, unitId, quantity, unitCost })),
         },
         today,
+        true,
       );
 
       ensureBaseQuantitiesUnchanged(order.lines(), details.lines);

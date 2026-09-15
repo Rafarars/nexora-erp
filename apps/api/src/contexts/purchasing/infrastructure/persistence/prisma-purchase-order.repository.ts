@@ -24,7 +24,18 @@ export class PrismaPurchaseOrderRepository implements PurchaseOrderRepository {
       } else {
         const { count } = await tx.purchaseOrder.updateMany({
           where: { tenantId: row.tenantId, id: row.id, status: 'draft' },
-          data: { supplierId: row.supplierId, warehouseId: row.warehouseId, ...dates, notes: row.notes, updatedAt: row.updatedAt },
+          data: {
+            supplierId: row.supplierId,
+            warehouseId: row.warehouseId,
+            ...dates,
+            notes: row.notes,
+            currency: row.currency,
+            exchangeRate: row.exchangeRate,
+            baseCurrency: row.baseCurrency,
+            baseExchangeRate: row.baseExchangeRate,
+            manualExchangeRate: row.manualExchangeRate,
+            updatedAt: row.updatedAt,
+          },
         });
 
         if (count === 0) throw new PurchaseOrderNotEditableError(row.id, exists.status);

@@ -7,6 +7,7 @@ import {
   GoodsReceiptNotEditableError,
 } from '../errors/purchasing.errors.js';
 import { PurchaseOrderId } from '../order/purchase-order.entity.js';
+import { DocumentCurrency, DocumentCurrencyPrimitives } from '../shared/document-currency.js';
 import { PurchaseDate } from '../shared/purchase-date.vo.js';
 import { WarehouseRef } from '../shared/references.vo.js';
 import { optionalText } from '../shared/text.js';
@@ -25,9 +26,11 @@ export interface GoodsReceiptDetails {
   date: PurchaseDate;
   notes: string | null;
   lines: GoodsReceiptLine[];
+  // La moneda de su orden, con las tasas del dia en que llego.
+  currency: DocumentCurrency;
 }
 
-export interface GoodsReceiptPrimitives {
+export interface GoodsReceiptPrimitives extends DocumentCurrencyPrimitives {
   id: string;
   tenantId: string;
   code: string;
@@ -84,6 +87,7 @@ export class GoodsReceipt {
       {
         date: PurchaseDate.of(row.receiptDate),
         notes: row.notes,
+        currency: DocumentCurrency.fromPrimitives(row),
         lines: [...row.lines].sort((a, b) => a.lineNumber - b.lineNumber).map((line) => GoodsReceiptLine.fromPrimitives(line)),
       },
       row.status,
@@ -103,6 +107,7 @@ export class GoodsReceipt {
       warehouseId: this.warehouseId.value,
       receiptDate: this.details.date.value,
       notes: this.details.notes,
+      ...this.details.currency.toPrimitives(),
       status: this.status,
       confirmedAt: this.confirmedAt,
       cancelledAt: this.cancelledAt,
@@ -122,6 +127,10 @@ export class GoodsReceipt {
 
   notes(): string | null {
     return this.details.notes;
+  }
+
+  currency(): DocumentCurrency {
+    return this.details.currency;
   }
 
   lines(): GoodsReceiptLine[] {

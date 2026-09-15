@@ -1,5 +1,6 @@
 import { Clock } from '../../../../shared/domain/ports/clock.js';
 import { BusinessCalendar } from '../../../../shared/domain/ports/business-calendar.js';
+import { DocumentRates } from '../../../../shared/domain/ports/document-rates.js';
 import { PurchaseOrderFinder } from '../../domain/order/find/purchase-order-finder.js';
 import { GoodsReceiptFinder } from '../../domain/receipt/find/goods-receipt-finder.js';
 import { GoodsReceiptId } from '../../domain/receipt/goods-receipt.entity.js';
@@ -8,6 +9,7 @@ import { GoodsReceiptLineFactory } from '../../domain/receipt/lines/goods-receip
 import { ReceiptConfirmation } from '../../domain/receipt/posting/receipt-confirmation.js';
 import { ReceiptPosting } from '../../domain/receipt/posting/receipt-posting.js';
 import { TenantId } from '../../domain/shared/tenant-id.vo.js';
+import { receiptCurrency } from '../create-receipt/goods-receipt-creator.js';
 
 export class GoodsReceiptConfirmer {
   constructor(
@@ -19,6 +21,7 @@ export class GoodsReceiptConfirmer {
     private readonly confirmation: ReceiptConfirmation,
     private readonly clock: Clock,
     private readonly calendar: BusinessCalendar,
+    private readonly rates: DocumentRates,
   ) {}
 
   async run(request: { tenantId: string; receiptId: string }): Promise<void> {
@@ -42,6 +45,8 @@ export class GoodsReceiptConfirmer {
             order,
             receipt.lines().map((line) => ({ id: line.id.value, orderLineId: line.orderLineId.value, quantity: line.quantity.toNumber() })),
           ),
+          // Confirmar congela la tasa del dia de llegada, salvo la escrita a mano.
+          currency: await receiptCurrency(this.rates, request.tenantId, order, receipt.date(), receipt.currency().manualRate(), today),
         },
         now,
         today,

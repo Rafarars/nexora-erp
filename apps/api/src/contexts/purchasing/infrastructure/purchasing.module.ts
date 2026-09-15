@@ -1,6 +1,8 @@
 import { BUSINESS_CALENDAR } from '../../../shared/domain/ports/business-calendar.js';
 import type { BusinessCalendar } from '../../../shared/domain/ports/business-calendar.js';
 import { Module } from '@nestjs/common';
+import { DOCUMENT_RATES } from '../../../shared/domain/ports/document-rates.js';
+import type { DocumentRates } from '../../../shared/domain/ports/document-rates.js';
 import type { Clock } from '../../../shared/domain/ports/clock.js';
 import { CLOCK } from '../../../shared/domain/ports/clock.js';
 import type { IdGenerator } from '../../../shared/domain/ports/id-generator.js';
@@ -70,8 +72,8 @@ import { PrismaReceiptPosting } from './persistence/prisma-receipt-posting.js';
 import { PrismaSupplierRepository } from './persistence/prisma-supplier.repository.js';
 
 // El cableado de compras. Importa el modulo del inventario por una sola razon: la
-// publicacion de documentos que mueve existencia (DOCUMENT_STOCK_POSTING). Es el unico punto
-// donde un contexto nombra a otro, y es composicion, no dependencia de su codigo.
+// publicacion de documentos que mueve existencia (DOCUMENT_STOCK_POSTING); y el de la empresa, por
+// el calendario y las tasas de un documento. Es composicion, no dependencia de su codigo.
 @Module({
   imports: [PrismaModule, SharedModule, CompanyModule, InventoryModule],
   controllers: [
@@ -137,21 +139,21 @@ import { PrismaSupplierRepository } from './persistence/prisma-supplier.reposito
 
     {
       provide: PurchaseOrderCreator,
-      useFactory: (x: PurchaseOrderReferences, r: PurchaseOrderRepository, c: PurchasingCodeSequence, i: IdGenerator, k: Clock, cal: BusinessCalendar) =>
-        new PurchaseOrderCreator(x, r, c, i, k, cal),
-      inject: [PurchaseOrderReferences, PURCHASE_ORDER_REPOSITORY, PURCHASING_CODE_SEQUENCE, ID_GENERATOR, CLOCK, BUSINESS_CALENDAR],
+      useFactory: (x: PurchaseOrderReferences, r: PurchaseOrderRepository, c: PurchasingCodeSequence, i: IdGenerator, k: Clock, cal: BusinessCalendar, dr: DocumentRates) =>
+        new PurchaseOrderCreator(x, r, c, i, k, cal, dr),
+      inject: [PurchaseOrderReferences, PURCHASE_ORDER_REPOSITORY, PURCHASING_CODE_SEQUENCE, ID_GENERATOR, CLOCK, BUSINESS_CALENDAR, DOCUMENT_RATES],
     },
     {
       provide: PurchaseOrderUpdater,
-      useFactory: (f: PurchaseOrderFinder, x: PurchaseOrderReferences, r: PurchaseOrderRepository, k: Clock, cal: BusinessCalendar) =>
-        new PurchaseOrderUpdater(f, x, r, k, cal),
-      inject: [PurchaseOrderFinder, PurchaseOrderReferences, PURCHASE_ORDER_REPOSITORY, CLOCK, BUSINESS_CALENDAR],
+      useFactory: (f: PurchaseOrderFinder, x: PurchaseOrderReferences, r: PurchaseOrderRepository, k: Clock, cal: BusinessCalendar, dr: DocumentRates) =>
+        new PurchaseOrderUpdater(f, x, r, k, cal, dr),
+      inject: [PurchaseOrderFinder, PurchaseOrderReferences, PURCHASE_ORDER_REPOSITORY, CLOCK, BUSINESS_CALENDAR, DOCUMENT_RATES],
     },
     {
       provide: PurchaseOrderConfirmer,
-      useFactory: (f: PurchaseOrderFinder, x: PurchaseOrderReferences, r: PurchaseOrderRepository, p: PurchaseOrderPosting, k: Clock, cal: BusinessCalendar) =>
-        new PurchaseOrderConfirmer(f, x, r, p, k, cal),
-      inject: [PurchaseOrderFinder, PurchaseOrderReferences, PURCHASE_ORDER_REPOSITORY, PURCHASE_ORDER_POSTING, CLOCK, BUSINESS_CALENDAR],
+      useFactory: (f: PurchaseOrderFinder, x: PurchaseOrderReferences, r: PurchaseOrderRepository, p: PurchaseOrderPosting, k: Clock, cal: BusinessCalendar, dr: DocumentRates) =>
+        new PurchaseOrderConfirmer(f, x, r, p, k, cal, dr),
+      inject: [PurchaseOrderFinder, PurchaseOrderReferences, PURCHASE_ORDER_REPOSITORY, PURCHASE_ORDER_POSTING, CLOCK, BUSINESS_CALENDAR, DOCUMENT_RATES],
     },
     {
       provide: PurchaseOrderCanceller,
@@ -166,15 +168,15 @@ import { PrismaSupplierRepository } from './persistence/prisma-supplier.reposito
 
     {
       provide: GoodsReceiptCreator,
-      useFactory: (o: PurchaseOrderFinder, f: GoodsReceiptLineFactory, r: GoodsReceiptRepository, c: PurchasingCodeSequence, i: IdGenerator, k: Clock, cal: BusinessCalendar) =>
-        new GoodsReceiptCreator(o, f, r, c, i, k, cal),
-      inject: [PurchaseOrderFinder, GoodsReceiptLineFactory, GOODS_RECEIPT_REPOSITORY, PURCHASING_CODE_SEQUENCE, ID_GENERATOR, CLOCK, BUSINESS_CALENDAR],
+      useFactory: (o: PurchaseOrderFinder, f: GoodsReceiptLineFactory, r: GoodsReceiptRepository, c: PurchasingCodeSequence, i: IdGenerator, k: Clock, cal: BusinessCalendar, dr: DocumentRates) =>
+        new GoodsReceiptCreator(o, f, r, c, i, k, cal, dr),
+      inject: [PurchaseOrderFinder, GoodsReceiptLineFactory, GOODS_RECEIPT_REPOSITORY, PURCHASING_CODE_SEQUENCE, ID_GENERATOR, CLOCK, BUSINESS_CALENDAR, DOCUMENT_RATES],
     },
     {
       provide: GoodsReceiptUpdater,
-      useFactory: (g: GoodsReceiptFinder, o: PurchaseOrderFinder, f: GoodsReceiptLineFactory, r: GoodsReceiptRepository, k: Clock, cal: BusinessCalendar) =>
-        new GoodsReceiptUpdater(g, o, f, r, k, cal),
-      inject: [GoodsReceiptFinder, PurchaseOrderFinder, GoodsReceiptLineFactory, GOODS_RECEIPT_REPOSITORY, CLOCK, BUSINESS_CALENDAR],
+      useFactory: (g: GoodsReceiptFinder, o: PurchaseOrderFinder, f: GoodsReceiptLineFactory, r: GoodsReceiptRepository, k: Clock, cal: BusinessCalendar, dr: DocumentRates) =>
+        new GoodsReceiptUpdater(g, o, f, r, k, cal, dr),
+      inject: [GoodsReceiptFinder, PurchaseOrderFinder, GoodsReceiptLineFactory, GOODS_RECEIPT_REPOSITORY, CLOCK, BUSINESS_CALENDAR, DOCUMENT_RATES],
     },
     {
       provide: GoodsReceiptConfirmer,
@@ -185,8 +187,11 @@ import { PrismaSupplierRepository } from './persistence/prisma-supplier.reposito
         r: GoodsReceiptRepository,
         p: ReceiptPosting,
         c: ReceiptConfirmation,
-        k: Clock, cal: BusinessCalendar) => new GoodsReceiptConfirmer(g, o, f, r, p, c, k, cal),
-      inject: [GoodsReceiptFinder, PurchaseOrderFinder, GoodsReceiptLineFactory, GOODS_RECEIPT_REPOSITORY, RECEIPT_POSTING, ReceiptConfirmation, CLOCK, BUSINESS_CALENDAR],
+        k: Clock,
+        cal: BusinessCalendar,
+        dr: DocumentRates,
+      ) => new GoodsReceiptConfirmer(g, o, f, r, p, c, k, cal, dr),
+      inject: [GoodsReceiptFinder, PurchaseOrderFinder, GoodsReceiptLineFactory, GOODS_RECEIPT_REPOSITORY, RECEIPT_POSTING, ReceiptConfirmation, CLOCK, BUSINESS_CALENDAR, DOCUMENT_RATES],
     },
     {
       provide: GoodsReceiptCanceller,

@@ -17,6 +17,10 @@ export class UnitCost {
     return new UnitCost(BigInt(scaled));
   }
 
+  static ofMicros(micros: bigint): UnitCost {
+    return new UnitCost(micros);
+  }
+
   // Cuanto cuesta cada unidad base si `quantity` unidades de la linea cuestan esto cada una
   // y equivalen a `base` unidades base. Una caja de 24 a 12 es 0,5 por unidad.
   perBase(quantity: Quantity, base: Quantity): UnitCost {

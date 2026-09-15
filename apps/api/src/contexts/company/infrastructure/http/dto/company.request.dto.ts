@@ -18,6 +18,7 @@ export const companySettingsRequestSchema = z.object({
   amountDecimals: z.number(),
   priceDecimals: z.number(),
   rateType: z.string(),
+  allowsRateOverride: z.boolean(),
 });
 
 export type CompanySettingsRequestDto = z.infer<typeof companySettingsRequestSchema>;

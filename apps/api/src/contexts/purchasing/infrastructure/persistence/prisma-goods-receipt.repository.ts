@@ -23,7 +23,15 @@ export class PrismaGoodsReceiptRepository implements GoodsReceiptRepository {
       } else {
         const { count } = await tx.goodsReceipt.updateMany({
           where: { tenantId: row.tenantId, id: row.id, status: 'draft' },
-          data: { receiptDate: asDate(receiptDate), notes: row.notes, updatedAt: row.updatedAt },
+          data: {
+            receiptDate: asDate(receiptDate),
+            notes: row.notes,
+            exchangeRate: row.exchangeRate,
+            baseCurrency: row.baseCurrency,
+            baseExchangeRate: row.baseExchangeRate,
+            manualExchangeRate: row.manualExchangeRate,
+            updatedAt: row.updatedAt,
+          },
         });
 
         if (count === 0) throw new GoodsReceiptNotEditableError(row.id, exists.status);

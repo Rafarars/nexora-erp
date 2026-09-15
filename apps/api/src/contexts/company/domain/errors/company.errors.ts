@@ -91,13 +91,6 @@ export class ExchangeRateNotFoundError extends NotFoundError {
   }
 }
 
-// Sin tasa, un documento en esa moneda no se emite: es preferible a emitirlo con tasa 1.
-export class MissingExchangeRateError extends ConflictError {
-  constructor(currency: string, type: string, date: string) {
-    super(`No active ${type} rate for <${currency}> on or before <${date}>.`, 'There is no exchange rate for that currency on that date.');
-  }
-}
-
 // Dos cargas simultaneas de la misma moneda, fecha y tipo: la segunda no pisa a ciegas.
 export class DuplicateExchangeRateError extends ConflictError {
   constructor(currency: string, type: string, date: string) {

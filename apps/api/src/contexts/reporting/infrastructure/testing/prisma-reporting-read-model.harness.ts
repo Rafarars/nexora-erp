@@ -108,8 +108,8 @@ export class PrismaReportingReadModelHarness implements ReportingReadModelHarnes
     const date = asDate(receipt.date);
 
     await this.prisma.supplier.create({ data: { id: supplierId, tenantId, code: this.code('PRV'), name: `Contrato proveedor ${this.counter}`, updatedAt: date } });
-    await this.prisma.purchaseOrder.create({ data: { id: orderId, tenantId, code: this.code('OC'), supplierId, warehouseId: receipt.warehouseId, orderDate: date, status: 'received', updatedAt: date } });
-    await this.prisma.goodsReceipt.create({ data: { id: receiptId, tenantId, code: this.code('ENT'), orderId, warehouseId: receipt.warehouseId, receiptDate: date, status: receipt.status, updatedAt: date } });
+    await this.prisma.purchaseOrder.create({ data: { id: orderId, tenantId, code: this.code('OC'), supplierId, warehouseId: receipt.warehouseId, orderDate: date, status: 'received', currency: 'USD', baseCurrency: 'USD', updatedAt: date } });
+    await this.prisma.goodsReceipt.create({ data: { id: receiptId, tenantId, code: this.code('ENT'), orderId, warehouseId: receipt.warehouseId, receiptDate: date, status: receipt.status, currency: 'USD', baseCurrency: 'USD', updatedAt: date } });
 
     for (const [index, line] of receipt.lines.entries()) {
       const orderLineId = uuid();

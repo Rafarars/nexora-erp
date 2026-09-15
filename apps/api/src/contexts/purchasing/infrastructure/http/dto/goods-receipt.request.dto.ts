@@ -6,6 +6,7 @@ export const goodsReceiptCreateSchema = z.object({
   orderId: z.string(),
   date: z.string().nullable().optional(),
   notes: z.string().nullable().optional(),
+  exchangeRate: z.number().nullable().optional(),
   lines,
 });
 

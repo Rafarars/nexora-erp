@@ -42,7 +42,7 @@ export function describeCompanyPortsContract(implementation: string, createHarne
         const settings = CompanySettings.defaults(tenantA);
         settings.update(settingsDetailsOf(aSettingsInput({ baseCurrency: 'EUR', secondaryCurrency: null })), LATER);
         await ports.settings.save(settings);
-        settings.update(settingsDetailsOf(aSettingsInput({ timeZone: 'Europe/Madrid', secondaryCurrency: null, amountDecimals: 4, rateType: 'manual' })), LATER);
+        settings.update(settingsDetailsOf(aSettingsInput({ timeZone: 'Europe/Madrid', secondaryCurrency: null, amountDecimals: 4, rateType: 'manual', allowsRateOverride: false })), LATER);
         await ports.settings.save(settings);
 
         expect((await ports.settings.find(tenantA))?.toPrimitives()).toEqual(settings.toPrimitives());

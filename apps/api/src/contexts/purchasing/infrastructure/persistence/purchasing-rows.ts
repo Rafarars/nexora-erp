@@ -6,10 +6,19 @@ type Decimalish = { toNumber(): number };
 // Prisma devuelve decimal como objetos Decimal y fechas sin hora como Date a medianoche UTC.
 const n = (value: Decimalish) => value.toNumber();
 const day = (value: Date) => value.toISOString().slice(0, 10);
+const rate = (value: Decimalish | null) => (value === null ? null : value.toNumber());
+
+interface CurrencyColumns {
+  currency: string;
+  exchangeRate: Decimalish | null;
+  baseCurrency: string;
+  baseExchangeRate: Decimalish | null;
+  manualExchangeRate: boolean;
+}
 
 export const asDate = (value: string) => new Date(`${value}T00:00:00.000Z`);
 
-export interface PurchaseOrderRow {
+export interface PurchaseOrderRow extends CurrencyColumns {
   id: string;
   tenantId: string;
   code: string;
@@ -41,6 +50,8 @@ export function orderFromRow(row: PurchaseOrderRow): PurchaseOrder {
     ...row,
     orderDate: day(row.orderDate),
     expectedDate: row.expectedDate ? day(row.expectedDate) : null,
+    exchangeRate: rate(row.exchangeRate),
+    baseExchangeRate: rate(row.baseExchangeRate),
     lines: row.lines.map((line) => ({
       id: line.id,
       lineNumber: line.lineNumber,
@@ -55,7 +66,7 @@ export function orderFromRow(row: PurchaseOrderRow): PurchaseOrder {
   });
 }
 
-export interface GoodsReceiptRow {
+export interface GoodsReceiptRow extends CurrencyColumns {
   id: string;
   tenantId: string;
   code: string;
@@ -84,6 +95,8 @@ export function receiptFromRow(row: GoodsReceiptRow): GoodsReceipt {
   return GoodsReceipt.fromPrimitives({
     ...row,
     receiptDate: day(row.receiptDate),
+    exchangeRate: rate(row.exchangeRate),
+    baseExchangeRate: rate(row.baseExchangeRate),
     lines: row.lines.map((line) => ({
       id: line.id,
       lineNumber: line.lineNumber,

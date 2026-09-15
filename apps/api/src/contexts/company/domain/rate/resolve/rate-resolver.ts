@@ -1,5 +1,5 @@
 import { CurrencyCode } from '../../currency/currency-code.vo.js';
-import { MissingExchangeRateError } from '../../errors/company.errors.js';
+import { MissingExchangeRateError } from '../../../../../shared/domain/ports/document-rates.js';
 import { TenantId } from '../../shared/tenant-id.vo.js';
 import { ExchangeRateRepository } from '../exchange-rate.repository.js';
 import { RateDate } from '../rate-date.vo.js';

@@ -18,12 +18,13 @@ import { GoodsReceiptLine, GoodsReceiptLineId } from '../domain/receipt/goods-re
 import { GoodsReceipt, GoodsReceiptId } from '../domain/receipt/goods-receipt.entity.js';
 import { ReceiptCancellation } from '../domain/receipt/posting/receipt-cancellation.js';
 import { ReceiptConfirmation } from '../domain/receipt/posting/receipt-confirmation.js';
+import { DocumentCurrency } from '../domain/shared/document-currency.js';
 import { PurchaseDate } from '../domain/shared/purchase-date.vo.js';
 import { Quantity } from '../domain/shared/quantity.vo.js';
 import { WarehouseRef } from '../domain/shared/references.vo.js';
 import { TenantId } from '../domain/shared/tenant-id.vo.js';
 import { Supplier, SupplierId } from '../domain/supplier/supplier.entity.js';
-import { MAIN, NOW, SUPPLIER, TENANT_A, TENANT_B, TODAY, WATER, anOrderLine } from '../domain/testing/purchasing.mother.js';
+import { MAIN, NOW, SUPPLIER, TENANT_A, TENANT_B, TODAY, WATER, aDocumentCurrency, anOrderLine } from '../domain/testing/purchasing.mother.js';
 import { PurchasingPorts, PurchasingPortsHarness } from './purchasing-ports.harness.js';
 
 const tenant = TenantId.of(TENANT_A);
@@ -53,7 +54,7 @@ export function describePurchasingPortsContract(implementation: string, createHa
 
     const next = () => String((counter += 1)).padStart(12, '0');
 
-    async function confirmedOrder(lines: PurchaseOrderLine[] = [anOrderLine({ quantity: 10, unitCost: 12 })]): Promise<PurchaseOrder> {
+    async function confirmedOrder(lines: PurchaseOrderLine[] = [anOrderLine({ quantity: 10, unitCost: 12 })], currency = aDocumentCurrency()): Promise<PurchaseOrder> {
       const id = PurchaseOrderId.of(`0d000000-0000-4000-8000-${next()}`);
       const order = PurchaseOrder.draft(id, tenant, `OC${next().slice(-6)}`, {
         supplierId: SupplierId.of(SUPPLIER),
@@ -62,6 +63,7 @@ export function describePurchasingPortsContract(implementation: string, createHa
         expectedDate: null,
         notes: 'contrato',
         lines,
+        currency,
       }, NOW, TODAY);
 
       await ports.orders.save(order);
@@ -70,7 +72,7 @@ export function describePurchasingPortsContract(implementation: string, createHa
       return (await ports.orders.find(tenant, id))!;
     }
 
-    async function draftReceipt(order: PurchaseOrder, quantities: number[]): Promise<GoodsReceiptId> {
+    async function draftReceipt(order: PurchaseOrder, quantities: number[], currency = aDocumentCurrency()): Promise<GoodsReceiptId> {
       const id = GoodsReceiptId.of(`0f000000-0000-4000-8000-${next()}`);
       const lines = order.lines().slice(0, quantities.length).map((line, index) => {
         const quantity = Quantity.of(quantities[index]);
@@ -91,6 +93,7 @@ export function describePurchasingPortsContract(implementation: string, createHa
         date: PurchaseDate.of(TODAY),
         notes: null,
         lines,
+        currency,
       }, NOW, TODAY));
 
       return id;
@@ -129,6 +132,25 @@ export function describePurchasingPortsContract(implementation: string, createHa
         expect(await ports.orders.find(TenantId.of(TENANT_B), order.id)).toBeNull();
       });
 
+      it('keeps the currency and the frozen rates, and a document written before them without rates', async () => {
+        const order = await confirmedOrder(undefined, aDocumentCurrency({ currency: 'EUR', exchangeRate: 40.12345678, baseExchangeRate: 36.5, manualRate: true }));
+        const legacy = await confirmedOrder(
+          undefined,
+          DocumentCurrency.fromPrimitives({ currency: 'USD', exchangeRate: null, baseCurrency: 'USD', baseExchangeRate: null, manualExchangeRate: false }),
+        );
+        const receiptId = await draftReceipt(order, [4], aDocumentCurrency({ currency: 'EUR', exchangeRate: 41, baseExchangeRate: 37 }));
+
+        expect(order.currency().toPrimitives()).toEqual({ currency: 'EUR', exchangeRate: 40.12345678, baseCurrency: 'USD', baseExchangeRate: 36.5, manualExchangeRate: true });
+        expect(legacy.currency().toPrimitives()).toMatchObject({ currency: 'USD', exchangeRate: null, baseExchangeRate: null });
+        expect((await ports.receipts.find(tenant, receiptId))?.currency().toPrimitives()).toEqual({
+          currency: 'EUR',
+          exchangeRate: 41,
+          baseCurrency: 'USD',
+          baseExchangeRate: 37,
+          manualExchangeRate: false,
+        });
+      });
+
       it('refuses to overwrite an order that was confirmed in the meantime', async () => {
         const order = await confirmedOrder();
         const stale = PurchaseOrder.fromPrimitives({ ...order.toPrimitives(), status: 'draft' });
@@ -148,6 +170,7 @@ export function describePurchasingPortsContract(implementation: string, createHa
             expectedDate: null,
             notes: 'contrato',
             lines: [anOrderLine({ quantity: 10, factor: 12, unitCost: 12 })],
+            currency: aDocumentCurrency(),
           }, NOW, TODAY),
         );
 

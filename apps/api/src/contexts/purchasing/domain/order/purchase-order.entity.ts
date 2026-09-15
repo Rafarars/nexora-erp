@@ -10,6 +10,7 @@ import {
   ReceiptExceedsPendingError,
   ReceiptLineNotInOrderError,
 } from '../errors/purchasing.errors.js';
+import { DocumentCurrency, DocumentCurrencyPrimitives } from '../shared/document-currency.js';
 import { centsToNumber } from '../shared/money.js';
 import { PurchaseDate } from '../shared/purchase-date.vo.js';
 import { Quantity } from '../shared/quantity.vo.js';
@@ -34,9 +35,10 @@ export interface PurchaseOrderDetails {
   expectedDate: PurchaseDate | null;
   notes: string | null;
   lines: PurchaseOrderLine[];
+  currency: DocumentCurrency;
 }
 
-export interface PurchaseOrderPrimitives {
+export interface PurchaseOrderPrimitives extends DocumentCurrencyPrimitives {
   id: string;
   tenantId: string;
   code: string;
@@ -96,6 +98,7 @@ export class PurchaseOrder {
         orderDate: PurchaseDate.of(row.orderDate),
         expectedDate: row.expectedDate ? PurchaseDate.of(row.expectedDate) : null,
         notes: row.notes,
+        currency: DocumentCurrency.fromPrimitives(row),
         lines: [...row.lines].sort((a, b) => a.lineNumber - b.lineNumber).map((line) => PurchaseOrderLine.fromPrimitives(line)),
       },
       row.status,
@@ -116,6 +119,7 @@ export class PurchaseOrder {
       orderDate: this.details.orderDate.value,
       expectedDate: this.details.expectedDate?.value ?? null,
       notes: this.details.notes,
+      ...this.details.currency.toPrimitives(),
       status: this.status,
       confirmedAt: this.confirmedAt,
       cancelledAt: this.cancelledAt,
@@ -147,6 +151,10 @@ export class PurchaseOrder {
 
   notes(): string | null {
     return this.details.notes;
+  }
+
+  currency(): DocumentCurrency {
+    return this.details.currency;
   }
 
   lines(): PurchaseOrderLine[] {

@@ -15,7 +15,7 @@ import { PurchaseDate } from '../shared/purchase-date.vo.js';
 import { Quantity } from '../shared/quantity.vo.js';
 import { WarehouseRef } from '../shared/references.vo.js';
 import { SupplierId } from '../supplier/supplier.entity.js';
-import { MAIN, NOW, SUPPLIER, TODAY, aConfirmedOrder, aDraftOrder, anOrderLine } from '../testing/purchasing.mother.js';
+import { MAIN, NOW, SUPPLIER, TODAY, aConfirmedOrder, aDocumentCurrency, aDraftOrder, anOrderLine } from '../testing/purchasing.mother.js';
 import { PurchaseOrderLineId } from './purchase-order-line.js';
 import { PurchaseOrder } from './purchase-order.entity.js';
 
@@ -27,6 +27,7 @@ const details = (overrides: Partial<Parameters<PurchaseOrder['update']>[0]> = {}
   expectedDate: null,
   notes: null,
   lines: [anOrderLine()],
+  currency: aDocumentCurrency(),
   ...overrides,
 });
 

@@ -25,6 +25,7 @@ describe('company settings', () => {
       amountDecimals: 2,
       priceDecimals: 6,
       rateType: 'legal',
+      allowsRateOverride: true,
       today: '2026-01-15',
     });
   });

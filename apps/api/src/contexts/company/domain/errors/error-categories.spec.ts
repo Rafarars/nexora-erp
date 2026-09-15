@@ -19,7 +19,6 @@ const cases: Array<[DomainError, typeof DomainError]> = [
   [new errors.InvalidExchangeRateError(0, 9_999_999.99999999), InvalidArgumentError],
   [new errors.LocalCurrencyRateError('VES'), InvalidArgumentError],
   [new errors.ExchangeRateNotFoundError(ID), NotFoundError],
-  [new errors.MissingExchangeRateError('USD', 'legal', '2026-01-15'), ConflictError],
   [new errors.DuplicateExchangeRateError('USD', 'legal', '2026-01-15'), ConflictError],
 ];
 

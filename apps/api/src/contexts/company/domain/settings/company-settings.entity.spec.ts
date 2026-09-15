@@ -14,6 +14,7 @@ describe('CompanySettings', () => {
       amountDecimals: 2,
       priceDecimals: 6,
       rateType: 'legal',
+      allowsRateOverride: true,
       updatedAt: null,
     });
   });

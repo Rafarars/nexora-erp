@@ -235,7 +235,7 @@ async function upsertCompanies(prisma: PrismaClient): Promise<void> {
     { tenantId: INITECH, legalName: 'Initech Logística, C.A.', tradeName: null, fiscalId: 'J-40000003-9', address: null, phone: null, email: null },
     { tenantId: VOLUME, legalName: 'Volumen Distribuciones, C.A.', tradeName: null, fiscalId: 'J-40000004-7', address: null, phone: null, email: null },
   ];
-  const settings = { baseCurrency: 'USD', secondaryCurrency: 'VES', timeZone: 'America/Caracas', amountDecimals: 2, priceDecimals: 6, rateType: 'legal' as const };
+  const settings = { baseCurrency: 'USD', secondaryCurrency: 'VES', timeZone: 'America/Caracas', amountDecimals: 2, priceDecimals: 6, rateType: 'legal' as const, allowsRateOverride: true };
   const updatedAt = new Date('2026-09-01T12:00:00.000Z');
 
   for (const profile of profiles) {
@@ -260,6 +260,12 @@ async function upsertExchangeRates(prisma: PrismaClient): Promise<void> {
     { id: 'f6000000-0000-4000-8000-000000000004', tenantId: ACME, currency: 'EUR', rateDate: '2026-09-01', type: 'legal', rate: '171.30', source: 'BCV' },
     { id: 'f6000000-0000-4000-8000-000000000005', tenantId: ACME, currency: 'EUR', rateDate: '2026-09-11', type: 'legal', rate: '175.05', source: 'BCV' },
     { id: 'f6000000-0000-4000-8000-000000000006', tenantId: ACME, currency: 'USD', rateDate: '2026-09-11', type: 'manual', rate: '160.00', source: 'Tasa interna de compras' },
+    // Las de enero valoran cualquier documento de este ano, tambien los de las pruebas.
+    { id: 'f6000000-0000-4000-8000-000000000007', tenantId: ACME, currency: 'USD', rateDate: '2026-01-02', type: 'legal', rate: '140.00', source: 'BCV' },
+    { id: 'f6000000-0000-4000-8000-000000000008', tenantId: ACME, currency: 'EUR', rateDate: '2026-01-02', type: 'legal', rate: '155.00', source: 'BCV' },
+    { id: 'f6000000-0000-4000-8000-000000000102', tenantId: GLOBEX, currency: 'USD', rateDate: '2026-01-02', type: 'legal', rate: '141.00', source: 'BCV' },
+    { id: 'f6000000-0000-4000-8000-000000000201', tenantId: INITECH, currency: 'USD', rateDate: '2026-01-02', type: 'legal', rate: '140.00', source: 'BCV' },
+    { id: 'f6000000-0000-4000-8000-000000000301', tenantId: VOLUME, currency: 'USD', rateDate: '2026-01-02', type: 'legal', rate: '140.00', source: 'BCV' },
     { id: 'f6000000-0000-4000-8000-000000000101', tenantId: GLOBEX, currency: 'USD', rateDate: '2026-09-10', type: 'legal', rate: '152.80', source: 'BCV' },
   ] as const;
   const createdAt = new Date('2026-09-01T12:00:00.000Z');
@@ -594,6 +600,12 @@ async function seedPurchasing(prisma: PrismaClient): Promise<void> {
   const { acme, globex } = CATALOG;
   const at = (day: string) => new Date(`${day}T12:00:00.000Z`);
   const date = (day: string) => new Date(`${day}T00:00:00.000Z`);
+  // En dolares, con la tasa legal de su fecha: la del 1 de septiembre en Acme y la de enero en Globex.
+  const dollars = (tenantId: string) => {
+    const rate = tenantId === ACME ? 150.25 : 141;
+
+    return { currency: 'USD', exchangeRate: rate, baseCurrency: 'USD', baseExchangeRate: rate, manualExchangeRate: false };
+  };
 
   await prisma.supplier.createMany({
     data: [
@@ -637,7 +649,7 @@ async function seedPurchasing(prisma: PrismaClient): Promise<void> {
   ];
 
   for (const { lines, ...order } of orders) {
-    await prisma.purchaseOrder.create({ data: { ...order, createdAt: order.orderDate, updatedAt: order.confirmedAt ?? order.orderDate } });
+    await prisma.purchaseOrder.create({ data: { ...order, ...dollars(order.tenantId), createdAt: order.orderDate, updatedAt: order.confirmedAt ?? order.orderDate } });
     await prisma.purchaseOrderLine.createMany({
       data: lines.map((line, index) => ({ ...line, tenantId: order.tenantId, orderId: order.id, lineNumber: index + 1 })),
     });
@@ -658,7 +670,7 @@ async function seedPurchasing(prisma: PrismaClient): Promise<void> {
   ];
 
   for (const { lines, ...receipt } of receipts) {
-    await prisma.goodsReceipt.create({ data: { ...receipt, createdAt: receipt.receiptDate, updatedAt: receipt.confirmedAt ?? receipt.receiptDate } });
+    await prisma.goodsReceipt.create({ data: { ...receipt, ...dollars(receipt.tenantId), createdAt: receipt.receiptDate, updatedAt: receipt.confirmedAt ?? receipt.receiptDate } });
     await prisma.goodsReceiptLine.createMany({
       data: lines.map((line, index) => ({ ...line, tenantId: receipt.tenantId, receiptId: receipt.id, lineNumber: index + 1 })),
     });

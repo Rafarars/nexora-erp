@@ -153,9 +153,11 @@ model Currency {
   sortOrder Int     @default(0) @map("sort_order")
   isActive  Boolean @default(true) @map("is_active")
 
-  baseOf      CompanySettings[] @relation("BaseCurrency")
-  secondaryOf CompanySettings[] @relation("SecondaryCurrency")
-  rates       ExchangeRate[]
+  baseOf         CompanySettings[] @relation("BaseCurrency")
+  secondaryOf    CompanySettings[] @relation("SecondaryCurrency")
+  rates          ExchangeRate[]
+  purchaseOrders PurchaseOrder[]   @relation("PurchaseOrderCurrency")
+  goodsReceipts  GoodsReceipt[]    @relation("GoodsReceiptCurrency")
 
   @@map("currencies")
 }
@@ -179,14 +181,15 @@ model CompanyProfile {
 /// Moneda principal y secundaria, zona horaria y decimales. Los rangos de decimales los repite un
 /// CHECK en la migracion.
 model CompanySettings {
-  tenantId          String           @id @map("tenant_id") @db.Uuid
-  baseCurrency      String           @map("base_currency") @db.Char(3)
-  secondaryCurrency String?          @map("secondary_currency") @db.Char(3)
-  timeZone          String           @map("time_zone") @db.VarChar(64)
-  amountDecimals    Int              @map("amount_decimals")
-  priceDecimals     Int              @map("price_decimals")
-  rateType          ExchangeRateType @default(legal) @map("rate_type")
-  updatedAt         DateTime         @map("updated_at")
+  tenantId           String           @id @map("tenant_id") @db.Uuid
+  baseCurrency       String           @map("base_currency") @db.Char(3)
+  secondaryCurrency  String?          @map("secondary_currency") @db.Char(3)
+  timeZone           String           @map("time_zone") @db.VarChar(64)
+  amountDecimals     Int              @map("amount_decimals")
+  priceDecimals      Int              @map("price_decimals")
+  rateType           ExchangeRateType @default(legal) @map("rate_type")
+  allowsRateOverride Boolean          @default(true) @map("allows_rate_override")
+  updatedAt          DateTime         @map("updated_at")
 
   tenant    Tenant    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   base      Currency  @relation("BaseCurrency", fields: [baseCurrency], references: [code], onDelete: Restrict)
@@ -574,25 +577,31 @@ enum PurchaseOrderStatus {
 
 /// Lo que se le pide a un proveedor para una bodega.
 model PurchaseOrder {
-  id           String              @id @db.Uuid
-  tenantId     String              @map("tenant_id") @db.Uuid
-  code         String              @db.VarChar(12)
-  supplierId   String              @map("supplier_id") @db.Uuid
-  warehouseId  String              @map("warehouse_id") @db.Uuid
-  orderDate    DateTime            @map("order_date") @db.Date
-  expectedDate DateTime?           @map("expected_date") @db.Date
-  notes        String?             @db.VarChar(500)
-  status       PurchaseOrderStatus @default(draft)
-  confirmedAt  DateTime?           @map("confirmed_at")
-  cancelledAt  DateTime?           @map("cancelled_at")
-  createdAt    DateTime            @default(now()) @map("created_at")
-  updatedAt    DateTime            @updatedAt @map("updated_at")
+  id                 String              @id @db.Uuid
+  tenantId           String              @map("tenant_id") @db.Uuid
+  code               String              @db.VarChar(12)
+  supplierId         String              @map("supplier_id") @db.Uuid
+  warehouseId        String              @map("warehouse_id") @db.Uuid
+  orderDate          DateTime            @map("order_date") @db.Date
+  expectedDate       DateTime?           @map("expected_date") @db.Date
+  notes              String?             @db.VarChar(500)
+  currency           String              @db.Char(3)
+  exchangeRate       Decimal?            @map("exchange_rate") @db.Decimal(18, 8)
+  baseCurrency       String              @map("base_currency") @db.Char(3)
+  baseExchangeRate   Decimal?            @map("base_exchange_rate") @db.Decimal(18, 8)
+  manualExchangeRate Boolean             @default(false) @map("manual_exchange_rate")
+  status             PurchaseOrderStatus @default(draft)
+  confirmedAt        DateTime?           @map("confirmed_at")
+  cancelledAt        DateTime?           @map("cancelled_at")
+  createdAt          DateTime            @default(now()) @map("created_at")
+  updatedAt          DateTime            @updatedAt @map("updated_at")
 
-  tenant    Tenant              @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  supplier  Supplier            @relation(fields: [tenantId, supplierId], references: [tenantId, id], onDelete: Restrict)
-  warehouse Warehouse           @relation(fields: [tenantId, warehouseId], references: [tenantId, id], onDelete: Restrict)
-  lines     PurchaseOrderLine[]
-  receipts  GoodsReceipt[]
+  tenant       Tenant              @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  currencyInfo Currency            @relation("PurchaseOrderCurrency", fields: [currency], references: [code], onDelete: Restrict)
+  supplier     Supplier            @relation(fields: [tenantId, supplierId], references: [tenantId, id], onDelete: Restrict)
+  warehouse    Warehouse           @relation(fields: [tenantId, warehouseId], references: [tenantId, id], onDelete: Restrict)
+  lines        PurchaseOrderLine[]
+  receipts     GoodsReceipt[]
 
   @@unique([tenantId, id])
   @@unique([tenantId, code])
@@ -639,23 +648,29 @@ enum GoodsReceiptStatus {
 
 /// Lo que llego de una orden. Al confirmarse sube la existencia; al anularse la revierte.
 model GoodsReceipt {
-  id          String             @id @db.Uuid
-  tenantId    String             @map("tenant_id") @db.Uuid
-  code        String             @db.VarChar(12)
-  orderId     String             @map("order_id") @db.Uuid
-  warehouseId String             @map("warehouse_id") @db.Uuid
-  receiptDate DateTime           @map("receipt_date") @db.Date
-  notes       String?            @db.VarChar(500)
-  status      GoodsReceiptStatus @default(draft)
-  confirmedAt DateTime?          @map("confirmed_at")
-  cancelledAt DateTime?          @map("cancelled_at")
-  createdAt   DateTime           @default(now()) @map("created_at")
-  updatedAt   DateTime           @updatedAt @map("updated_at")
+  id                 String             @id @db.Uuid
+  tenantId           String             @map("tenant_id") @db.Uuid
+  code               String             @db.VarChar(12)
+  orderId            String             @map("order_id") @db.Uuid
+  warehouseId        String             @map("warehouse_id") @db.Uuid
+  receiptDate        DateTime           @map("receipt_date") @db.Date
+  notes              String?            @db.VarChar(500)
+  currency           String             @db.Char(3)
+  exchangeRate       Decimal?           @map("exchange_rate") @db.Decimal(18, 8)
+  baseCurrency       String             @map("base_currency") @db.Char(3)
+  baseExchangeRate   Decimal?           @map("base_exchange_rate") @db.Decimal(18, 8)
+  manualExchangeRate Boolean            @default(false) @map("manual_exchange_rate")
+  status             GoodsReceiptStatus @default(draft)
+  confirmedAt        DateTime?          @map("confirmed_at")
+  cancelledAt        DateTime?          @map("cancelled_at")
+  createdAt          DateTime           @default(now()) @map("created_at")
+  updatedAt          DateTime           @updatedAt @map("updated_at")
 
-  tenant    Tenant             @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  order     PurchaseOrder      @relation(fields: [tenantId, orderId], references: [tenantId, id], onDelete: Restrict)
-  warehouse Warehouse          @relation(fields: [tenantId, warehouseId], references: [tenantId, id], onDelete: Restrict)
-  lines     GoodsReceiptLine[]
+  tenant       Tenant             @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  currencyInfo Currency           @relation("GoodsReceiptCurrency", fields: [currency], references: [code], onDelete: Restrict)
+  order        PurchaseOrder      @relation(fields: [tenantId, orderId], references: [tenantId, id], onDelete: Restrict)
+  warehouse    Warehouse          @relation(fields: [tenantId, warehouseId], references: [tenantId, id], onDelete: Restrict)
+  lines        GoodsReceiptLine[]
 
   @@unique([tenantId, id])
   @@unique([tenantId, code])

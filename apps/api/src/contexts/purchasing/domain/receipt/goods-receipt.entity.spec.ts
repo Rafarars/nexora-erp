@@ -14,7 +14,7 @@ import { UnitCost } from '../shared/money.js';
 import { PurchaseDate } from '../shared/purchase-date.vo.js';
 import { Quantity } from '../shared/quantity.vo.js';
 import { TenantId } from '../shared/tenant-id.vo.js';
-import { NOW, TENANT_A, TODAY, aConfirmedOrder, anOrderLine } from '../testing/purchasing.mother.js';
+import { NOW, TENANT_A, TODAY, aConfirmedOrder, aDocumentCurrency, anOrderLine } from '../testing/purchasing.mother.js';
 import { GoodsReceiptLine, GoodsReceiptLineId } from './goods-receipt-line.js';
 import { GoodsReceipt, GoodsReceiptId } from './goods-receipt.entity.js';
 import { ReceiptCancellation } from './posting/receipt-cancellation.js';
@@ -38,18 +38,30 @@ function receiptLine(orderLine: PurchaseOrderLine, quantity: number, factor = 24
   });
 }
 
-function aReceipt(order: PurchaseOrder, lines: GoodsReceiptLine[], date = TODAY): GoodsReceipt {
+function aReceipt(order: PurchaseOrder, lines: GoodsReceiptLine[], date = TODAY, currency = aDocumentCurrency()): GoodsReceipt {
   return GoodsReceipt.draft(
     GoodsReceiptId.of('0f000000-0000-4000-8000-000000000001'),
     TenantId.of(TENANT_A),
     'ENT000001',
     { id: order.id, warehouseId: order.warehouseId() },
-    { date: PurchaseDate.of(date), notes: '  Llego completo ', lines },
+    { date: PurchaseDate.of(date), notes: '  Llego completo ', lines, currency },
     NOW, TODAY,
   );
 }
 
 describe('GoodsReceipt', () => {
+  // 4 cajas de 24 a 12 EUR son 96 unidades a 0,50 EUR; con el euro a 175,05 Bs y el dolar a 153,10 Bs,
+  // entran al inventario a 0,571685 USD.
+  it('enters the stock at its cost carried to the company currency with its own rates', () => {
+    const line = anOrderLine({ quantity: 10, unitCost: 12 });
+    const order = aConfirmedOrder([line]);
+    const receipt = aReceipt(order, [receiptLine(line, 4)], TODAY, aDocumentCurrency({ currency: 'EUR', exchangeRate: 175.05, baseExchangeRate: 153.1 }));
+
+    const { stock } = new ReceiptConfirmation().apply(receipt, order, NOW);
+
+    expect(stock.kind === 'receive' ? stock.entries.map((entry) => [entry.quantity.toNumber(), entry.unitCost.toNumber()]) : []).toEqual([[96, 0.571685]]);
+  });
+
   it('is born as a draft in the warehouse of its order', () => {
     const line = anOrderLine();
     const order = aConfirmedOrder([line]);
@@ -106,7 +118,7 @@ describe('GoodsReceipt', () => {
       new ReceiptConfirmation().apply(receipt, order, NOW);
 
       expect(() => receipt.confirm(NOW)).toThrow(GoodsReceiptNotConfirmableError);
-      expect(() => receipt.update({ date: PurchaseDate.of(TODAY), notes: null, lines: [receiptLine(line, 1)] }, NOW, TODAY)).toThrow(
+      expect(() => receipt.update({ date: PurchaseDate.of(TODAY), notes: null, lines: [receiptLine(line, 1)], currency: aDocumentCurrency() }, NOW, TODAY)).toThrow(
         GoodsReceiptNotEditableError,
       );
     });

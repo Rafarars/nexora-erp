@@ -1,12 +1,17 @@
 import { describe, expect, it } from 'vitest';
 import {
+  DocumentRateRequest,
+  FixedExchangeRateError,
+  MissingExchangeRateError,
+  RateOverrideNotAllowedError,
+} from '../../../shared/domain/ports/document-rates.js';
+import {
   ExchangeRateNotFoundError,
   InactiveCurrencyError,
   InvalidExchangeRateError,
   InvalidRateDateError,
   InvalidRateTypeError,
   LocalCurrencyRateError,
-  MissingExchangeRateError,
   UnknownCurrencyError,
 } from '../domain/errors/company.errors.js';
 import { ExchangeRateInput } from '../domain/rate/exchange-rate.entity.js';
@@ -131,12 +136,21 @@ describe('the rate in force', () => {
 });
 
 describe('the rates of a document', () => {
+  const forDocument = (s: CompanyScenario, request: DocumentRateRequest) => s.documentRates.forDocument(TENANT_A, request);
+
   it('freezes the rate of its currency and the rate of the company currency', async () => {
     const scenario = aCompanyScenario();
     await aWeekOfRates(scenario);
 
-    expect(await scenario.documentRates.forDocument(TENANT_A, 'EUR', '2026-01-15')).toEqual({ currency: 'EUR', exchangeRate: 40, baseCurrency: 'USD', baseExchangeRate: 36 });
-    expect(await scenario.documentRates.forDocument(TENANT_A, 'VES', '2026-01-15')).toEqual({ currency: 'VES', exchangeRate: 1, baseCurrency: 'USD', baseExchangeRate: 36 });
+    expect(await forDocument(scenario, { currency: 'EUR', date: '2026-01-15' })).toEqual({ currency: 'EUR', exchangeRate: 40, baseCurrency: 'USD', baseExchangeRate: 36, manualRate: false });
+    expect(await forDocument(scenario, { currency: 'VES', date: '2026-01-15' })).toEqual({ currency: 'VES', exchangeRate: 1, baseCurrency: 'USD', baseExchangeRate: 36, manualRate: false });
+  });
+
+  it('takes the company currency when the document does not say its own', async () => {
+    const scenario = aCompanyScenario();
+    await aWeekOfRates(scenario);
+
+    expect(await forDocument(scenario, { date: '2026-01-15' })).toEqual({ currency: 'USD', exchangeRate: 36, baseCurrency: 'USD', baseExchangeRate: 36, manualRate: false });
   });
 
   // Mejor no emitir que emitir con tasa 1 y descubrirlo al cierre de mes.
@@ -144,8 +158,44 @@ describe('the rates of a document', () => {
     const scenario = aCompanyScenario();
     await record(scenario, { currency: 'EUR', rate: 40 });
 
-    await expect(scenario.documentRates.forDocument(TENANT_A, 'EUR', '2026-01-15')).rejects.toThrow(MissingExchangeRateError);
-    await expect(scenario.documentRates.forDocument(TENANT_A, 'EUR', '2026-01-14')).rejects.toThrow(MissingExchangeRateError);
+    await expect(forDocument(scenario, { currency: 'EUR', date: '2026-01-15' })).rejects.toThrow(MissingExchangeRateError);
+    await expect(forDocument(scenario, { currency: 'EUR', date: '2026-01-14' })).rejects.toThrow(MissingExchangeRateError);
+  });
+
+  it('keeps a rate written by hand when the company allows it', async () => {
+    const scenario = aCompanyScenario();
+    await aWeekOfRates(scenario);
+
+    expect(await forDocument(scenario, { currency: 'EUR', date: '2026-01-15', manualRate: 41.25 })).toEqual({
+      currency: 'EUR',
+      exchangeRate: 41.25,
+      baseCurrency: 'USD',
+      baseExchangeRate: 36,
+      manualRate: true,
+    });
+  });
+
+  it('refuses a written rate for the company currency or the bolivar, one that is not valid, and any when the company does not allow it', async () => {
+    const scenario = aCompanyScenario();
+    await aWeekOfRates(scenario);
+
+    await expect(forDocument(scenario, { currency: 'USD', date: '2026-01-15', manualRate: 37 })).rejects.toThrow(FixedExchangeRateError);
+    await expect(forDocument(scenario, { currency: 'VES', date: '2026-01-15', manualRate: 2 })).rejects.toThrow(FixedExchangeRateError);
+    await expect(forDocument(scenario, { currency: 'EUR', date: '2026-01-15', manualRate: 0 })).rejects.toThrow(InvalidExchangeRateError);
+
+    await configure(scenario, { allowsRateOverride: false });
+
+    await expect(forDocument(scenario, { currency: 'EUR', date: '2026-01-15', manualRate: 41 })).rejects.toThrow(RateOverrideNotAllowedError);
+  });
+
+  it('refuses an unknown currency, and a retired one unless the document already had it', async () => {
+    const scenario = aCompanyScenario();
+    await aWeekOfRates(scenario);
+    await scenario.rates.save(aRate(TENANT_A, { currency: RETIRED_CURRENCY.code, rateDate: '2026-01-01', rate: 4 }));
+
+    await expect(forDocument(scenario, { currency: 'XYZ', date: '2026-01-15' })).rejects.toThrow(UnknownCurrencyError);
+    await expect(forDocument(scenario, { currency: RETIRED_CURRENCY.code, date: '2026-01-15' })).rejects.toThrow(InactiveCurrencyError);
+    expect(await forDocument(scenario, { currency: RETIRED_CURRENCY.code, date: '2026-01-15', keepsCurrency: true })).toMatchObject({ exchangeRate: 4 });
   });
 
   it('uses the internal series when the company chose it', async () => {
@@ -153,13 +203,13 @@ describe('the rates of a document', () => {
     await aWeekOfRates(scenario);
     await configure(scenario, { rateType: 'manual' });
 
-    expect(await scenario.documentRates.forDocument(TENANT_A, 'USD', '2026-01-15')).toMatchObject({ exchangeRate: 99, baseExchangeRate: 99 });
+    expect(await forDocument(scenario, { currency: 'USD', date: '2026-01-15' })).toMatchObject({ exchangeRate: 99, baseExchangeRate: 99 });
   });
 
   it('needs no rate for a company that works in bolivars', async () => {
     const scenario = aCompanyScenario();
     await configure(scenario, { baseCurrency: 'VES', secondaryCurrency: 'VES' });
 
-    expect(await scenario.documentRates.forDocument(TENANT_A, 'VES', '2026-01-15')).toEqual({ currency: 'VES', exchangeRate: 1, baseCurrency: 'VES', baseExchangeRate: 1 });
+    expect(await forDocument(scenario, { date: '2026-01-15' })).toEqual({ currency: 'VES', exchangeRate: 1, baseCurrency: 'VES', baseExchangeRate: 1, manualRate: false });
   });
 });
