@@ -37,6 +37,13 @@ const BY_CODE: Record<string, string> = {
   GoodsReceiptNotEditableError: 'Solo se puede editar una entrada en borrador.',
   GoodsReceiptNotConfirmableError: 'Solo se puede confirmar una entrada en borrador.',
   GoodsReceiptAlreadyCancelledError: 'La entrada ya está anulada.',
+  MissingExchangeRateError: 'No hay tasa de cambio cargada en esa fecha ni antes para la moneda del documento o la de la empresa: cárgala en Administración › Tasas de cambio.',
+  RateOverrideNotAllowedError: 'La empresa no permite escribir la tasa: deja el campo vacío y se usa la del día.',
+  FixedExchangeRateError: 'La tasa de la moneda de la empresa y la del bolívar no se escriben a mano.',
+  InvalidExchangeRateError: 'La tasa tiene que ser mayor que cero, con hasta 8 decimales.',
+  UnknownCurrencyError: 'Esa moneda no existe.',
+  InactiveCurrencyError: 'Esa moneda ya no está disponible: elige otra.',
+  InvalidCurrencyCodeError: 'La moneda no es válida.',
   ReceivedGoodsAlreadyUsedError: 'Parte de la mercancía de esta entrada ya salió de la bodega: no se puede anular.',
 };
 
@@ -50,6 +57,7 @@ export function readablePurchasingError(error: unknown, fallback: string): strin
     }
 
     if (error.fields.includes('paymentTermDays')) return 'El plazo de pago debe ser un número de días.';
+    if (error.fields.includes('exchangeRate')) return 'Escribe la tasa como un número, por ejemplo 36,50, o déjala vacía.';
   }
 
   return readableInventoryError(error, fallback);

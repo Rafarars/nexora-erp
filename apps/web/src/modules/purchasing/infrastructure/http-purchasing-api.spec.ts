@@ -19,7 +19,7 @@ afterEach(() => vi.unstubAllGlobals());
 describe('HttpPurchasingApi', () => {
   it('creates a receipt for its order and edits a draft without moving it to another', async () => {
     const fetchMock = respond(201);
-    const input = { date: null, notes: null, lines: [{ orderLineId: 'l1', quantity: 4 }] };
+    const input = { date: null, notes: null, exchangeRate: null, lines: [{ orderLineId: 'l1', quantity: 4 }] };
 
     await api.createReceipt('t', 'o1', input);
     await api.updateReceipt('t', 'r1', input);
@@ -34,9 +34,18 @@ describe('HttpPurchasingApi', () => {
   it('sends a quantity that is not a number as text, so the API names the field', async () => {
     const fetchMock = respond(201);
 
-    await api.saveOrder('t', null, { supplierId: 's', warehouseId: 'w', date: null, expectedDate: null, notes: null, lines: [{ itemId: 'i', unitId: 'u', quantity: Number.NaN, unitCost: 1 }] });
+    await api.saveOrder('t', null, {
+      supplierId: 's',
+      warehouseId: 'w',
+      date: null,
+      expectedDate: null,
+      notes: null,
+      currency: 'EUR',
+      exchangeRate: Number.NaN,
+      lines: [{ itemId: 'i', unitId: 'u', quantity: Number.NaN, unitCost: 1 }],
+    });
 
-    expect(JSON.parse(fetchMock.mock.calls[0][1].body).lines[0].quantity).toBe('NaN');
+    expect(JSON.parse(fetchMock.mock.calls[0][1].body)).toMatchObject({ currency: 'EUR', exchangeRate: 'NaN', lines: [{ quantity: 'NaN' }] });
   });
 
   it('turns an API failure into an error with its code, never its text', async () => {

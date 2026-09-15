@@ -7,6 +7,7 @@ export interface CompanySettingsInput {
   amountDecimals: number;
   priceDecimals: number;
   rateType: string;
+  allowsRateOverride: boolean;
 }
 
 export interface ExchangeRateInput {

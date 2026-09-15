@@ -24,6 +24,8 @@ export interface CompanySettings {
   priceDecimals: number;
   // La serie de tasas con que se valoran los documentos.
   rateType: RateType;
+  // Si un documento puede llevar una tasa escrita a mano.
+  allowsRateOverride: boolean;
   // Hoy en la zona de la empresa: la fecha que proponen los documentos.
   today: string;
 }

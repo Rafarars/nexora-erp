@@ -25,11 +25,13 @@ export default async function OrdersPage() {
   const canCreate = can(session, 'purchasing.orders.create') && canPick;
   const canUpdate = can(session, 'purchasing.orders.update') && canPick;
 
-  const [orders, suppliers, items, warehouses] = await Promise.all([
+  const [orders, suppliers, items, warehouses, currencies, settings] = await Promise.all([
     purchasingApi().searchOrders(token),
     canCreate || canUpdate ? purchasingApi().searchSuppliers(token) : [],
     canCreate || canUpdate ? inventoryApi().searchItems(token) : [],
     canCreate || canUpdate ? catalogApi().searchWarehouses(token) : [],
+    canCreate || canUpdate ? companyApi().currencies(token) : [],
+    companyApi().settings(token),
   ]);
 
   return (
@@ -38,7 +40,10 @@ export default async function OrdersPage() {
       suppliers={suppliers}
       items={items}
       warehouses={warehouses}
-      today={(await companyApi().settings(token)).today}
+      currencies={currencies}
+      baseCurrency={settings.baseCurrency.code}
+      allowsRateOverride={settings.allowsRateOverride}
+      today={settings.today}
       canCreate={canCreate}
       canUpdate={canUpdate}
       canConfirm={can(session, 'purchasing.orders.confirm')}

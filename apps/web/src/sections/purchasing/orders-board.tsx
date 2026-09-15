@@ -11,8 +11,11 @@ import { selectableOptions } from '@/modules/catalog/domain/catalog';
 import type { Warehouse } from '@/modules/catalog/domain/catalog';
 import type { Item } from '@/modules/inventory/domain/item';
 import { formatCost, formatQuantity } from '@/modules/inventory/domain/inventory';
-import { ORDER_STATUS_LABELS, formatAmount, orderActions, summarizeOrderLines } from '@/modules/purchasing/domain/purchasing';
+import { currencyOptions, formatRate } from '@/modules/company/domain/company';
+import type { Currency } from '@/modules/company/domain/company';
+import { ORDER_STATUS_LABELS, formatAmount, offersManualRate, orderActions, summarizeOrderLines } from '@/modules/purchasing/domain/purchasing';
 import type { PurchaseOrder, Supplier } from '@/modules/purchasing/domain/purchasing';
+import { DocumentRate } from './document-rate';
 import { MenuButton } from './menu-button';
 import { ReceiptFields } from './receipt-fields';
 
@@ -21,6 +24,9 @@ export function OrdersBoard({
   suppliers,
   items,
   warehouses,
+  currencies,
+  baseCurrency,
+  allowsRateOverride,
   today,
   canCreate,
   canUpdate,
@@ -32,6 +38,9 @@ export function OrdersBoard({
   suppliers: Supplier[];
   items: Item[];
   warehouses: Warehouse[];
+  currencies: Currency[];
+  baseCurrency: string;
+  allowsRateOverride: boolean;
   today: string;
   canCreate: boolean;
   canUpdate: boolean;
@@ -127,8 +136,11 @@ export function OrdersBoard({
                     {order.notes ? <p className="text-muted text-xs">{order.notes}</p> : null}
                   </td>
                   <td className="px-4 py-3 text-right" data-testid={`order-total-${order.code}`}>
-                    <p>{formatAmount(order.totals.total)}</p>
+                    <p>
+                      {order.currency} {formatAmount(order.totals.total)}
+                    </p>
                     <p className="text-muted text-xs">IVA {formatAmount(order.totals.tax)}</p>
+                    <DocumentRate document={order} amount={order.totals.total} testId={`order-rate-${order.code}`} />
                   </td>
                   <td className="px-4 py-3" data-testid={`order-status-${order.code}`}>
                     {ORDER_STATUS_LABELS[order.status]}
@@ -211,7 +223,16 @@ export function OrdersBoard({
       >
         <form action={save} className="space-y-4" key={editing?.id ?? 'new'}>
           <input type="hidden" name="id" value={editing?.id ?? ''} />
-          <OrderFields order={editing} suppliers={suppliers} items={items} warehouses={warehouses} today={today} />
+          <OrderFields
+            order={editing}
+            suppliers={suppliers}
+            items={items}
+            warehouses={warehouses}
+            currencies={currencies}
+            baseCurrency={baseCurrency}
+            allowsRateOverride={allowsRateOverride}
+            today={today}
+          />
           <FormError message={saveState.error} testId="order-error" />
           <SubmitButton pending={saving} testId="order-submit">
             Guardar borrador
@@ -225,7 +246,7 @@ export function OrdersBoard({
             <p className="text-muted text-sm">
               Se guarda como borrador en Entradas: la existencia sube cuando se confirma.
             </p>
-            <ReceiptFields order={receiving} receipt={null} today={today} />
+            <ReceiptFields order={receiving} receipt={null} today={today} baseCurrency={baseCurrency} allowsRateOverride={allowsRateOverride} />
             <FormError message={receiveState.error} testId="receive-error" />
             <SubmitButton pending={receivingPending} testId="receive-submit">
               Crear entrada
@@ -250,14 +271,21 @@ function OrderFields({
   suppliers,
   items,
   warehouses,
+  currencies,
+  baseCurrency,
+  allowsRateOverride,
   today,
 }: {
   order: PurchaseOrder | null;
   suppliers: Supplier[];
   items: Item[];
   warehouses: Warehouse[];
+  currencies: Currency[];
+  baseCurrency: string;
+  allowsRateOverride: boolean;
   today: string;
 }) {
+  const [currency, setCurrency] = useState(order?.currency ?? baseCurrency);
   // Solo se compra lo que entra a una bodega.
   const purchasable = items.filter((item) => item.type === 'inventoried');
   const initial: LineRow[] = order
@@ -344,6 +372,44 @@ function OrderFields({
             className="border-line w-full rounded-md border bg-transparent px-3 py-2 text-sm"
           />
         </div>
+      </div>
+
+      <div className="flex gap-2">
+        <div className="flex-1 space-y-1.5">
+          <label htmlFor="order-currency" className="text-sm font-medium">
+            Moneda
+          </label>
+          <select
+            id="order-currency"
+            name="currency"
+            value={currency}
+            onChange={(event) => setCurrency(event.target.value)}
+            data-testid="order-currency"
+            className="border-line bg-background w-full rounded-md border px-3 py-2 text-sm"
+          >
+            {currencyOptions(currencies, order?.currency, baseCurrency).map((option) => (
+              <option key={option.code} value={option.code}>
+                {option.code} — {option.name}
+              </option>
+            ))}
+          </select>
+        </div>
+        {offersManualRate(currency, baseCurrency, allowsRateOverride) ? (
+          <div className="flex-1 space-y-1.5">
+            <label htmlFor="order-exchange-rate" className="text-sm font-medium">
+              Tasa en Bs. <span className="text-muted font-normal">(vacía: la del día)</span>
+            </label>
+            <input
+              id="order-exchange-rate"
+              name="exchangeRate"
+              inputMode="decimal"
+              placeholder="Automática"
+              defaultValue={order?.manualExchangeRate && order.exchangeRate !== null ? formatRate(order.exchangeRate) : ''}
+              data-testid="order-exchange-rate"
+              className="border-line w-full rounded-md border bg-transparent px-3 py-2 text-sm"
+            />
+          </div>
+        ) : null}
       </div>
 
       <TextArea label="Notas" name="notes" testId="order-notes" defaultValue={order?.notes ?? ''} />

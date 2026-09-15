@@ -19,16 +19,19 @@ export default async function ReceiptsPage() {
 
   // Editar un borrador muestra lo pendiente de su orden.
   const canUpdate = can(session, 'purchasing.receipts.update') && can(session, 'purchasing.orders.search');
-  const [receipts, orders] = await Promise.all([
+  const [receipts, orders, settings] = await Promise.all([
     purchasingApi().searchReceipts(token),
     canUpdate ? purchasingApi().searchOrders(token) : [],
+    companyApi().settings(token),
   ]);
 
   return (
     <ReceiptsBoard
       receipts={receipts}
       orders={orders}
-      today={(await companyApi().settings(token)).today}
+      baseCurrency={settings.baseCurrency.code}
+      allowsRateOverride={settings.allowsRateOverride}
+      today={settings.today}
       canUpdate={canUpdate}
       canConfirm={can(session, 'purchasing.receipts.confirm')}
       canCancel={can(session, 'purchasing.receipts.cancel')}

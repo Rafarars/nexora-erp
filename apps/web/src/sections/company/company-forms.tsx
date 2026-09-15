@@ -103,6 +103,10 @@ export function CompanyForms({
                 </option>
               ))}
             </Select>
+            <Select label="Tasa escrita a mano en un documento" name="allowsRateOverride" testId="company-allows-rate-override" defaultValue={String(settings.allowsRateOverride)}>
+              <option value="true">Se permite</option>
+              <option value="false">No se permite: siempre la de Tasas de cambio</option>
+            </Select>
             <Select label="Zona horaria" name="timeZone" testId="company-time-zone" defaultValue={settings.timeZone}>
               {timeZones.map((zone) => (
                 <option key={zone} value={zone}>
@@ -129,6 +133,7 @@ export function CompanyForms({
             <Row label="Moneda principal" value={`${settings.baseCurrency.name} (${settings.baseCurrency.code})`} />
             <Row label="Moneda secundaria" value={settings.secondaryCurrency ? `${settings.secondaryCurrency.name} (${settings.secondaryCurrency.code})` : null} />
             <Row label="Tasa de los documentos" value={RATE_TYPE_LABELS[settings.rateType]} />
+            <Row label="Tasa a mano" value={settings.allowsRateOverride ? 'Se permite' : 'No se permite'} />
             <Row label="Zona horaria" value={settings.timeZone} />
             <Row label="Decimales" value={`Importes ${settings.amountDecimals} · precios ${settings.priceDecimals}`} />
           </dl>

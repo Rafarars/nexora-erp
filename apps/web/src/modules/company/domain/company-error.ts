@@ -16,6 +16,8 @@ const BY_CODE: Record<string, string> = {
   LocalCurrencyRateError: 'El bolívar no lleva tasa: vale siempre 1.',
   ExchangeRateNotFoundError: 'Esa tasa ya no existe.',
   MissingExchangeRateError: 'No hay tasa de cambio cargada para esa moneda en esa fecha ni antes.',
+  RateOverrideNotAllowedError: 'La empresa no permite escribir la tasa de un documento: se usa la de Tasas de cambio.',
+  FixedExchangeRateError: 'La tasa de la moneda de la empresa y la del bolívar no se escriben a mano.',
   DuplicateExchangeRateError: 'Alguien acaba de cargar esa misma tasa. Vuelve a intentarlo para corregirla.',
 };
 

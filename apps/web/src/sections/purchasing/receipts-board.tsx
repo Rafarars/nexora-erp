@@ -9,6 +9,7 @@ import { emptyState } from '@/shared/forms/form-state';
 import type { FormState } from '@/shared/forms/form-state';
 import { RECEIPT_STATUS_LABELS, receiptActions, summarizeReceiptLines } from '@/modules/purchasing/domain/purchasing';
 import type { GoodsReceipt, PurchaseOrder } from '@/modules/purchasing/domain/purchasing';
+import { DocumentRate } from './document-rate';
 import { MenuButton } from './menu-button';
 import { ReceiptFields } from './receipt-fields';
 
@@ -17,6 +18,8 @@ import { ReceiptFields } from './receipt-fields';
 export function ReceiptsBoard({
   receipts,
   orders,
+  baseCurrency,
+  allowsRateOverride,
   today,
   canUpdate,
   canConfirm,
@@ -24,6 +27,8 @@ export function ReceiptsBoard({
 }: {
   receipts: GoodsReceipt[];
   orders: PurchaseOrder[];
+  baseCurrency: string;
+  allowsRateOverride: boolean;
   today: string;
   canUpdate: boolean;
   canConfirm: boolean;
@@ -90,6 +95,7 @@ export function ReceiptsBoard({
                   <td className="px-4 py-3">
                     <p data-testid={`receipt-lines-${receipt.code}`}>{summarizeReceiptLines(receipt.lines)}</p>
                     {receipt.notes ? <p className="text-muted text-xs">{receipt.notes}</p> : null}
+                    <DocumentRate document={receipt} testId={`receipt-rate-${receipt.code}`} />
                   </td>
                   <td className="px-4 py-3" data-testid={`receipt-status-${receipt.code}`}>
                     {RECEIPT_STATUS_LABELS[receipt.status]}
@@ -154,7 +160,7 @@ export function ReceiptsBoard({
         {editing && editingOrder ? (
           <form action={save} className="space-y-4" key={editing.id}>
             <input type="hidden" name="id" value={editing.id} />
-            <ReceiptFields order={editingOrder} receipt={editing} today={today} />
+            <ReceiptFields order={editingOrder} receipt={editing} today={today} baseCurrency={baseCurrency} allowsRateOverride={allowsRateOverride} />
             <FormError message={saveState.error} testId="receipt-error" />
             <SubmitButton pending={saving} testId="receipt-submit">
               Guardar borrador

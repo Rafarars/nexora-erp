@@ -30,7 +30,11 @@ export class HttpPurchasingApi implements PurchasingApi {
   }
 
   async saveOrder(token: string, id: string | null, input: OrderInput): Promise<void> {
-    const body = { ...input, lines: input.lines.map((line) => ({ ...line, quantity: numeric(line.quantity), unitCost: numeric(line.unitCost) })) };
+    const body = {
+      ...input,
+      exchangeRate: input.exchangeRate === null ? null : numeric(input.exchangeRate),
+      lines: input.lines.map((line) => ({ ...line, quantity: numeric(line.quantity), unitCost: numeric(line.unitCost) })),
+    };
 
     await this.request(id ? 'PUT' : 'POST', id ? `${BASE}/orders/${id}` : `${BASE}/orders`, token, body);
   }
@@ -70,7 +74,11 @@ export class HttpPurchasingApi implements PurchasingApi {
   }
 
   private receiptBody(input: ReceiptInput) {
-    return { ...input, lines: input.lines.map((line) => ({ ...line, quantity: numeric(line.quantity) })) };
+    return {
+      ...input,
+      exchangeRate: input.exchangeRate === null ? null : numeric(input.exchangeRate),
+      lines: input.lines.map((line) => ({ ...line, quantity: numeric(line.quantity) })),
+    };
   }
 
   private async request<T>(method: string, path: string, token: string, body?: unknown): Promise<T> {

@@ -15,6 +15,16 @@ export interface Supplier {
   isActive: boolean;
 }
 
+// La moneda de un documento y las tasas que congelo (bolivares por 1 unidad). Sin tasas, es anterior
+// al multimoneda y esta en la moneda de la empresa.
+export interface DocumentCurrency {
+  currency: string;
+  exchangeRate: number | null;
+  baseCurrency: string;
+  baseExchangeRate: number | null;
+  manualExchangeRate: boolean;
+}
+
 export interface OrderLine {
   id: string;
   lineNumber: number;
@@ -32,7 +42,7 @@ export interface OrderLine {
   subtotal: number;
 }
 
-export interface PurchaseOrder {
+export interface PurchaseOrder extends DocumentCurrency {
   id: string;
   code: string;
   supplier: { id: string; name: string };
@@ -59,7 +69,7 @@ export interface ReceiptLine {
   unitCost: number;
 }
 
-export interface GoodsReceipt {
+export interface GoodsReceipt extends DocumentCurrency {
   id: string;
   code: string;
   order: { id: string; code: string };
@@ -137,4 +147,18 @@ export function receivableLines(order: PurchaseOrder, receipt: GoodsReceipt | nu
 
 export function formatAmount(value: number): string {
   return value.toLocaleString('es', { minimumFractionDigits: 2, maximumFractionDigits: 2, useGrouping: false });
+}
+
+// Lo que vale un importe en bolivares con la tasa que congelo su documento; null si no tiene tasa.
+export function inBolivars(amount: number, document: DocumentCurrency): number | null {
+  if (document.currency === 'VES') return amount;
+  if (document.exchangeRate === null) return null;
+
+  return Math.round(amount * document.exchangeRate * 100) / 100;
+}
+
+// El formulario ofrece escribir la tasa solo si la empresa lo permite y la moneda no es la suya ni el
+// bolivar: esas tienen la tasa del catalogo, o 1.
+export function offersManualRate(currency: string, baseCurrency: string, allowsRateOverride: boolean): boolean {
+  return allowsRateOverride && currency !== baseCurrency && currency !== 'VES';
 }

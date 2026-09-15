@@ -15,12 +15,15 @@ export interface OrderInput {
   date: string | null;
   expectedDate: string | null;
   notes: string | null;
+  currency: string | null;
+  exchangeRate: number | null;
   lines: { itemId: string; unitId: string; quantity: number; unitCost: number }[];
 }
 
 export interface ReceiptInput {
   date: string | null;
   notes: string | null;
+  exchangeRate: number | null;
   lines: { orderLineId: string; quantity: number }[];
 }
 

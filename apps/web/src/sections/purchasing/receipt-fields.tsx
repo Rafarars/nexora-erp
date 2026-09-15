@@ -2,12 +2,25 @@
 
 import { TextArea } from '@/sections/shared/field';
 import { formatQuantity } from '@/modules/inventory/domain/inventory';
-import { receivableLines } from '@/modules/purchasing/domain/purchasing';
+import { formatRate } from '@/modules/company/domain/company';
+import { offersManualRate, receivableLines } from '@/modules/purchasing/domain/purchasing';
 import type { GoodsReceipt, PurchaseOrder } from '@/modules/purchasing/domain/purchasing';
 
 // Cuanto llego de cada linea de la orden. Se propone lo pendiente al crear; al editar, lo que
 // el borrador ya lleva. Una linea en blanco no llego en esta entrada.
-export function ReceiptFields({ order, receipt, today }: { order: PurchaseOrder; receipt: GoodsReceipt | null; today: string }) {
+export function ReceiptFields({
+  order,
+  receipt,
+  today,
+  baseCurrency,
+  allowsRateOverride,
+}: {
+  order: PurchaseOrder;
+  receipt: GoodsReceipt | null;
+  today: string;
+  baseCurrency: string;
+  allowsRateOverride: boolean;
+}) {
   const lines = receivableLines(order, receipt);
 
   return (
@@ -28,6 +41,23 @@ export function ReceiptFields({ order, receipt, today }: { order: PurchaseOrder;
           className="border-line w-full rounded-md border bg-transparent px-3 py-2 text-sm"
         />
       </div>
+
+      {offersManualRate(order.currency, baseCurrency, allowsRateOverride) ? (
+        <div className="space-y-1.5">
+          <label htmlFor="receipt-exchange-rate" className="text-sm font-medium">
+            Tasa del {order.currency} en Bs. <span className="text-muted font-normal">(vacía: la del día de llegada)</span>
+          </label>
+          <input
+            id="receipt-exchange-rate"
+            name="exchangeRate"
+            inputMode="decimal"
+            placeholder="Automática"
+            defaultValue={receipt?.manualExchangeRate && receipt.exchangeRate !== null ? formatRate(receipt.exchangeRate) : ''}
+            data-testid="receipt-exchange-rate"
+            className="border-line w-full rounded-md border bg-transparent px-3 py-2 text-sm"
+          />
+        </div>
+      ) : null}
 
       <fieldset className="space-y-2" data-testid="receipt-lines-editor">
         <legend className="text-sm font-medium">Lo que llegó</legend>

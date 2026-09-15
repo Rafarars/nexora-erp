@@ -48,6 +48,7 @@ export async function saveCompanySettings(_state: FormState, form: FormData): Pr
       amountDecimals: whole(form, 'amountDecimals'),
       priceDecimals: whole(form, 'priceDecimals'),
       rateType: text(form, 'rateType'),
+      allowsRateOverride: text(form, 'allowsRateOverride') === 'true',
     }),
   );
 }
