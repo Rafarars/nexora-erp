@@ -139,9 +139,24 @@ unidad base.
 - **Reactivar** un artículo exige que sus referencias estén activas, o volvería a los selectores
   con algo que ya no se ofrece.
 - **No se desactiva un artículo con existencia** (`ItemWithStockError`, desde el H3).
+- **No se desactiva un artículo que usan órdenes de compra o pedidos de venta abiertos**
+  (`ItemInOpenDocumentsError`): confirmados o a medias, con algo pendiente de ese artículo. Un
+  borrador no cuenta: todavía no prometió nada y se revalida al confirmarlo. Sin esta regla la
+  entrada o el despacho fallaban después, con el artículo ya inactivo.
 - **Con movimientos de inventario, no cambia su unidad base ni su tipo** (`ItemWithMovementsError`,
   desde el H3): el kardex guarda cantidades en esa unidad. Sí se pueden añadir unidades
   secundarias o cambiar nombre, categoría e impuesto.
+- **Mientras una orden o un pedido abierto usa una unidad, esa unidad no se quita ni cambia su
+  factor** (`ItemUnitInOpenDocumentsError`), y el artículo no cambia de tipo
+  (`ItemInOpenDocumentsError`). La orden guardó 10 cajas como 240 unidades: con una caja de 12
+  anunciaría en camino otra cosa. Recibida o anulada la orden, la unidad vuelve a quedar libre.
+- **Editar y desactivar bloquean la fila del artículo** mientras miran su existencia, su kardex y
+  sus documentos abiertos. Quien confirma un documento o mueve existencia la bloquea en modo
+  compartido: el cambio y el documento van en fila, y el segundo ve lo que dejó el primero. Así
+  nunca queda un artículo inactivo con existencia, ni con la base cambiada bajo su primer
+  movimiento.
+- **Una sola unidad base, también en la base de datos**: el índice único parcial
+  `item_units_one_base_per_item` la garantiza para quien escriba sin pasar por el dominio.
 
 ---
 

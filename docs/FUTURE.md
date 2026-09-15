@@ -177,8 +177,9 @@ pide más, y todo cabe sobre lo construido. Decidido con Rafael al aprobar el al
 - **Cierre corto**: dar una orden por terminada aunque falte mercancía, para que deje de estar en
   camino
 - **Comprar servicios**, que no pasan por bodega
-- **Proteger en el catálogo lo que tiene órdenes abiertas**: hoy se puede desactivar un artículo o
-  una bodega con mercancía en camino, y la entrada falla al confirmar con un mensaje claro
+- **Proteger la bodega que tiene órdenes abiertas**: hoy se puede desactivar una bodega con mercancía
+  en camino y la entrada falla al confirmar. El artículo ya está protegido desde la revisión de
+  Artículos; la bodega se resuelve al revisar Bodegas
 - Que la fecha de una entrada no pueda ser anterior a la de su orden
 
 ### Renombrar `AccessError` a `ApiError` en el frontend

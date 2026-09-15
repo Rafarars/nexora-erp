@@ -57,7 +57,7 @@ fiar; se explica con ejemplos en [cuentas-por-cobrar.md §3](cuentas-por-cobrar.
 | `warehouse_id` | Bodega de salida, de la empresa y **activa** |
 | `order_date` | Por defecto hoy; **no futura** |
 | Línea: `item_id`, `unit_id` | Artículo **activo e inventariado**; unidad **del artículo** |
-| Línea: `quantity`, `base_quantity` | Mayor que cero; base con el factor de hoy |
+| Línea: `quantity`, `base_quantity` | Mayor que cero; base con el factor de hoy al guardar. Si la caja cambia antes de confirmar, el pedido no se confirma hasta revisarlo y guardarlo (`SalesItemChangedError`) |
 | Línea: `unit_price` | Cero o más, por unidad de la línea, **sin impuesto** |
 | Línea: `tax_rate` | **Copiado del impuesto del artículo** |
 | Línea: `dispatched_quantity` | Lo que sumaron los despachos confirmados |
@@ -98,6 +98,12 @@ Ejemplo: hay 300, otro pedido reservó 60. Un pedido de 10 cajas (240) cabe; uno
 
 **Anular** libera la reserva: un pedido anulado deja de contar.
 
+**Los artículos se bloquean antes que las existencias.** Al confirmar, con los artículos bloqueados en
+modo compartido, se comprueba que sigan activos, inventariados y con el factor con que se calcularon
+las cantidades base. Si cambiaron entre la revalidación y el bloqueo, el pedido no reserva
+(`SalesItemChangedError`, 409) y se vuelve a intentar. Mientras el pedido esté abierto, el catálogo
+no deja desactivar el artículo ni cambiar la unidad que usa.
+
 ---
 
 ## 3. Despachos
@@ -123,6 +129,9 @@ Ejemplo: hay 300, otro pedido reservó 60. Un pedido de 10 cajas (240) cabe; uno
 - **Si alguien sacó la existencia reservada** (un ajuste de salida por una merma o un conteo, por
   ejemplo; ver [inventario.md §1.0.1](inventario.md#101-un-ajuste-de-salida-y-las-reservas-de-ventas)), el despacho se
   rechaza con «La bodega ya no tiene la existencia de este despacho» y no cambia nada.
+
+- **Anular un despacho de un artículo que se desactivó** se rechaza (`InactiveSalesItemError`):
+  devolvería existencia a un artículo que ya no se ofrece. Primero se reactiva.
 
 ---
 
@@ -185,6 +194,7 @@ confirmar, con las filas bloqueadas.
 | Código | HTTP | Cuándo |
 |---|---|---|
 | `InsufficientAvailabilityError` | 409 | Confirmar un pedido que no cabe en lo disponible |
+| `SalesItemChangedError` | 409 | Un artículo cambió mientras se confirmaba el pedido: se vuelve a intentar |
 | `SalesOrderWithDispatchesError` | 409 | Anular un pedido con mercancía despachada |
 | `DispatchExceedsPendingError` | 409 | El despacho supera lo pendiente |
 | `InsufficientStockForDispatchError` | 409 | La bodega ya no tiene la existencia |

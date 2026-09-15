@@ -111,9 +111,16 @@ Ejemplo: 10 cajas a 12 con 16 % y 5 kg a 3,20 exento → subtotal 136,00, impues
 
 **Reglas**
 
-- **Confirmar revalida el borrador con el catálogo de hoy**: proveedor, bodega y artículos activos,
-  y cantidades base recalculadas con el factor actual. **Conserva los identificadores de las
+- **Confirmar revalida el borrador con el catálogo de hoy**: proveedor, bodega y artículos activos.
+  **Si la caja de un artículo cambió desde que se escribió** (10 cajas pedidas con 24 que hoy serían
+  120), la orden no se confirma (`PurchaseItemChangedError`): se revisa, se guarda —guardar recalcula
+  con el factor de hoy— y se confirma. Un borrador no se reinterpreta en silencio. **Conserva los identificadores de las
   líneas**, así que quien leyó el borrador puede recibir por ellos.
+- **Al confirmar, los artículos de la orden se bloquean en modo compartido** y se vuelve a comprobar
+  que sigan activos, inventariados y con el factor con que se calcularon las cantidades base. Si
+  cambiaron entre la revalidación y el bloqueo, la orden no se confirma (`PurchaseItemChangedError`,
+  409) y basta con volver a intentarlo. Confirmada, el catálogo ya no deja desactivar el artículo
+  ni cambiar la unidad que usa.
 - **No se anula una orden con mercancía recibida**: primero se anulan sus entradas. Lo recibido ya
   está en la bodega y anular la orden no lo devolvería.
 - El estado **lo calcula la orden** a partir de lo recibido: todo recibido es «recibida», nada es
@@ -143,7 +150,7 @@ Ejemplo: 10 cajas a 12 con 16 % y 5 kg a 3,20 exento → subtotal 136,00, impues
 | `order_line_id` | Una línea **de su orden**, y **una sola vez** por entrada |
 | `item_id`, `unit_id` | Copiados de la línea de la orden |
 | `quantity` | Mayor que cero y **no más de lo pendiente** en esa línea |
-| `base_quantity` | Con el factor del artículo **de hoy** |
+| `base_quantity` | **La proporcional de la línea de la orden**: 4 de 10 cajas que la orden guardó como 240 unidades son 96, aunque el artículo cambie después su caja |
 | `unit_cost` | **El de la orden**. La entrada no negocia precios |
 
 ### 3.3 Ciclo de vida
@@ -253,6 +260,7 @@ POST /api/v1/purchasing/receipts
 | `DuplicateSupplierNameError` | 409 | Otro proveedor de la empresa ya tiene ese nombre |
 | `InactiveSupplierError` | 409 | Orden a un proveedor inactivo |
 | `ServiceNotPurchasableError` | 400 | Una línea es un servicio |
+| `PurchaseItemChangedError` | 409 | Un artículo cambió mientras se confirmaba la orden: se vuelve a intentar |
 | `PurchaseOrderNotEditableError` | 409 | Editar una orden que no es borrador |
 | `PurchaseOrderWithReceiptsError` | 409 | Anular una orden que ya recibió mercancía |
 | `PurchaseOrderNotReceivableError` | 409 | Recibir de un borrador, una anulada o una ya recibida |

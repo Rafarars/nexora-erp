@@ -112,6 +112,9 @@ existencia, y un motivo obligatorio en cada ajuste (conteo inicial, conteo, merm
 - **Una salida no lleva costo** (`CostOnOutgoingLineError`): se valora al costo promedio vigente.
 - **Costo por unidad de la línea**: 2 cajas de 24 a 12 cada una entran como 48 unidades a 0,50.
 - **Una entrada sin costo** se valora al costo promedio vigente (un hallazgo en un conteo).
+- **Al confirmar**, con los artículos ya bloqueados, cada cantidad base tiene que seguir siendo
+  `cantidad × factor` de hoy. Si el artículo cambió su unidad entre la revalidación y el bloqueo,
+  el ajuste no se confirma (`StockItemChangedError`, 409) y se vuelve a intentar.
 
 ### 1.3 Ciclo de vida
 
@@ -130,8 +133,10 @@ borrador ───────────▶ confirmado ───────�
 
 **Confirmar**
 
-1. **Se revalida el borrador con el catálogo de hoy**: si el artículo se desactivó, se rechaza;
-   si su caja pasó de 24 a 12, las cantidades base se recalculan con 12.
+1. **Se revalida el borrador con el catálogo de hoy**: si el artículo se desactivó, se rechaza; si
+   su caja pasó de 24 a 12, **también se rechaza** (`StockItemChangedError`): «1 caja» contada cuando
+   traía 24 no entra como 12 sin que nadie lo vea. Se abre el borrador, se revisa, se guarda (guardar
+   recalcula con el factor de hoy) y se confirma.
 2. Cada línea mueve la existencia de su artículo en la bodega del ajuste, **en orden**.
 3. Si una salida no alcanza (`InsufficientStockError`, 409), **no se escribe nada**: ni las líneas
    anteriores, ni el estado, ni la fila de existencia creada para bloquearla.
@@ -199,6 +204,9 @@ Confirmar o anular cualquier documento pasa por el mismo servicio puro, `StockMo
 
 - `record(documento, líneas)`: cada línea, ya en unidad base, entra o sale de su existencia.
 - `reverse(documento)`: revierte, del último al primero, los movimientos que ese documento escribió.
+- **Ningún documento mueve la existencia de un artículo inactivo o de un servicio**
+  (`InactiveStockItemError`, `ServiceHasNoStockError`), **tampoco al anular**: devolvería
+  mercancía a algo que ya no se ofrece. Para anular, primero se reactiva el artículo.
 
 El ajuste lo usa desde `AdjustmentConfirmation` y `AdjustmentCancellation`. La entrada de compra lo
 usan, como el despacho, a través de `DocumentStockPosting` (`receive`, `release`, `reverse` y
@@ -214,12 +222,15 @@ Confirmar o anular ocurre en **una transacción** que:
 
 1. **Bloquea la fila del ajuste**: dos confirmaciones del mismo ajuste esperan en fila y la segunda
    lo ve confirmado.
-2. **Crea las existencias que falten y las bloquea en un orden fijo**: dos ajustes que sacan el
+2. **Bloquea sus artículos en modo compartido**: editar o desactivar un artículo bloquea su fila
+   para escribir, así que el cambio espera a la publicación o la publicación ve el cambio.
+3. **Crea las existencias que falten y las bloquea en un orden fijo**: dos ajustes que sacan el
    mismo artículo esperan en fila y el segundo ve el saldo que dejó el primero; el orden fijo evita
    bloqueos mutuos.
-3. Ejecuta las reglas del dominio y escribe ajuste, movimientos y existencias juntos.
+4. Ejecuta las reglas del dominio y escribe ajuste, movimientos y existencias juntos.
 
-Probado contra PostgreSQL: dos salidas de 6 sobre 10 enviadas a la vez → pasa una y queda 4.
+Probado contra PostgreSQL: dos salidas de 6 sobre 10 enviadas a la vez → pasa una y queda 4. Y por
+HTTP: desactivar un artículo mientras se confirma su entrada deja pasar solo una de las dos.
 
 ---
 
@@ -230,6 +241,8 @@ Probado contra PostgreSQL: dos salidas de 6 sobre 10 enviadas a la vez → pasa 
 | No se desactiva un artículo con existencia | `ItemWithStockError` |
 | No se desactiva una bodega con existencia | `WarehouseWithStockError` |
 | No cambia la unidad base ni el tipo de un artículo con movimientos | `ItemWithMovementsError` |
+| No se desactiva ni cambia de tipo un artículo que usan órdenes o pedidos abiertos | `ItemInOpenDocumentsError` |
+| No se quita ni cambia de factor una unidad que usan órdenes o pedidos abiertos | `ItemUnitInOpenDocumentsError` |
 
 ---
 
