@@ -45,6 +45,8 @@ model Tenant {
   invoiceLines     InvoiceLine[]
   payments         CustomerPayment[]
   allocations      PaymentAllocation[]
+  profile          CompanyProfile?
+  settings         CompanySettings?
 
   @@map("tenants")
 }
@@ -134,6 +136,60 @@ model MembershipRole {
 
   @@id([membershipId, roleId])
   @@map("membership_roles")
+}
+
+// ---------------------------------------------------------------- empresa
+//
+// Quien es la empresa y como trabaja. Una fila por empresa en cada tabla, que se escribe la primera
+// vez que se guarda: hasta entonces valen los valores por defecto del dominio.
+
+/// Monedas que existen: catalogo global, igual para todas las empresas. Llegan con las migraciones.
+model Currency {
+  code      String  @id @db.Char(3)
+  name      String  @db.VarChar(60)
+  symbol    String  @db.VarChar(8)
+  decimals  Int     @default(2)
+  sortOrder Int     @default(0) @map("sort_order")
+  isActive  Boolean @default(true) @map("is_active")
+
+  baseOf      CompanySettings[] @relation("BaseCurrency")
+  secondaryOf CompanySettings[] @relation("SecondaryCurrency")
+
+  @@map("currencies")
+}
+
+/// Los datos que la empresa pone en sus documentos.
+model CompanyProfile {
+  tenantId  String   @id @map("tenant_id") @db.Uuid
+  legalName String   @map("legal_name") @db.VarChar(150)
+  tradeName String?  @map("trade_name") @db.VarChar(150)
+  fiscalId  String?  @map("fiscal_id") @db.VarChar(30)
+  address   String?  @db.VarChar(300)
+  phone     String?  @db.VarChar(40)
+  email     String?  @db.VarChar(150)
+  updatedAt DateTime @map("updated_at")
+
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@map("company_profiles")
+}
+
+/// Moneda principal y secundaria, zona horaria y decimales. Los rangos de decimales los repite un
+/// CHECK en la migracion.
+model CompanySettings {
+  tenantId          String   @id @map("tenant_id") @db.Uuid
+  baseCurrency      String   @map("base_currency") @db.Char(3)
+  secondaryCurrency String?  @map("secondary_currency") @db.Char(3)
+  timeZone          String   @map("time_zone") @db.VarChar(64)
+  amountDecimals    Int      @map("amount_decimals")
+  priceDecimals     Int      @map("price_decimals")
+  updatedAt         DateTime @map("updated_at")
+
+  tenant    Tenant    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  base      Currency  @relation("BaseCurrency", fields: [baseCurrency], references: [code], onDelete: Restrict)
+  secondary Currency? @relation("SecondaryCurrency", fields: [secondaryCurrency], references: [code], onDelete: Restrict)
+
+  @@map("company_settings")
 }
 
 // ---------------------------------------------------------------- catalogo

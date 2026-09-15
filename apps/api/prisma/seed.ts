@@ -172,6 +172,7 @@ async function main(): Promise<void> {
   try {
     await removeLeftovers(prisma);
     await upsertTenants(prisma);
+    await upsertCompanies(prisma);
     await upsertRoles(prisma);
     await upsertUsers(prisma, passwordHash);
     await upsertMemberships(prisma);
@@ -186,7 +187,7 @@ async function main(): Promise<void> {
     await seedVolume(prisma);
 
     console.log(
-      '  semillas aplicadas: 4 empresas, 5 roles, 6 personas, 8 membresias; ' +
+      '  semillas aplicadas: 4 empresas con sus datos y parametros, 5 roles, 6 personas, 8 membresias; ' +
         'catalogo: 7 unidades, 3 categorias, 3 impuestos, 5 bodegas, 4 articulos; ' +
         'inventario: 4 ajustes (2 confirmados), 3 existencias; ' +
         'compras: 3 proveedores, 4 ordenes, 2 entradas; ' +
@@ -224,6 +225,30 @@ async function upsertTenants(prisma: PrismaClient): Promise<void> {
   }
 }
 
+// Los datos que cada empresa pone en sus documentos y sus parametros. Se reescriben en cada corrida:
+// una prueba que los cambie no deja a la siguiente con otra moneda u otra zona horaria.
+async function upsertCompanies(prisma: PrismaClient): Promise<void> {
+  const profiles = [
+    { tenantId: ACME, legalName: 'Acme Industrial, C.A.', tradeName: 'Acme', fiscalId: 'J-40000001-2', address: 'Av. Principal de Los Ruices, Caracas', phone: '0212-555-0101', email: 'administracion@acme.com' },
+    { tenantId: GLOBEX, legalName: 'Globex Servicios, C.A.', tradeName: 'Globex', fiscalId: 'J-40000002-0', address: 'Av. Bolívar Norte, Valencia', phone: '0241-555-0102', email: 'administracion@globex.com' },
+    { tenantId: INITECH, legalName: 'Initech Logística, C.A.', tradeName: null, fiscalId: 'J-40000003-9', address: null, phone: null, email: null },
+    { tenantId: VOLUME, legalName: 'Volumen Distribuciones, C.A.', tradeName: null, fiscalId: 'J-40000004-7', address: null, phone: null, email: null },
+  ];
+  const settings = { baseCurrency: 'USD', secondaryCurrency: 'VES', timeZone: 'America/Caracas', amountDecimals: 2, priceDecimals: 6 };
+  const updatedAt = new Date('2026-09-01T12:00:00.000Z');
+
+  for (const profile of profiles) {
+    const row = { ...profile, updatedAt };
+
+    await prisma.companyProfile.upsert({ where: { tenantId: profile.tenantId }, create: row, update: row });
+    await prisma.companySettings.upsert({
+      where: { tenantId: profile.tenantId },
+      create: { tenantId: profile.tenantId, ...settings, updatedAt },
+      update: { ...settings, updatedAt },
+    });
+  }
+}
+
 async function upsertRoles(prisma: PrismaClient): Promise<void> {
   const roles = [
     { id: ACME_ADMIN_ROLE, tenantId: ACME, name: 'Administrador', grantsAll: true, permissions: [] },
@@ -236,6 +261,7 @@ async function upsertRoles(prisma: PrismaClient): Promise<void> {
       // que ver no es lo mismo que poder editar.
       permissions: [
         'access.users.search',
+        'company.profile.search',
         'catalog.categories.search',
         'catalog.units.search',
         'catalog.taxes.search',

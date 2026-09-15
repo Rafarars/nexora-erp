@@ -29,6 +29,12 @@ export const ACCESS_PERMISSIONS: PermissionDefinition[] = [
   { code: 'access.roles.assign', description: 'Asignar y retirar roles a un miembro' },
 ];
 
+export const COMPANY_PERMISSIONS: PermissionDefinition[] = [
+  { code: 'company.profile.search', description: 'Consultar los datos de la empresa' },
+  { code: 'company.profile.update', description: 'Editar la razón social, el RIF, la dirección y el contacto de la empresa' },
+  { code: 'company.settings.update', description: 'Cambiar la moneda, la zona horaria y los decimales de la empresa' },
+];
+
 export const CATALOG_PERMISSIONS: PermissionDefinition[] = [
   { code: 'catalog.categories.search', description: 'Consultar las categorías' },
   { code: 'catalog.categories.create', description: 'Crear categorías' },
@@ -120,6 +126,7 @@ export const REPORTS_PERMISSIONS: PermissionDefinition[] = [
 
 export const SYSTEM_PERMISSIONS: PermissionDefinition[] = [
   ...ACCESS_PERMISSIONS,
+  ...COMPANY_PERMISSIONS,
   ...CATALOG_PERMISSIONS,
   ...INVENTORY_PERMISSIONS,
   ...PURCHASING_PERMISSIONS,

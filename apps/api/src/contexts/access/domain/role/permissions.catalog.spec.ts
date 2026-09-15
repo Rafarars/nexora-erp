@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import {
   ACCESS_PERMISSIONS,
   CATALOG_PERMISSIONS,
+  COMPANY_PERMISSIONS,
   INVENTORY_PERMISSIONS,
   PURCHASING_PERMISSIONS,
   RECEIVABLES_PERMISSIONS,
@@ -34,6 +35,10 @@ describe('permissions catalog', () => {
     expect(code.startsWith('access.')).toBe(true);
   });
 
+  it.each(COMPANY_PERMISSIONS)('$code belongs to the company context', ({ code }) => {
+    expect(code.startsWith('company.')).toBe(true);
+  });
+
   it.each(CATALOG_PERMISSIONS)('$code belongs to the catalog context', ({ code }) => {
     expect(code.startsWith('catalog.')).toBe(true);
   });
@@ -59,6 +64,6 @@ describe('permissions catalog', () => {
   });
 
   it('is exactly the permissions of every context, nothing more', () => {
-    expect(SYSTEM_PERMISSIONS).toEqual([...ACCESS_PERMISSIONS, ...CATALOG_PERMISSIONS, ...INVENTORY_PERMISSIONS, ...PURCHASING_PERMISSIONS, ...SALES_PERMISSIONS, ...RECEIVABLES_PERMISSIONS, ...REPORTS_PERMISSIONS]);
+    expect(SYSTEM_PERMISSIONS).toEqual([...ACCESS_PERMISSIONS, ...COMPANY_PERMISSIONS, ...CATALOG_PERMISSIONS, ...INVENTORY_PERMISSIONS, ...PURCHASING_PERMISSIONS, ...SALES_PERMISSIONS, ...RECEIVABLES_PERMISSIONS, ...REPORTS_PERMISSIONS]);
   });
 });
