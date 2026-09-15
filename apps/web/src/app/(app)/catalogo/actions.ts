@@ -22,10 +22,10 @@ async function attempt(path: string, fallback: string, work: (token: string) => 
     return { error: readableCatalogError(error, fallback), done: false };
   }
 
-  // Los articulos muestran nombres de categorias, impuestos y unidades: cambiar uno de
-  // esos se tiene que ver tambien alli.
+  // Los articulos, en el inventario, muestran nombres de categorias, impuestos y unidades:
+  // cambiar uno de esos se tiene que ver tambien alli.
   revalidatePath(path);
-  revalidatePath('/catalogo/articulos');
+  revalidatePath('/inventario/articulos');
 
   return { error: null, done: true };
 }
@@ -81,37 +81,5 @@ export async function changeWarehouseStatus(_state: FormState, form: FormData): 
 export async function setDefaultWarehouse(_state: FormState, form: FormData): Promise<FormState> {
   return attempt('/catalogo/bodegas', 'No se pudo cambiar la bodega por defecto.', (token) =>
     catalogApi().setDefaultWarehouse(token, text(form, 'id')),
-  );
-}
-
-export async function saveItem(_state: FormState, form: FormData): Promise<FormState> {
-  const unitIds = form.getAll('unitId').map(String);
-  const factors = form.getAll('conversionFactor').map(String);
-  const base = text(form, 'baseUnit');
-
-  return attempt('/catalogo/articulos', 'No se pudo guardar el artículo.', (token) =>
-    catalogApi().saveItem(token, idOf(form), {
-      sku: text(form, 'sku'),
-      name: text(form, 'name'),
-      description: optional(form, 'description'),
-      type: text(form, 'type'),
-      categoryId: optional(form, 'categoryId'),
-      taxId: optional(form, 'taxId'),
-      // Las filas sin unidad elegida se descartan: son las que la persona anadio y no
-      // lleno. La base vale 1 siempre; el campo ni se muestra.
-      units: unitIds
-        .map((unitId, index) => ({
-          unitId,
-          isBase: unitId === base,
-          conversionFactor: unitId === base ? 1 : parseDecimal(factors[index] ?? ''),
-        }))
-        .filter((unit) => unit.unitId !== ''),
-    }),
-  );
-}
-
-export async function changeItemStatus(_state: FormState, form: FormData): Promise<FormState> {
-  return attempt('/catalogo/articulos', 'No se pudo cambiar el estado.', (token) =>
-    catalogApi().changeItemStatus(token, text(form, 'id'), form.get('active') === 'true'),
   );
 }

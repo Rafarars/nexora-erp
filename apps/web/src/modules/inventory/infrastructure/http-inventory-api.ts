@@ -1,12 +1,36 @@
 import { AccessError } from '../../access/domain/access-error';
 import type { AccessErrorBody } from '../../access/domain/access-error';
 import type { Adjustment, Movement, Stock } from '../domain/inventory';
-import type { AdjustmentInput, InventoryApi } from '../domain/inventory-api';
+import type { AdjustmentInput, InventoryApi, ItemInput } from '../domain/inventory-api';
+import type { Item } from '../domain/item';
 
 const BASE = '/api/v1/inventory';
 
 export class HttpInventoryApi implements InventoryApi {
   constructor(private readonly baseUrl: string) {}
+
+  async searchItems(token: string): Promise<Item[]> {
+    return (await this.request<{ items: Item[] }>('GET', `${BASE}/items`, token)).items;
+  }
+
+  async saveItem(token: string, id: string | null, input: ItemInput): Promise<void> {
+    // NaN no existe en JSON: se manda como texto y la API senala el campo.
+    const units = input.units.map((unit) => ({
+      ...unit,
+      conversionFactor: Number.isNaN(unit.conversionFactor) ? 'NaN' : unit.conversionFactor,
+    }));
+    const body = { ...input, units };
+
+    if (id) {
+      await this.request('PUT', `${BASE}/items/${id}`, token, body);
+    } else {
+      await this.request('POST', `${BASE}/items`, token, body);
+    }
+  }
+
+  async changeItemStatus(token: string, id: string, active: boolean): Promise<void> {
+    await this.request('PUT', `${BASE}/items/${id}/status`, token, { active });
+  }
 
   async searchStock(token: string, warehouseId?: string): Promise<Stock[]> {
     const query = warehouseId ? `?warehouseId=${encodeURIComponent(warehouseId)}` : '';

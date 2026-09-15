@@ -1,11 +1,13 @@
 'use client';
 
 import { useState } from 'react';
-import { changeItemStatus, saveItem } from '@/app/(app)/catalogo/actions';
+import { changeItemStatus, saveItem } from '@/app/(app)/inventario/actions';
 import { Field, TextArea } from '@/sections/shared/field';
-import { ITEM_TYPE_LABELS, describeUnits, formatNumber, selectableOptions } from '@/modules/catalog/domain/catalog';
-import type { Category, Item, MeasurementUnit, Tax } from '@/modules/catalog/domain/catalog';
-import { CatalogTable } from './catalog-table';
+import { CatalogTable } from '@/sections/catalog/catalog-table';
+import { formatNumber, selectableOptions } from '@/modules/catalog/domain/catalog';
+import type { Category, MeasurementUnit, Tax } from '@/modules/catalog/domain/catalog';
+import { ITEM_TYPE_LABELS, describeUnits } from '@/modules/inventory/domain/item';
+import type { Item } from '@/modules/inventory/domain/item';
 
 export function ItemsBoard({
   items,

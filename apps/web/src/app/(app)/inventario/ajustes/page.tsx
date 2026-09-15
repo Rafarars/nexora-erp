@@ -18,13 +18,13 @@ export default async function AdjustmentsPage() {
   }
 
   // El formulario necesita elegir articulos y bodegas: sin permiso para leerlos no se ofrece.
-  const canPick = can(session, 'catalog.items.search') && can(session, 'catalog.warehouses.search');
+  const canPick = can(session, 'inventory.items.search') && can(session, 'catalog.warehouses.search');
   const canCreate = can(session, 'inventory.adjustments.create') && canPick;
   const canUpdate = can(session, 'inventory.adjustments.update') && canPick;
 
   const [adjustments, items, warehouses] = await Promise.all([
     inventoryApi().searchAdjustments(token),
-    canCreate || canUpdate ? catalogApi().searchItems(token) : [],
+    canCreate || canUpdate ? inventoryApi().searchItems(token) : [],
     canCreate || canUpdate ? catalogApi().searchWarehouses(token) : [],
   ]);
 

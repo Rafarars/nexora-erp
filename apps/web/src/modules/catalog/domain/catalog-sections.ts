@@ -8,9 +8,8 @@ export interface CatalogSection {
   permission: string;
 }
 
-// El orden es el de uso: los articulos primero, lo que los alimenta despues.
+// Lo que alimenta a los articulos y a los documentos. Los articulos viven en el inventario.
 export const CATALOG_SECTIONS: CatalogSection[] = [
-  { href: '/catalogo/articulos', label: 'Artículos', testId: 'catalog-articulos', permission: 'catalog.items.search' },
   { href: '/catalogo/categorias', label: 'Categorías', testId: 'catalog-categorias', permission: 'catalog.categories.search' },
   { href: '/catalogo/unidades', label: 'Unidades', testId: 'catalog-unidades', permission: 'catalog.units.search' },
   { href: '/catalogo/impuestos', label: 'Impuestos', testId: 'catalog-impuestos', permission: 'catalog.taxes.search' },

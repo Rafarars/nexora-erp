@@ -1,6 +1,7 @@
 import { OrdersBoard } from '@/sections/purchasing/orders-board';
 import { can } from '@/modules/access/domain/session';
 import { catalogApi } from '@/shared/session/catalog-api';
+import { inventoryApi } from '@/shared/session/inventory-api';
 import { purchasingApi } from '@/shared/session/purchasing-api';
 import { requireSession } from '@/shared/session/current-session';
 
@@ -19,14 +20,14 @@ export default async function OrdersPage() {
 
   // El formulario elige proveedor, bodega y articulos: sin permiso para leerlos no se ofrece.
   const canPick =
-    can(session, 'purchasing.suppliers.search') && can(session, 'catalog.items.search') && can(session, 'catalog.warehouses.search');
+    can(session, 'purchasing.suppliers.search') && can(session, 'inventory.items.search') && can(session, 'catalog.warehouses.search');
   const canCreate = can(session, 'purchasing.orders.create') && canPick;
   const canUpdate = can(session, 'purchasing.orders.update') && canPick;
 
   const [orders, suppliers, items, warehouses] = await Promise.all([
     purchasingApi().searchOrders(token),
     canCreate || canUpdate ? purchasingApi().searchSuppliers(token) : [],
-    canCreate || canUpdate ? catalogApi().searchItems(token) : [],
+    canCreate || canUpdate ? inventoryApi().searchItems(token) : [],
     canCreate || canUpdate ? catalogApi().searchWarehouses(token) : [],
   ]);
 

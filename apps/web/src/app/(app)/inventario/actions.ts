@@ -16,10 +16,46 @@ async function attempt(fallback: string, work: (token: string) => Promise<void>)
     return { error: readableInventoryError(error, fallback), done: false };
   }
 
-  // Confirmar o anular cambia existencias y kardex, no solo la lista de ajustes.
+  // Confirmar o anular cambia existencias y kardex, no solo la lista de ajustes; un articulo
+  // aparece en todas las pantallas del modulo.
   revalidatePath('/inventario', 'layout');
 
   return { error: null, done: true };
+}
+
+const text = (form: FormData, name: string) => String(form.get(name) ?? '');
+const optional = (form: FormData, name: string) => text(form, name).trim() || null;
+
+export async function saveItem(_state: FormState, form: FormData): Promise<FormState> {
+  const unitIds = form.getAll('unitId').map(String);
+  const factors = form.getAll('conversionFactor').map(String);
+  const base = text(form, 'baseUnit');
+
+  return attempt('No se pudo guardar el artículo.', (token) =>
+    inventoryApi().saveItem(token, text(form, 'id') || null, {
+      sku: text(form, 'sku'),
+      name: text(form, 'name'),
+      description: optional(form, 'description'),
+      type: text(form, 'type'),
+      categoryId: optional(form, 'categoryId'),
+      taxId: optional(form, 'taxId'),
+      // Las filas sin unidad elegida se descartan: son las que la persona anadio y no
+      // lleno. La base vale 1 siempre; el campo ni se muestra.
+      units: unitIds
+        .map((unitId, index) => ({
+          unitId,
+          isBase: unitId === base,
+          conversionFactor: unitId === base ? 1 : parseDecimal(factors[index] ?? ''),
+        }))
+        .filter((unit) => unit.unitId !== ''),
+    }),
+  );
+}
+
+export async function changeItemStatus(_state: FormState, form: FormData): Promise<FormState> {
+  return attempt('No se pudo cambiar el estado.', (token) =>
+    inventoryApi().changeItemStatus(token, text(form, 'id'), form.get('active') === 'true'),
+  );
 }
 
 export async function saveAdjustment(_state: FormState, form: FormData): Promise<FormState> {

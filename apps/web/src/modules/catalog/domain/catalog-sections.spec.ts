@@ -22,13 +22,13 @@ describe('visibleCatalogSections', () => {
   });
 
   it('shows only what the role can search', () => {
-    const sections = visibleCatalogSections(aSession({ permissions: ['catalog.items.search', 'catalog.taxes.search'] }));
+    const sections = visibleCatalogSections(aSession({ permissions: ['catalog.units.search', 'catalog.taxes.search'] }));
 
-    expect(sections.map((section) => section.label)).toEqual(['Artículos', 'Impuestos']);
+    expect(sections.map((section) => section.label)).toEqual(['Unidades', 'Impuestos']);
   });
 
   // Sin ninguna, el modulo entero desaparece de la barra lateral.
   it('shows nothing to a role without catalog permissions', () => {
-    expect(visibleCatalogSections(aSession({ permissions: ['access.users.search'] }))).toEqual([]);
+    expect(visibleCatalogSections(aSession({ permissions: ['access.users.search', 'inventory.items.search'] }))).toEqual([]);
   });
 });

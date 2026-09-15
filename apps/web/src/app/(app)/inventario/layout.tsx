@@ -10,7 +10,7 @@ export default async function InventoryLayout({ children }: { children: React.Re
       <div>
         <h1 className="text-lg font-semibold">Inventario</h1>
         <p className="text-muted mt-1 text-sm">
-          Cuánto hay de cada artículo en cada bodega, y el kardex que explica cómo se llegó ahí.
+          Los artículos, cuánto hay de cada uno en cada bodega y el kardex que explica cómo se llegó ahí.
         </p>
       </div>
 

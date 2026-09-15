@@ -8,7 +8,8 @@ import { SlideOver } from '@/sections/shared/slide-over';
 import { emptyState } from '@/shared/forms/form-state';
 import type { FormState } from '@/shared/forms/form-state';
 import { selectableOptions } from '@/modules/catalog/domain/catalog';
-import type { Item, Warehouse } from '@/modules/catalog/domain/catalog';
+import type { Warehouse } from '@/modules/catalog/domain/catalog';
+import type { Item } from '@/modules/inventory/domain/item';
 import { STATUS_LABELS, availableActions, formatCost, formatQuantity, summarizeLines } from '@/modules/inventory/domain/inventory';
 import type { Adjustment } from '@/modules/inventory/domain/inventory';
 

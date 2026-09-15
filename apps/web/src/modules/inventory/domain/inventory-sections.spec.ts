@@ -16,16 +16,16 @@ const session = (overrides: Partial<Session>): Session => ({
 
 describe('visibleInventorySections', () => {
   it('shows every section to an administrator', () => {
-    expect(visibleInventorySections(session({ grantsAll: true }))).toHaveLength(3);
+    expect(visibleInventorySections(session({ grantsAll: true }))).toHaveLength(4);
   });
 
   it('shows only what the role can read', () => {
-    const labels = visibleInventorySections(session({ permissions: ['inventory.stock.search'] })).map((s) => s.label);
+    const labels = visibleInventorySections(session({ permissions: ['inventory.stock.search', 'inventory.items.search'] })).map((s) => s.label);
 
-    expect(labels).toEqual(['Existencias']);
+    expect(labels).toEqual(['Artículos', 'Existencias']);
   });
 
   it('hides the module from a role without inventory permissions', () => {
-    expect(visibleInventorySections(session({ permissions: ['catalog.items.search'] }))).toEqual([]);
+    expect(visibleInventorySections(session({ permissions: ['catalog.units.search'] }))).toEqual([]);
   });
 });

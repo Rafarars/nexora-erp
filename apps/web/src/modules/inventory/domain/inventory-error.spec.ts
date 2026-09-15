@@ -17,9 +17,26 @@ describe('readableInventoryError', () => {
     expect(readableInventoryError(error, FALLBACK)).toContain('Revisa las líneas');
   });
 
-  // Lo que el inventario hace cumplir en el catalogo tambien se explica.
-  it('explains why an item with stock cannot be deactivated', () => {
-    expect(readableInventoryError(AccessError.fromStatus(409, { code: 'ItemWithStockError' }), FALLBACK)).toContain('existencia');
+  // La pantalla de articulos traduce con este modulo: sin estos codigos, un 409 de existencia se
+  // leia como «Ese dato ya existe».
+  it.each([
+    ['ItemWithStockError', 'existencia'],
+    ['ItemWithMovementsError', 'movimientos'],
+    ['ItemInOpenDocumentsError', 'abiertos'],
+    ['ItemUnitInOpenDocumentsError', 'factor'],
+    ['DuplicateSkuError', 'SKU'],
+  ])('explains %s as a rule of the item', (code, words) => {
+    expect(readableInventoryError(AccessError.fromStatus(409, { code }), FALLBACK)).toContain(words);
+  });
+
+  it('points at the units row of an item instead of a JSON path', () => {
+    const error = AccessError.fromStatus(400, { code: 'ValidationError', fields: ['units.1.conversionFactor'] });
+
+    expect(readableInventoryError(error, FALLBACK)).toContain('Revisa las unidades');
+  });
+
+  it('asks for the SKU when it is missing', () => {
+    expect(readableInventoryError(AccessError.fromStatus(400, { code: 'ValidationError', fields: ['sku'] }), FALLBACK)).toBe('Escribe un SKU.');
   });
 
   // La caja del articulo cambio desde que se escribio: se revisa y se guarda, no se recalcula solo.

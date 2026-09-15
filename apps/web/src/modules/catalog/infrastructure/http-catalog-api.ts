@@ -1,7 +1,7 @@
 import { AccessError } from '../../access/domain/access-error';
 import type { AccessErrorBody } from '../../access/domain/access-error';
-import type { Category, Item, MeasurementUnit, Tax, Warehouse } from '../domain/catalog';
-import type { CatalogApi, ItemInput } from '../domain/catalog-api';
+import type { Category, MeasurementUnit, Tax, Warehouse } from '../domain/catalog';
+import type { CatalogApi } from '../domain/catalog-api';
 
 const BASE = '/api/v1/catalog';
 
@@ -61,23 +61,6 @@ export class HttpCatalogApi implements CatalogApi {
 
   async setDefaultWarehouse(token: string, id: string) {
     await this.request('PUT', `${BASE}/warehouses/${id}/default`, token);
-  }
-
-  async searchItems(token: string): Promise<Item[]> {
-    return (await this.request<{ items: Item[] }>('GET', `${BASE}/items`, token)).items;
-  }
-
-  async saveItem(token: string, id: string | null, input: ItemInput) {
-    const units = input.units.map((unit) => ({
-      ...unit,
-      conversionFactor: Number.isNaN(unit.conversionFactor) ? 'NaN' : unit.conversionFactor,
-    }));
-
-    await this.save(token, 'items', id, { ...input, units });
-  }
-
-  async changeItemStatus(token: string, id: string, active: boolean) {
-    await this.request('PUT', `${BASE}/items/${id}/status`, token, { active });
   }
 
   private async save(token: string, resource: string, id: string | null, body: unknown): Promise<void> {
