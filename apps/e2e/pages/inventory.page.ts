@@ -1,7 +1,7 @@
 import { expect } from '@playwright/test';
 import type { Locator, Page } from '@playwright/test';
 
-type Section = 'existencias' | 'ajustes' | 'kardex';
+type Section = 'articulos' | 'existencias' | 'ajustes' | 'kardex';
 
 export interface LineInput {
   item: string;
@@ -11,7 +11,7 @@ export interface LineInput {
   cost?: string;
 }
 
-// Las tres pantallas del inventario. Un ajuste se busca por lo que contiene y no por su
+// Las pantallas del inventario. Un ajuste se busca por lo que contiene y no por su
 // codigo, que lo asigna el sistema y la prueba no conoce de antemano.
 export class InventoryPage {
   constructor(private readonly page: Page) {}

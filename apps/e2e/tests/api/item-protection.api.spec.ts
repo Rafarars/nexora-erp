@@ -4,13 +4,13 @@ import { ACME_INVENTORY, aFreshItem, auth, tokenFor } from '../../support/invent
 import { ORDERS, RECEIPTS, aDraftOrder, aDraftReceipt, aFreshSupplier } from '../../support/purchasing-fixtures.js';
 import { SALES_ORDERS, aDraftSalesOrder, aFreshCustomer, aStockedItem } from '../../support/sales-fixtures.js';
 
-const ITEMS = '/api/v1/catalog/items';
+const ITEMS = '/api/v1/inventory/items';
 const ADJUSTMENTS = '/api/v1/inventory/adjustments';
 const { piece, box, mainWarehouse } = ACME_INVENTORY;
 
 type Item = { id: string; sku: string; name: string };
 
-// Lo que el catalogo protege de un articulo que otros documentos ya usan. Cada prueba con su
+// Lo que el maestro de articulos protege de un articulo que otros documentos ya usan. Cada prueba con su
 // articulo, proveedor y cliente: corren en paralelo sobre la misma base.
 
 const put = (request: APIRequestContext, token: string, path: string, data?: object) => request.put(path, { headers: auth(token), data });

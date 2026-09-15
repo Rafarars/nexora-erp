@@ -23,7 +23,7 @@ async function globexSnapshot(request: APIRequestContext) {
     read('/api/v1/catalog/units'),
     read('/api/v1/catalog/taxes'),
     read('/api/v1/catalog/warehouses'),
-    read('/api/v1/catalog/items'),
+    read('/api/v1/inventory/items'),
     read('/api/v1/inventory/adjustments'),
     read('/api/v1/inventory/stock'),
     read('/api/v1/purchasing/suppliers'),

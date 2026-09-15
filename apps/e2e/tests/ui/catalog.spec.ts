@@ -1,6 +1,7 @@
 import { expect, test } from '@playwright/test';
 import { ACCOUNTANT, ACME_ADMIN, INITECH_ADMIN, LoginPage } from '../../pages/login.page.js';
 import { CatalogPage } from '../../pages/catalog.page.js';
+import { InventoryPage } from '../../pages/inventory.page.js';
 
 const stamp = () => `${Date.now()}-${Math.random().toString(36).slice(2, 6)}`;
 
@@ -10,12 +11,13 @@ test.describe('The catalog, from the screen', () => {
   });
 
   // El recorrido completo del hito: crear lo que alimenta a un articulo, crear el
-  // articulo con una caja de 24, verlo en el listado y comprobar que la categoria queda
+  // articulo (ya en el inventario) con una caja de 24, verlo en el listado y comprobar que la categoria queda
   // protegida mientras el articulo este activo.
   test('creates a category and an item that uses it, and protects the category while the item is active', async ({
     page,
   }) => {
     const catalog = new CatalogPage(page);
+    const inventory = new InventoryPage(page);
     const id = stamp();
     const categoryName = `Congelados ${id}`;
     const sku = `HELADO-${id}`.toUpperCase();
@@ -27,7 +29,7 @@ test.describe('The catalog, from the screen', () => {
     await expect(catalog.row('category', categoryName)).toBeVisible();
     await expect(page.getByTestId(`category-code-${categoryName}`)).toHaveText(/^CAT\d{6}$/);
 
-    await catalog.open('articulos');
+    await inventory.open('articulos');
     await catalog.startCreating('item');
     await page.getByTestId('item-sku').fill(sku.toLowerCase());
     await page.getByTestId('item-name').fill('Helado de vainilla 1 l');
@@ -52,28 +54,13 @@ test.describe('The catalog, from the screen', () => {
     );
     await expect(catalog.status('category', categoryName)).toHaveText('Activo');
 
-    await catalog.open('articulos');
+    await inventory.open('articulos');
     await catalog.toggleStatus('item', sku);
     await expect(catalog.status('item', sku)).toHaveText('Inactivo');
 
     await catalog.open('categorias');
     await catalog.toggleStatus('category', categoryName);
     await expect(catalog.status('category', categoryName)).toHaveText('Inactivo');
-  });
-
-  test('explains a repeated SKU in Spanish and keeps the panel open', async ({ page }) => {
-    const catalog = new CatalogPage(page);
-
-    await catalog.open('articulos');
-    await catalog.startCreating('item');
-    await page.getByTestId('item-sku').fill('AGUA-500');
-    await page.getByTestId('item-name').fill('Duplicado');
-    await page.getByTestId('item-unit-0').selectOption({ label: 'Unidad (un)' });
-    await page.getByTestId('item-unit-base-0').check();
-    await catalog.submit('item');
-
-    await expect(page.getByTestId('item-error')).toHaveText('Ya existe un artículo con ese SKU.');
-    await expect(catalog.panel('item')).toBeVisible();
   });
 
   test('accepts a tax rate written with a decimal comma', async ({ page }) => {
@@ -91,6 +78,7 @@ test.describe('The catalog, from the screen', () => {
 
   test('edits a unit from the row options', async ({ page }) => {
     const catalog = new CatalogPage(page);
+    const inventory = new InventoryPage(page);
     const id = stamp();
     const name = `Paquete ${id}`;
     const renamed = `Paquete grande ${id}`;
@@ -155,11 +143,11 @@ test('a read-only role sees the catalog but gets no way to change it', async ({ 
   await new LoginPage(page).signIn(ACCOUNTANT);
   const catalog = new CatalogPage(page);
 
-  await catalog.open('articulos');
+  await catalog.open('categorias');
 
-  await expect(catalog.row('item', 'AGUA-500')).toBeVisible();
-  await expect(page.getByTestId('new-item')).toHaveCount(0);
-  await expect(page.getByTestId('item-options-AGUA-500')).toHaveCount(0);
+  await expect(catalog.row('category', 'Bebidas')).toBeVisible();
+  await expect(page.getByTestId('new-category')).toHaveCount(0);
+  await expect(page.getByTestId('category-options-Bebidas')).toHaveCount(0);
 });
 
 // Un rol sin ningun permiso de catalogo no ve el modulo: ni el enlace de la barra ni la
@@ -185,10 +173,11 @@ test('the catalog module does not show up for a role without catalog permissions
 
   await expect(page.getByTestId('nav-panel')).toBeVisible();
   await expect(page.getByTestId('nav-catalogo')).toHaveCount(0);
+  await expect(page.getByTestId('nav-inventario')).toHaveCount(0);
 
   await page.goto('/catalogo');
   await expect(page.getByTestId('catalog-forbidden')).toBeVisible();
 
-  await page.goto('/catalogo/articulos');
-  await expect(page.getByTestId('items-forbidden')).toBeVisible();
+  await page.goto('/catalogo/categorias');
+  await expect(page.getByTestId('categories-forbidden')).toBeVisible();
 });

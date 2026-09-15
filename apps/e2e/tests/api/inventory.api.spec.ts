@@ -143,14 +143,14 @@ test.describe('inventory adjustments', () => {
   });
 });
 
-test.describe('the catalog protects what has stock', () => {
+test.describe('the item master protects what has stock', () => {
   test('an item with stock cannot be deactivated, and its base unit cannot change', async ({ request }) => {
     const token = await tokenFor(request, 'ana@acme.com');
     const item = await aFreshItem(request, token);
     await confirm(request, token, (await draft(request, token, [{ itemId: item.id, unitId: ACME_INVENTORY.piece, direction: 'in', quantity: 3, unitCost: 1 }])).id);
 
-    const deactivate = await request.put(`/api/v1/catalog/items/${item.id}/status`, { headers: auth(token), data: { active: false } });
-    const rebase = await request.put(`/api/v1/catalog/items/${item.id}`, {
+    const deactivate = await request.put(`/api/v1/inventory/items/${item.id}/status`, { headers: auth(token), data: { active: false } });
+    const rebase = await request.put(`/api/v1/inventory/items/${item.id}`, {
       headers: auth(token),
       data: { sku: item.sku, name: item.name, type: 'inventoried', units: [{ unitId: ACME_INVENTORY.box, conversionFactor: 1, isBase: true }] },
     });

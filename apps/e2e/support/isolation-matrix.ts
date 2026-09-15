@@ -157,10 +157,10 @@ export const ISOLATION_CASES: IsolationCase[] = [
     path: `/api/v1/catalog/warehouses/${GLOBEX.warehouseId}/default`,
   },
   {
-    route: 'PUT /api/v1/catalog/items/:itemId',
+    route: 'PUT /api/v1/inventory/items/:itemId',
     title: 'rewrite an item of another tenant',
     method: 'put',
-    path: `/api/v1/catalog/items/${GLOBEX.itemId}`,
+    path: `/api/v1/inventory/items/${GLOBEX.itemId}`,
     body: {
       sku: 'COLADO',
       name: 'Colado',
@@ -169,20 +169,20 @@ export const ISOLATION_CASES: IsolationCase[] = [
     },
   },
   {
-    route: 'PUT /api/v1/catalog/items/:itemId/status',
+    route: 'PUT /api/v1/inventory/items/:itemId/status',
     title: 'deactivate an item of another tenant',
     method: 'put',
-    path: `/api/v1/catalog/items/${GLOBEX.itemId}/status`,
+    path: `/api/v1/inventory/items/${GLOBEX.itemId}/status`,
     body: { active: false },
   },
   {
     // Cada referencia por separado seria mas exhaustivo; con la unidad basta para ver
     // que el articulo no puede apuntar fuera de su empresa. La categoria y el impuesto
     // ajenos los cubren las pruebas de aplicacion.
-    route: 'POST /api/v1/catalog/items',
+    route: 'POST /api/v1/inventory/items',
     title: 'create an item that uses a unit of another tenant',
     method: 'post',
-    path: '/api/v1/catalog/items',
+    path: '/api/v1/inventory/items',
     body: {
       sku: `COLADO-${Date.now()}`,
       name: 'Colado',

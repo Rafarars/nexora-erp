@@ -27,7 +27,7 @@ export async function aFreshItem(
   const sku = `INV-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`.toUpperCase();
   const name = `Artículo ${sku}`;
 
-  await request.post(`${baseUrl}/api/v1/catalog/items`, {
+  await request.post(`${baseUrl}/api/v1/inventory/items`, {
     headers: auth(token),
     data: {
       sku,
@@ -40,7 +40,7 @@ export async function aFreshItem(
     },
   });
 
-  const { items } = await (await request.get(`${baseUrl}/api/v1/catalog/items`, { headers: auth(token) })).json();
+  const { items } = await (await request.get(`${baseUrl}/api/v1/inventory/items`, { headers: auth(token) })).json();
 
   return { ...items.find((item: { sku: string }) => item.sku === sku), sku, name };
 }

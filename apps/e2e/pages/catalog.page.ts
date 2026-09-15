@@ -1,11 +1,13 @@
 import { expect } from '@playwright/test';
 import type { Locator, Page } from '@playwright/test';
 
-type Section = 'articulos' | 'categorias' | 'unidades' | 'impuestos' | 'bodegas';
+type Section = 'categorias' | 'unidades' | 'impuestos' | 'bodegas';
 type Resource = 'item' | 'category' | 'unit' | 'tax' | 'warehouse';
 
 // Las pantallas del catalogo comparten la misma forma: tabla, menu Opciones por fila y
-// panel lateral. Las pruebas hablan de "la fila de Bebidas", no de selectores.
+// panel lateral. La de articulos vive en el inventario pero usa la misma tabla: se abre con
+// InventoryPage y se maneja con estos metodos. Las pruebas hablan de "la fila de Bebidas", no
+// de selectores.
 export class CatalogPage {
   constructor(private readonly page: Page) {}
 

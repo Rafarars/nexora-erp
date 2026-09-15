@@ -140,113 +140,23 @@ test.describe('catalog: warehouses', () => {
   });
 });
 
-test.describe('catalog: items', () => {
-  test('creates an item with a box of 24 and returns the names of what it uses', async ({ request }) => {
-    const token = await tokenFor(request, 'ana@acme.com');
-    const sku = `JUGO-${Date.now()}`;
-
-    const response = await request.post(`${CATALOG}/items`, {
-      headers: auth(token),
-      data: {
-        sku: sku.toLowerCase(),
-        name: 'Jugo de naranja 1 l',
-        type: 'inventoried',
-        categoryId: ACME.drinks,
-        taxId: ACME.vat,
-        units: [
-          { unitId: ACME.box, conversionFactor: 24, isBase: false },
-          { unitId: ACME.piece, conversionFactor: 1, isBase: true },
-        ],
-      },
-    });
-
-    expect(response.status()).toBe(201);
-
-    const { items } = await (await request.get(`${CATALOG}/items`, { headers: auth(token) })).json();
-    const item = items.find((candidate: { sku: string }) => candidate.sku === sku);
-
-    expect(item).toMatchObject({
-      sku,
-      code: expect.stringMatching(/^ART\d{6}$/),
-      category: { id: ACME.drinks, name: 'Bebidas' },
-      tax: { id: ACME.vat, name: 'IVA 16%', rate: 16 },
-      units: [
-        { unitId: ACME.piece, abbreviation: 'un', conversionFactor: 1, isBase: true },
-        { unitId: ACME.box, abbreviation: 'cja', conversionFactor: 24, isBase: false },
-      ],
-    });
-  });
-
-  test('rejects a SKU already used, whatever its case', async ({ request }) => {
-    const response = await request.post(`${CATALOG}/items`, {
-      headers: auth(await tokenFor(request, 'ana@acme.com')),
-      data: {
-        sku: 'agua-500',
-        name: 'Duplicado',
-        type: 'inventoried',
-        units: [{ unitId: ACME.piece, conversionFactor: 1, isBase: true }],
-      },
-    });
-
-    expect(response.status()).toBe(409);
-    expect((await response.json()).error).toBe('DuplicateSkuError');
-  });
-
-  test('rejects units without a base one', async ({ request }) => {
-    const response = await request.post(`${CATALOG}/items`, {
-      headers: auth(await tokenFor(request, 'ana@acme.com')),
-      data: {
-        sku: `SIN-BASE-${Date.now()}`,
-        name: 'Sin base',
-        type: 'inventoried',
-        units: [{ unitId: ACME.box, conversionFactor: 24, isBase: false }],
-      },
-    });
-
-    expect(response.status()).toBe(400);
-    expect((await response.json()).error).toBe('InvalidItemUnitsError');
-  });
-
-  // Dos altas a la vez: el contador atomico no puede repetir el numero.
-  test('gives different codes to items created at the same time', async ({ request }) => {
-    const token = await tokenFor(request, 'ana@acme.com');
-    const stamp = Date.now();
-    const skus = Array.from({ length: 8 }, (_, index) => `PARALELO-${stamp}-${index}`);
-
-    const responses = await Promise.all(
-      skus.map((sku) =>
-        request.post(`${CATALOG}/items`, {
-          headers: auth(token),
-          data: { sku, name: sku, type: 'service', units: [{ unitId: ACME.piece, conversionFactor: 1, isBase: true }] },
-        }),
-      ),
-    );
-
-    expect(responses.map((response) => response.status())).toEqual(skus.map(() => 201));
-
-    const { items } = await (await request.get(`${CATALOG}/items`, { headers: auth(token) })).json();
-    const codes = items.filter((item: { sku: string }) => skus.includes(item.sku)).map((item: { code: string }) => item.code);
-    expect(new Set(codes).size).toBe(skus.length);
-  });
-});
-
 test.describe('catalog: who can do what', () => {
   test('a read-only role lists the catalog but cannot change it', async ({ request }) => {
     const token = await tokenFor(request, 'contador@externo.com');
 
-    expect((await request.get(`${CATALOG}/items`, { headers: auth(token) })).status()).toBe(200);
+    expect((await request.get(`${CATALOG}/categories`, { headers: auth(token) })).status()).toBe(200);
     expect((await request.post(`${CATALOG}/categories`, { headers: auth(token), data: { name: unique('Colada') } })).status()).toBe(403);
     expect((await request.put(`${CATALOG}/taxes/${ACME.vat}`, { headers: auth(token), data: { name: 'Colado', rate: 0 } })).status()).toBe(403);
   });
 
   test('nothing in the catalog is reachable without a session', async ({ request }) => {
-    for (const resource of ['categories', 'units', 'taxes', 'warehouses', 'items']) {
+    for (const resource of ['categories', 'units', 'taxes', 'warehouses']) {
       expect((await request.get(`${CATALOG}/${resource}`)).status(), resource).toBe(401);
     }
   });
 
   test('an identifier that is not a UUID is a 400 that does not echo it back', async ({ request }) => {
-    const response = await request.put(`${CATALOG}/items/no-es-un-uuid/status`, {
+    const response = await request.put(`${CATALOG}/categories/no-es-un-uuid/status`, {
       headers: auth(await tokenFor(request, 'ana@acme.com')),
       data: { active: false },
     });
