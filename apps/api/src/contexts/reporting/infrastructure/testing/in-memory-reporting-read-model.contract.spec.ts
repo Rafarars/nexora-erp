@@ -7,7 +7,7 @@ type Row<T> = T & { tenantId: string };
 
 // Guarda las filas en su forma original y arma el doble al pedirlo, resumiendo como la base.
 class InMemoryReportingHarness implements ReportingReadModelHarness {
-  private companies = new Map<string, string>();
+  private companies = new Map<string, { name: string; fiscalId: string | null }>();
   private customers: Row<ReportCustomer>[] = [];
   private warehouses: Row<{ id: string; name: string }>[] = [];
   private items: Row<{ id: string; sku: string; name: string; baseUnit: string }>[] = [];
@@ -20,7 +20,7 @@ class InMemoryReportingHarness implements ReportingReadModelHarness {
     const model = new InMemoryReportingReadModel();
     const cents = (value: number) => Math.round(value * 100);
 
-    model.companyName = async (tenantId) => this.companies.get(tenantId.value) ?? '';
+    model.company = async (tenantId) => this.companies.get(tenantId.value) ?? { name: '', fiscalId: null };
 
     for (const { tenantId, ...customer } of this.customers) model.customer(tenantId, customer);
 
@@ -63,8 +63,8 @@ class InMemoryReportingHarness implements ReportingReadModelHarness {
     return model;
   }
 
-  async company(tenantId: string, name: string): Promise<void> {
-    this.companies.set(tenantId, name);
+  async company(tenantId: string, name: string, profile?: { legalName: string; fiscalId: string | null }): Promise<void> {
+    this.companies.set(tenantId, { name: profile?.legalName ?? name, fiscalId: profile?.fiscalId ?? null });
   }
 
   async customer(tenantId: string, customer: ReportCustomer): Promise<void> {

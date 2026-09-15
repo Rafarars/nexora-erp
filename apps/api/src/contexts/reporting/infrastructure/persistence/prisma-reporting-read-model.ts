@@ -2,6 +2,7 @@ import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../../../../shared/prisma/prisma.service.js';
 import { ReportPeriod } from '../../domain/period/report-period.js';
 import {
+  ReportCompany,
   ReportCustomer,
   ReportCustomerSales,
   ReportInvoice,
@@ -21,8 +22,13 @@ const num = (value: string | number | null) => Number(value ?? 0);
 export class PrismaReportingReadModel implements ReportingReadModel {
   constructor(private readonly prisma: PrismaService) {}
 
-  async companyName(tenantId: TenantId): Promise<string> {
-    return (await this.prisma.tenant.findUniqueOrThrow({ where: { id: tenantId.value }, select: { name: true } })).name;
+  async company(tenantId: TenantId): Promise<ReportCompany> {
+    const tenant = await this.prisma.tenant.findUniqueOrThrow({
+      where: { id: tenantId.value },
+      select: { name: true, profile: { select: { legalName: true, fiscalId: true } } },
+    });
+
+    return { name: tenant.profile?.legalName ?? tenant.name, fiscalId: tenant.profile?.fiscalId ?? null };
   }
 
   async customers(tenantId: TenantId): Promise<ReportCustomer[]> {

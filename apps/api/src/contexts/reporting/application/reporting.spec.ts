@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { ReportCustomerNotFoundError, ReportPeriodTooLongError, ReportWarehouseNotFoundError } from '../domain/errors/reporting.errors.js';
 import { DELTA, MAIN, NORTH, OMEGA, TENANT_A, TENANT_B, aCustomer, aStock, anInvoice } from '../domain/testing/reporting.mother.js';
 import { InMemoryInvoice } from '../infrastructure/testing/in-memory-reporting-read-model.js';
-import { customerStatementDocument, inventoryValuationDocument, receivablesAgingDocument, salesByCustomerDocument } from './documents/report-documents.js';
+import { companyHeader, customerStatementDocument, inventoryValuationDocument, receivablesAgingDocument, salesByCustomerDocument } from './documents/report-documents.js';
 import { stockValueCents } from './search-dashboard/dashboard-searcher.js';
 import { aReportingScenario } from './testing/reporting-scenario.js';
 
@@ -127,5 +127,15 @@ describe('inventory valuation report', () => {
 
   it('answers as missing a warehouse of another company', async () => {
     await expect(world().inventoryValuation.run({ tenantId: TENANT_B, warehouseId: MAIN })).rejects.toThrow(ReportWarehouseNotFoundError);
+  });
+});
+
+describe('companyHeader', () => {
+  it('names who issues the report with its fiscal id', () => {
+    expect(companyHeader({ name: 'Acme Industrial, C.A.', fiscalId: 'J-40000001-2' })).toBe('Acme Industrial, C.A. · RIF J-40000001-2');
+  });
+
+  it('leaves the fiscal id out when the company never filled it', () => {
+    expect(companyHeader({ name: 'Acme Industrial', fiscalId: null })).toBe('Acme Industrial');
   });
 });

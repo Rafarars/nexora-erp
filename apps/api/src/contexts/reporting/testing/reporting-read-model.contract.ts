@@ -40,7 +40,7 @@ export function describeReportingReadModelContract(implementation: string, creat
 
     beforeEach(async () => {
       await harness.reset();
-      await harness.company(TENANT_A, 'Contrato Acme');
+      await harness.company(TENANT_A, 'Contrato Acme', { legalName: 'Contrato Acme, C.A.', fiscalId: 'J-40000001-2' });
       await harness.company(TENANT_B, 'Contrato Globex');
       await harness.customer(TENANT_A, aCustomer({ code: 'CLI910001', name: 'Contrato Delta', creditLimit: 1000.5 }));
       await harness.customer(TENANT_A, aCustomer({ id: OMEGA, code: 'CLI910002', name: 'Contrato Omega', fiscalId: null, paymentTermDays: 0, creditLimit: null }));
@@ -61,10 +61,12 @@ export function describeReportingReadModelContract(implementation: string, creat
       await harness.close();
     });
 
-    it('reads the company name and its customers with their credit limit', async () => {
+    it('reads who issues the reports and its customers with their credit limit', async () => {
       const readModel = harness.readModel();
 
-      expect(await readModel.companyName(tenant)).toBe('Contrato Acme');
+      expect(await readModel.company(tenant)).toEqual({ name: 'Contrato Acme, C.A.', fiscalId: 'J-40000001-2' });
+      // Sin datos llenos, el nombre con que se registro.
+      expect(await readModel.company(TenantId.of(TENANT_B))).toEqual({ name: 'Contrato Globex', fiscalId: null });
       expect((await readModel.customers(tenant)).map((row) => [row.name, row.creditLimit, row.paymentTermDays])).toEqual([
         ['Contrato Delta', 1000.5, 15],
         ['Contrato Omega', null, 0],

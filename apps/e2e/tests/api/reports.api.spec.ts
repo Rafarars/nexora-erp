@@ -39,7 +39,8 @@ test.describe('exports', () => {
 
     const rows = await excelRows(await response.body());
     expect(rows[0]).toEqual(['Antigüedad de saldos por cobrar']);
-    expect(rows[1]).toEqual(['Globex Servicios']);
+    // Quien emite: su razon social y su RIF, de los datos de la empresa.
+    expect(rows[1]).toEqual(['Globex Servicios, C.A. · RIF J-40000002-0']);
     expect(rows.find((row) => row[1] === 'Talleres Omega')?.at(-1)).toBe(61.2);
     expect(rows.at(-1)?.[0]).toBe('Total');
   });

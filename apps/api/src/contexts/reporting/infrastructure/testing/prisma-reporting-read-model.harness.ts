@@ -27,8 +27,11 @@ export class PrismaReportingReadModelHarness implements ReportingReadModelHarnes
     return new PrismaReportingReadModel(this.prisma);
   }
 
-  async company(tenantId: string, name: string): Promise<void> {
+  async company(tenantId: string, name: string, profile?: { legalName: string; fiscalId: string | null }): Promise<void> {
     await this.prisma.tenant.upsert({ where: { id: tenantId }, create: { id: tenantId, name, slug: `contract-reporting-${tenantId.slice(0, 4)}` }, update: { name } });
+    await this.prisma.companyProfile.deleteMany({ where: { tenantId } });
+
+    if (profile) await this.prisma.companyProfile.create({ data: { tenantId, ...profile, updatedAt: new Date() } });
   }
 
   async customer(tenantId: string, customer: ReportCustomer): Promise<void> {

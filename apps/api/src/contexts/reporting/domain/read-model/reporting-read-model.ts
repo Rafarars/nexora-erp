@@ -58,8 +58,14 @@ export interface ReportStock {
 
 // Todo lo que los reportes leen de los demas modulos, siempre de una empresa. Solo lectura: en la
 // base el adaptador consulta las tablas de ventas, compras, cobranza e inventario.
+// Quien emite el reporte: la razon social y el RIF de sus datos, o el nombre con que se registro.
+export interface ReportCompany {
+  name: string;
+  fiscalId: string | null;
+}
+
 export interface ReportingReadModel {
-  companyName(tenantId: TenantId): Promise<string>;
+  company(tenantId: TenantId): Promise<ReportCompany>;
   customers(tenantId: TenantId): Promise<ReportCustomer[]>;
   warehouseExists(tenantId: TenantId, warehouseId: string): Promise<boolean>;
   // Emitidas, con saldo o sin el; filtro opcional por cliente.

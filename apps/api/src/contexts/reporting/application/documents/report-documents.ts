@@ -1,3 +1,4 @@
+import { ReportCompany } from '../../domain/read-model/reporting-read-model.js';
 import { AGING_BUCKETS, AgingBucket } from '../../domain/aging/aging.js';
 import { ReportDocument } from '../../domain/document/report-document.js';
 import { CustomerStatementResponse } from '../customer-statement/customer-statement-report.js';
@@ -15,6 +16,11 @@ const BUCKET_LABELS: Record<AgingBucket, string> = {
 
 // Cada reporte convertido en un documento: lo mismo que ve la pantalla, con titulo y filtros. Aqui
 // se decide el contenido; el PDF y el Excel solo lo escriben.
+// La linea de quien emite: su razon social y, si la tiene, su RIF.
+export function companyHeader(company: ReportCompany): string {
+  return company.fiscalId ? `${company.name} · RIF ${company.fiscalId}` : company.name;
+}
+
 export function receivablesAgingDocument(report: ReceivablesAgingResponse, company: string): ReportDocument {
   const buckets = AGING_BUCKETS.map((bucket) => ({ key: bucket, label: BUCKET_LABELS[bucket], kind: 'amount' as const }));
 

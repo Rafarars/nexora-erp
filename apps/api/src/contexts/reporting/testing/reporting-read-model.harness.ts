@@ -32,7 +32,8 @@ export interface SeedReceipt {
 // estado, cobros con sus aplicaciones, entradas con sus lineas. El modelo de lectura resume.
 export interface ReportingReadModelHarness {
   readModel(): ReportingReadModel;
-  company(tenantId: string, name: string): Promise<void>;
+  // El nombre con que se registro y, si se da, los datos que la empresa lleno.
+  company(tenantId: string, name: string, profile?: { legalName: string; fiscalId: string | null }): Promise<void>;
   customer(tenantId: string, customer: ReportCustomer): Promise<void>;
   warehouse(tenantId: string, warehouse: { id: string; name: string }): Promise<void>;
   item(tenantId: string, item: { id: string; sku: string; name: string; baseUnit: string }): Promise<void>;

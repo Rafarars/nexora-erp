@@ -28,8 +28,8 @@ export class InMemoryReportingReadModel implements ReportingReadModel {
   private readonly stockRows: Tenant<ReportStock>[] = [];
   private readonly warehouseRows: Tenant<{ id: string }>[] = [];
 
-  async companyName(tenantId: { value: string }): Promise<string> {
-    return `Empresa ${tenantId.value.slice(0, 4)}`;
+  async company(tenantId: { value: string }): Promise<{ name: string; fiscalId: string | null }> {
+    return { name: `Empresa ${tenantId.value.slice(0, 4)}`, fiscalId: null };
   }
 
   customer(tenantId: string, row: ReportCustomer): void {

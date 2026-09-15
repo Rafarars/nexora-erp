@@ -5,7 +5,7 @@ import { CustomerStatementReport } from '../customer-statement/customer-statemen
 import { InventoryValuationReport } from '../inventory-valuation/inventory-valuation-report.js';
 import { ReceivablesAgingReport } from '../receivables-aging/receivables-aging-report.js';
 import { SalesByCustomerReport } from '../sales-by-customer/sales-by-customer-report.js';
-import { customerStatementDocument, inventoryValuationDocument, receivablesAgingDocument, salesByCustomerDocument } from './report-documents.js';
+import { customerStatementDocument, inventoryValuationDocument, receivablesAgingDocument, salesByCustomerDocument, companyHeader } from './report-documents.js';
 
 // Exportar es correr el mismo reporte de la pantalla, convertirlo en documento y escribirlo. El
 // formato se valida antes de consultar nada.
@@ -48,7 +48,7 @@ export class ReportExports {
   }
 
   private async write(format: ExportFormat, tenantId: string, build: (company: string) => Promise<Parameters<ReportRenderer['render']>[0]>): Promise<RenderedReport> {
-    const company = await this.readModel.companyName(TenantId.of(tenantId));
+    const company = companyHeader(await this.readModel.company(TenantId.of(tenantId)));
 
     return this.renderer.render(await build(company), format);
   }
