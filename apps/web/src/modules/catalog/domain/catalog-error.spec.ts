@@ -11,6 +11,17 @@ describe('readableCatalogError', () => {
     expect(readableCatalogError(error, FALLBACK)).toBe('No se puede desactivar: hay artículos activos en esta categoría.');
   });
 
+  // La pantalla de articulos traduce con este modulo: sin estos codigos, un 409 de existencia se
+  // leia como «Ese dato ya existe».
+  it.each([
+    ['ItemWithStockError', 'existencia'],
+    ['ItemWithMovementsError', 'movimientos'],
+    ['ItemInOpenDocumentsError', 'abiertos'],
+    ['ItemUnitInOpenDocumentsError', 'factor'],
+  ])('explains %s as a rule of the item', (code, words) => {
+    expect(readableCatalogError(AccessError.fromStatus(409, { code }), FALLBACK)).toContain(words);
+  });
+
   it('points at the units row instead of a JSON path', () => {
     const error = AccessError.fromStatus(400, { code: 'ValidationError', fields: ['units.1.conversionFactor'] });
 

@@ -59,6 +59,10 @@ describe('readableSalesError', () => {
     expect(readableSalesError(error, 'x')).toBe('No hay existencia disponible suficiente para reservar este pedido.');
   });
 
+  it('asks to review and save an order whose item changed', () => {
+    expect(readableSalesError(AccessError.fromStatus(409, { code: 'SalesItemChangedError' }), 'x')).toContain('revisa las cantidades');
+  });
+
   it('falls back to purchasing, inventory, catalog and access translations', () => {
     expect(readableSalesError(AccessError.fromStatus(409, { code: 'InsufficientStockError' }), 'x')).toContain('existencia');
   });

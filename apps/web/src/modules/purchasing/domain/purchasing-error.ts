@@ -12,6 +12,7 @@ const BY_CODE: Record<string, string> = {
   InvalidPaymentTermError: 'El plazo de pago debe ser un número entero de días, de 0 a 365.',
   InactiveSupplierError: 'El proveedor está inactivo: no se le pueden hacer órdenes.',
   InactivePurchaseItemError: 'La orden o la entrada usa un artículo inactivo.',
+  PurchaseItemChangedError: 'La unidad de un artículo cambió desde que se escribió la orden: revisa las cantidades y guárdala antes de confirmar.',
   InactivePurchaseWarehouseError: 'La orden o la entrada usa una bodega inactiva.',
   ServiceNotPurchasableError: 'Un servicio no se recibe en una bodega: no se puede pedir en una orden.',
   PurchaseUnitNotOfItemError: 'Una línea usa una unidad que el artículo no tiene.',

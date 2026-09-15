@@ -22,6 +22,11 @@ describe('readableInventoryError', () => {
     expect(readableInventoryError(AccessError.fromStatus(409, { code: 'ItemWithStockError' }), FALLBACK)).toContain('existencia');
   });
 
+  // La caja del articulo cambio desde que se escribio: se revisa y se guarda, no se recalcula solo.
+  it('asks to review and save a draft whose item changed', () => {
+    expect(readableInventoryError(AccessError.fromStatus(409, { code: 'StockItemChangedError' }), FALLBACK)).toContain('revisa las cantidades');
+  });
+
   it('falls back to the catalog and access translations', () => {
     expect(readableInventoryError(AccessError.fromStatus(403, { code: 'PermissionDeniedError' }), FALLBACK)).toBe(
       'Tu rol no te permite hacer esto.',

@@ -17,6 +17,7 @@ const BY_CODE: Record<string, string> = {
   FutureAdjustmentDateError: 'Un ajuste no puede tener fecha futura.',
   InvalidDirectionError: 'Cada línea debe ser una entrada o una salida.',
   InactiveStockItemError: 'El ajuste usa un artículo inactivo.',
+  StockItemChangedError: 'La unidad de un artículo cambió desde que se escribió el ajuste: revisa las cantidades y guárdalo antes de confirmar.',
   InactiveStockWarehouseError: 'El ajuste usa una bodega inactiva.',
   StockItemNotFoundError: 'Uno de los artículos ya no existe en esta empresa.',
   StockWarehouseNotFoundError: 'La bodega ya no existe en esta empresa.',

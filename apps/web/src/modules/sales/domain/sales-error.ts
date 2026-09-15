@@ -14,6 +14,7 @@ const BY_CODE: Record<string, string> = {
   InvalidCreditLimitError: 'El límite de crédito debe ser un monto de cero o más, con hasta dos decimales.',
   InactiveCustomerError: 'El cliente está inactivo: no se le pueden hacer pedidos.',
   InactiveSalesItemError: 'El documento usa un artículo inactivo.',
+  SalesItemChangedError: 'La unidad de un artículo cambió desde que se escribió el pedido: revisa las cantidades y guárdalo antes de confirmar.',
   InactiveSalesWarehouseError: 'El documento usa una bodega inactiva.',
   ServiceNotSellableError: 'Un servicio no sale de una bodega: no se puede pedir.',
   SalesUnitNotOfItemError: 'Una línea usa una unidad que el artículo no tiene.',

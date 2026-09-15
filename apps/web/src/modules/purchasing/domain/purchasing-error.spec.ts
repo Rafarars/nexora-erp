@@ -15,6 +15,10 @@ describe('readablePurchasingError', () => {
     expect(readablePurchasingError(AccessError.fromStatus(409, { code: 'PurchaseOrderWithReceiptsError' }), FALLBACK)).toContain('anula primero sus entradas');
   });
 
+  it('asks to review and save an order whose item changed', () => {
+    expect(readablePurchasingError(AccessError.fromStatus(409, { code: 'PurchaseItemChangedError' }), FALLBACK)).toContain('revisa las cantidades');
+  });
+
   it('points at the lines instead of a JSON path', () => {
     expect(readablePurchasingError(AccessError.fromStatus(400, { code: 'ValidationError', fields: ['lines.0.unitCost'] }), FALLBACK)).toContain(
       'Revisa las líneas',
