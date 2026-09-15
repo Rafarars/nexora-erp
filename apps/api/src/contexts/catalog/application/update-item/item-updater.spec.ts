@@ -2,8 +2,9 @@ import { describe, expect, it } from 'vitest';
 import { DuplicateSkuError } from '../../domain/errors/duplicate.errors.js';
 import { InactiveReferenceError } from '../../domain/errors/inactive-reference.error.js';
 import { ItemNotFoundError } from '../../domain/errors/not-found.errors.js';
-import { ItemWithMovementsError } from '../../domain/errors/in-use.errors.js';
+import { ItemInOpenDocumentsError, ItemUnitInOpenDocumentsError, ItemWithMovementsError } from '../../domain/errors/in-use.errors.js';
 import { ItemId } from '../../domain/item/item-id.vo.js';
+import { ItemUnit, ItemUnits } from '../../domain/item/item-units.js';
 import { TenantId } from '../../domain/shared/tenant-id.vo.js';
 import {
   CATEGORY_A,
@@ -14,6 +15,7 @@ import {
   TENANT_A,
   TENANT_B,
   UNIT_BOX,
+  UNIT_KILO,
   UNIT_PIECE,
   aCategory,
   aTax,
@@ -23,7 +25,7 @@ import {
 import { CatalogScenario, aCatalogScenario } from '../testing/catalog-scenario.js';
 import { ItemUpdater, ItemUpdaterRequest } from './item-updater.js';
 
-const updaterFor = (s: CatalogScenario) => new ItemUpdater(s.itemFinder, s.references, s.skuUniqueness, s.stock, s.items, s.clock);
+const updaterFor = (s: CatalogScenario) => new ItemUpdater(s.itemFinder, s.references, s.skuUniqueness, s.itemPosting, s.clock);
 
 function request(overrides: Partial<ItemUpdaterRequest> = {}): ItemUpdaterRequest {
   return {
@@ -83,7 +85,7 @@ describe('ItemUpdater', () => {
   describe('an item with inventory movements', () => {
     const withMovements = () => {
       const scenario = scenarioWith({ units: [aUnit(), aUnit({ id: UNIT_BOX, code: 'UOM000002', name: 'Caja', abbreviation: 'cja' })] });
-      scenario.stock.itemsWithMovements.add(ITEM_A);
+      scenario.itemPosting.itemsWithMovements.add(ITEM_A);
       return scenario;
     };
 
@@ -110,6 +112,66 @@ describe('ItemUpdater', () => {
           }),
         ),
       ).resolves.toBeUndefined();
+    });
+  });
+
+  describe('an item that open purchase or sales orders use in boxes of 24', () => {
+    const piece = { unitId: UNIT_PIECE, conversionFactor: 1, isBase: true };
+    const boxOf24 = { unitId: UNIT_BOX, conversionFactor: 24, isBase: false };
+
+    const withOpenBox = () => {
+      const scenario = scenarioWith({
+        units: [
+          aUnit(),
+          aUnit({ id: UNIT_BOX, code: 'UOM000002', name: 'Caja', abbreviation: 'cja' }),
+          aUnit({ id: UNIT_KILO, code: 'UOM000003', name: 'Kilogramo', abbreviation: 'kg' }),
+        ],
+        items: [anItem({ units: ItemUnits.of([ItemUnit.of(UNIT_PIECE, 1, true), ItemUnit.of(UNIT_BOX, 24, false)]) })],
+      });
+      scenario.itemPosting.openDocumentUnits.set(ITEM_A, [UNIT_BOX]);
+      return scenario;
+    };
+
+    const unitsOf = async (scenario: CatalogScenario) =>
+      (await scenario.items.find(TenantId.of(TENANT_A), ItemId.of(ITEM_A)))?.toPrimitives().units;
+
+    // La orden guardo 10 cajas como 240 unidades: con una caja de 12 recibiria otra cosa.
+    it('cannot change the factor of the box', async () => {
+      const scenario = withOpenBox();
+
+      await expect(updaterFor(scenario).run(request({ units: [piece, { ...boxOf24, conversionFactor: 12 }] }))).rejects.toThrow(
+        ItemUnitInOpenDocumentsError,
+      );
+      expect(await unitsOf(scenario)).toContainEqual(boxOf24);
+    });
+
+    it('cannot remove the box', async () => {
+      await expect(updaterFor(withOpenBox()).run(request({ units: [piece] }))).rejects.toThrow(ItemUnitInOpenDocumentsError);
+    });
+
+    // Mover la base a la caja cambia su factor de 24 a 1.
+    it('cannot move its base to the box', async () => {
+      await expect(
+        updaterFor(withOpenBox()).run(
+          request({ units: [{ unitId: UNIT_BOX, conversionFactor: 1, isBase: true }, { unitId: UNIT_PIECE, conversionFactor: 0.0417, isBase: false }] }),
+        ),
+      ).rejects.toThrow(ItemUnitInOpenDocumentsError);
+    });
+
+    it('cannot become a service', async () => {
+      await expect(updaterFor(withOpenBox()).run(request({ type: 'service', units: [piece, boxOf24] }))).rejects.toThrow(
+        ItemInOpenDocumentsError,
+      );
+    });
+
+    it('can still be renamed and gain another unit', async () => {
+      const scenario = withOpenBox();
+
+      await updaterFor(scenario).run(
+        request({ name: 'Agua renombrada', units: [piece, boxOf24, { unitId: UNIT_KILO, conversionFactor: 2, isBase: false }] }),
+      );
+
+      expect(await unitsOf(scenario)).toHaveLength(3);
     });
   });
 });

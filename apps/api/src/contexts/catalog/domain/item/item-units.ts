@@ -75,6 +75,11 @@ export class ItemUnits {
     return this.units.map((unit) => unit.unitId);
   }
 
+  // El factor de una unidad del articulo, o null si no la tiene.
+  factorOf(unitId: MeasurementUnitId): number | null {
+    return this.units.find((unit) => unit.unitId.equals(unitId))?.factor.value ?? null;
+  }
+
   uses(unitId: MeasurementUnitId): boolean {
     return this.units.some((unit) => unit.unitId.equals(unitId));
   }

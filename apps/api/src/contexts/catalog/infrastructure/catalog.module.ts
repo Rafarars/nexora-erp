@@ -33,6 +33,8 @@ import { CategoryUniqueness } from '../domain/category/unique/category-uniquenes
 import { ItemFinder } from '../domain/item/find/item-finder.js';
 import { ITEM_REPOSITORY } from '../domain/item/item.repository.js';
 import type { ItemRepository } from '../domain/item/item.repository.js';
+import { ITEM_POSTING } from '../domain/item/posting/item-posting.js';
+import type { ItemPosting } from '../domain/item/posting/item-posting.js';
 import { ItemReferences } from '../domain/item/references/item-references.js';
 import { SkuUniqueness } from '../domain/item/unique/sku-uniqueness.js';
 import { CatalogUsage } from '../domain/item/usage/catalog-usage.js';
@@ -78,6 +80,7 @@ import { PrismaItemRepository } from './persistence/prisma-item.repository.js';
 import { PrismaMeasurementUnitRepository } from './persistence/prisma-measurement-unit.repository.js';
 import { PrismaTaxRepository } from './persistence/prisma-tax.repository.js';
 import { PrismaWarehouseRepository } from './persistence/prisma-warehouse.repository.js';
+import { PrismaItemPosting } from './persistence/prisma-item-posting.js';
 import { PrismaStockUsage } from './persistence/prisma-stock-usage.js';
 import { STOCK_USAGE } from '../domain/stock/stock-usage.js';
 import type { StockUsage } from '../domain/stock/stock-usage.js';
@@ -120,6 +123,7 @@ import type { StockUsage } from '../domain/stock/stock-usage.js';
     { provide: ITEM_REPOSITORY, useClass: PrismaItemRepository },
     { provide: CODE_SEQUENCE, useClass: PrismaCodeSequence },
     { provide: STOCK_USAGE, useClass: PrismaStockUsage },
+    { provide: ITEM_POSTING, useClass: PrismaItemPosting },
 
     // ---- servicios de dominio
     { provide: CategoryFinder, useFactory: (r: CategoryRepository) => new CategoryFinder(r), inject: [CATEGORY_REPOSITORY] },
@@ -248,15 +252,13 @@ import type { StockUsage } from '../domain/stock/stock-usage.js';
     },
     {
       provide: ItemUpdater,
-      useFactory: (f: ItemFinder, ref: ItemReferences, s: SkuUniqueness, u: StockUsage, r: ItemRepository, k: Clock) =>
-        new ItemUpdater(f, ref, s, u, r, k),
-      inject: [ItemFinder, ItemReferences, SkuUniqueness, STOCK_USAGE, ITEM_REPOSITORY, CLOCK],
+      useFactory: (f: ItemFinder, ref: ItemReferences, s: SkuUniqueness, p: ItemPosting, k: Clock) => new ItemUpdater(f, ref, s, p, k),
+      inject: [ItemFinder, ItemReferences, SkuUniqueness, ITEM_POSTING, CLOCK],
     },
     {
       provide: ItemStatusChanger,
-      useFactory: (f: ItemFinder, ref: ItemReferences, u: StockUsage, r: ItemRepository, k: Clock) =>
-        new ItemStatusChanger(f, ref, u, r, k),
-      inject: [ItemFinder, ItemReferences, STOCK_USAGE, ITEM_REPOSITORY, CLOCK],
+      useFactory: (f: ItemFinder, ref: ItemReferences, p: ItemPosting, k: Clock) => new ItemStatusChanger(f, ref, p, k),
+      inject: [ItemFinder, ItemReferences, ITEM_POSTING, CLOCK],
     },
     {
       provide: ItemSearcher,

@@ -19,6 +19,8 @@ import {
 import { InactiveReferenceError } from './inactive-reference.error.js';
 import {
   CategoryInUseError,
+  ItemInOpenDocumentsError,
+  ItemUnitInOpenDocumentsError,
   ItemWithMovementsError,
   ItemWithStockError,
   MeasurementUnitInUseError,
@@ -68,6 +70,8 @@ const cases: Array<[DomainError, typeof DomainError]> = [
   [new ItemWithStockError(ID), ConflictError],
   [new WarehouseWithStockError(ID), ConflictError],
   [new ItemWithMovementsError(ID), ConflictError],
+  [new ItemInOpenDocumentsError(ID), ConflictError],
+  [new ItemUnitInOpenDocumentsError(ID, ID), ConflictError],
   [new DefaultWarehouseDeactivationError(ID), ConflictError],
   [new InactiveDefaultWarehouseError(ID), ConflictError],
   [new ConcurrentDefaultWarehouseError(TENANT), ConflictError],

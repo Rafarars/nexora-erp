@@ -50,3 +50,22 @@ export class ItemWithMovementsError extends ConflictError {
     );
   }
 }
+
+// Una orden de compra o un pedido confirmados ya prometieron cantidades de este articulo:
+// desactivarlo o volverlo servicio dejaria ese documento sin poder recibirse ni despacharse.
+export class ItemInOpenDocumentsError extends ConflictError {
+  constructor(id: string) {
+    super(`Item <${id}> is used by open purchase or sales orders.`, 'The item is used by open purchase or sales orders.');
+  }
+}
+
+// El documento abierto guardo su cantidad base con el factor de esa unidad: cambiarlo o quitar
+// la unidad lo descuadraria con lo que prometio.
+export class ItemUnitInOpenDocumentsError extends ConflictError {
+  constructor(itemId: string, unitId: string) {
+    super(
+      `Unit <${unitId}> of item <${itemId}> is used by open purchase or sales orders.`,
+      'A unit used by open purchase or sales orders cannot be removed or change its factor.',
+    );
+  }
+}

@@ -9,7 +9,9 @@ import {
   DuplicateTaxNameError,
   DuplicateWarehouseNameError,
 } from '../domain/errors/duplicate.errors.js';
+import { ItemNotFoundError } from '../domain/errors/not-found.errors.js';
 import { ConcurrentDefaultWarehouseError } from '../domain/errors/warehouse.errors.js';
+import { ItemCommitments } from '../domain/item/commitments/item-commitments.js';
 import { ItemId } from '../domain/item/item-id.vo.js';
 import { ItemName } from '../domain/item/item-name.vo.js';
 import { ItemUnit, ItemUnits } from '../domain/item/item-units.js';
@@ -45,7 +47,7 @@ import {
 } from '../domain/testing/catalog.mother.js';
 import { WarehouseId } from '../domain/warehouse/warehouse-id.vo.js';
 import { WarehouseName } from '../domain/warehouse/warehouse-name.vo.js';
-import { CatalogRepositories, CatalogRepositoriesHarness } from './catalog-repositories.harness.js';
+import { CatalogRepositories, CatalogRepositoriesHarness, ItemCommitmentsSeeder } from './catalog-repositories.harness.js';
 
 const tenantA = TenantId.of(TENANT_A);
 const tenantB = TenantId.of(TENANT_B);
@@ -59,10 +61,12 @@ export function describeCatalogRepositoriesContract(
   describe(`CatalogRepositories contract: ${implementation}`, () => {
     const harness = createHarness();
     let repos: CatalogRepositories;
+    let seed: ItemCommitmentsSeeder;
 
     beforeEach(async () => {
       await harness.reset();
       repos = harness.repositories();
+      seed = harness.commitments();
     });
 
     afterEach(async () => {
@@ -404,6 +408,100 @@ export function describeCatalogRepositoriesContract(
 
         expect(await repos.items.searchByTenant(tenantA)).toHaveLength(1);
         expect(await repos.items.searchByTenant(tenantB)).toEqual([]);
+      });
+    });
+
+    describe('ItemPosting', () => {
+      const itemA = ItemId.of(ITEM_A);
+
+      // Un articulo con caja de 24 y la bodega donde se siembra lo que comprometio.
+      async function seedItem(): Promise<void> {
+        await seedReferences();
+        await repos.warehouses.save(aWarehouse());
+        await repos.items.save(anItem({ units: ItemUnits.of([ItemUnit.of(UNIT_PIECE, 1, true), ItemUnit.of(UNIT_BOX, 24, false)]) }));
+      }
+
+      async function commitmentsOf(): Promise<ItemCommitments> {
+        let seen: ItemCommitments | undefined;
+
+        await repos.itemPosting.post(tenantA, itemA, (_item, commitments) => {
+          seen = commitments;
+        });
+
+        return seen!;
+      }
+
+      const openUnits = async () => (await commitmentsOf()).openDocumentUnits.map((unit) => unit.value);
+
+      it('hands the work the item and saves what it leaves', async () => {
+        await seedItem();
+
+        await repos.itemPosting.post(tenantA, itemA, (item) => item.deactivate(LATER));
+
+        expect((await repos.items.find(tenantA, itemA))?.isActive()).toBe(false);
+        expect(await commitmentsOf()).toEqual({ hasStock: false, hasMovements: false, openDocumentUnits: [] });
+      });
+
+      it('writes nothing when the work throws', async () => {
+        await seedItem();
+
+        await expect(
+          repos.itemPosting.post(tenantA, itemA, (item) => {
+            item.deactivate(LATER);
+            throw new Error('rule broken');
+          }),
+        ).rejects.toThrow('rule broken');
+
+        expect((await repos.items.find(tenantA, itemA))?.isActive()).toBe(true);
+      });
+
+      it('does not reach an item of another tenant', async () => {
+        await seedItem();
+
+        await expect(repos.itemPosting.post(tenantB, itemA, () => undefined)).rejects.toThrow(ItemNotFoundError);
+      });
+
+      it('counts stock only when a warehouse holds a positive quantity', async () => {
+        await seedItem();
+        await seed.stock(ITEM_A, 0);
+        expect((await commitmentsOf()).hasStock).toBe(false);
+
+        await seed.stock(ITEM_A, 5);
+        expect((await commitmentsOf()).hasStock).toBe(true);
+      });
+
+      it('knows whether the item has inventory movements', async () => {
+        await seedItem();
+        expect((await commitmentsOf()).hasMovements).toBe(false);
+
+        await seed.movement(ITEM_A);
+        expect((await commitmentsOf()).hasMovements).toBe(true);
+      });
+
+      // Solo lo que todavia promete algo: confirmada o recibida en parte, y con pendiente en la linea.
+      it('reports the units of purchase order lines still pending', async () => {
+        await seedItem();
+        await seed.purchaseLine({ itemId: ITEM_A, unitId: UNIT_PIECE, status: 'draft', quantity: 5, received: 0 });
+        await seed.purchaseLine({ itemId: ITEM_A, unitId: UNIT_PIECE, status: 'received', quantity: 5, received: 5 });
+        await seed.purchaseLine({ itemId: ITEM_A, unitId: UNIT_PIECE, status: 'cancelled', quantity: 5, received: 0 });
+        await seed.purchaseLine({ itemId: ITEM_A, unitId: UNIT_PIECE, status: 'partially_received', quantity: 5, received: 5 });
+        expect(await openUnits()).toEqual([]);
+
+        await seed.purchaseLine({ itemId: ITEM_A, unitId: UNIT_BOX, status: 'confirmed', quantity: 10, received: 0 });
+        await seed.purchaseLine({ itemId: ITEM_A, unitId: UNIT_PIECE, status: 'partially_received', quantity: 5, received: 2 });
+        expect(await openUnits()).toEqual([UNIT_PIECE, UNIT_BOX]);
+      });
+
+      it('reports the units of sales order lines still pending, each unit once', async () => {
+        await seedItem();
+        await seed.salesLine({ itemId: ITEM_A, unitId: UNIT_PIECE, status: 'draft', quantity: 5, dispatched: 0 });
+        await seed.salesLine({ itemId: ITEM_A, unitId: UNIT_PIECE, status: 'dispatched', quantity: 5, dispatched: 5 });
+        await seed.salesLine({ itemId: ITEM_A, unitId: UNIT_PIECE, status: 'cancelled', quantity: 5, dispatched: 0 });
+        expect(await openUnits()).toEqual([]);
+
+        await seed.salesLine({ itemId: ITEM_A, unitId: UNIT_BOX, status: 'confirmed', quantity: 2, dispatched: 0 });
+        await seed.salesLine({ itemId: ITEM_A, unitId: UNIT_BOX, status: 'partially_dispatched', quantity: 4, dispatched: 1 });
+        expect(await openUnits()).toEqual([UNIT_BOX]);
       });
     });
   });

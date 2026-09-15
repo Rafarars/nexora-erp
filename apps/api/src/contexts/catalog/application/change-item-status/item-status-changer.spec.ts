@@ -1,13 +1,13 @@
 import { describe, expect, it } from 'vitest';
 import { InactiveReferenceError } from '../../domain/errors/inactive-reference.error.js';
-import { ItemWithStockError } from '../../domain/errors/in-use.errors.js';
+import { ItemInOpenDocumentsError, ItemWithStockError } from '../../domain/errors/in-use.errors.js';
 import { ItemId } from '../../domain/item/item-id.vo.js';
 import { TenantId } from '../../domain/shared/tenant-id.vo.js';
-import { ITEM_A, TENANT_A, aCategory, aTax, aUnit, anItem } from '../../domain/testing/catalog.mother.js';
+import { ITEM_A, TENANT_A, UNIT_PIECE, aCategory, aTax, aUnit, anItem } from '../../domain/testing/catalog.mother.js';
 import { CatalogScenario, aCatalogScenario } from '../testing/catalog-scenario.js';
 import { ItemStatusChanger } from './item-status-changer.js';
 
-const changerFor = (s: CatalogScenario) => new ItemStatusChanger(s.itemFinder, s.references, s.stock, s.items, s.clock);
+const changerFor = (s: CatalogScenario) => new ItemStatusChanger(s.itemFinder, s.references, s.itemPosting, s.clock);
 const isActive = async (s: CatalogScenario) => (await s.items.find(TenantId.of(TENANT_A), ItemId.of(ITEM_A)))?.isActive();
 
 describe('ItemStatusChanger', () => {
@@ -40,9 +40,20 @@ describe('ItemStatusChanger', () => {
 
   it('refuses to deactivate an item that still has stock', async () => {
     const scenario = aCatalogScenario({ categories: [aCategory()], taxes: [aTax()], units: [aUnit()], items: [anItem()] });
-    scenario.stock.itemsWithStock.add(ITEM_A);
+    scenario.itemPosting.itemsWithStock.add(ITEM_A);
 
     await expect(changerFor(scenario).run({ tenantId: TENANT_A, itemId: ITEM_A, active: false })).rejects.toThrow(ItemWithStockError);
+    expect(await isActive(scenario)).toBe(true);
+  });
+
+  // Una orden en camino o un pedido reservado no podrian terminarse con el articulo inactivo.
+  it('refuses to deactivate an item that open purchase or sales orders use', async () => {
+    const scenario = aCatalogScenario({ categories: [aCategory()], taxes: [aTax()], units: [aUnit()], items: [anItem()] });
+    scenario.itemPosting.openDocumentUnits.set(ITEM_A, [UNIT_PIECE]);
+
+    await expect(changerFor(scenario).run({ tenantId: TENANT_A, itemId: ITEM_A, active: false })).rejects.toThrow(
+      ItemInOpenDocumentsError,
+    );
     expect(await isActive(scenario)).toBe(true);
   });
 });

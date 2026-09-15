@@ -1,13 +1,12 @@
 import { Clock } from '../../../../shared/domain/ports/clock.js';
+import { ensureCanChange } from '../../domain/item/commitments/item-commitments.js';
 import { ItemFinder } from '../../domain/item/find/item-finder.js';
 import { ItemDetailsInput, itemDetailsOf } from '../../domain/item/item-details.js';
 import { ItemId } from '../../domain/item/item-id.vo.js';
-import { ItemRepository } from '../../domain/item/item.repository.js';
+import { ItemPosting } from '../../domain/item/posting/item-posting.js';
 import { ItemReferences } from '../../domain/item/references/item-references.js';
 import { SkuUniqueness } from '../../domain/item/unique/sku-uniqueness.js';
 import { TenantId } from '../../domain/shared/tenant-id.vo.js';
-import { ItemWithMovementsError } from '../../domain/errors/in-use.errors.js';
-import { StockUsage } from '../../domain/stock/stock-usage.js';
 
 export interface ItemUpdaterRequest extends ItemDetailsInput {
   tenantId: string;
@@ -19,8 +18,7 @@ export class ItemUpdater {
     private readonly finder: ItemFinder,
     private readonly references: ItemReferences,
     private readonly skus: SkuUniqueness,
-    private readonly stock: StockUsage,
-    private readonly items: ItemRepository,
+    private readonly posting: ItemPosting,
     private readonly clock: Clock,
   ) {}
 
@@ -32,12 +30,13 @@ export class ItemUpdater {
     await this.references.ensureAssignable(tenantId, details, item);
     await this.skus.ensureIsFree(tenantId, details.sku, item.id);
 
-    if (item.changesStockIdentity(details) && (await this.stock.itemHasMovements(tenantId, item.id))) {
-      throw new ItemWithMovementsError(item.id.value);
-    }
+    const now = this.clock.now();
 
-    item.update(details, this.clock.now());
-
-    await this.items.save(item);
+    // Lo que el articulo comprometio se decide con su fila bloqueada: un documento que se
+    // confirma a la vez espera a este cambio, o este cambio lo espera a el.
+    await this.posting.post(tenantId, item.id, (locked, commitments) => {
+      ensureCanChange(locked, details, commitments);
+      locked.update(details, now);
+    });
   }
 }

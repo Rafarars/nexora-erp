@@ -101,6 +101,13 @@ export class Item extends CatalogRecord<ItemId> {
     );
   }
 
+  // Cierto si con los datos nuevos la unidad sigue en el articulo y con el mismo factor.
+  keepsUnit(details: ItemDetails, unitId: MeasurementUnitId): boolean {
+    const current = this.details.units.factorOf(unitId);
+
+    return current !== null && details.units.factorOf(unitId) === current;
+  }
+
   sku(): Sku {
     return this.details.sku;
   }

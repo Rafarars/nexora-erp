@@ -23,6 +23,7 @@ import { WarehouseUniqueness } from '../../domain/warehouse/unique/warehouse-uni
 import { Warehouse } from '../../domain/warehouse/warehouse.entity.js';
 import { InMemoryCategoryRepository } from '../../infrastructure/testing/in-memory-category.repository.js';
 import { InMemoryCodeSequence } from '../../infrastructure/testing/in-memory-code-sequence.js';
+import { InMemoryItemPosting } from '../../infrastructure/testing/in-memory-item-posting.js';
 import { InMemoryItemRepository } from '../../infrastructure/testing/in-memory-item.repository.js';
 import { InMemoryMeasurementUnitRepository } from '../../infrastructure/testing/in-memory-measurement-unit.repository.js';
 import { InMemoryTaxRepository } from '../../infrastructure/testing/in-memory-tax.repository.js';
@@ -76,6 +77,7 @@ export function aCatalogScenario(
     references: new ItemReferences(categoryFinder, taxFinder, unitFinder),
     defaultWarehouse: new DefaultWarehouse(warehouses),
     stock: new InMemoryStockUsage(),
+    itemPosting: new InMemoryItemPosting(items),
   };
 }
 

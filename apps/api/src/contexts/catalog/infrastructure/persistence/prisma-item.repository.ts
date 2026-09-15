@@ -1,4 +1,5 @@
 import { Injectable } from '@nestjs/common';
+import type { TransactionClient } from '../../../../shared/prisma/document-stock-posting.js';
 import { PrismaService } from '../../../../shared/prisma/prisma.service.js';
 import { CategoryId } from '../../domain/category/category-id.vo.js';
 import { DuplicateSkuError } from '../../domain/errors/duplicate.errors.js';
@@ -17,7 +18,7 @@ type ItemRow = Awaited<ReturnType<PrismaService['item']['findFirstOrThrow']>> & 
   units: { unitId: string; conversionFactor: { toNumber(): number }; isBase: boolean }[];
 };
 
-function toDomain(row: ItemRow): Item {
+export function itemFromRow(row: ItemRow): Item {
   return Item.fromPrimitives({
     ...row,
     units: row.units.map((unit) => ({
@@ -28,32 +29,32 @@ function toDomain(row: ItemRow): Item {
   });
 }
 
+// El articulo y sus unidades dentro de la transaccion de quien llama. Las unidades se reemplazan
+// enteras, porque la persona manda el conjunto completo y no una lista de cambios.
+export async function writeItem(tx: TransactionClient, item: Item): Promise<void> {
+  const { id, tenantId, code, sku, name, description, type, categoryId, taxId, isActive, units, createdAt, updatedAt } =
+    item.toPrimitives();
+
+  try {
+    await tx.item.upsert({
+      where: { tenantId_id: { tenantId, id } },
+      create: { id, tenantId, code, sku, name, description, type, categoryId, taxId, isActive, createdAt, updatedAt },
+      update: { sku, name, description, type, categoryId, taxId, isActive, updatedAt },
+    });
+    await tx.itemUnit.deleteMany({ where: { tenantId, itemId: id } });
+    await tx.itemUnit.createMany({ data: units.map((unit) => ({ tenantId, itemId: id, ...unit })) });
+  } catch (error) {
+    if (violates(error, 'sku')) throw new DuplicateSkuError(sku, tenantId);
+    throw error;
+  }
+}
+
 @Injectable()
 export class PrismaItemRepository implements ItemRepository {
   constructor(private readonly prisma: PrismaService) {}
 
-  // El articulo y sus unidades en una transaccion: las unidades se reemplazan enteras,
-  // porque la persona manda el conjunto completo y no una lista de cambios.
   async save(item: Item): Promise<void> {
-    const { id, tenantId, code, sku, name, description, type, categoryId, taxId, isActive, units, createdAt, updatedAt } =
-      item.toPrimitives();
-
-    try {
-      await this.prisma.$transaction([
-        this.prisma.item.upsert({
-          where: { tenantId_id: { tenantId, id } },
-          create: { id, tenantId, code, sku, name, description, type, categoryId, taxId, isActive, createdAt, updatedAt },
-          update: { sku, name, description, type, categoryId, taxId, isActive, updatedAt },
-        }),
-        this.prisma.itemUnit.deleteMany({ where: { tenantId, itemId: id } }),
-        this.prisma.itemUnit.createMany({
-          data: units.map((unit) => ({ tenantId, itemId: id, ...unit })),
-        }),
-      ]);
-    } catch (error) {
-      if (violates(error, 'sku')) throw new DuplicateSkuError(sku, tenantId);
-      throw error;
-    }
+    await this.prisma.$transaction((tx) => writeItem(tx, item));
   }
 
   async find(tenantId: TenantId, id: ItemId): Promise<Item | null> {
@@ -62,7 +63,7 @@ export class PrismaItemRepository implements ItemRepository {
       include: WITH_UNITS,
     });
 
-    return row ? toDomain(row) : null;
+    return row ? itemFromRow(row) : null;
   }
 
   async findBySku(tenantId: TenantId, sku: Sku): Promise<Item | null> {
@@ -71,7 +72,7 @@ export class PrismaItemRepository implements ItemRepository {
       include: WITH_UNITS,
     });
 
-    return row ? toDomain(row) : null;
+    return row ? itemFromRow(row) : null;
   }
 
   async searchByTenant(tenantId: TenantId): Promise<Item[]> {
@@ -81,7 +82,7 @@ export class PrismaItemRepository implements ItemRepository {
       orderBy: { name: 'asc' },
     });
 
-    return rows.map(toDomain);
+    return rows.map(itemFromRow);
   }
 
   async hasActiveWithCategory(tenantId: TenantId, categoryId: CategoryId): Promise<boolean> {
