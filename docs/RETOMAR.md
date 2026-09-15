@@ -3,7 +3,7 @@
 Documento de traspaso: contiene lo necesario para continuar el proyecto **sin depender
 de ninguna conversación anterior**.
 
-**Actualizado:** 13 de septiembre de 2026
+**Actualizado:** 15 de septiembre de 2026
 
 ---
 
@@ -23,15 +23,16 @@ de ninguna conversación anterior**.
 |---|---|
 | Repositorio | github.com/Rafarars/nexora-erp |
 | Reporte de pruebas | https://rafarars.github.io/nexora-erp/ |
-| Pruebas | 2111 + 145 unitarias · 126 de contrato · 300 end-to-end |
+| Pruebas | 2169 + 152 unitarias · 139 de contrato · 307 end-to-end |
 | **H0 — Fundación** | **Completado** |
 | **H1 — Multiempresa y acceso** | **Completado** y revisado |
 | **H2 — Catálogo** | **Completado** ([`H2-CATALOGO.md`](H2-CATALOGO.md)) |
 | **H3 — Inventario** | **Completado** ([`H3-INVENTARIO.md`](H3-INVENTARIO.md)) |
 | **H4 — Compras** | **Completado** ([`H4-COMPRAS.md`](H4-COMPRAS.md)) |
-| **H5 — Ventas** | **Completado** y commiteado, pendiente de revisión de Rafael. Informe en [`H5-VENTAS.md`](H5-VENTAS.md) |
-| **H6 — Cuentas por cobrar** | **Completado** y commiteado, pendiente de revisión de Rafael. Informe en [`H6-CUENTAS-POR-COBRAR.md`](H6-CUENTAS-POR-COBRAR.md) |
-| **H7 — Reportes y tablero** | Fases 0 a 6 **implementadas**, pendientes de revisión de Rafael. Informe en [`H7-REPORTES.md`](H7-REPORTES.md) |
+| **H5 — Ventas** | **Completado**. Informe en [`H5-VENTAS.md`](H5-VENTAS.md) |
+| **H6 — Cuentas por cobrar** | **Completado**. Informe en [`H6-CUENTAS-POR-COBRAR.md`](H6-CUENTAS-POR-COBRAR.md) |
+| **H7 — Reportes y tablero** | **Completado**. Informe en [`H7-REPORTES.md`](H7-REPORTES.md) |
+| **Revisión módulo por módulo** | **En curso**: Artículos, fase 1 cerrada. Ver [la sección de abajo](#revisión-módulo-por-módulo) y [`revision/README.md`](revision/README.md) |
 
 Lo que ya funciona: monorepo con API, frontend y suite E2E; PostgreSQL en Docker;
 endpoint de salud que verifica la base; CI con cuatro trabajos publicando el reporte;
@@ -403,11 +404,60 @@ pidió terminar todos los módulos y después validarlos uno por uno, en detalle
 Para retomar:
 
 1. Leer `docs/PENDIENTE-REVISION.md` si todavía existe
-2. **Revisión de Rafael, módulo por módulo y submódulo por submódulo**, siguiendo `docs/modulos/`
+2. **Revisión módulo por módulo** (en curso, ver abajo)
 3. Lo que queda fuera del plan está en `docs/FUTURE.md`
 
 Empresas de demostración: Acme Industrial, Globex Servicios e **Initech Logística**
 (`dora@initech.com`), esta última solo para la prueba que mueve la bodega por defecto.
+
+## Revisión módulo por módulo
+
+Terminados los hitos, Rafael definió cómo validar el sistema: **un submódulo a la vez, hasta dejarlo al
+100 %**, antes de pasar al siguiente. «Es mejor tener un módulo 100 % funcional a tener muchos módulos a
+medias».
+
+**El método** está escrito en [`revision/README.md`](revision/README.md): funcionalidad real del sistema
+(con reproducción contra la API), reglas del compañero en
+[verlumyx/erp](https://github.com/verlumyx/erp/tree/main/docs), lo que hacen los ERP (con enlaces),
+matriz comparativa, segunda opinión de `agy` y hallazgos con opciones. **Los hallazgos se atacan
+todos**; Rafael decide cómo, y la decisión se anota en el informe. El mismo archivo tiene el
+**checklist** de submódulos y los **temas por investigar y ubicar**.
+
+### Estado: Catálogo › Artículos (piloto)
+
+Informe completo en [`revision/catalogo/articulos.md`](revision/catalogo/articulos.md).
+
+| Fase | Contenido | Estado |
+|---|---|---|
+| 1 · Integridad | H8 una sola base en la base de datos; H1 unidades protegidas con órdenes o pedidos abiertos y entrada con la base de la orden; H2 no desactivar con documentos abiertos; H9 bloqueos `FOR UPDATE`/`FOR SHARE` contra carreras; borradores con caja cambiada piden revisión | ✅ Commits `539659b..ff3360e`, CI en verde, segunda pasada del método hecha |
+| 2 · Artículos en Inventario | Mover **código, pantalla y permisos**: contexto `catalog` → `inventory`, ruta `/inventario/articulos`, menú, `catalog.items.*` → `inventory.items.*` (semillas, roles, aislamiento, documentación). Añadir la prueba de interfaz de los mensajes del artículo | ⬜ **Siguiente** |
+| 3 · Configuración de la empresa | Antes de construir, **investigar** en los ERP y en el compañero qué lleva (datos de empresa, lista de precio por defecto, moneda…) | ⬜ |
+| 4 · Artículo completo | H5 impuesto de venta y de compra; H4 factor con 8 decimales; H6 código de barras, comprable/vendible, mínimo/máximo/reorden; H7 copiar SKU y nombre en las líneas; paginación y búsqueda | ⬜ |
+| 5 · Listas de precio | Investigar su ubicación; maestro, precio por artículo, lista en el cliente, precio mínimo, precio sugerido en el pedido | ⬜ |
+| 6 · Servicios (H3) | Corregir documentación y pantalla. Comprar y vender servicios se hace en Compras y Facturas con la regla del compañero: la línea de servicio no cuenta para recibido o despachado | ⬜ |
+| 7 · Cierre | Informe, checklist en ✅, `make verify` | ⬜ |
+
+**Decisiones de Rafael que no hay que volver a discutir:**
+
+- Artículos va bajo **Inventario**, también el código («con hexagonal es más sencillo migrar todo»)
+- Listas de precio y configuración de la empresa **se hacen ahora**, investigando antes dónde van
+- **Borradores**: no cuentan como documento abierto; uno cuya caja cambió no se confirma en silencio
+- **Adjuntos e imágenes**: tabla de adjuntos (empresa, tipo y id del registro, clave, nombre original,
+  tipo MIME, tamaño, quién subió) y puerto `FileStorage` con adaptador de disco (crea la carpeta si no
+  existe) y adaptador S3 (Supabase Storage), elegido por variable de entorno. Se sirve por la API, no
+  desde una carpeta pública. Pendiente de construir en su fase
+- Peso, volumen e imagen del artículo: la imagen espera al módulo de adjuntos
+- No inventariado, lotes, series y método de costo se investigan en Inventario; el contexto del despacho,
+  en Ventas › Despachos
+
+**Herramientas de la revisión:**
+
+- Reproducir contra la API local con un script de Node fuera del repositorio (`fetch` a
+  `localhost:3001`, sesión de `ana@acme.com`); ver los casos de la sección 9.1 del informe
+- `agy` como segunda opinión: adjuntar el diff con `@archivo` y usar `--print-timeout 20m`; con el tiempo
+  por defecto (5 min) se corta sin responder. **Verificar cada punto antes de aceptarlo**: en esta ronda
+  cuatro de cinco no se sostuvieron
+- Las pruebas de contrato vacían la base de desarrollo; `make seed` (o la suite e2e) la vuelve a sembrar
 
 ## Comandos
 
