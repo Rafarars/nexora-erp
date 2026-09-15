@@ -1,7 +1,11 @@
 import { AccessError } from '../../access/domain/access-error';
 import type { AccessErrorBody } from '../../access/domain/access-error';
-import type { CompanyProfile, CompanySettings, Currency } from '../domain/company';
-import type { CompanyApi, CompanySettingsInput } from '../domain/company-api';
+import { rateFilterQuery } from '../domain/company';
+import type { CompanyProfile, CompanySettings, Currency, ExchangeRateBoard, RateFilter } from '../domain/company';
+import type { CompanyApi, CompanySettingsInput, ExchangeRateInput } from '../domain/company-api';
+
+// NaN no existe en JSON: se manda como texto y la API senala el campo.
+const numeric = (value: number) => (Number.isNaN(value) ? 'NaN' : value);
 
 const BASE = '/api/v1/company';
 
@@ -22,9 +26,6 @@ export class HttpCompanyApi implements CompanyApi {
   }
 
   async saveSettings(token: string, input: CompanySettingsInput): Promise<void> {
-    // NaN no existe en JSON: se manda como texto y la API senala el campo.
-    const numeric = (value: number) => (Number.isNaN(value) ? 'NaN' : value);
-
     await this.request('PUT', `${BASE}/settings`, token, {
       ...input,
       amountDecimals: numeric(input.amountDecimals),
@@ -34,6 +35,18 @@ export class HttpCompanyApi implements CompanyApi {
 
   async currencies(token: string): Promise<Currency[]> {
     return (await this.request<{ currencies: Currency[] }>('GET', `${BASE}/currencies`, token)).currencies;
+  }
+
+  async exchangeRates(token: string, filter: RateFilter): Promise<ExchangeRateBoard> {
+    return this.request<ExchangeRateBoard>('GET', `${BASE}/exchange-rates${rateFilterQuery(filter)}`, token);
+  }
+
+  async recordRate(token: string, input: ExchangeRateInput): Promise<void> {
+    await this.request('PUT', `${BASE}/exchange-rates`, token, { ...input, rate: numeric(input.rate) });
+  }
+
+  async changeRateStatus(token: string, id: string, active: boolean): Promise<void> {
+    await this.request('PUT', `${BASE}/exchange-rates/${encodeURIComponent(id)}/status`, token, { active });
   }
 
   private async request<T>(method: string, path: string, token: string, body?: unknown): Promise<T> {

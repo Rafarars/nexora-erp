@@ -10,6 +10,9 @@ export default async function AdministrationIndexPage() {
 
   if (can(session, 'access.users.search')) redirect('/administracion/usuarios');
   if (can(session, 'access.roles.search')) redirect('/administracion/roles');
+  if (can(session, 'company.rates.search') && !can(session, 'company.profile.search') && !can(session, 'company.settings.update')) {
+    redirect('/administracion/tasas');
+  }
 
   redirect('/administracion/empresa');
 }

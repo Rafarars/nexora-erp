@@ -47,6 +47,7 @@ export async function saveCompanySettings(_state: FormState, form: FormData): Pr
       timeZone: text(form, 'timeZone'),
       amountDecimals: whole(form, 'amountDecimals'),
       priceDecimals: whole(form, 'priceDecimals'),
+      rateType: text(form, 'rateType'),
     }),
   );
 }

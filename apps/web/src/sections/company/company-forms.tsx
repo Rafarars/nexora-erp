@@ -3,9 +3,10 @@
 import { useActionState } from 'react';
 import { saveCompanyProfile, saveCompanySettings } from '@/app/(app)/administracion/empresa/actions';
 import { Field, FormError, SubmitButton } from '@/sections/shared/field';
-import { AMOUNT_DECIMALS_MAX, PRICE_DECIMALS_MAX, currencyOptions } from '@/modules/company/domain/company';
+import { AMOUNT_DECIMALS_MAX, PRICE_DECIMALS_MAX, RATE_TYPE_LABELS, currencyOptions } from '@/modules/company/domain/company';
 import type { CompanyProfile, CompanySettings, Currency } from '@/modules/company/domain/company';
 import { emptyState } from '@/shared/forms/form-state';
+import { Select } from './select';
 
 export function CompanyForms({
   profile,
@@ -72,7 +73,8 @@ export function CompanyForms({
         <div>
           <h2 className="text-base font-medium">Parámetros</h2>
           <p className="text-muted mt-1 text-sm">
-            La moneda en que la empresa lleva sus cifras, la que la acompaña, su zona horaria y los decimales. Hoy, para la
+            La moneda en que la empresa lleva sus cifras, la que la acompaña, la tasa que valora sus documentos, su zona horaria y
+            los decimales. Hoy, para la
             empresa, es <span data-testid="company-today">{settings.today}</span>.
           </p>
         </div>
@@ -91,6 +93,13 @@ export function CompanyForms({
               {offered.map((currency) => (
                 <option key={currency.code} value={currency.code}>
                   {currency.name} ({currency.code})
+                </option>
+              ))}
+            </Select>
+            <Select label="Tasa de los documentos" name="rateType" testId="company-rate-type" defaultValue={settings.rateType}>
+              {Object.entries(RATE_TYPE_LABELS).map(([value, label]) => (
+                <option key={value} value={value}>
+                  {label}
                 </option>
               ))}
             </Select>
@@ -119,6 +128,7 @@ export function CompanyForms({
           <dl className="grid grid-cols-[10rem_1fr] gap-y-2 text-sm" data-testid="company-settings-readonly">
             <Row label="Moneda principal" value={`${settings.baseCurrency.name} (${settings.baseCurrency.code})`} />
             <Row label="Moneda secundaria" value={settings.secondaryCurrency ? `${settings.secondaryCurrency.name} (${settings.secondaryCurrency.code})` : null} />
+            <Row label="Tasa de los documentos" value={RATE_TYPE_LABELS[settings.rateType]} />
             <Row label="Zona horaria" value={settings.timeZone} />
             <Row label="Decimales" value={`Importes ${settings.amountDecimals} · precios ${settings.priceDecimals}`} />
           </dl>
@@ -134,18 +144,5 @@ function Row({ label, value }: { label: string; value: string | null }) {
       <dt className="text-muted">{label}</dt>
       <dd>{value ?? '—'}</dd>
     </>
-  );
-}
-
-function Select({ label, name, testId, defaultValue, children }: { label: string; name: string; testId: string; defaultValue: string; children: React.ReactNode }) {
-  return (
-    <div className="space-y-1.5">
-      <label htmlFor={name} className="text-sm font-medium">
-        {label}
-      </label>
-      <select id={name} name={name} defaultValue={defaultValue} data-testid={testId} className="border-line bg-background w-full rounded-md border px-3 py-2 text-sm">
-        {children}
-      </select>
-    </div>
   );
 }

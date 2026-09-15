@@ -10,12 +10,20 @@ const BY_CODE: Record<string, string> = {
   RequiredCompanyTextError: 'Escribe la razón social.',
   CompanyTextTooLongError: 'Uno de los textos es demasiado largo.',
   InvalidCompanyEmailError: 'El correo no es válido.',
+  InvalidRateDateError: 'Elige una fecha válida para la tasa.',
+  InvalidRateTypeError: 'Elige si la tasa es legal o interna.',
+  InvalidExchangeRateError: 'La tasa tiene que ser mayor que cero, con hasta 8 decimales y menos de 10.000.000.',
+  LocalCurrencyRateError: 'El bolívar no lleva tasa: vale siempre 1.',
+  ExchangeRateNotFoundError: 'Esa tasa ya no existe.',
+  MissingExchangeRateError: 'No hay tasa de cambio cargada para esa moneda en esa fecha ni antes.',
+  DuplicateExchangeRateError: 'Alguien acaba de cargar esa misma tasa. Vuelve a intentarlo para corregirla.',
 };
 
 const BY_FIELD: Record<string, string> = {
   amountDecimals: 'Escribe los decimales de los importes como un número entero.',
   priceDecimals: 'Escribe los decimales de los precios como un número entero.',
   legalName: 'Escribe la razón social.',
+  rate: 'Escribe la tasa como un número, por ejemplo 36,50.',
 };
 
 export function readableCompanyError(error: unknown, fallback: string): string {

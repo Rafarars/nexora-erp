@@ -9,6 +9,7 @@ const SECTIONS = [
   { href: '/administracion/usuarios', label: 'Usuarios', testId: 'admin-usuarios' },
   { href: '/administracion/roles', label: 'Roles', testId: 'admin-roles' },
   { href: '/administracion/empresa', label: 'Empresa', testId: 'admin-empresa' },
+  { href: '/administracion/tasas', label: 'Tasas de cambio', testId: 'admin-tasas' },
 ];
 
 export function AdminNav() {
