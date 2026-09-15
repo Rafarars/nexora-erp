@@ -22,7 +22,7 @@ export class AppShell {
     await this.page.getByTestId(`nav-${module}`).click();
   }
 
-  async goToAdministration(section: 'usuarios' | 'roles' | 'empresa'): Promise<void> {
+  async goToAdministration(section: 'usuarios' | 'roles' | 'empresa' | 'tasas'): Promise<void> {
     await this.accountButton.click();
     await this.page.getByTestId('account-administration').click();
     await this.page.getByTestId(`admin-${section}`).click();

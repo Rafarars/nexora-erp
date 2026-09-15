@@ -24,6 +24,7 @@ export const GLOBEX = {
   issuedInvoiceId: 'f3000000-0000-4000-8000-000000000101',
   confirmedPaymentId: 'd3000000-0000-4000-8000-000000000101',
   draftPaymentId: 'd3000000-0000-4000-8000-000000000102',
+  exchangeRateId: 'f6000000-0000-4000-8000-000000000101',
 };
 
 export const ACME = {
@@ -47,6 +48,13 @@ export interface IsolationCase {
 // Cada endpoint que recibe un identificador, atacado con datos de Globex desde una
 // sesion de Acme con TODOS los permisos. Si falla aqui, no es un permiso: es una fuga.
 export const ISOLATION_CASES: IsolationCase[] = [
+  {
+    route: 'PUT /api/v1/company/exchange-rates/:rateId/status',
+    title: 'deactivate an exchange rate of another tenant',
+    method: 'put',
+    path: `/api/v1/company/exchange-rates/${GLOBEX.exchangeRateId}/status`,
+    body: { active: false },
+  },
   {
     route: 'PUT /api/v1/users/:userId',
     title: 'edit a person of another tenant',
