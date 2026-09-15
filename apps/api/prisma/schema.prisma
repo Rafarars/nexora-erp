@@ -302,7 +302,8 @@ enum ItemType {
 }
 
 /// Las unidades en que se maneja un articulo. Exactamente una es la base (factor 1)
-/// y en ella se guardara todo el stock; el resto dice cuantas bases contiene.
+/// y en ella se guardara todo el stock; el resto dice cuantas bases contiene. Que no haya
+/// dos bases lo garantiza un indice unico parcial que vive en la migracion.
 model ItemUnit {
   tenantId         String  @map("tenant_id") @db.Uuid
   itemId           String  @map("item_id") @db.Uuid
