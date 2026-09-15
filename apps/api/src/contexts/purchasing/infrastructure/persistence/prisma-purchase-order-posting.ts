@@ -1,5 +1,5 @@
 import { Injectable } from '@nestjs/common';
-import { lockCatalogItems } from '../../../../shared/prisma/catalog-items.js';
+import { lockItems } from '../../../../shared/prisma/inventory-items.js';
 import { PrismaService } from '../../../../shared/prisma/prisma.service.js';
 import { OrderedItems, PurchaseOrderPosting } from '../../domain/order/posting/purchase-order-posting.js';
 import { PurchaseOrder, PurchaseOrderId } from '../../domain/order/purchase-order.entity.js';
@@ -15,7 +15,7 @@ export class PrismaPurchaseOrderPosting implements PurchaseOrderPosting {
   async post(tenantId: TenantId, orderId: PurchaseOrderId, work: (order: PurchaseOrder, items: OrderedItems) => void): Promise<void> {
     await this.prisma.$transaction(async (tx) => {
       const order = await lockOrder(tx, tenantId.value, orderId.value);
-      const locked = await lockCatalogItems(tx, tenantId.value, order.lines().map((line) => line.itemId.value));
+      const locked = await lockItems(tx, tenantId.value, order.lines().map((line) => line.itemId.value));
 
       work(order, {
         item: (itemId) => {

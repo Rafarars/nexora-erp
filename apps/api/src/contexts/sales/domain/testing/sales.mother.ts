@@ -99,7 +99,7 @@ export function aConfirmedOrder(lines: SalesOrderLine[] = [anOrderLine()]): Sale
 }
 
 // Existencia y reservas de otros pedidos, en unidad base, por articulo en cualquier bodega. Los
-// articulos estan como en el catalogo sembrado (caja de 24) salvo lo que la prueba cambie.
+// articulos estan como en el maestro sembrado (caja de 24) salvo lo que la prueba cambie.
 export function anAvailability(
   onHand: Record<string, number>,
   reserved: Record<string, number> = {},

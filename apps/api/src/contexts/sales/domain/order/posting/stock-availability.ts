@@ -1,7 +1,7 @@
 import { Quantity } from '../../shared/quantity.vo.js';
 import { ItemRef, UnitRef, WarehouseRef } from '../../shared/references.vo.js';
 
-// El articulo tal como esta en el catalogo, bloqueado mientras se reserva.
+// El articulo tal como esta en su maestro, bloqueado mientras se reserva.
 export interface ReservableItem {
   isActive: boolean;
   type: 'inventoried' | 'service';

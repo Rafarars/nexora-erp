@@ -1,5 +1,5 @@
 import { Clock } from '../../../../shared/domain/ports/clock.js';
-import { CatalogUsage } from '../../domain/item/usage/catalog-usage.js';
+import { CatalogUsage } from '../../domain/usage/catalog-usage.js';
 import { TenantId } from '../../domain/shared/tenant-id.vo.js';
 import { TaxFinder } from '../../domain/tax/find/tax-finder.js';
 import { TaxId } from '../../domain/tax/tax-id.vo.js';

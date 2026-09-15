@@ -1,12 +1,6 @@
 import { CategoryId } from '../category/category-id.vo.js';
 import { CategoryName } from '../category/category-name.vo.js';
 import { Category } from '../category/category.entity.js';
-import { ItemId } from '../item/item-id.vo.js';
-import { ItemName } from '../item/item-name.vo.js';
-import { ItemUnit, ItemUnits } from '../item/item-units.js';
-import { ItemType } from '../item/item-type.js';
-import { Item } from '../item/item.entity.js';
-import { Sku } from '../item/sku.vo.js';
 import { MeasurementUnitId } from '../measurement-unit/measurement-unit-id.vo.js';
 import { MeasurementUnitName } from '../measurement-unit/measurement-unit-name.vo.js';
 import { MeasurementUnit } from '../measurement-unit/measurement-unit.entity.js';
@@ -38,8 +32,6 @@ export const TAX_A = 'f1111111-1111-4111-8111-111111111111';
 export const TAX_B = 'f2222222-2222-4222-8222-222222222222';
 export const WAREHOUSE_A = 'b1111111-1111-4111-8111-111111111111';
 export const WAREHOUSE_B = 'b2222222-2222-4222-8222-222222222222';
-export const ITEM_A = 'a1111111-1111-4111-8111-111111111111';
-export const ITEM_B = 'a2222222-2222-4222-8222-222222222222';
 
 export function aCategory(
   overrides: { id?: string; tenantId?: string; code?: string; name?: string; active?: boolean } = {},
@@ -122,43 +114,4 @@ export function aWarehouse(
   if (overrides.active === false) warehouse.deactivate(NOW);
 
   return warehouse;
-}
-
-export function baseUnitOnly(unitId = UNIT_PIECE): ItemUnits {
-  return ItemUnits.of([ItemUnit.of(unitId, 1, true)]);
-}
-
-export function anItem(
-  overrides: {
-    id?: string;
-    tenantId?: string;
-    code?: string;
-    sku?: string;
-    name?: string;
-    type?: ItemType;
-    categoryId?: string | null;
-    taxId?: string | null;
-    units?: ItemUnits;
-    active?: boolean;
-  } = {},
-): Item {
-  const item = Item.create(
-    ItemId.of(overrides.id ?? ITEM_A),
-    TenantId.of(overrides.tenantId ?? TENANT_A),
-    CatalogCode.of(overrides.code ?? 'ART000001'),
-    {
-      sku: Sku.of(overrides.sku ?? 'AGUA-500'),
-      name: ItemName.of(overrides.name ?? 'Agua mineral 500 ml'),
-      description: null,
-      type: overrides.type ?? 'inventoried',
-      categoryId: overrides.categoryId === null ? null : CategoryId.of(overrides.categoryId ?? CATEGORY_A),
-      taxId: overrides.taxId === null ? null : TaxId.of(overrides.taxId ?? TAX_A),
-      units: overrides.units ?? baseUnitOnly(),
-    },
-    NOW,
-  );
-
-  if (overrides.active === false) item.deactivate(NOW);
-
-  return item;
 }

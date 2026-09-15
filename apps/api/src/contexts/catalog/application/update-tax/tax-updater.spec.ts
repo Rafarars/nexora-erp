@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { TaxNotFoundError } from '../../domain/errors/not-found.errors.js';
 import { TenantId } from '../../domain/shared/tenant-id.vo.js';
 import { TaxId } from '../../domain/tax/tax-id.vo.js';
-import { TAX_A, TENANT_A, TENANT_B, aTax, anItem } from '../../domain/testing/catalog.mother.js';
+import { TAX_A, TENANT_A, TENANT_B, aTax } from '../../domain/testing/catalog.mother.js';
 import { CatalogScenario, aCatalogScenario } from '../testing/catalog-scenario.js';
 import { TaxUpdater } from './tax-updater.js';
 
@@ -12,7 +12,8 @@ describe('TaxUpdater', () => {
   // Los documentos copiaran el porcentaje al confirmarse: cambiarlo con articulos que lo
   // usan es legitimo.
   it('changes the rate even when items use the tax', async () => {
-    const scenario = aCatalogScenario({ taxes: [aTax({ rate: 16 })], items: [anItem()] });
+    const scenario = aCatalogScenario({ taxes: [aTax({ rate: 16 })] });
+    scenario.itemUsage.add({ taxId: TAX_A });
 
     await updaterFor(scenario).run({ tenantId: TENANT_A, taxId: TAX_A, name: 'IVA 15%', rate: 15 });
 

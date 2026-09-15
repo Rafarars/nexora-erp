@@ -5,11 +5,7 @@ import { SequentialIdGenerator } from '../../../../shared/infrastructure/testing
 import { Category } from '../../domain/category/category.entity.js';
 import { CategoryFinder } from '../../domain/category/find/category-finder.js';
 import { CategoryUniqueness } from '../../domain/category/unique/category-uniqueness.js';
-import { ItemFinder } from '../../domain/item/find/item-finder.js';
-import { Item } from '../../domain/item/item.entity.js';
-import { ItemReferences } from '../../domain/item/references/item-references.js';
-import { SkuUniqueness } from '../../domain/item/unique/sku-uniqueness.js';
-import { CatalogUsage } from '../../domain/item/usage/catalog-usage.js';
+import { CatalogUsage } from '../../domain/usage/catalog-usage.js';
 import { MeasurementUnitFinder } from '../../domain/measurement-unit/find/measurement-unit-finder.js';
 import { MeasurementUnit } from '../../domain/measurement-unit/measurement-unit.entity.js';
 import { MeasurementUnitUniqueness } from '../../domain/measurement-unit/unique/measurement-unit-uniqueness.js';
@@ -23,11 +19,10 @@ import { WarehouseUniqueness } from '../../domain/warehouse/unique/warehouse-uni
 import { Warehouse } from '../../domain/warehouse/warehouse.entity.js';
 import { InMemoryCategoryRepository } from '../../infrastructure/testing/in-memory-category.repository.js';
 import { InMemoryCodeSequence } from '../../infrastructure/testing/in-memory-code-sequence.js';
-import { InMemoryItemPosting } from '../../infrastructure/testing/in-memory-item-posting.js';
-import { InMemoryItemRepository } from '../../infrastructure/testing/in-memory-item.repository.js';
 import { InMemoryMeasurementUnitRepository } from '../../infrastructure/testing/in-memory-measurement-unit.repository.js';
 import { InMemoryTaxRepository } from '../../infrastructure/testing/in-memory-tax.repository.js';
 import { InMemoryWarehouseRepository } from '../../infrastructure/testing/in-memory-warehouse.repository.js';
+import { InMemoryItemUsage } from '../../infrastructure/testing/in-memory-item-usage.js';
 import { InMemoryStockUsage } from '../../infrastructure/testing/in-memory-stock-usage.js';
 
 // El mundo de una prueba de aplicacion en una linea: sin base de datos, sin Docker y
@@ -38,15 +33,15 @@ export function aCatalogScenario(
     units?: MeasurementUnit[];
     taxes?: Tax[];
     warehouses?: Warehouse[];
-    items?: Item[];
   } = {},
 ) {
   const categories = new InMemoryCategoryRepository(seed.categories ?? []);
   const units = new InMemoryMeasurementUnitRepository(seed.units ?? []);
   const taxes = new InMemoryTaxRepository(seed.taxes ?? []);
   const warehouses = new InMemoryWarehouseRepository(seed.warehouses ?? []);
-  const items = new InMemoryItemRepository(seed.items ?? []);
   const codes = new InMemoryCodeSequence();
+  // Los articulos viven en el inventario: aqui solo se declara que usan.
+  const itemUsage = new InMemoryItemUsage();
   const ids: IdGenerator = new SequentialIdGenerator();
   const clock: Clock = new FixedClock(NOW);
 
@@ -59,7 +54,6 @@ export function aCatalogScenario(
     units,
     taxes,
     warehouses,
-    items,
     codes,
     ids,
     clock,
@@ -67,17 +61,14 @@ export function aCatalogScenario(
     unitFinder,
     taxFinder,
     warehouseFinder: new WarehouseFinder(warehouses),
-    itemFinder: new ItemFinder(items),
     categoryUniqueness: new CategoryUniqueness(categories),
     unitUniqueness: new MeasurementUnitUniqueness(units),
     taxUniqueness: new TaxUniqueness(taxes),
     warehouseUniqueness: new WarehouseUniqueness(warehouses),
-    skuUniqueness: new SkuUniqueness(items),
-    usage: new CatalogUsage(items),
-    references: new ItemReferences(categoryFinder, taxFinder, unitFinder),
+    itemUsage,
+    usage: new CatalogUsage(itemUsage),
     defaultWarehouse: new DefaultWarehouse(warehouses),
     stock: new InMemoryStockUsage(),
-    itemPosting: new InMemoryItemPosting(items),
   };
 }
 

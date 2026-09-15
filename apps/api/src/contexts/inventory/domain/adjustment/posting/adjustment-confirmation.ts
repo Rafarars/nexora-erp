@@ -9,7 +9,7 @@ import { Posting } from './adjustment-posting.js';
 //
 // Las cantidades base se comprobaron al revalidar el borrador, antes de bloquear nada. Si el
 // articulo cambio su unidad en ese instante, el ajuste no se confirma con cantidades viejas: se
-// rechaza igual que un borrador viejo, para revisarlo y guardarlo con el catalogo de hoy.
+// rechaza igual que un borrador viejo, para revisarlo y guardarlo con los articulos de hoy.
 export class AdjustmentConfirmation {
   constructor(private readonly movements: StockMovements) {}
 

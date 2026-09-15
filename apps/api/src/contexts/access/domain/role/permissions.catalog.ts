@@ -46,13 +46,13 @@ export const CATALOG_PERMISSIONS: PermissionDefinition[] = [
   { code: 'catalog.warehouses.create', description: 'Crear bodegas' },
   { code: 'catalog.warehouses.update', description: 'Editar bodegas y elegir la bodega por defecto' },
   { code: 'catalog.warehouses.deactivate', description: 'Desactivar y reactivar bodegas' },
-  { code: 'catalog.items.search', description: 'Consultar los artículos' },
-  { code: 'catalog.items.create', description: 'Crear artículos' },
-  { code: 'catalog.items.update', description: 'Editar artículos y sus unidades' },
-  { code: 'catalog.items.deactivate', description: 'Desactivar y reactivar artículos' },
 ];
 
 export const INVENTORY_PERMISSIONS: PermissionDefinition[] = [
+  { code: 'inventory.items.search', description: 'Consultar los artículos' },
+  { code: 'inventory.items.create', description: 'Crear artículos' },
+  { code: 'inventory.items.update', description: 'Editar artículos y sus unidades' },
+  { code: 'inventory.items.deactivate', description: 'Desactivar y reactivar artículos' },
   { code: 'inventory.adjustments.search', description: 'Consultar los ajustes de inventario' },
   { code: 'inventory.adjustments.create', description: 'Crear ajustes en borrador' },
   { code: 'inventory.adjustments.update', description: 'Editar ajustes en borrador' },

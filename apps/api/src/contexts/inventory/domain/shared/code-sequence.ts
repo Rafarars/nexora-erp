@@ -2,7 +2,7 @@ import { TenantId } from './tenant-id.vo.js';
 
 export const INVENTORY_CODE_SEQUENCE = Symbol('InventoryCodeSequence');
 
-export type InventoryCodePrefix = 'AJU';
+export type InventoryCodePrefix = 'AJU' | 'ART';
 
 // Mismo contrato que el del catalogo, declarado aqui para no depender de el: numero
 // siguiente, atomico, por empresa y prefijo.

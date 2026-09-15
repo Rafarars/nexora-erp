@@ -6,23 +6,19 @@ import { ID_GENERATOR } from '../../../shared/domain/ports/id-generator.js';
 import { SharedModule } from '../../../shared/infrastructure/shared.module.js';
 import { PrismaModule } from '../../../shared/prisma/prisma.module.js';
 import { CategoryStatusChanger } from '../application/change-category-status/category-status-changer.js';
-import { ItemStatusChanger } from '../application/change-item-status/item-status-changer.js';
 import { MeasurementUnitStatusChanger } from '../application/change-measurement-unit-status/measurement-unit-status-changer.js';
 import { TaxStatusChanger } from '../application/change-tax-status/tax-status-changer.js';
 import { WarehouseStatusChanger } from '../application/change-warehouse-status/warehouse-status-changer.js';
 import { CategoryCreator } from '../application/create-category/category-creator.js';
-import { ItemCreator } from '../application/create-item/item-creator.js';
 import { MeasurementUnitCreator } from '../application/create-measurement-unit/measurement-unit-creator.js';
 import { TaxCreator } from '../application/create-tax/tax-creator.js';
 import { WarehouseCreator } from '../application/create-warehouse/warehouse-creator.js';
 import { CategorySearcher } from '../application/search-categories/category-searcher.js';
-import { ItemSearcher } from '../application/search-items/item-searcher.js';
 import { MeasurementUnitSearcher } from '../application/search-measurement-units/measurement-unit-searcher.js';
 import { TaxSearcher } from '../application/search-taxes/tax-searcher.js';
 import { WarehouseSearcher } from '../application/search-warehouses/warehouse-searcher.js';
 import { DefaultWarehouseSetter } from '../application/set-default-warehouse/default-warehouse-setter.js';
 import { CategoryUpdater } from '../application/update-category/category-updater.js';
-import { ItemUpdater } from '../application/update-item/item-updater.js';
 import { MeasurementUnitUpdater } from '../application/update-measurement-unit/measurement-unit-updater.js';
 import { TaxUpdater } from '../application/update-tax/tax-updater.js';
 import { WarehouseUpdater } from '../application/update-warehouse/warehouse-updater.js';
@@ -30,14 +26,9 @@ import { CATEGORY_REPOSITORY } from '../domain/category/category.repository.js';
 import type { CategoryRepository } from '../domain/category/category.repository.js';
 import { CategoryFinder } from '../domain/category/find/category-finder.js';
 import { CategoryUniqueness } from '../domain/category/unique/category-uniqueness.js';
-import { ItemFinder } from '../domain/item/find/item-finder.js';
-import { ITEM_REPOSITORY } from '../domain/item/item.repository.js';
-import type { ItemRepository } from '../domain/item/item.repository.js';
-import { ITEM_POSTING } from '../domain/item/posting/item-posting.js';
-import type { ItemPosting } from '../domain/item/posting/item-posting.js';
-import { ItemReferences } from '../domain/item/references/item-references.js';
-import { SkuUniqueness } from '../domain/item/unique/sku-uniqueness.js';
-import { CatalogUsage } from '../domain/item/usage/catalog-usage.js';
+import { CatalogUsage } from '../domain/usage/catalog-usage.js';
+import { ITEM_USAGE } from '../domain/usage/item-usage.js';
+import type { ItemUsage } from '../domain/usage/item-usage.js';
 import { MeasurementUnitFinder } from '../domain/measurement-unit/find/measurement-unit-finder.js';
 import { MEASUREMENT_UNIT_REPOSITORY } from '../domain/measurement-unit/measurement-unit.repository.js';
 import type { MeasurementUnitRepository } from '../domain/measurement-unit/measurement-unit.repository.js';
@@ -54,38 +45,34 @@ import { WarehouseUniqueness } from '../domain/warehouse/unique/warehouse-unique
 import { WAREHOUSE_REPOSITORY } from '../domain/warehouse/warehouse.repository.js';
 import type { WarehouseRepository } from '../domain/warehouse/warehouse.repository.js';
 import { ChangeCategoryStatusPutController } from './http/change-category-status-put.controller.js';
-import { ChangeItemStatusPutController } from './http/change-item-status-put.controller.js';
 import { ChangeMeasurementUnitStatusPutController } from './http/change-measurement-unit-status-put.controller.js';
 import { ChangeTaxStatusPutController } from './http/change-tax-status-put.controller.js';
 import { ChangeWarehouseStatusPutController } from './http/change-warehouse-status-put.controller.js';
 import { CreateCategoryPostController } from './http/create-category-post.controller.js';
-import { CreateItemPostController } from './http/create-item-post.controller.js';
 import { CreateMeasurementUnitPostController } from './http/create-measurement-unit-post.controller.js';
 import { CreateTaxPostController } from './http/create-tax-post.controller.js';
 import { CreateWarehousePostController } from './http/create-warehouse-post.controller.js';
 import { SearchCategoriesGetController } from './http/search-categories-get.controller.js';
-import { SearchItemsGetController } from './http/search-items-get.controller.js';
 import { SearchMeasurementUnitsGetController } from './http/search-measurement-units-get.controller.js';
 import { SearchTaxesGetController } from './http/search-taxes-get.controller.js';
 import { SearchWarehousesGetController } from './http/search-warehouses-get.controller.js';
 import { SetDefaultWarehousePutController } from './http/set-default-warehouse-put.controller.js';
 import { UpdateCategoryPutController } from './http/update-category-put.controller.js';
-import { UpdateItemPutController } from './http/update-item-put.controller.js';
 import { UpdateMeasurementUnitPutController } from './http/update-measurement-unit-put.controller.js';
 import { UpdateTaxPutController } from './http/update-tax-put.controller.js';
 import { UpdateWarehousePutController } from './http/update-warehouse-put.controller.js';
 import { PrismaCategoryRepository } from './persistence/prisma-category.repository.js';
 import { PrismaCodeSequence } from './persistence/prisma-code-sequence.js';
-import { PrismaItemRepository } from './persistence/prisma-item.repository.js';
 import { PrismaMeasurementUnitRepository } from './persistence/prisma-measurement-unit.repository.js';
 import { PrismaTaxRepository } from './persistence/prisma-tax.repository.js';
 import { PrismaWarehouseRepository } from './persistence/prisma-warehouse.repository.js';
-import { PrismaItemPosting } from './persistence/prisma-item-posting.js';
+import { PrismaItemUsage } from './persistence/prisma-item-usage.js';
 import { PrismaStockUsage } from './persistence/prisma-stock-usage.js';
 import { STOCK_USAGE } from '../domain/stock/stock-usage.js';
 import type { StockUsage } from '../domain/stock/stock-usage.js';
 
-// El cableado del catalogo. Mismo criterio que en access: los servicios de dominio y
+// El cableado del catalogo: categorias, unidades, impuestos y bodegas; los articulos viven en el
+// inventario. Mismo criterio que en access: los servicios de dominio y
 // los casos de uso se construyen con `useFactory`, asi el dominio no importa NestJS.
 //
 // No declara guardian: el de access es global y ya protege estas rutas. Un contexto
@@ -110,20 +97,15 @@ import type { StockUsage } from '../domain/stock/stock-usage.js';
     UpdateWarehousePutController,
     ChangeWarehouseStatusPutController,
     SetDefaultWarehousePutController,
-    SearchItemsGetController,
-    CreateItemPostController,
-    UpdateItemPutController,
-    ChangeItemStatusPutController,
   ],
   providers: [
     { provide: CATEGORY_REPOSITORY, useClass: PrismaCategoryRepository },
     { provide: MEASUREMENT_UNIT_REPOSITORY, useClass: PrismaMeasurementUnitRepository },
     { provide: TAX_REPOSITORY, useClass: PrismaTaxRepository },
     { provide: WAREHOUSE_REPOSITORY, useClass: PrismaWarehouseRepository },
-    { provide: ITEM_REPOSITORY, useClass: PrismaItemRepository },
     { provide: CODE_SEQUENCE, useClass: PrismaCodeSequence },
     { provide: STOCK_USAGE, useClass: PrismaStockUsage },
-    { provide: ITEM_POSTING, useClass: PrismaItemPosting },
+    { provide: ITEM_USAGE, useClass: PrismaItemUsage },
 
     // ---- servicios de dominio
     { provide: CategoryFinder, useFactory: (r: CategoryRepository) => new CategoryFinder(r), inject: [CATEGORY_REPOSITORY] },
@@ -147,16 +129,7 @@ import type { StockUsage } from '../domain/stock/stock-usage.js';
       inject: [WAREHOUSE_REPOSITORY],
     },
     { provide: DefaultWarehouse, useFactory: (r: WarehouseRepository) => new DefaultWarehouse(r), inject: [WAREHOUSE_REPOSITORY] },
-    { provide: ItemFinder, useFactory: (r: ItemRepository) => new ItemFinder(r), inject: [ITEM_REPOSITORY] },
-    { provide: SkuUniqueness, useFactory: (r: ItemRepository) => new SkuUniqueness(r), inject: [ITEM_REPOSITORY] },
-    { provide: CatalogUsage, useFactory: (r: ItemRepository) => new CatalogUsage(r), inject: [ITEM_REPOSITORY] },
-    {
-      provide: ItemReferences,
-      useFactory: (categories: CategoryFinder, taxes: TaxFinder, units: MeasurementUnitFinder) =>
-        new ItemReferences(categories, taxes, units),
-      inject: [CategoryFinder, TaxFinder, MeasurementUnitFinder],
-    },
-
+    { provide: CatalogUsage, useFactory: (i: ItemUsage) => new CatalogUsage(i), inject: [ITEM_USAGE] },
     // ---- categorias
     {
       provide: CategoryCreator,
@@ -243,29 +216,6 @@ import type { StockUsage } from '../domain/stock/stock-usage.js';
     },
     { provide: WarehouseSearcher, useFactory: (r: WarehouseRepository) => new WarehouseSearcher(r), inject: [WAREHOUSE_REPOSITORY] },
 
-    // ---- articulos
-    {
-      provide: ItemCreator,
-      useFactory: (r: ItemRepository, ref: ItemReferences, s: SkuUniqueness, c: CodeSequence, i: IdGenerator, k: Clock) =>
-        new ItemCreator(r, ref, s, c, i, k),
-      inject: [ITEM_REPOSITORY, ItemReferences, SkuUniqueness, CODE_SEQUENCE, ID_GENERATOR, CLOCK],
-    },
-    {
-      provide: ItemUpdater,
-      useFactory: (f: ItemFinder, ref: ItemReferences, s: SkuUniqueness, p: ItemPosting, k: Clock) => new ItemUpdater(f, ref, s, p, k),
-      inject: [ItemFinder, ItemReferences, SkuUniqueness, ITEM_POSTING, CLOCK],
-    },
-    {
-      provide: ItemStatusChanger,
-      useFactory: (f: ItemFinder, ref: ItemReferences, p: ItemPosting, k: Clock) => new ItemStatusChanger(f, ref, p, k),
-      inject: [ItemFinder, ItemReferences, ITEM_POSTING, CLOCK],
-    },
-    {
-      provide: ItemSearcher,
-      useFactory: (items: ItemRepository, categories: CategoryRepository, taxes: TaxRepository, units: MeasurementUnitRepository) =>
-        new ItemSearcher(items, categories, taxes, units),
-      inject: [ITEM_REPOSITORY, CATEGORY_REPOSITORY, TAX_REPOSITORY, MEASUREMENT_UNIT_REPOSITORY],
-    },
   ],
 })
 export class CatalogModule {}

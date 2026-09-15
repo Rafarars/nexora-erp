@@ -2,7 +2,7 @@ import { Clock } from '../../../../shared/domain/ports/clock.js';
 import { CategoryId } from '../../domain/category/category-id.vo.js';
 import { CategoryRepository } from '../../domain/category/category.repository.js';
 import { CategoryFinder } from '../../domain/category/find/category-finder.js';
-import { CatalogUsage } from '../../domain/item/usage/catalog-usage.js';
+import { CatalogUsage } from '../../domain/usage/catalog-usage.js';
 import { TenantId } from '../../domain/shared/tenant-id.vo.js';
 
 export interface CategoryStatusChangerRequest {

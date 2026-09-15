@@ -1,5 +1,5 @@
 import { Inject, Injectable } from '@nestjs/common';
-import { lockCatalogItems } from '../../../../shared/prisma/catalog-items.js';
+import { lockItems } from '../../../../shared/prisma/inventory-items.js';
 import { DOCUMENT_STOCK_POSTING } from '../../../../shared/prisma/document-stock-posting.js';
 import type { DocumentStockPosting } from '../../../../shared/prisma/document-stock-posting.js';
 import { PrismaService } from '../../../../shared/prisma/prisma.service.js';
@@ -29,7 +29,7 @@ export class PrismaSalesOrderPosting implements SalesOrderPosting {
       const order = await lockOrder(tx, tenant, orderId.value);
       const warehouseId = order.warehouseId().value;
       const itemIds = [...order.reservedByItem().keys()];
-      const items = await lockCatalogItems(tx, tenant, order.lines().map((line) => line.itemId.value));
+      const items = await lockItems(tx, tenant, order.lines().map((line) => line.itemId.value));
       const onHand = await this.stock.lockAvailable(tx, tenant, itemIds.map((itemId) => [itemId, warehouseId]));
 
       const reserved = await tx.$queryRaw<{ item_id: string; units: string }[]>`

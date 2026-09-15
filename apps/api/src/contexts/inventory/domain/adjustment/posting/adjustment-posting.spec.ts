@@ -168,7 +168,7 @@ it('confirms an adjustment once even when asked twice at the same time', async (
   expect(await w.available()).toBe(10);
 });
 
-// El catalogo pudo cambiar entre la revalidacion del borrador y el bloqueo del ajuste.
+// El articulo pudo cambiar entre la revalidacion del borrador y el bloqueo del ajuste.
 describe('an item that changed while the adjustment was being confirmed', () => {
   it('refuses base quantities that no longer match the factor of the unit', async () => {
     const w = world();

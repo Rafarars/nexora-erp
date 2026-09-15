@@ -25,9 +25,3 @@ export class WarehouseNotFoundError extends NotFoundError {
     super(`Warehouse <${id}> does not exist.`);
   }
 }
-
-export class ItemNotFoundError extends NotFoundError {
-  constructor(id: string) {
-    super(`Item <${id}> does not exist.`);
-  }
-}

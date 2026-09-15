@@ -5,8 +5,8 @@ import { ItemRef, WarehouseRef } from '../../domain/shared/references.vo.js';
 import { TenantId } from '../../domain/shared/tenant-id.vo.js';
 import { toNumber } from './decimals.js';
 
-// Capa anticorrupcion: lee las tablas del catalogo y las traduce al vocabulario del
-// inventario. Es el unico archivo del inventario que sabe como guarda el catalogo.
+// Lee las tablas de articulos y bodegas y las traduce al vocabulario de los ajustes. Para las
+// bodegas es capa anticorrupcion: el unico archivo que sabe como las guarda el catalogo.
 @Injectable()
 export class PrismaInventoryCatalog implements InventoryCatalog {
   constructor(private readonly prisma: PrismaService) {}

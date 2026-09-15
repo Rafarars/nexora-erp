@@ -2,7 +2,7 @@ import { InventoryCatalog, StockWarehouse, StockableItem } from '../../domain/ca
 import { ItemRef, WarehouseRef } from '../../domain/shared/references.vo.js';
 import { TenantId } from '../../domain/shared/tenant-id.vo.js';
 
-// El catalogo tal como lo ve el inventario, sembrado a mano en cada prueba.
+// Los articulos y las bodegas tal como los ven los ajustes, sembrados a mano en cada prueba.
 export class InMemoryInventoryCatalog implements InventoryCatalog {
   constructor(
     private readonly items: (StockableItem & { tenantId: string })[] = [],
@@ -17,7 +17,7 @@ export class InMemoryInventoryCatalog implements InventoryCatalog {
       .map(({ tenantId: _tenant, ...item }) => item);
   }
 
-  // Lo que en la base haria el catalogo: dejar de ofrecer un articulo.
+  // Lo que en la base haria el maestro de articulos: dejar de ofrecer uno.
   deactivate(itemId: string): void {
     const item = this.items.find((candidate) => candidate.id === itemId);
 

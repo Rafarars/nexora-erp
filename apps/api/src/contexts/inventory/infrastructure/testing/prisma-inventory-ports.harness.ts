@@ -49,7 +49,7 @@ export class PrismaInventoryPortsHarness implements InventoryPortsHarness {
       await this.prisma.tenant.upsert({ where: { id }, create: { id, name: slug, slug }, update: {} });
     }
 
-    // El catalogo minimo al que apuntan las claves ajenas del inventario.
+    // Lo minimo del catalogo y del maestro de articulos a lo que apuntan las claves ajenas.
     const unit = (id: string, code: string, name: string, abbreviation: string) =>
       this.prisma.measurementUnit.upsert({ where: { id }, create: { id, tenantId: TENANT_A, code, name, abbreviation }, update: {} });
     await unit(PIECE, 'UOM900001', 'Contrato unidad', 'cu');

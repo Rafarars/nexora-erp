@@ -1,5 +1,5 @@
 import { Clock } from '../../../../shared/domain/ports/clock.js';
-import { CatalogUsage } from '../../domain/item/usage/catalog-usage.js';
+import { CatalogUsage } from '../../domain/usage/catalog-usage.js';
 import { MeasurementUnitFinder } from '../../domain/measurement-unit/find/measurement-unit-finder.js';
 import { MeasurementUnitId } from '../../domain/measurement-unit/measurement-unit-id.vo.js';
 import { MeasurementUnitRepository } from '../../domain/measurement-unit/measurement-unit.repository.js';

@@ -43,9 +43,3 @@ export class DuplicateWarehouseNameError extends ConflictError {
     );
   }
 }
-
-export class DuplicateSkuError extends ConflictError {
-  constructor(sku: string, tenantId: string) {
-    super(`SKU <${sku}> already exists in tenant <${tenantId}>.`, 'An item with that SKU already exists.');
-  }
-}

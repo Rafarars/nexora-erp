@@ -1,4 +1,4 @@
-import { lockCatalogItems } from '../../../../shared/prisma/catalog-items.js';
+import { lockItems } from '../../../../shared/prisma/inventory-items.js';
 import type { TransactionClient } from '../../../../shared/prisma/document-stock-posting.js';
 import { InventoryMovement, MovementOriginType } from '../../domain/movement/inventory-movement.entity.js';
 import { ItemRef, WarehouseRef } from '../../domain/shared/references.vo.js';
@@ -34,7 +34,7 @@ export async function lockedLedger(
   const unique = [...new Map(keys.map(([item, warehouse]) => [keyOf(item, warehouse), [item, warehouse] as const])).values()].sort(
     ([a, b], [c, d]) => a.localeCompare(c) || b.localeCompare(d),
   );
-  const items = await lockCatalogItems(tx, tenantId, unique.map(([itemId]) => itemId));
+  const items = await lockItems(tx, tenantId, unique.map(([itemId]) => itemId));
   const stocks = new Map<string, ItemStock>();
 
   for (const [itemId, warehouseId] of unique) {

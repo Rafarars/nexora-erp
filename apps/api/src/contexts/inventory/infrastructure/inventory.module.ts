@@ -13,6 +13,19 @@ import { AdjustmentSearcher } from '../application/search-adjustments/adjustment
 import { MovementSearcher } from '../application/search-movements/movement-searcher.js';
 import { StockSearcher } from '../application/search-stock/stock-searcher.js';
 import { AdjustmentUpdater } from '../application/update-adjustment/adjustment-updater.js';
+import { ItemStatusChanger } from '../application/change-item-status/item-status-changer.js';
+import { ItemCreator } from '../application/create-item/item-creator.js';
+import { ItemSearcher } from '../application/search-items/item-searcher.js';
+import { ItemUpdater } from '../application/update-item/item-updater.js';
+import { CATALOG_REFERENCES } from '../domain/catalog/catalog-references.js';
+import type { CatalogReferences } from '../domain/catalog/catalog-references.js';
+import { ItemFinder } from '../domain/item/find/item-finder.js';
+import { ITEM_REPOSITORY } from '../domain/item/item.repository.js';
+import type { ItemRepository } from '../domain/item/item.repository.js';
+import { ITEM_POSTING } from '../domain/item/posting/item-posting.js';
+import type { ItemPosting } from '../domain/item/posting/item-posting.js';
+import { ItemReferences } from '../domain/item/references/item-references.js';
+import { SkuUniqueness } from '../domain/item/unique/sku-uniqueness.js';
 import { ADJUSTMENT_REPOSITORY } from '../domain/adjustment/adjustment.repository.js';
 import type { AdjustmentRepository } from '../domain/adjustment/adjustment.repository.js';
 import { AdjustmentFinder } from '../domain/adjustment/find/adjustment-finder.js';
@@ -31,6 +44,10 @@ import type { InventoryCodeSequence } from '../domain/shared/code-sequence.js';
 import { STOCK_REPOSITORY } from '../domain/stock/stock.repository.js';
 import type { StockRepository } from '../domain/stock/stock.repository.js';
 import { CancelAdjustmentPutController } from './http/cancel-adjustment-put.controller.js';
+import { ChangeItemStatusPutController } from './http/change-item-status-put.controller.js';
+import { CreateItemPostController } from './http/create-item-post.controller.js';
+import { SearchItemsGetController } from './http/search-items-get.controller.js';
+import { UpdateItemPutController } from './http/update-item-put.controller.js';
 import { ConfirmAdjustmentPutController } from './http/confirm-adjustment-put.controller.js';
 import { CreateAdjustmentPostController } from './http/create-adjustment-post.controller.js';
 import { SearchAdjustmentsGetController } from './http/search-adjustments-get.controller.js';
@@ -41,15 +58,23 @@ import { PrismaDocumentStockPosting } from './persistence/prisma-document-stock-
 import { PrismaMovementDocuments } from './persistence/prisma-movement-documents.js';
 import { PrismaAdjustmentPosting } from './persistence/prisma-adjustment-posting.js';
 import { PrismaAdjustmentRepository } from './persistence/prisma-adjustment.repository.js';
+import { PrismaCatalogReferences } from './persistence/prisma-catalog-references.js';
+import { PrismaItemPosting } from './persistence/prisma-item-posting.js';
+import { PrismaItemRepository } from './persistence/prisma-item.repository.js';
 import { PrismaInventoryCatalog } from './persistence/prisma-inventory-catalog.js';
 import { PrismaInventoryCodeSequence } from './persistence/prisma-inventory-code-sequence.js';
 import { PrismaStockRepository } from './persistence/prisma-stock.repository.js';
 
-// El cableado del inventario, con el mismo criterio que los otros contextos. Exporta solo
-// la publicacion de documentos: es lo unico que otro contexto puede pedirle.
+// El cableado del inventario, con el mismo criterio que los otros contextos: el maestro de
+// articulos, las existencias, el kardex y los ajustes. Exporta solo la publicacion de documentos:
+// es lo unico que otro contexto puede pedirle.
 @Module({
   imports: [PrismaModule, SharedModule],
   controllers: [
+    SearchItemsGetController,
+    CreateItemPostController,
+    UpdateItemPutController,
+    ChangeItemStatusPutController,
     SearchAdjustmentsGetController,
     CreateAdjustmentPostController,
     UpdateAdjustmentPutController,
@@ -66,6 +91,37 @@ import { PrismaStockRepository } from './persistence/prisma-stock.repository.js'
     { provide: INVENTORY_CODE_SEQUENCE, useClass: PrismaInventoryCodeSequence },
     { provide: MOVEMENT_DOCUMENTS, useClass: PrismaMovementDocuments },
     { provide: DOCUMENT_STOCK_POSTING, useClass: PrismaDocumentStockPosting },
+    { provide: ITEM_REPOSITORY, useClass: PrismaItemRepository },
+    { provide: ITEM_POSTING, useClass: PrismaItemPosting },
+    { provide: CATALOG_REFERENCES, useClass: PrismaCatalogReferences },
+
+    // ---- articulos
+    { provide: ItemFinder, useFactory: (r: ItemRepository) => new ItemFinder(r), inject: [ITEM_REPOSITORY] },
+    { provide: SkuUniqueness, useFactory: (r: ItemRepository) => new SkuUniqueness(r), inject: [ITEM_REPOSITORY] },
+    { provide: ItemReferences, useFactory: (c: CatalogReferences) => new ItemReferences(c), inject: [CATALOG_REFERENCES] },
+    {
+      provide: ItemCreator,
+      useFactory: (r: ItemRepository, ref: ItemReferences, s: SkuUniqueness, c: InventoryCodeSequence, i: IdGenerator, k: Clock) =>
+        new ItemCreator(r, ref, s, c, i, k),
+      inject: [ITEM_REPOSITORY, ItemReferences, SkuUniqueness, INVENTORY_CODE_SEQUENCE, ID_GENERATOR, CLOCK],
+    },
+    {
+      provide: ItemUpdater,
+      useFactory: (f: ItemFinder, ref: ItemReferences, s: SkuUniqueness, p: ItemPosting, k: Clock) => new ItemUpdater(f, ref, s, p, k),
+      inject: [ItemFinder, ItemReferences, SkuUniqueness, ITEM_POSTING, CLOCK],
+    },
+    {
+      provide: ItemStatusChanger,
+      useFactory: (f: ItemFinder, ref: ItemReferences, p: ItemPosting, k: Clock) => new ItemStatusChanger(f, ref, p, k),
+      inject: [ItemFinder, ItemReferences, ITEM_POSTING, CLOCK],
+    },
+    {
+      provide: ItemSearcher,
+      useFactory: (r: ItemRepository, c: CatalogReferences) => new ItemSearcher(r, c),
+      inject: [ITEM_REPOSITORY, CATALOG_REFERENCES],
+    },
+
+    // ---- ajustes, existencias y kardex
 
     { provide: AdjustmentFinder, useFactory: (r: AdjustmentRepository) => new AdjustmentFinder(r), inject: [ADJUSTMENT_REPOSITORY] },
     {

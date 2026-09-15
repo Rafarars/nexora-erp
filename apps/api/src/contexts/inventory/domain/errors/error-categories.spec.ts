@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { ConflictError, DomainError, InvalidArgumentError, NotFoundError } from '../../../../shared/domain/domain.error.js';
 import * as errors from './inventory.errors.js';
+import * as itemErrors from './item.errors.js';
 
 const ID = 'a1111111-1111-4111-8111-111111111111';
 
@@ -40,5 +41,44 @@ describe('inventory domain errors', () => {
   it.each(cases)('%s gives the caller a message with nothing internal', (error) => {
     expect(error.publicMessage.length).toBeGreaterThan(0);
     expect(error.publicMessage).not.toMatch(/[<>]|\d/);
+  });
+});
+
+const itemCases: Array<[DomainError, typeof DomainError]> = [
+  [new itemErrors.ItemNotFoundError(ID), NotFoundError],
+  [new itemErrors.CategoryNotFoundError(ID), NotFoundError],
+  [new itemErrors.TaxNotFoundError(ID), NotFoundError],
+  [new itemErrors.MeasurementUnitNotFoundError(ID), NotFoundError],
+  [new itemErrors.DuplicateSkuError('AGUA-500', ID), ConflictError],
+  [new itemErrors.InactiveReferenceError('Category', ID), ConflictError],
+  [new itemErrors.ItemWithStockError(ID), ConflictError],
+  [new itemErrors.ItemWithMovementsError(ID), ConflictError],
+  [new itemErrors.ItemInOpenDocumentsError(ID), ConflictError],
+  [new itemErrors.ItemUnitInOpenDocumentsError(ID, ID), ConflictError],
+  [new itemErrors.InvalidConversionFactorError(-1), InvalidArgumentError],
+  [new itemErrors.InvalidSkuError('A B'), InvalidArgumentError],
+  [new itemErrors.InvalidItemTypeError('serialized'), InvalidArgumentError],
+  [new itemErrors.InvalidItemUnitsError('no base'), InvalidArgumentError],
+  [new itemErrors.InvalidItemCodeError('nope'), InvalidArgumentError],
+];
+
+describe('item master errors', () => {
+  it('covers every error the item master declares', () => {
+    expect(itemCases).toHaveLength(Object.keys(itemErrors).length);
+  });
+
+  it.each(itemCases)('%s belongs to its category', (error, category) => {
+    expect(error).toBeInstanceOf(category);
+  });
+
+  it.each(itemCases)('%s gives the caller a message with nothing internal', (error) => {
+    expect(error.publicMessage.length).toBeGreaterThan(0);
+    expect(error.publicMessage).not.toMatch(/[<>]|\d/);
+    expect(error.publicMessage).not.toContain('AGUA-500');
+  });
+
+  // La interfaz traduce por el nombre de la clase: moverla de contexto no lo cambia.
+  it('names itself with its concrete class', () => {
+    expect(new itemErrors.DuplicateSkuError('AGUA-500', ID).name).toBe('DuplicateSkuError');
   });
 });

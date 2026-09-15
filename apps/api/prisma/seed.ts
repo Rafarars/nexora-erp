@@ -232,15 +232,15 @@ async function upsertRoles(prisma: PrismaClient): Promise<void> {
       tenantId: ACME,
       name: 'Consulta',
       grantsAll: false,
-      // Solo lectura tambien en el catalogo: es el rol con el que las pruebas comprueban
+      // Solo lectura tambien en el catalogo y el inventario: es el rol con el que las pruebas comprueban
       // que ver no es lo mismo que poder editar.
       permissions: [
         'access.users.search',
-        'catalog.items.search',
         'catalog.categories.search',
         'catalog.units.search',
         'catalog.taxes.search',
         'catalog.warehouses.search',
+        'inventory.items.search',
         'inventory.adjustments.search',
         'inventory.stock.search',
         'inventory.movements.search',

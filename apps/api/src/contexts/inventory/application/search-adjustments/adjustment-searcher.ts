@@ -26,7 +26,7 @@ export interface AdjustmentResponse {
   lines: AdjustmentLineResponse[];
 }
 
-// Los mas recientes primero, con los nombres del catalogo ya resueltos.
+// Los mas recientes primero, con los nombres de articulos y bodegas ya resueltos.
 export class AdjustmentSearcher {
   constructor(
     private readonly adjustments: AdjustmentRepository,

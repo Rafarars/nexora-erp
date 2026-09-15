@@ -210,7 +210,7 @@ export function describeInventoryPortsContract(implementation: string, createHar
         expect(await ports.stocks.searchStocks(tenant)).toEqual([]);
       });
 
-      // Lo que el catalogo ya no ofrece no mueve existencia, tampoco para anular.
+      // Un articulo que ya no se ofrece no mueve existencia, tampoco para anular.
       it('refuses to move the stock of an item deactivated after it was validated', async () => {
         const entry = await draft([line('in', 5, 1)]);
         await confirm(entry);

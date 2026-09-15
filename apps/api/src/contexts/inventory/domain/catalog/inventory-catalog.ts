@@ -3,9 +3,9 @@ import { TenantId } from '../shared/tenant-id.vo.js';
 
 export const INVENTORY_CATALOG = Symbol('InventoryCatalog');
 
-// Lo que el inventario necesita saber del catalogo, con su propio vocabulario. El
-// adaptador lo lee de las tablas del catalogo: si el catalogo cambia por dentro, solo se
-// toca el adaptador.
+// Lo que los ajustes y las existencias necesitan de los articulos y las bodegas, con su propio
+// vocabulario. Las bodegas viven en el catalogo; los articulos, en este contexto, pero un ajuste
+// no carga el agregado: le basta esta vista. Si cambian por dentro, solo se toca el adaptador.
 export interface StockableItem {
   id: string;
   sku: string;

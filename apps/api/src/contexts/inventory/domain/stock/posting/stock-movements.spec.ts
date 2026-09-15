@@ -13,7 +13,7 @@ import { StockMovements } from './stock-movements.js';
 
 const activeItem: LedgerItem = { isActive: true, type: 'inventoried', factorOf: () => 1 };
 
-// Un libro en memoria: el articulo como esta en el catalogo, existencias vacias que se crean al
+// Un libro en memoria: el articulo como esta en su maestro, existencias vacias que se crean al
 // pedirlas y los movimientos ya escritos.
 function aLedger(previous: InventoryMovement[] = [], item: LedgerItem = activeItem): Ledger & { stocks: Map<string, ItemStock> } {
   const stocks = new Map<string, ItemStock>();
@@ -100,7 +100,7 @@ describe('StockMovements', () => {
     expect(() => movements.reverse(aLedgerSharing(ledger, written), document, NOW)).toThrow(InsufficientStockError);
   });
 
-  // El documento se valido contra el catalogo antes del bloqueo: si entretanto el articulo dejo de
+  // El documento se valido contra el maestro de articulos antes del bloqueo: si entretanto el articulo dejo de
   // ofrecerse o se volvio servicio, no mueve existencia.
   it('moves nothing for an item that became inactive or a service', () => {
     const movements = new StockMovements(new SequentialIdGenerator());

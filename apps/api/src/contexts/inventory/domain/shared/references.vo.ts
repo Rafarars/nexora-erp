@@ -1,7 +1,8 @@
 import { Uuid } from '../../../../shared/domain/uuid.vo.js';
 
-// Referencias a lo que vive en el catalogo. El inventario solo guarda el identificador y
-// pregunta lo demas por su puerto InventoryCatalog.
+// Referencias por identificador. El articulo y la bodega que usa un ajuste se preguntan por el
+// puerto InventoryCatalog; la categoria, el impuesto y las unidades de un articulo viven en el
+// catalogo y se preguntan por CatalogReferences.
 export class ItemRef extends Uuid {
   static of(value: string): ItemRef {
     return new ItemRef(value);
@@ -17,5 +18,17 @@ export class WarehouseRef extends Uuid {
 export class UnitRef extends Uuid {
   static of(value: string): UnitRef {
     return new UnitRef(value);
+  }
+}
+
+export class CategoryRef extends Uuid {
+  static of(value: string): CategoryRef {
+    return new CategoryRef(value);
+  }
+}
+
+export class TaxRef extends Uuid {
+  static of(value: string): TaxRef {
+    return new TaxRef(value);
   }
 }

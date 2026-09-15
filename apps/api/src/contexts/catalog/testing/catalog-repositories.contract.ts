@@ -5,17 +5,10 @@ import {
   DuplicateCategoryNameError,
   DuplicateMeasurementUnitAbbreviationError,
   DuplicateMeasurementUnitNameError,
-  DuplicateSkuError,
   DuplicateTaxNameError,
   DuplicateWarehouseNameError,
 } from '../domain/errors/duplicate.errors.js';
-import { ItemNotFoundError } from '../domain/errors/not-found.errors.js';
 import { ConcurrentDefaultWarehouseError } from '../domain/errors/warehouse.errors.js';
-import { ItemCommitments } from '../domain/item/commitments/item-commitments.js';
-import { ItemId } from '../domain/item/item-id.vo.js';
-import { ItemName } from '../domain/item/item-name.vo.js';
-import { ItemUnit, ItemUnits } from '../domain/item/item-units.js';
-import { Sku } from '../domain/item/sku.vo.js';
 import { MeasurementUnitId } from '../domain/measurement-unit/measurement-unit-id.vo.js';
 import { MeasurementUnitName } from '../domain/measurement-unit/measurement-unit-name.vo.js';
 import { UnitAbbreviation } from '../domain/measurement-unit/unit-abbreviation.vo.js';
@@ -26,8 +19,6 @@ import { TaxRate } from '../domain/tax/tax-rate.vo.js';
 import {
   CATEGORY_A,
   CATEGORY_B,
-  ITEM_A,
-  ITEM_B,
   LATER,
   TAX_A,
   TAX_B,
@@ -42,12 +33,10 @@ import {
   aTax,
   aUnit,
   aWarehouse,
-  anItem,
-  baseUnitOnly,
 } from '../domain/testing/catalog.mother.js';
 import { WarehouseId } from '../domain/warehouse/warehouse-id.vo.js';
 import { WarehouseName } from '../domain/warehouse/warehouse-name.vo.js';
-import { CatalogRepositories, CatalogRepositoriesHarness, ItemCommitmentsSeeder } from './catalog-repositories.harness.js';
+import { CatalogRepositories, CatalogRepositoriesHarness, ItemSeeder } from './catalog-repositories.harness.js';
 
 const tenantA = TenantId.of(TENANT_A);
 const tenantB = TenantId.of(TENANT_B);
@@ -61,12 +50,12 @@ export function describeCatalogRepositoriesContract(
   describe(`CatalogRepositories contract: ${implementation}`, () => {
     const harness = createHarness();
     let repos: CatalogRepositories;
-    let seed: ItemCommitmentsSeeder;
+    let items: ItemSeeder;
 
     beforeEach(async () => {
       await harness.reset();
       repos = harness.repositories();
-      seed = harness.commitments();
+      items = harness.items();
     });
 
     afterEach(async () => {
@@ -88,15 +77,15 @@ export function describeCatalogRepositoriesContract(
 
     describe('CodeSequence', () => {
       it('counts from one, per tenant and per prefix', async () => {
-        expect(await repos.codes.next(tenantA, 'ART')).toBe(1);
-        expect(await repos.codes.next(tenantA, 'ART')).toBe(2);
+        expect(await repos.codes.next(tenantA, 'UOM')).toBe(1);
+        expect(await repos.codes.next(tenantA, 'UOM')).toBe(2);
         expect(await repos.codes.next(tenantA, 'CAT')).toBe(1);
-        expect(await repos.codes.next(tenantB, 'ART')).toBe(1);
+        expect(await repos.codes.next(tenantB, 'UOM')).toBe(1);
       });
 
       // La razon de ser del contador atomico: veinte altas a la vez, veinte numeros.
       it('never hands out the same number to concurrent requests', async () => {
-        const issued = await Promise.all(Array.from({ length: 20 }, () => repos.codes.next(tenantA, 'ART')));
+        const issued = await Promise.all(Array.from({ length: 20 }, () => repos.codes.next(tenantA, 'UOM')));
 
         expect(new Set(issued).size).toBe(20);
         expect(Math.max(...issued)).toBe(20);
@@ -322,201 +311,34 @@ export function describeCatalogRepositoriesContract(
       });
     });
 
-    describe('ItemRepository', () => {
-      it('returns what it saved, units and fractional factors included', async () => {
+    describe('ItemUsage', () => {
+      it('answers whether an active item uses a category, a tax or a unit, secondary units included', async () => {
         await seedReferences();
-        const item = anItem({
-          units: ItemUnits.of([ItemUnit.of(UNIT_PIECE, 1, true), ItemUnit.of(UNIT_BOX, 0.5, false)]),
-        });
+        await items.add({ categoryId: CATEGORY_A, taxId: TAX_A, unitIds: [UNIT_PIECE, UNIT_BOX] });
 
-        await repos.items.save(item);
-
-        const found = await repos.items.find(tenantA, ItemId.of(ITEM_A));
-        expect(found?.toPrimitives()).toEqual(item.toPrimitives());
-      });
-
-      it('saves an item with no category and no tax', async () => {
-        await seedReferences();
-        await repos.items.save(anItem({ categoryId: null, taxId: null }));
-
-        expect((await repos.items.find(tenantA, ItemId.of(ITEM_A)))?.toPrimitives()).toMatchObject({
-          categoryId: null,
-          taxId: null,
-        });
-      });
-
-      // Las unidades se reemplazan enteras: la caja retirada no puede quedar colgando.
-      it('replaces the units on update', async () => {
-        await seedReferences();
-        const item = anItem({
-          units: ItemUnits.of([ItemUnit.of(UNIT_PIECE, 1, true), ItemUnit.of(UNIT_BOX, 24, false)]),
-        });
-        await repos.items.save(item);
-
-        const details = { ...detailsOf(item), units: baseUnitOnly(UNIT_BOX) };
-        item.update(details, LATER);
-        await repos.items.save(item);
-
-        expect((await repos.items.find(tenantA, ItemId.of(ITEM_A)))?.toPrimitives().units).toEqual([
-          { unitId: UNIT_BOX, conversionFactor: 1, isBase: true },
-        ]);
-        expect(await repos.items.hasActiveWithUnit(tenantA, MeasurementUnitId.of(UNIT_PIECE))).toBe(false);
-      });
-
-      it('finds by SKU within the tenant', async () => {
-        await seedReferences();
-        await repos.items.save(anItem({ sku: 'AGUA-500' }));
-
-        expect(await repos.items.findBySku(tenantA, Sku.of('agua-500'))).not.toBeNull();
-        expect(await repos.items.findBySku(tenantB, Sku.of('AGUA-500'))).toBeNull();
-      });
-
-      it('refuses a repeated SKU and keeps the first item intact', async () => {
-        await seedReferences();
-        await repos.items.save(anItem({ sku: 'AGUA-500' }));
-
-        await expect(
-          repos.items.save(anItem({ id: ITEM_B, code: 'ART000002', sku: 'AGUA-500', units: baseUnitOnly(UNIT_BOX) })),
-        ).rejects.toThrow(DuplicateSkuError);
-
-        expect(await repos.items.searchByTenant(tenantA)).toHaveLength(1);
-        expect(await repos.items.hasActiveWithUnit(tenantA, MeasurementUnitId.of(UNIT_BOX))).toBe(false);
-      });
-
-      it('answers whether an active item uses a category, a tax or a unit', async () => {
-        await seedReferences();
-        await repos.items.save(anItem());
-
-        expect(await repos.items.hasActiveWithCategory(tenantA, CategoryId.of(CATEGORY_A))).toBe(true);
-        expect(await repos.items.hasActiveWithTax(tenantA, TaxId.of(TAX_A))).toBe(true);
-        expect(await repos.items.hasActiveWithUnit(tenantA, MeasurementUnitId.of(UNIT_PIECE))).toBe(true);
-        expect(await repos.items.hasActiveWithCategory(tenantB, CategoryId.of(CATEGORY_A))).toBe(false);
+        expect(await repos.itemUsage.activeItemUsesCategory(tenantA, CategoryId.of(CATEGORY_A))).toBe(true);
+        expect(await repos.itemUsage.activeItemUsesTax(tenantA, TaxId.of(TAX_A))).toBe(true);
+        expect(await repos.itemUsage.activeItemUsesUnit(tenantA, MeasurementUnitId.of(UNIT_BOX))).toBe(true);
+        expect(await repos.itemUsage.activeItemUsesCategory(tenantB, CategoryId.of(CATEGORY_A))).toBe(false);
       });
 
       it('does not count inactive items as using anything', async () => {
         await seedReferences();
-        await repos.items.save(anItem({ active: false }));
+        await items.add({ categoryId: CATEGORY_A, taxId: TAX_A, unitIds: [UNIT_PIECE], isActive: false });
 
-        expect(await repos.items.hasActiveWithCategory(tenantA, CategoryId.of(CATEGORY_A))).toBe(false);
-        expect(await repos.items.hasActiveWithTax(tenantA, TaxId.of(TAX_A))).toBe(false);
-        expect(await repos.items.hasActiveWithUnit(tenantA, MeasurementUnitId.of(UNIT_PIECE))).toBe(false);
+        expect(await repos.itemUsage.activeItemUsesCategory(tenantA, CategoryId.of(CATEGORY_A))).toBe(false);
+        expect(await repos.itemUsage.activeItemUsesTax(tenantA, TaxId.of(TAX_A))).toBe(false);
+        expect(await repos.itemUsage.activeItemUsesUnit(tenantA, MeasurementUnitId.of(UNIT_PIECE))).toBe(false);
       });
 
-      it('lists only the items of the tenant', async () => {
+      it('does not count what an item does not use', async () => {
         await seedReferences();
-        await repos.items.save(anItem());
+        await items.add({ unitIds: [UNIT_BOX] });
 
-        expect(await repos.items.searchByTenant(tenantA)).toHaveLength(1);
-        expect(await repos.items.searchByTenant(tenantB)).toEqual([]);
-      });
-    });
-
-    describe('ItemPosting', () => {
-      const itemA = ItemId.of(ITEM_A);
-
-      // Un articulo con caja de 24 y la bodega donde se siembra lo que comprometio.
-      async function seedItem(): Promise<void> {
-        await seedReferences();
-        await repos.warehouses.save(aWarehouse());
-        await repos.items.save(anItem({ units: ItemUnits.of([ItemUnit.of(UNIT_PIECE, 1, true), ItemUnit.of(UNIT_BOX, 24, false)]) }));
-      }
-
-      async function commitmentsOf(): Promise<ItemCommitments> {
-        let seen: ItemCommitments | undefined;
-
-        await repos.itemPosting.post(tenantA, itemA, (_item, commitments) => {
-          seen = commitments;
-        });
-
-        return seen!;
-      }
-
-      const openUnits = async () => (await commitmentsOf()).openDocumentUnits.map((unit) => unit.value);
-
-      it('hands the work the item and saves what it leaves', async () => {
-        await seedItem();
-
-        await repos.itemPosting.post(tenantA, itemA, (item) => item.deactivate(LATER));
-
-        expect((await repos.items.find(tenantA, itemA))?.isActive()).toBe(false);
-        expect(await commitmentsOf()).toEqual({ hasStock: false, hasMovements: false, openDocumentUnits: [] });
-      });
-
-      it('writes nothing when the work throws', async () => {
-        await seedItem();
-
-        await expect(
-          repos.itemPosting.post(tenantA, itemA, (item) => {
-            item.deactivate(LATER);
-            throw new Error('rule broken');
-          }),
-        ).rejects.toThrow('rule broken');
-
-        expect((await repos.items.find(tenantA, itemA))?.isActive()).toBe(true);
-      });
-
-      it('does not reach an item of another tenant', async () => {
-        await seedItem();
-
-        await expect(repos.itemPosting.post(tenantB, itemA, () => undefined)).rejects.toThrow(ItemNotFoundError);
-      });
-
-      it('counts stock only when a warehouse holds a positive quantity', async () => {
-        await seedItem();
-        await seed.stock(ITEM_A, 0);
-        expect((await commitmentsOf()).hasStock).toBe(false);
-
-        await seed.stock(ITEM_A, 5);
-        expect((await commitmentsOf()).hasStock).toBe(true);
-      });
-
-      it('knows whether the item has inventory movements', async () => {
-        await seedItem();
-        expect((await commitmentsOf()).hasMovements).toBe(false);
-
-        await seed.movement(ITEM_A);
-        expect((await commitmentsOf()).hasMovements).toBe(true);
-      });
-
-      // Solo lo que todavia promete algo: confirmada o recibida en parte, y con pendiente en la linea.
-      it('reports the units of purchase order lines still pending', async () => {
-        await seedItem();
-        await seed.purchaseLine({ itemId: ITEM_A, unitId: UNIT_PIECE, status: 'draft', quantity: 5, received: 0 });
-        await seed.purchaseLine({ itemId: ITEM_A, unitId: UNIT_PIECE, status: 'received', quantity: 5, received: 5 });
-        await seed.purchaseLine({ itemId: ITEM_A, unitId: UNIT_PIECE, status: 'cancelled', quantity: 5, received: 0 });
-        await seed.purchaseLine({ itemId: ITEM_A, unitId: UNIT_PIECE, status: 'partially_received', quantity: 5, received: 5 });
-        expect(await openUnits()).toEqual([]);
-
-        await seed.purchaseLine({ itemId: ITEM_A, unitId: UNIT_BOX, status: 'confirmed', quantity: 10, received: 0 });
-        await seed.purchaseLine({ itemId: ITEM_A, unitId: UNIT_PIECE, status: 'partially_received', quantity: 5, received: 2 });
-        expect(await openUnits()).toEqual([UNIT_PIECE, UNIT_BOX]);
-      });
-
-      it('reports the units of sales order lines still pending, each unit once', async () => {
-        await seedItem();
-        await seed.salesLine({ itemId: ITEM_A, unitId: UNIT_PIECE, status: 'draft', quantity: 5, dispatched: 0 });
-        await seed.salesLine({ itemId: ITEM_A, unitId: UNIT_PIECE, status: 'dispatched', quantity: 5, dispatched: 5 });
-        await seed.salesLine({ itemId: ITEM_A, unitId: UNIT_PIECE, status: 'cancelled', quantity: 5, dispatched: 0 });
-        expect(await openUnits()).toEqual([]);
-
-        await seed.salesLine({ itemId: ITEM_A, unitId: UNIT_BOX, status: 'confirmed', quantity: 2, dispatched: 0 });
-        await seed.salesLine({ itemId: ITEM_A, unitId: UNIT_BOX, status: 'partially_dispatched', quantity: 4, dispatched: 1 });
-        expect(await openUnits()).toEqual([UNIT_BOX]);
+        expect(await repos.itemUsage.activeItemUsesCategory(tenantA, CategoryId.of(CATEGORY_A))).toBe(false);
+        expect(await repos.itemUsage.activeItemUsesTax(tenantA, TaxId.of(TAX_A))).toBe(false);
+        expect(await repos.itemUsage.activeItemUsesUnit(tenantA, MeasurementUnitId.of(UNIT_PIECE))).toBe(false);
       });
     });
   });
-}
-
-function detailsOf(item: ReturnType<typeof anItem>) {
-  const row = item.toPrimitives();
-
-  return {
-    sku: Sku.of(row.sku),
-    name: ItemName.of(row.name),
-    description: row.description,
-    type: row.type,
-    categoryId: row.categoryId ? CategoryId.of(row.categoryId) : null,
-    taxId: row.taxId ? TaxId.of(row.taxId) : null,
-    units: ItemUnits.fromPrimitives(row.units),
-  };
 }

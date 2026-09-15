@@ -3,7 +3,7 @@ import { InactiveSalesItemError, SalesItemChangedError, ServiceNotSellableError 
 import { NOW, WATER, aDraftOrder, anAvailability } from '../../testing/sales.mother.js';
 import { StockReservation } from './stock-reservation.js';
 
-// El borrador se revalido contra el catalogo antes de bloquear nada: si el articulo cambio en ese
+// El borrador se revalido contra el maestro de articulos antes de bloquear nada: si el articulo cambio en ese
 // instante, el pedido no reserva con lo que vio antes.
 describe('StockReservation against the item as it is when locked', () => {
   const plenty = { [WATER]: 1000 };

@@ -10,8 +10,8 @@ export class AdjustmentNotFoundError extends NotFoundError {
   }
 }
 
-// Lo del catalogo que el inventario no encuentra en la empresa se responde igual que en el
-// catalogo: como inexistente.
+// Un articulo o una bodega que el ajuste no encuentra en la empresa se responde como
+// inexistente, igual que en sus maestros.
 export class StockItemNotFoundError extends NotFoundError {
   constructor(id: string) {
     super(`Item <${id}> does not exist.`);

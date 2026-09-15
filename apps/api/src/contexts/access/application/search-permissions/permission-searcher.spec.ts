@@ -12,7 +12,7 @@ describe('PermissionSearcher', () => {
   });
 
   // La interfaz las agrupa por modulo en vez de pintar una lista plana. El modulo es el
-  // primer segmento del codigo: `catalog.items.create` va bajo `catalog`.
+  // primer segmento del codigo: `inventory.items.create` va bajo `inventory`.
   it('groups every permission under the module its code starts with', async () => {
     const { permissions } = await searcher.run();
 

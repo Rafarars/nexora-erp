@@ -2,7 +2,7 @@ import { InventoryMovement } from '../../movement/inventory-movement.entity.js';
 import { ItemRef, UnitRef, WarehouseRef } from '../../shared/references.vo.js';
 import { ItemStock } from '../item-stock.entity.js';
 
-// El articulo tal como esta en el catalogo, bloqueado mientras dura la publicacion: un cambio del
+// El articulo tal como esta en su maestro, bloqueado mientras dura la publicacion: un cambio del
 // articulo espera a que termine, o la publicacion ve el cambio.
 export interface LedgerItem {
   isActive: boolean;

@@ -4,7 +4,7 @@ import { PurchaseOrder, PurchaseOrderId } from '../purchase-order.entity.js';
 
 export const PURCHASE_ORDER_POSTING = Symbol('PurchaseOrderPosting');
 
-// Los articulos de la orden tal como estan en el catalogo, bloqueados mientras dura la publicacion.
+// Los articulos de la orden tal como estan en su maestro, bloqueados mientras dura la publicacion.
 export interface OrderedItems {
   item(itemId: ItemRef): { isActive: boolean; type: 'inventoried' | 'service'; factorOf(unitId: UnitRef): number | null } | null;
 }

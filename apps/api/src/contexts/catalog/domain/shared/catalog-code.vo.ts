@@ -3,7 +3,8 @@ import { StringValueObject } from '../../../../shared/domain/value-object.js';
 
 const CODE_PATTERN = /^[A-Z]{3}\d{6,}$/;
 
-export type CodePrefix = 'CAT' | 'UOM' | 'IMP' | 'BOD' | 'ART';
+// ART ya no: el articulo vive en el inventario, con su propio codigo.
+export type CodePrefix = 'CAT' | 'UOM' | 'IMP' | 'BOD';
 
 export class InvalidCatalogCodeError extends InvalidArgumentError {
   constructor(value: string) {
@@ -11,7 +12,7 @@ export class InvalidCatalogCodeError extends InvalidArgumentError {
   }
 }
 
-// El correlativo legible que ve una persona (`ART000001`), distinto del UUID. Lo
+// El correlativo legible que ve una persona (`CAT000001`), distinto del UUID. Lo
 // genera el sistema; nadie lo escribe.
 export class CatalogCode extends StringValueObject {
   private constructor(value: string) {

@@ -21,7 +21,7 @@ export interface AdjustmentLinePrimitives {
   unitCost: number | null;
 }
 
-// Una linea ya validada contra el catalogo: la unidad es del articulo y la cantidad base
+// Una linea ya validada contra el articulo: la unidad es del articulo y la cantidad base
 // esta calculada. La construye AdjustmentLineFactory; aqui solo se guarda.
 export class AdjustmentLine {
   private constructor(

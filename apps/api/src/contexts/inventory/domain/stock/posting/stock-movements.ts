@@ -68,7 +68,7 @@ export class StockMovements {
   }
 }
 
-// El documento se valido contra el catalogo antes de bloquear nada: si entretanto el articulo se
+// El documento se valido contra el maestro de articulos antes de bloquear nada: si entretanto el articulo se
 // desactivo o se volvio servicio, no mueve existencia. Tampoco al anular: devolveria mercancia a
 // un articulo que ya no se ofrece, o la sacaria de uno que no puede tenerla.
 function ensureMovable(ledger: Ledger, itemId: ItemRef): void {

@@ -12,31 +12,20 @@ import {
   DuplicateCategoryNameError,
   DuplicateMeasurementUnitAbbreviationError,
   DuplicateMeasurementUnitNameError,
-  DuplicateSkuError,
   DuplicateTaxNameError,
   DuplicateWarehouseNameError,
 } from './duplicate.errors.js';
-import { InactiveReferenceError } from './inactive-reference.error.js';
 import {
   CategoryInUseError,
-  ItemInOpenDocumentsError,
-  ItemUnitInOpenDocumentsError,
-  ItemWithMovementsError,
-  ItemWithStockError,
   MeasurementUnitInUseError,
   TaxInUseError,
   WarehouseWithStockError,
 } from './in-use.errors.js';
 import {
-  InvalidConversionFactorError,
-  InvalidItemTypeError,
-  InvalidItemUnitsError,
-  InvalidSkuError,
   InvalidTaxRateError,
 } from './invalid-values.errors.js';
 import {
   CategoryNotFoundError,
-  ItemNotFoundError,
   MeasurementUnitNotFoundError,
   TaxNotFoundError,
   WarehouseNotFoundError,
@@ -57,30 +46,19 @@ const cases: Array<[DomainError, typeof DomainError]> = [
   [new MeasurementUnitNotFoundError(ID), NotFoundError],
   [new TaxNotFoundError(ID), NotFoundError],
   [new WarehouseNotFoundError(ID), NotFoundError],
-  [new ItemNotFoundError(ID), NotFoundError],
   [new DuplicateCategoryNameError('Bebidas', TENANT), ConflictError],
   [new DuplicateMeasurementUnitNameError('Caja', TENANT), ConflictError],
   [new DuplicateMeasurementUnitAbbreviationError('cja', TENANT), ConflictError],
   [new DuplicateTaxNameError('IVA', TENANT), ConflictError],
   [new DuplicateWarehouseNameError('Principal', TENANT), ConflictError],
-  [new DuplicateSkuError('AGUA-500', TENANT), ConflictError],
   [new CategoryInUseError(ID), ConflictError],
   [new MeasurementUnitInUseError(ID), ConflictError],
   [new TaxInUseError(ID), ConflictError],
-  [new ItemWithStockError(ID), ConflictError],
   [new WarehouseWithStockError(ID), ConflictError],
-  [new ItemWithMovementsError(ID), ConflictError],
-  [new ItemInOpenDocumentsError(ID), ConflictError],
-  [new ItemUnitInOpenDocumentsError(ID, ID), ConflictError],
   [new DefaultWarehouseDeactivationError(ID), ConflictError],
   [new InactiveDefaultWarehouseError(ID), ConflictError],
   [new ConcurrentDefaultWarehouseError(TENANT), ConflictError],
-  [new InactiveReferenceError('Category', ID), ConflictError],
   [new InvalidTaxRateError(120), InvalidArgumentError],
-  [new InvalidConversionFactorError(-1), InvalidArgumentError],
-  [new InvalidSkuError('A B'), InvalidArgumentError],
-  [new InvalidItemTypeError('serialized'), InvalidArgumentError],
-  [new InvalidItemUnitsError('no base'), InvalidArgumentError],
   [new InvalidAbbreviationError('c ja'), InvalidArgumentError],
   [new InvalidCatalogCodeError('nope'), InvalidArgumentError],
   [new TextTooLongError('CategoryName', 150), InvalidArgumentError],
@@ -100,6 +78,6 @@ describe('catalog domain errors', () => {
   });
 
   it('names itself with its concrete class, which is the code the interface translates', () => {
-    expect(new DuplicateSkuError('AGUA-500', TENANT).name).toBe('DuplicateSkuError');
+    expect(new DuplicateTaxNameError('IVA', TENANT).name).toBe('DuplicateTaxNameError');
   });
 });

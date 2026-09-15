@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { CategoryId } from '../../domain/category/category-id.vo.js';
 import { CategoryInUseError } from '../../domain/errors/in-use.errors.js';
 import { TenantId } from '../../domain/shared/tenant-id.vo.js';
-import { CATEGORY_A, TENANT_A, aCategory, anItem } from '../../domain/testing/catalog.mother.js';
+import { CATEGORY_A, TENANT_A, aCategory } from '../../domain/testing/catalog.mother.js';
 import { CatalogScenario, aCatalogScenario } from '../testing/catalog-scenario.js';
 import { CategoryStatusChanger } from './category-status-changer.js';
 
@@ -20,7 +20,8 @@ describe('CategoryStatusChanger', () => {
   });
 
   it('refuses to deactivate a category an active item uses, and leaves it active', async () => {
-    const scenario = aCatalogScenario({ categories: [aCategory()], items: [anItem()] });
+    const scenario = aCatalogScenario({ categories: [aCategory()] });
+    scenario.itemUsage.add({ categoryId: CATEGORY_A });
 
     await expect(
       changerFor(scenario).run({ tenantId: TENANT_A, categoryId: CATEGORY_A, active: false }),
@@ -29,7 +30,8 @@ describe('CategoryStatusChanger', () => {
   });
 
   it('deactivates it once the item using it is inactive', async () => {
-    const scenario = aCatalogScenario({ categories: [aCategory()], items: [anItem({ active: false })] });
+    const scenario = aCatalogScenario({ categories: [aCategory()] });
+    scenario.itemUsage.add({ categoryId: CATEGORY_A, isActive: false });
 
     await changerFor(scenario).run({ tenantId: TENANT_A, categoryId: CATEGORY_A, active: false });
 
