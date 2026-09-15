@@ -1,7 +1,7 @@
 # Empresa
 
-**Quién** es la empresa en los documentos que emite y **cómo** trabaja: su moneda, su zona horaria y sus
-decimales. Es la base del multimoneda, que se construye por pasos
+**Quién** es la empresa en los documentos que emite y **cómo** trabaja: su moneda, sus tasas de cambio, su zona
+horaria y sus decimales. Es la base del multimoneda, que se construye por pasos
 ([revisión](../revision/temas/configuracion-empresa.md#84-qué-toca-en-el-sistema)).
 
 Contexto: `apps/api/src/contexts/company` · Pantalla: `/administracion/empresa`
@@ -11,6 +11,7 @@ Contexto: `apps/api/src/contexts/company` · Pantalla: `/administracion/empresa`
 | Datos de la empresa | `company_profiles` | Razón social, nombre comercial, RIF, dirección, teléfono y correo |
 | Parámetros | `company_settings` | Moneda principal y secundaria, zona horaria, decimales de importes y precios |
 | Monedas | `currencies` | Catálogo global, igual para todas las empresas; llega con las migraciones |
+| Tasas de cambio | `exchange_rates` | Bolívares por 1 unidad de cada moneda, por fecha y tipo, de cada empresa |
 
 **Por qué un contexto propio.** Acceso decide quién entra y con qué permisos; esto son datos de negocio que leen
 todos los módulos. Así ningún módulo depende del de seguridad para saber la moneda o qué día es. La tabla `tenants`
@@ -43,6 +44,7 @@ sigue en Acceso; datos y parámetros van uno a uno por empresa.
 | `time_zone` | `America/Caracas` | Zona IANA; no se aceptan desplazamientos sueltos (`+04:00`) |
 | `amount_decimals` | 2 | De 0 a 4 (el techo de la columna de importes) |
 | `price_decimals` | 6 | De 0 a 6 |
+| `rate_type` | `legal` | La serie de tasas con que se valoran los documentos: `legal` (BCV) o `manual` (interna) |
 
 **Reglas**
 
@@ -65,7 +67,42 @@ empresa**. Lo usan inventario, compras, ventas, cobranza y reportes para:
 Antes era el día UTC del servidor: en Venezuela, desde las 8 de la noche, el sistema proponía la fecha de mañana. La
 interfaz ya no calcula la fecha: la toma de `today` en los parámetros.
 
-## 4. API y permisos
+## 4. Tasas de cambio — `exchange_rates`
+
+> **`rate` = cuántos bolívares vale 1 unidad de la moneda.** De ahí sale una sola fórmula:
+> `bolívares = monto × tasa`. El cruce entre dos monedas extranjeras pasa por el bolívar
+> (EUR→USD = tasa del EUR ÷ tasa del USD), sin tabla de pares.
+
+| Campo | Tipo | Regla |
+|---|---|---|
+| `currency` | char(3) | Existe en el catálogo. **Nunca el bolívar**: vale siempre 1 (también un CHECK en la base) |
+| `rate_date` | fecha | El día en que rige. Puede ser futuro: el BCV publica por la tarde la del día hábil siguiente |
+| `type` | `legal` o `manual` | Series independientes: una no rellena los huecos de la otra |
+| `rate` | decimal(18,8) | Mayor que cero, hasta 8 decimales y menos de 10.000.000 |
+| `source` | texto(150) | Opcional: de dónde salió (BCV, tesorería…) |
+| `is_active` | booleano | Una tasa no se borra |
+
+**Reglas**
+
+- **Una por moneda, fecha y tipo** en cada empresa. **Cargar otra vez la misma combinación la corrige**, y la
+  reactiva si estaba desactivada. Dos cargas simultáneas de la misma: la segunda recibe un 409 y no pisa a ciegas.
+- Una tasa que **no debía existir** (otra fecha, otra moneda) **se desactiva**: los documentos pasan a usar la anterior.
+- Una moneda **retirada** del catálogo no recibe tasas nuevas, pero la que ya tenía se corrige.
+- **Cargadas a mano.** La descarga automática del BCV queda fuera: no ofrece una API oficial estable.
+
+**Resolución: la tasa de un día**
+
+1. El bolívar vale 1, sin consultar nada.
+2. Si no, la **activa** de esa moneda y serie con la fecha **más reciente que no pase del día**. Un sábado usa la del
+   viernes; nunca una posterior.
+3. Sin ninguna, el documento en esa moneda **no se emite** (`MissingExchangeRateError`, 409): mejor no emitir que
+   emitir con tasa 1.
+
+**Contrato publicado:** `DocumentRates` (`shared/domain/ports/document-rates.ts`). `forDocument(empresa, moneda,
+fecha)` devuelve las dos tasas que congela un documento: la de su moneda y la de la moneda de la empresa, de la serie
+que eligió en sus parámetros. Lo consumirán compras (paso 3) y ventas y cobranza (paso 4).
+
+## 5. API y permisos
 
 | Acción | Ruta | Permiso |
 |---|---|---|
@@ -74,11 +111,18 @@ interfaz ya no calcula la fecha: la toma de `today` en los parámetros.
 | Consultar los parámetros | `GET /api/v1/company/settings` | Solo sesión: toda pantalla necesita moneda, decimales y hoy |
 | Cambiar los parámetros | `PUT /api/v1/company/settings` | `company.settings.update` |
 | Listar las monedas | `GET /api/v1/company/currencies` | Solo sesión |
+| Consultar las tasas y la vigente | `GET /api/v1/company/exchange-rates` | `company.rates.search` |
+| Cargar o corregir una tasa | `PUT /api/v1/company/exchange-rates` | `company.rates.record` |
+| Desactivar o reactivar una tasa | `PUT /api/v1/company/exchange-rates/:rateId/status` | `company.rates.deactivate` |
 
 La respuesta de los parámetros trae las monedas con nombre, símbolo y decimales, si hay doble moneda (`dualCurrency`)
 y el día de hoy (`today`).
 
-## 5. Pantalla
+La consulta de tasas filtra por `currency`, `type`, `from` y `to`, trae las 500 más recientes y, en `current`, la tasa
+que usaría un documento de `date` (hoy de la empresa si no viene) en cada moneda extranjera activa, de la serie
+pedida o de la que usa la empresa.
+
+## 6. Pantalla
 
 `/administracion/empresa`, tercera sección de Administración:
 
@@ -87,7 +131,14 @@ y el día de hoy (`today`).
 - Administración aparece en el menú de la cuenta también a quien solo puede ver o cambiar la empresa, y entra por la
   primera sección que el rol puede ver.
 
-## 6. Datos de demostración
+`/administracion/tasas`, cuarta sección de Administración (**Tasas de cambio**):
+
+- Arriba, las **vigentes hoy** de cada moneda para la serie de la empresa, con el día de la tasa si es anterior.
+- El listado con filtros por moneda, tipo y fechas. **Cargar tasa** abre un panel lateral y cada fila ofrece
+  **Corregir** y **Desactivar** o **Reactivar**, según el rol. La tasa se escribe con coma decimal.
+- En **Parámetros**, «Tasa de los documentos» elige la serie legal o interna.
+
+## 7. Datos de demostración
 
 | Empresa | Razón social | RIF | Parámetros |
 |---|---|---|---|
@@ -98,7 +149,10 @@ y el día de hoy (`today`).
 
 Se reescriben en cada corrida de semillas. Las monedas (USD, EUR, VES) llegan con la migración.
 
-## 7. Pruebas que lo protegen
+Tasas de septiembre de 2026: Acme tiene la legal del dólar (días 1, 8 y 11) y del euro (1 y 11) y una interna del
+dólar; Globex, la legal del dólar del día 10, que es la que atacan las pruebas de aislamiento.
+
+## 8. Pruebas que lo protegen
 
 | Nivel | Dónde | Qué cubre |
 |---|---|---|
@@ -106,3 +160,8 @@ Se reescriben en cada corrida de semillas. Las monedas (USD, EUR, VES) llegan co
 | Contrato | `company-ports.contract.ts` | Datos y parámetros por empresa, catálogo de monedas, nombre registrado y documentos confirmados, contra doble y PostgreSQL |
 | API | `tests/api/company.api.spec.ts` | Lectura por cualquier miembro, cambios y sus rechazos, moneda fija de Acme, permisos y sesión |
 | Interfaz | `tests/ui/company.spec.ts` | Editar los datos, error en español, solo lectura |
+| Dominio y aplicación | `domain/rate/*.spec.ts`, `application/exchange-rates.spec.ts` | Tasa válida, bolívar sin tasa, corregir en lugar de duplicar, la del día o la anterior y nunca una posterior, serie de la empresa, tasas de un documento |
+| Contrato | `company-ports.contract.ts` | Guardar, clave única, la última activa hasta un día y el listado con filtros, contra doble y PostgreSQL |
+| API | `tests/api/exchange-rates.api.spec.ts` | Resolución, corrección, desactivar y reactivar, rechazos, solo lectura y sesión |
+| Interfaz | `tests/ui/exchange-rates.spec.ts` | Cargar con coma decimal, corregir desde la fila, errores en español, filtros y solo lectura |
+| Aislamiento | `support/isolation-matrix.ts` | Desactivar una tasa de otra empresa responde 404 |

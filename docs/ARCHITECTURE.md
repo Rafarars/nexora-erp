@@ -212,6 +212,10 @@ sirve a un endpoint. Tienen el mismo nombre y trabajos distintos.
   implementa el contexto de empresa, que lo exporta, y lo usan los documentos para saber qué día es hoy en la zona
   horaria de cada empresa. Las pruebas de los demás contextos usan `ClockBusinessCalendar`: hoy es el día UTC del
   reloj congelado
+- **Las tasas de un documento, publicadas**: `shared/domain/ports/document-rates.ts` (`DOCUMENT_RATES`). También las
+  implementa y exporta el contexto de empresa: `forDocument` devuelve la tasa de la moneda del documento y la de la
+  moneda de la empresa, de la serie que eligió, con la del día o la última anterior. Ningún módulo lee
+  `exchange_rates` por su cuenta
 - **Un segundo contrato publicado, solo de lectura**: `shared/prisma/receivable-balances.ts`
   (`RECEIVABLE_BALANCES`). Lo implementa cuentas por cobrar, dueña de los cobros, y lo usa ventas al
   emitir a crédito (bloquea el cliente y lee su deuda) y al anular una factura (lee lo cobrado). El
