@@ -23,7 +23,7 @@ de ninguna conversación anterior**.
 |---|---|
 | Repositorio | github.com/Rafarars/nexora-erp |
 | Reporte de pruebas | https://rafarars.github.io/nexora-erp/ |
-| Pruebas | 2190 + 154 unitarias · 142 de contrato · 315 end-to-end |
+| Pruebas | 2307 + 164 unitarias · 149 de contrato · 326 end-to-end |
 | **H0 — Fundación** | **Completado** |
 | **H1 — Multiempresa y acceso** | **Completado** y revisado |
 | **H2 — Catálogo** | **Completado** ([`H2-CATALOGO.md`](H2-CATALOGO.md)) |
@@ -431,7 +431,7 @@ Informe completo en [`revision/inventario/articulos.md`](revision/inventario/art
 |---|---|---|
 | 1 · Integridad | H8 una sola base en la base de datos; H1 unidades protegidas con órdenes o pedidos abiertos y entrada con la base de la orden; H2 no desactivar con documentos abiertos; H9 bloqueos `FOR UPDATE`/`FOR SHARE` contra carreras; borradores con caja cambiada piden revisión | ✅ Commits `539659b..ff3360e`, CI en verde, segunda pasada del método hecha |
 | 2 · Artículos en Inventario | Mover **código, pantalla y permisos**: contexto `catalog` → `inventory`, ruta `/inventario/articulos`, menú, `catalog.items.*` → `inventory.items.*` (semillas, roles, aislamiento, documentación). Añadir la prueba de interfaz de los mensajes del artículo | ✅ Código en `contexts/inventory`, puertos `CatalogReferences` e `ItemUsage`, migración de permisos, prueba de interfaz de los mensajes |
-| 3 · Configuración de la empresa | Antes de construir, **investigar** en los ERP y en el compañero qué lleva (datos de empresa, lista de precio por defecto, moneda…) | ⬜ **Siguiente** |
+| 3 · Configuración de la empresa y monedas | Investigada y decidida ([informe](revision/temas/configuracion-empresa.md)): contexto propio `company`, todo de una vez, multimoneda con tasas cargadas a mano, zona horaria. Cinco pasos: 1 Empresa y hoy por zona · 2 Monedas y tasas · 3 Compras · 4 Ventas y cobranza · 5 Reportes | 🔨 **En curso**: paso 1 hecho ([módulo](modulos/empresa.md)); sigue el paso 2 |
 | 4 · Artículo completo | H5 impuesto de venta y de compra; H4 factor con 8 decimales; H6 código de barras, comprable/vendible, mínimo/máximo/reorden; H7 copiar SKU y nombre en las líneas; paginación y búsqueda | ⬜ |
 | 5 · Listas de precio | Investigar su ubicación; maestro, precio por artículo, lista en el cliente, precio mínimo, precio sugerido en el pedido | ⬜ |
 | 6 · Servicios (H3) | Corregir documentación y pantalla. Comprar y vender servicios se hace en Compras y Facturas con la regla del compañero: la línea de servicio no cuenta para recibido o despachado | ⬜ |

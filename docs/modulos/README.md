@@ -9,6 +9,7 @@ informes `H2-CATALOGO.md`, `H3-INVENTARIO.md`, `H4-COMPRAS.md`, `H5-VENTAS.md`,
 | Archivo | Módulo | Submódulos | Hito |
 |---|---|---|---|
 | [acceso.md](acceso.md) | Acceso y administración | Sesión, empresas, personas, roles y permisos, perfil | H1 |
+| [empresa.md](empresa.md) | Empresa | Datos de la empresa, parámetros (moneda, zona horaria, decimales), monedas | Revisión |
 | [catalogo.md](catalogo.md) | Catálogo | Categorías, unidades de medida, impuestos, bodegas | H2 |
 | [inventario.md](inventario.md) | Inventario | Artículos, ajustes, kardex, existencias | H3 |
 | [compras.md](compras.md) | Compras | Proveedores, órdenes de compra, entradas de mercancía, en camino | H4 |
@@ -16,7 +17,7 @@ informes `H2-CATALOGO.md`, `H3-INVENTARIO.md`, `H4-COMPRAS.md`, `H5-VENTAS.md`,
 | [cuentas-por-cobrar.md](cuentas-por-cobrar.md) | Cuentas por cobrar | Cobros, facturas por cobrar, antigüedad, estado de cuenta, límite de crédito | H6 |
 | [reportes.md](reportes.md) | Reportes y tablero | Tablero, antigüedad, estado de cuenta, ventas por cliente, valuación del inventario | H7 |
 
-Orden de dependencia: **Acceso → Catálogo → Inventario → Compras → Ventas → Cobranza → Reportes**.
+Orden de dependencia: **Acceso → Empresa → Catálogo → Inventario → Compras → Ventas → Cobranza → Reportes**.
 Cada módulo usa los anteriores y ninguno importa código de otro: se leen por puertos propios. La
 única escritura entre módulos es la del inventario pedida por compras (entradas) y ventas (reservas
 y despachos), por un contrato publicado ([compras.md §5](compras.md#5-cómo-se-mueve-la-existencia)).

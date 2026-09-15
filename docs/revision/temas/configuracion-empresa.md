@@ -162,9 +162,10 @@ sola pantalla, «Empresa», con permisos `access.company.search` y `access.compa
 | Cuentas por cobrar | Monto de cobros y aplicaciones |
 | Reportes | Tablero, antigüedad, estado de cuenta, ventas por cliente y valuación suman importes |
 
-**Orden de construcción propuesto** (un paso, sus pruebas y su commit):
+**Orden de construcción** (un paso, sus pruebas y su commit):
 
-1. Empresa: datos, parámetros (moneda principal y secundaria, zona horaria, decimales) y la corrección de «hoy».
+1. ✅ Empresa: datos, parámetros (moneda principal y secundaria, zona horaria, decimales) y la corrección de «hoy».
+   Documentado en [modulos/empresa.md](../../modulos/empresa.md).
 2. Monedas y tasas: catálogo de monedas, tasas por fecha y tipo, resolución de la tasa de un documento.
 3. Compras: moneda y tasas congeladas en órdenes y entradas.
 4. Ventas y cobranza: pedidos, facturas con importes en bolívares, cobros con la tasa de su fecha y el diferencial

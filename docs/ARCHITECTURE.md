@@ -208,6 +208,10 @@ sirve a un endpoint. Tienen el mismo nombre y trabajos distintos.
   importan el del inventario solo para eso: es la única composición entre contextos
 - **Una reserva no se guarda aparte**: es lo pendiente de los pedidos confirmados. Reservar bloquea
   las filas de existencia del inventario y suma las reservas dentro de la misma transacción
+- **El calendario de la empresa, publicado**: `shared/domain/ports/business-calendar.ts` (`BUSINESS_CALENDAR`). Lo
+  implementa el contexto de empresa, que lo exporta, y lo usan los documentos para saber qué día es hoy en la zona
+  horaria de cada empresa. Las pruebas de los demás contextos usan `ClockBusinessCalendar`: hoy es el día UTC del
+  reloj congelado
 - **Un segundo contrato publicado, solo de lectura**: `shared/prisma/receivable-balances.ts`
   (`RECEIVABLE_BALANCES`). Lo implementa cuentas por cobrar, dueña de los cobros, y lo usa ventas al
   emitir a crédito (bloquea el cliente y lee su deuda) y al anular una factura (lee lo cobrado). El
