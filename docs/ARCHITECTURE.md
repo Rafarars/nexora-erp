@@ -222,7 +222,7 @@ sirve a un endpoint. Tienen el mismo nombre y trabajos distintos.
 - **Cantidades y costos en enteros escalados** (`BigInt`): la existencia es la suma exacta del
   kardex, sin redondeos de coma flotante
 - **El kardex no se edita**: anular escribe movimientos que citan a los originales
-- **Un contexto lee a otro por un puerto propio** (`InventoryCatalog`, `StockUsage`) cuyo
+- **Un contexto lee a otro por un puerto propio** (`InventoryCatalog`, `CatalogReferences`, `StockUsage`, `ItemUsage`) cuyo
   adaptador lee las tablas del otro: capa anticorrupción, sin importar su código
 - **Un repositorio no pisa un cambio de estado**: guardar un borrador solo actualiza filas que
   siguen en borrador

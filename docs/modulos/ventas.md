@@ -101,8 +101,8 @@ Ejemplo: hay 300, otro pedido reservó 60. Un pedido de 10 cajas (240) cabe; uno
 **Los artículos se bloquean antes que las existencias.** Al confirmar, con los artículos bloqueados en
 modo compartido, se comprueba que sigan activos, inventariados y con el factor con que se calcularon
 las cantidades base. Si cambiaron entre la revalidación y el bloqueo, el pedido no reserva
-(`SalesItemChangedError`, 409) y se vuelve a intentar. Mientras el pedido esté abierto, el catálogo
-no deja desactivar el artículo ni cambiar la unidad que usa.
+(`SalesItemChangedError`, 409) y se vuelve a intentar. Mientras el pedido esté abierto, el maestro
+de artículos no deja desactivar el artículo ni cambiar la unidad que usa.
 
 ---
 
@@ -127,7 +127,7 @@ no deja desactivar el artículo ni cambiar la unidad que usa.
 
 - **Un despacho facturado no se anula**: primero se anula su factura.
 - **Si alguien sacó la existencia reservada** (un ajuste de salida por una merma o un conteo, por
-  ejemplo; ver [inventario.md §1.0.1](inventario.md#101-un-ajuste-de-salida-y-las-reservas-de-ventas)), el despacho se
+  ejemplo; ver [inventario.md §2.0.1](inventario.md#201-un-ajuste-de-salida-y-las-reservas-de-ventas)), el despacho se
   rechaza con «La bodega ya no tiene la existencia de este despacho» y no cambia nada.
 
 - **Anular un despacho de un artículo que se desactivó** se rechaza (`InactiveSalesItemError`):

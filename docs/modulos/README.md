@@ -9,8 +9,8 @@ informes `H2-CATALOGO.md`, `H3-INVENTARIO.md`, `H4-COMPRAS.md`, `H5-VENTAS.md`,
 | Archivo | Módulo | Submódulos | Hito |
 |---|---|---|---|
 | [acceso.md](acceso.md) | Acceso y administración | Sesión, empresas, personas, roles y permisos, perfil | H1 |
-| [catalogo.md](catalogo.md) | Catálogo | Categorías, unidades de medida, impuestos, bodegas, artículos | H2 |
-| [inventario.md](inventario.md) | Inventario | Ajustes, kardex, existencias | H3 |
+| [catalogo.md](catalogo.md) | Catálogo | Categorías, unidades de medida, impuestos, bodegas | H2 |
+| [inventario.md](inventario.md) | Inventario | Artículos, ajustes, kardex, existencias | H3 |
 | [compras.md](compras.md) | Compras | Proveedores, órdenes de compra, entradas de mercancía, en camino | H4 |
 | [ventas.md](ventas.md) | Ventas | Clientes, pedidos con reserva, despachos, facturas, disponibilidad | H5 |
 | [cuentas-por-cobrar.md](cuentas-por-cobrar.md) | Cuentas por cobrar | Cobros, facturas por cobrar, antigüedad, estado de cuenta, límite de crédito | H6 |

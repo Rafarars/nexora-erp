@@ -37,7 +37,6 @@ Estados: ⬜ pendiente · 🔍 revisado, esperando decisiones · ✅ cerrado (de
 
 | Submódulo | Estado | Informe |
 |---|---|---|
-| Artículos (piloto) | 🔍 | [catalogo/articulos.md](catalogo/articulos.md) |
 | Unidades de medida | ⬜ | |
 | Categorías | ⬜ | |
 | Impuestos | ⬜ | |
@@ -47,6 +46,7 @@ Estados: ⬜ pendiente · 🔍 revisado, esperando decisiones · ✅ cerrado (de
 
 | Submódulo | Estado | Informe |
 |---|---|---|
+| Artículos (piloto; empezó en Catálogo) | 🔍 | [inventario/articulos.md](inventario/articulos.md) |
 | Ajustes | ⬜ | |
 | Existencias | ⬜ | |
 | Kardex | ⬜ | |
@@ -106,7 +106,7 @@ decidir **en qué módulo viven** y **qué reglas llevan**. Cada una se resuelve
 
 | Tema | Pregunta | Se resuelve en | Estado |
 |---|---|---|---|
-| Artículos en Inventario | Mover código, pantalla y permisos de Catálogo a Inventario (decidido) | Artículos | ⬜ |
+| Artículos en Inventario | Mover código, pantalla y permisos de Catálogo a Inventario (decidido) | Artículos | ✅ Fase 2 |
 | Configuración de la empresa | Qué valores lleva y dónde vive | Artículos (antes de listas de precio) | ⬜ |
 | Listas de precio | En qué módulo vive el maestro y cómo se resuelve el precio | Artículos | ⬜ |
 | Adjuntos e imágenes | Módulo genérico de archivos: tabla, relación con cada registro y almacenamiento en el despliegue | Artículos (imagen del artículo) | ⬜ |

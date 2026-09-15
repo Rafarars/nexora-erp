@@ -1,4 +1,4 @@
-# Revisión: Catálogo › Artículos
+# Revisión: Inventario › Artículos
 
 **Fecha:** 14-sep-2026 · **Estado:** 🔍 revisado, esperando decisiones · **Piloto del método**
 ([README](../README.md))
@@ -327,6 +327,32 @@ El orden de ataque y los temas por investigar están en el [checklist](../README
 **Verificación:** tipos de API, web y e2e; lint; 2162 pruebas unitarias de la API y 152 de la web;
 139 casos de contrato contra PostgreSQL; 306 pruebas e2e, entre ellas las 6 nuevas de
 `item-protection.api.spec.ts`.
+
+### Fase 2 · Artículos en Inventario
+
+Rafael decidió que Artículos va bajo Inventario, como en SAP Business One, Odoo y Business Central, y
+que se mueve también el código. Categorías, unidades, impuestos y bodegas siguen en el catálogo.
+
+| Qué | Cómo quedó | Dónde se prueba |
+|---|---|---|
+| Código | Dominio, casos de uso, HTTP y persistencia del artículo en `contexts/inventory`. El código `ART` sale del contador del inventario. Los errores conservan su nombre: la web traduce por nombre | Pruebas de dominio y aplicación movidas; `error-categories.spec.ts` del inventario |
+| Frontera con el catálogo | Inventario pregunta por categorías, impuestos y unidades con el puerto `CatalogReferences`; el catálogo pregunta si un artículo activo usa algo con `ItemUsage`. Ninguno importa código del otro: los adaptadores leen las tablas ajenas | Contrato nuevo `item-ports.contract.ts` (15 casos) y contrato del catálogo con `ItemUsage` |
+| API y permisos | `api/v1/inventory/items` y `inventory.items.*`. Una migración crea los códigos nuevos, copia cada concesión y borra los viejos: ningún rol pierde acceso | Sincronización sin permisos huérfanos; matriz de aislamiento con las tres rutas nuevas |
+| Pantalla | `/inventario/articulos`, primera sección de Inventario. Órdenes, pedidos, ajustes y kardex cargan los artículos desde la API nueva | `inventory-sections.spec.ts`, e2e de catálogo e inventario |
+| Hueco de 9.3 | La pantalla ve en el panel el SKU repetido y los cuatro rechazos del artículo: existencia, movimientos, unidad usada por una orden abierta y artículo con órdenes abiertas | `tests/ui/items.spec.ts` |
+
+**Decisiones de construcción** (anotadas también en el pendiente de revisión):
+
+- El puerto `InventoryCatalog`, que usan los ajustes, conserva su nombre: ahora lee artículos del propio
+  contexto, pero un ajuste no necesita el agregado. Renombrarlo tocaba ajustes, existencias y contratos
+  sin cambiar comportamiento.
+- Las bodegas no se movieron: su lugar se decide en la revisión de Bodegas.
+
+**Segunda opinión:** `agy` respondió «CONCUR — sin hallazgos» sin detallar nada. Con un diff de 321 KB
+se toma como indicio débil, no como verificación; la verificación es la suite.
+
+**Verificación:** tipos de API, web y e2e; lint; 2190 pruebas unitarias de la API y 154 de la web; 142
+casos de contrato contra PostgreSQL; 315 pruebas e2e contra el sistema reconstruido.
 
 ---
 

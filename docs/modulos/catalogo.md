@@ -1,7 +1,8 @@
 # Catálogo
 
-Los maestros que alimentan al resto del sistema: **qué** se compra, se vende y se guarda, en
-**qué unidades**, con **qué impuesto** y **dónde**.
+Los maestros que comparten los artículos y los documentos: **en qué unidades** se cuenta, **cómo**
+se clasifica, **con qué impuesto** y **dónde** se guarda. Los artículos viven en
+[Inventario](inventario.md#1-artículos) desde la revisión de septiembre de 2026, como en los ERP.
 
 Contexto: `apps/api/src/contexts/catalog` · Pantallas: `/catalogo/*` · Informe técnico:
 [`../H2-CATALOGO.md`](../H2-CATALOGO.md)
@@ -12,13 +13,12 @@ Contexto: `apps/api/src/contexts/catalog` · Pantallas: `/catalogo/*` · Informe
 | Unidades de medida | `measurement_units` | `UOM` | Artículos, ajustes |
 | Impuestos | `taxes` | `IMP` | Artículos (y documentos de venta y compra) |
 | Bodegas | `warehouses` | `BOD` | Inventario |
-| Artículos | `items`, `item_units` | `ART` | Inventario, compras, ventas |
 
 Todas las tablas llevan `id`, `tenant_id`, `code`, `is_active`, `created_at` y `updated_at`.
 
 ---
 
-## Reglas comunes a los cinco maestros
+## Reglas comunes a los cuatro maestros
 
 - **Nada se borra**: se desactivan y se reactivan.
 - **Código legible** asignado por el sistema al crear; nunca cambia.
@@ -105,62 +105,7 @@ Donde se guarda la existencia.
 
 ---
 
-## 5. Artículos
-
-El maestro de productos y servicios.
-
-| Campo | Tipo | Regla |
-|---|---|---|
-| `sku` | texto(60) | Obligatorio, único por empresa. **Se guarda en mayúsculas**; solo letras, dígitos, `.`, `-` y `_` |
-| `name` | texto(200) | Obligatorio |
-| `description` | texto(1000) | Opcional |
-| `type` | `inventoried` \| `service` | Inventariado tiene existencia; servicio se compra y vende pero nunca tiene stock |
-| `category_id` | categoría | Opcional |
-| `tax_id` | impuesto | Opcional |
-
-### 5.1 Unidades del artículo — `item_units`
-
-| Campo | Tipo | Regla |
-|---|---|---|
-| `unit_id` | unidad | De la misma empresa |
-| `conversion_factor` | decimal(18,4) | Mayor que cero. Cuántas unidades base contiene 1 de esta unidad |
-| `is_base` | sí/no | **Exactamente una** base, con factor 1 |
-
-Ejemplo: agua con base «un» y «cja» con factor 24 → 1 cja = 24 un. Todo el stock se guarda en la
-unidad base.
-
-**Reglas**
-
-- Al menos una unidad, **exactamente una base con factor 1** y **ninguna repetida**
-  (`InvalidItemUnitsError`). El factor puede ser menor que 1 (medio kilo).
-- **Todo lo que referencia existe en su empresa y está activo** al crear. Al **editar** se tolera
-  conservar una referencia que se desactivó después: corregir la descripción no obliga a cambiar
-  la categoría.
-- **Reactivar** un artículo exige que sus referencias estén activas, o volvería a los selectores
-  con algo que ya no se ofrece.
-- **No se desactiva un artículo con existencia** (`ItemWithStockError`, desde el H3).
-- **No se desactiva un artículo que usan órdenes de compra o pedidos de venta abiertos**
-  (`ItemInOpenDocumentsError`): confirmados o a medias, con algo pendiente de ese artículo. Un
-  borrador no cuenta: todavía no prometió nada y se revalida al confirmarlo. Sin esta regla la
-  entrada o el despacho fallaban después, con el artículo ya inactivo.
-- **Con movimientos de inventario, no cambia su unidad base ni su tipo** (`ItemWithMovementsError`,
-  desde el H3): el kardex guarda cantidades en esa unidad. Sí se pueden añadir unidades
-  secundarias o cambiar nombre, categoría e impuesto.
-- **Mientras una orden o un pedido abierto usa una unidad, esa unidad no se quita ni cambia su
-  factor** (`ItemUnitInOpenDocumentsError`), y el artículo no cambia de tipo
-  (`ItemInOpenDocumentsError`). La orden guardó 10 cajas como 240 unidades: con una caja de 12
-  anunciaría en camino otra cosa. Recibida o anulada la orden, la unidad vuelve a quedar libre.
-- **Editar y desactivar bloquean la fila del artículo** mientras miran su existencia, su kardex y
-  sus documentos abiertos. Quien confirma un documento o mueve existencia la bloquea en modo
-  compartido: el cambio y el documento van en fila, y el segundo ve lo que dejó el primero. Así
-  nunca queda un artículo inactivo con existencia, ni con la base cambiada bajo su primer
-  movimiento.
-- **Una sola unidad base, también en la base de datos**: el índice único parcial
-  `item_units_one_base_per_item` la garantiza para quien escriba sin pasar por el dominio.
-
----
-
-## 6. API y permisos
+## 5. API y permisos
 
 | Recurso | Listar | Crear | Editar | Desactivar/reactivar |
 |---|---|---|---|---|
@@ -168,12 +113,11 @@ unidad base.
 | Unidades | `GET /api/v1/catalog/units` | `POST` | `PUT /:unitId` | `PUT /:unitId/status` |
 | Impuestos | `GET /api/v1/catalog/taxes` | `POST` | `PUT /:taxId` | `PUT /:taxId/status` |
 | Bodegas | `GET /api/v1/catalog/warehouses` | `POST` | `PUT /:warehouseId` | `PUT /:warehouseId/status` |
-| Artículos | `GET /api/v1/catalog/items` | `POST` | `PUT /:itemId` | `PUT /:itemId/status` |
 
 Más `PUT /api/v1/catalog/warehouses/:warehouseId/default` para elegir la bodega por defecto.
 
-**Permisos** (`catalog.{recurso}.{acción}`), con `{recurso}` = `categories`, `units`, `taxes`,
-`warehouses`, `items`:
+**Permisos** (`catalog.{recurso}.{acción}`), con `{recurso}` = `categories`, `units`, `taxes` y
+`warehouses`. Los de artículos son `inventory.items.*`:
 
 | Acción | Permite |
 |---|---|
@@ -182,17 +126,13 @@ Más `PUT /api/v1/catalog/warehouses/:warehouseId/default` para elegir la bodega
 | `update` | Editar (y, en bodegas, elegir la de por defecto) |
 | `deactivate` | Desactivar y reactivar |
 
-El listado de artículos devuelve los **nombres** de categoría, impuesto y unidades: se ve la tabla
-de artículos sin permiso para leer esos otros maestros.
-
 ---
 
-## 7. Pantallas
+## 6. Pantallas
 
 | Ruta | Qué hace |
 |---|---|
 | `/catalogo` | Redirige a la primera sección que el rol puede ver |
-| `/catalogo/articulos` | Tabla con SKU, tipo, categoría, impuesto y unidades («un · 1 cja = 24 un»); panel con editor de unidades |
 | `/catalogo/categorias` | Nombre y descripción |
 | `/catalogo/unidades` | Nombre y abreviatura |
 | `/catalogo/impuestos` | Nombre y porcentaje, con coma decimal |
@@ -202,28 +142,25 @@ de artículos sin permiso para leer esos otros maestros.
   Desactivar o Reactivar). Crear y editar abren el mismo panel lateral.
 - El módulo aparece en la barra lateral **solo si el rol puede ver alguna sección**; cada sección,
   solo si puede consultarla.
-- El formulario de artículos se ofrece solo si el rol puede leer categorías, impuestos y unidades.
-- En el editor de unidades, **la primera unidad elegida queda como base**, y la marca sigue a la
-  unidad si se cambia la de su fila.
 
 ---
 
-## 8. Datos de demostración
+## 7. Datos de demostración
 
-| Empresa | Unidades | Categorías | Impuestos | Bodegas | Artículos |
-|---|---|---|---|---|---|
-| Acme | Unidad, Caja, Kilogramo | Bebidas, Limpieza | IVA 16 %, Exento | Principal (defecto), Norte | Agua mineral 500 ml (caja de 24), Detergente 1 kg, Servicio de entrega |
-| Globex | Unidad, Caja, Kilogramo | Repuestos | IVA 16 % | Central (defecto) | Filtro de aceite |
-| Initech | Unidad | — | — | Principal (defecto), Secundaria | — |
+| Empresa | Unidades | Categorías | Impuestos | Bodegas |
+|---|---|---|---|---|
+| Acme | Unidad, Caja, Kilogramo | Bebidas, Limpieza | IVA 16 %, Exento | Principal (defecto), Norte |
+| Globex | Unidad, Caja, Kilogramo | Repuestos | IVA 16 % | Central (defecto) |
+| Initech | Unidad | — | — | Principal (defecto), Secundaria |
 
 ---
 
-## 9. Pruebas que lo protegen
+## 8. Pruebas que lo protegen
 
 | Nivel | Dónde | Qué cubre |
 |---|---|---|
 | Dominio y aplicación | `contexts/catalog/**/*.spec.ts` | Cada regla anterior, sin base de datos |
-| Contrato | `catalog-repositories.contract.ts` | 34 casos contra doble y PostgreSQL: unicidad, código, contador con 20 peticiones simultáneas, bodega por defecto, unidades con factores decimales |
-| API | `tests/api/catalog.api.spec.ts` | Reglas por HTTP, 8 altas simultáneas con códigos distintos, permisos |
-| Interfaz | `tests/ui/catalog.spec.ts` | Recorrido categoría → artículo → categoría protegida; errores en español; solo lectura; rol sin permisos |
-| Aislamiento | `tests/isolation/*` | 12 ataques contra el catálogo de Globex |
+| Contrato | `catalog-repositories.contract.ts` | 29 casos contra doble y PostgreSQL: unicidad, código, contador con 20 peticiones simultáneas, bodega por defecto y si un artículo activo usa una categoría, un impuesto o una unidad |
+| API | `tests/api/catalog.api.spec.ts` | Reglas por HTTP y permisos |
+| Interfaz | `tests/ui/catalog.spec.ts` | Recorrido categoría → artículo (en Inventario) → categoría protegida; errores en español; solo lectura; rol sin permisos |
+| Aislamiento | `tests/isolation/*` | 9 ataques contra el catálogo de Globex |

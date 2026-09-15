@@ -1,18 +1,22 @@
 # Inventario
 
-**Cuánto** hay de cada artículo en cada bodega, **cuánto vale** y **cómo** se llegó a eso.
+**Qué** artículos maneja la empresa, **cuánto** hay de cada uno en cada bodega, **cuánto vale** y
+**cómo** se llegó a eso.
 
 Contexto: `apps/api/src/contexts/inventory` · Pantallas: `/inventario/*` · Informe técnico:
 [`../H3-INVENTARIO.md`](../H3-INVENTARIO.md)
 
 | Submódulo | Tabla | Prefijo | Qué es |
 |---|---|---|---|
+| Artículos | `items`, `item_units` | `ART` | El maestro de productos y servicios, con sus unidades |
 | Ajustes | `adjustments`, `adjustment_lines` | `AJU` | Documento que corrige existencias: conteos, mermas, hallazgos |
 | Kardex | `inventory_movements` | — | Una fila por cada cambio de existencia, inmutable |
 | Existencias | `item_stocks` | — | Saldo actual por artículo y bodega, derivado del kardex |
 
-**Depende de** Catálogo (artículos, unidades, bodegas), que lee por su propio puerto sin importar
-el código del catálogo.
+**Depende de** Catálogo (categorías, impuestos, unidades y bodegas), que lee por sus propios puertos
+(`CatalogReferences`, `InventoryCatalog`) sin importar el código del catálogo. El catálogo, a su vez,
+pregunta a las tablas de artículos si uno activo usa una categoría, un impuesto o una unidad antes de
+desactivarla (`ItemUsage`).
 
 ---
 
@@ -32,9 +36,67 @@ el código del catálogo.
 
 ---
 
-## 1. Ajustes
+## 1. Artículos
 
-### 1.0 Para qué sirve un ajuste
+El maestro de productos y servicios. Vive en el inventario desde la revisión de septiembre de 2026;
+antes estaba en el catálogo. SAP Business One, Odoo y Business Central lo muestran bajo Inventario.
+La categoría, el impuesto y las unidades siguen en el [catálogo](catalogo.md) y se leen por el puerto
+`CatalogReferences`.
+
+| Campo | Tipo | Regla |
+|---|---|---|
+| `sku` | texto(60) | Obligatorio, único por empresa. **Se guarda en mayúsculas**; solo letras, dígitos, `.`, `-` y `_` |
+| `name` | texto(200) | Obligatorio |
+| `description` | texto(1000) | Opcional |
+| `type` | `inventoried` \| `service` | Inventariado tiene existencia; servicio se compra y vende pero nunca tiene stock |
+| `category_id` | categoría | Opcional |
+| `tax_id` | impuesto | Opcional |
+
+### 1.1 Unidades del artículo — `item_units`
+
+| Campo | Tipo | Regla |
+|---|---|---|
+| `unit_id` | unidad | De la misma empresa |
+| `conversion_factor` | decimal(18,4) | Mayor que cero. Cuántas unidades base contiene 1 de esta unidad |
+| `is_base` | sí/no | **Exactamente una** base, con factor 1 |
+
+Ejemplo: agua con base «un» y «cja» con factor 24 → 1 cja = 24 un. Todo el stock se guarda en la
+unidad base.
+
+**Reglas**
+
+- Al menos una unidad, **exactamente una base con factor 1** y **ninguna repetida**
+  (`InvalidItemUnitsError`). El factor puede ser menor que 1 (medio kilo).
+- **Todo lo que referencia existe en su empresa y está activo** al crear. Al **editar** se tolera
+  conservar una referencia que se desactivó después: corregir la descripción no obliga a cambiar
+  la categoría.
+- **Reactivar** un artículo exige que sus referencias estén activas, o volvería a los selectores
+  con algo que ya no se ofrece.
+- **No se desactiva un artículo con existencia** (`ItemWithStockError`, desde el H3).
+- **No se desactiva un artículo que usan órdenes de compra o pedidos de venta abiertos**
+  (`ItemInOpenDocumentsError`): confirmados o a medias, con algo pendiente de ese artículo. Un
+  borrador no cuenta: todavía no prometió nada y se revalida al confirmarlo. Sin esta regla la
+  entrada o el despacho fallaban después, con el artículo ya inactivo.
+- **Con movimientos de inventario, no cambia su unidad base ni su tipo** (`ItemWithMovementsError`,
+  desde el H3): el kardex guarda cantidades en esa unidad. Sí se pueden añadir unidades
+  secundarias o cambiar nombre, categoría e impuesto.
+- **Mientras una orden o un pedido abierto usa una unidad, esa unidad no se quita ni cambia su
+  factor** (`ItemUnitInOpenDocumentsError`), y el artículo no cambia de tipo
+  (`ItemInOpenDocumentsError`). La orden guardó 10 cajas como 240 unidades: con una caja de 12
+  anunciaría en camino otra cosa. Recibida o anulada la orden, la unidad vuelve a quedar libre.
+- **Editar y desactivar bloquean la fila del artículo** mientras miran su existencia, su kardex y
+  sus documentos abiertos. Quien confirma un documento o mueve existencia la bloquea en modo
+  compartido: el cambio y el documento van en fila, y el segundo ve lo que dejó el primero. Así
+  nunca queda un artículo inactivo con existencia, ni con la base cambiada bajo su primer
+  movimiento.
+- **Una sola unidad base, también en la base de datos**: el índice único parcial
+  `item_units_one_base_per_item` la garantiza para quien escriba sin pasar por el dominio.
+
+---
+
+## 2. Ajustes
+
+### 2.0 Para qué sirve un ajuste
 
 Un ajuste **corrige el sistema cuando no coincide con lo que hay físicamente**. No es la forma de
 meter mercancía comprada.
@@ -59,7 +121,7 @@ Referencias: la documentación de [verlumyx/erp](https://github.com/verlumyx/erp
 («cuadres, mermas y hallazgos») y la de
 [Odoo](https://www.odoo.com/documentation/19.0/applications/inventory_and_mrp/inventory/warehouses_storage/inventory_management/count_products.html).
 
-### 1.0.1 Un ajuste de salida y las reservas de ventas
+### 2.0.1 Un ajuste de salida y las reservas de ventas
 
 **Comportamiento actual:** un ajuste de salida **no mira las reservas** de los pedidos de venta. El
 inventario no conoce ventas.
@@ -82,7 +144,7 @@ reserva.
 **Mejoras anotadas** (en `FUTURE.md`): avisar al confirmar el ajuste qué pedidos quedan sin
 existencia, y un motivo obligatorio en cada ajuste (conteo inicial, conteo, merma, daño, hallazgo).
 
-### 1.1 Cabecera — `adjustments`
+### 2.1 Cabecera — `adjustments`
 
 | Campo | Tipo | Regla |
 |---|---|---|
@@ -93,7 +155,7 @@ existencia, y un motivo obligatorio en cada ajuste (conteo inicial, conteo, merm
 | `status` | `draft` \| `confirmed` \| `cancelled` | Ver ciclo de vida |
 | `confirmed_at`, `cancelled_at` | fecha y hora | Cuándo cambió de estado |
 
-### 1.2 Líneas — `adjustment_lines`
+### 2.2 Líneas — `adjustment_lines`
 
 | Campo | Tipo | Regla |
 |---|---|---|
@@ -116,7 +178,7 @@ existencia, y un motivo obligatorio en cada ajuste (conteo inicial, conteo, merm
   `cantidad × factor` de hoy. Si el artículo cambió su unidad entre la revalidación y el bloqueo,
   el ajuste no se confirma (`StockItemChangedError`, 409) y se vuelve a intentar.
 
-### 1.3 Ciclo de vida
+### 2.3 Ciclo de vida
 
 ```
           confirmar                 anular
@@ -160,7 +222,7 @@ borrador ───────────▶ confirmado ───────�
 
 ---
 
-## 2. Kardex — `inventory_movements`
+## 3. Kardex — `inventory_movements`
 
 | Campo | Qué es |
 |---|---|
@@ -184,7 +246,7 @@ borrador ───────────▶ confirmado ───────�
 
 ---
 
-## 3. Existencias — `item_stocks`
+## 4. Existencias — `item_stocks`
 
 | Campo | Qué es |
 |---|---|
@@ -216,7 +278,7 @@ la transacción de quien llama, para que documento y existencia cambien juntos. 
 
 ---
 
-## 4. Concurrencia
+## 5. Concurrencia
 
 Confirmar o anular ocurre en **una transacción** que:
 
@@ -234,7 +296,9 @@ HTTP: desactivar un artículo mientras se confirma su entrada deja pasar solo un
 
 ---
 
-## 5. Reglas que el inventario impone al catálogo
+## 6. Reglas que protegen la existencia y los documentos abiertos
+
+Las del artículo se explican en [§1](#1-artículos); la de la bodega vive en el catálogo.
 
 | Regla | Error |
 |---|---|
@@ -246,10 +310,14 @@ HTTP: desactivar un artículo mientras se confirma su entrada deja pasar solo un
 
 ---
 
-## 6. API y permisos
+## 7. API y permisos
 
 | Acción | Ruta | Permiso |
 |---|---|---|
+| Listar artículos | `GET /api/v1/inventory/items` | `inventory.items.search` |
+| Crear artículo | `POST /api/v1/inventory/items` | `inventory.items.create` |
+| Editar artículo y sus unidades | `PUT /api/v1/inventory/items/:itemId` | `inventory.items.update` |
+| Desactivar o reactivar artículo | `PUT /api/v1/inventory/items/:itemId/status` | `inventory.items.deactivate` |
 | Listar ajustes | `GET /api/v1/inventory/adjustments` | `inventory.adjustments.search` |
 | Crear borrador | `POST /api/v1/inventory/adjustments` | `inventory.adjustments.create` |
 | Editar borrador | `PUT /api/v1/inventory/adjustments/:adjustmentId` | `inventory.adjustments.update` |
@@ -259,6 +327,8 @@ HTTP: desactivar un artículo mientras se confirma su entrada deja pasar solo un
 | Kardex | `GET /api/v1/inventory/items/:itemId/movements?warehouseId=` | `inventory.movements.search` |
 
 - Filtrar por **una bodega o un artículo de otra empresa responde 404**, no una lista vacía.
+- El listado de artículos devuelve los **nombres** de categoría, impuesto y unidades: se ve la tabla
+  de artículos sin permiso para leer esos maestros del catálogo.
 - Cuerpo de crear y editar:
 
 ```json
@@ -275,16 +345,20 @@ HTTP: desactivar un artículo mientras se confirma su entrada deja pasar solo un
 
 ---
 
-## 7. Pantallas
+## 8. Pantallas
 
 | Ruta | Qué hace |
 |---|---|
 | `/inventario` | Redirige a la primera sección que el rol puede ver |
+| `/inventario/articulos` | Tabla con SKU, tipo, categoría, impuesto y unidades («un · 1 cja = 24 un»); panel con editor de unidades |
 | `/inventario/existencias` | Artículo, bodega, existencia en unidad base, costo promedio, valor y total; filtro por bodega en la dirección |
 | `/inventario/ajustes` | Código, fecha, bodega, resumen de líneas («+2 cja (48 un) AGUA-500»), estado y Opciones según el estado |
 | `/inventario/kardex` | Elige artículo y bodega; cada movimiento con documento, cantidad, costo, saldo y promedio, y las anulaciones marcadas |
 
-- El formulario de ajustes se ofrece solo si el rol puede leer artículos y bodegas del catálogo.
+- El formulario de artículos se ofrece solo si el rol puede leer categorías, impuestos y unidades.
+- En el editor de unidades, **la primera unidad elegida queda como base**, y la marca sigue a la
+  unidad si se cambia la de su fila.
+- El formulario de ajustes se ofrece solo si el rol puede leer artículos y bodegas.
 - En cada línea: al elegir un artículo se propone su unidad base; el costo solo se habilita en
   entradas.
 - Confirmar y anular muestran el error traducido encima de la tabla («No hay existencia suficiente
@@ -292,7 +366,9 @@ HTTP: desactivar un artículo mientras se confirma su entrada deja pasar solo un
 
 ---
 
-## 8. Datos de demostración
+## 9. Datos de demostración
+
+**Artículos**: Acme — Agua mineral 500 ml (caja de 24), Detergente 1 kg, Servicio de entrega; Globex — Filtro de aceite.
 
 | Empresa | Ajuste | Estado | Contenido | Existencia resultante |
 |---|---|---|---|---|
@@ -308,13 +384,17 @@ Se rehace entero en cada corrida de semillas, junto con compras y ventas.
 
 ---
 
-## 9. Pruebas que lo protegen
+## 10. Pruebas que lo protegen
 
 | Nivel | Dónde | Qué cubre |
 |---|---|---|
+| Artículos | `contexts/inventory/{domain/item,application/*-item*}/**/*.spec.ts` | Cada regla del maestro, sin base de datos |
 | Dominio | `contexts/inventory/domain/**/*.spec.ts` | Aritmética exacta, costo promedio, reversiones, «existencia = suma del kardex», ciclo del ajuste, fábrica de líneas |
 | Aplicación | `adjustment-lifecycle.spec.ts` | Crear, editar, confirmar con catálogo de hoy, anular, consultar, aislamiento |
 | Contrato | `inventory-ports.contract.ts` | 19 casos contra doble y PostgreSQL: atomicidad, 2 salidas simultáneas, doble confirmación, 12 ajustes concurrentes con la propiedad del kardex intacta |
+| Contrato de artículos | `item-ports.contract.ts` | 15 casos contra doble y PostgreSQL: factores decimales, SKU único, lo que el artículo comprometió leído con su fila bloqueada, y categorías, impuestos y unidades sin cruzar empresas |
+| API de artículos | `tests/api/items.api.spec.ts`, `item-protection.api.spec.ts` | Reglas por HTTP, 8 altas simultáneas con códigos distintos, permisos; unidades y estado protegidos con documentos abiertos, borradores con caja cambiada y carreras |
 | API | `tests/api/inventory.api.spec.ts` | Todo lo anterior por HTTP, con un artículo propio por prueba |
+| Interfaz de artículos | `tests/ui/items.spec.ts` | SKU repetido y los cuatro rechazos del maestro en español, en el panel; solo lectura |
 | Interfaz | `tests/ui/inventory.spec.ts` | Recorrido ajuste → existencias → kardex → anulación; guarda en cero en español; solo lectura |
-| Aislamiento | `tests/isolation/*` | 6 ataques: editar, confirmar o anular ajustes de Globex, crear en su bodega, leer su kardex o filtrar por su bodega |
+| Aislamiento | `tests/isolation/*` | 9 ataques: editar o desactivar artículos de Globex, crear uno con su unidad, editar, confirmar o anular sus ajustes, crear en su bodega, leer su kardex o filtrar por su bodega |

@@ -1,5 +1,9 @@
 # H2 — Catálogo: informe de las fases 0 a 6
 
+> **Nota de la revisión (septiembre de 2026):** los artículos pasaron al contexto de inventario
+> (`contexts/inventory`, `/inventario/articulos`, permisos `inventory.items.*`). Este informe cuenta
+> el hito tal como se construyó; lo vigente está en [`modulos/inventario.md`](modulos/inventario.md).
+
 Trabajo hecho de corrido la noche del 13 de septiembre de 2026, **sin commitear**, para que
 Rafael lo revise antes de repartirlo en commits por fase. Este documento dice qué se hizo
 en cada fase, qué archivos la componen, qué decisiones se tomaron y qué encontró la

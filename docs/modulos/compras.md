@@ -111,7 +111,7 @@ Ejemplo: 10 cajas a 12 con 16 % y 5 kg a 3,20 exento → subtotal 136,00, impues
 
 **Reglas**
 
-- **Confirmar revalida el borrador con el catálogo de hoy**: proveedor, bodega y artículos activos.
+- **Confirmar revalida el borrador con los maestros de hoy**: proveedor, bodega y artículos activos.
   **Si la caja de un artículo cambió desde que se escribió** (10 cajas pedidas con 24 que hoy serían
   120), la orden no se confirma (`PurchaseItemChangedError`): se revisa, se guarda —guardar recalcula
   con el factor de hoy— y se confirma. Un borrador no se reinterpreta en silencio. **Conserva los identificadores de las
@@ -119,7 +119,7 @@ Ejemplo: 10 cajas a 12 con 16 % y 5 kg a 3,20 exento → subtotal 136,00, impues
 - **Al confirmar, los artículos de la orden se bloquean en modo compartido** y se vuelve a comprobar
   que sigan activos, inventariados y con el factor con que se calcularon las cantidades base. Si
   cambiaron entre la revalidación y el bloqueo, la orden no se confirma (`PurchaseItemChangedError`,
-  409) y basta con volver a intentarlo. Confirmada, el catálogo ya no deja desactivar el artículo
+  409) y basta con volver a intentarlo. Confirmada, el maestro de artículos ya no deja desactivar el artículo
   ni cambiar la unidad que usa.
 - **No se anula una orden con mercancía recibida**: primero se anulan sus entradas. Lo recibido ya
   está en la bodega y anular la orden no lo devolvería.
