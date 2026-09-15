@@ -255,3 +255,77 @@ test.describe('purchasing: who can do what', () => {
     }
   });
 });
+
+// Acme lleva sus cifras en dolares y tiene tasas legales sembradas: el dolar a 152,40 desde el 8 de
+// septiembre y a 153,10 desde el 11; el euro a 175,05 desde el 11; y ninguna antes del 2 de enero.
+test.describe('currency and exchange rates of purchases', () => {
+  const aFreshWorld = async (request: APIRequestContext) => {
+    const token = await tokenFor(request, 'ana@acme.com');
+    const [supplier, item] = await Promise.all([aFreshSupplier(request, token), aFreshItem(request, token)]);
+    const order = (extra: { date?: string; currency?: string; exchangeRate?: number }) =>
+      aDraftOrder(request, token, {
+        supplierId: supplier.id,
+        warehouseId: ACME_INVENTORY.mainWarehouse,
+        lines: [{ itemId: item.id, unitId: ACME_INVENTORY.box, quantity: 10, unitCost: 12 }],
+        ...extra,
+      });
+
+    return { token, supplier, item, order };
+  };
+
+  test('an order that does not say its currency is in the company one, with the rates of its date', async ({ request }) => {
+    const { order } = await aFreshWorld(request);
+
+    expect(await order({ date: '2026-09-09' })).toMatchObject({
+      date: '2026-09-09',
+      currency: 'USD',
+      exchangeRate: 152.4,
+      baseCurrency: 'USD',
+      baseExchangeRate: 152.4,
+      manualExchangeRate: false,
+    });
+  });
+
+  // 10 cajas de 24 a 12 EUR son 240 unidades a 0,50 EUR, que en dolares son 0,50 x 175,05 / 153,10.
+  test('goods bought in euros enter the stock at their cost in the company currency', async ({ request }) => {
+    const { token, item, order } = await aFreshWorld(request);
+    const draft = await order({ date: '2026-09-11', currency: 'EUR' });
+
+    expect((await put(request, token, `${ORDERS}/${draft.id}/confirm`)).status()).toBe(200);
+    expect(await orderById(request, token, draft.id)).toMatchObject({ currency: 'EUR', exchangeRate: 175.05, baseCurrency: 'USD', baseExchangeRate: 153.1 });
+
+    const receipt = await aDraftReceipt(request, token, draft.id, [{ orderLineId: draft.lines[0].id, quantity: 10 }], '', { date: '2026-09-11' });
+
+    expect(receipt).toMatchObject({ currency: 'EUR', exchangeRate: 175.05, baseExchangeRate: 153.1, manualExchangeRate: false });
+    expect((await put(request, token, `${RECEIPTS}/${receipt.id}/confirm`)).status()).toBe(200);
+    expect(await stockOf(request, token, item.id)).toMatchObject({ quantity: 240, averageCost: 0.571685 });
+  });
+
+  test('a rate written by hand is kept through the confirmation, but not for the company currency', async ({ request }) => {
+    const { token, supplier, item, order } = await aFreshWorld(request);
+    const draft = await order({ date: '2026-09-11', currency: 'EUR', exchangeRate: 180.5 });
+
+    expect(draft).toMatchObject({ exchangeRate: 180.5, baseExchangeRate: 153.1, manualExchangeRate: true });
+    expect((await put(request, token, `${ORDERS}/${draft.id}/confirm`)).status()).toBe(200);
+    expect(await orderById(request, token, draft.id)).toMatchObject({ status: 'confirmed', exchangeRate: 180.5, manualExchangeRate: true });
+
+    const fixed = await request.post(ORDERS, {
+      headers: auth(token),
+      data: { supplierId: supplier.id, warehouseId: ACME_INVENTORY.mainWarehouse, currency: 'USD', exchangeRate: 150, lines: [{ itemId: item.id, unitId: ACME_INVENTORY.piece, quantity: 1, unitCost: 1 }] },
+    });
+
+    expect(fixed.status()).toBe(400);
+    expect((await fixed.json()).error).toBe('FixedExchangeRateError');
+  });
+
+  test('an order dated before any rate is not saved', async ({ request }) => {
+    const { token, supplier, item } = await aFreshWorld(request);
+    const response = await request.post(ORDERS, {
+      headers: auth(token),
+      data: { supplierId: supplier.id, warehouseId: ACME_INVENTORY.mainWarehouse, date: '2025-12-31', currency: 'EUR', lines: [{ itemId: item.id, unitId: ACME_INVENTORY.piece, quantity: 1, unitCost: 1 }] },
+    });
+
+    expect(response.status()).toBe(409);
+    expect((await response.json()).error).toBe('MissingExchangeRateError');
+  });
+});

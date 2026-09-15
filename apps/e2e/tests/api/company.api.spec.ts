@@ -7,7 +7,7 @@ const SETTINGS = '/api/v1/company/settings';
 const CURRENCIES = '/api/v1/company/currencies';
 
 // Lo que siembra el seed para todas las empresas.
-const DEFAULTS = { baseCurrency: 'USD', secondaryCurrency: 'VES', timeZone: 'America/Caracas', amountDecimals: 2, priceDecimals: 6, rateType: 'legal' };
+const DEFAULTS = { baseCurrency: 'USD', secondaryCurrency: 'VES', timeZone: 'America/Caracas', amountDecimals: 2, priceDecimals: 6, rateType: 'legal', allowsRateOverride: true };
 
 // Initech no tiene documentos y nadie mas trabaja en ella: sus datos y parametros se pueden cambiar
 // y devolver sin pisar otra prueba. Cada prueba que la cambia la deja como estaba, y las de este
@@ -34,6 +34,7 @@ test.describe('company settings', () => {
       amountDecimals: 2,
       priceDecimals: 6,
       rateType: 'legal',
+      allowsRateOverride: true,
     });
     // Solo a medianoche de Caracas puede cambiar el dia entre la peticion y esta linea.
     expect([before, caracasToday()]).toContain((await response.json()).today);
@@ -45,7 +46,7 @@ test.describe('company settings', () => {
     try {
       const update = await request.put(SETTINGS, {
         headers: auth(token),
-        data: { baseCurrency: 'eur', secondaryCurrency: null, timeZone: 'Europe/Madrid', amountDecimals: 3, priceDecimals: 4, rateType: 'manual' },
+        data: { baseCurrency: 'eur', secondaryCurrency: null, timeZone: 'Europe/Madrid', amountDecimals: 3, priceDecimals: 4, rateType: 'manual', allowsRateOverride: false },
       });
 
       expect(update.status()).toBe(200);
@@ -57,6 +58,7 @@ test.describe('company settings', () => {
         amountDecimals: 3,
         priceDecimals: 4,
         rateType: 'manual',
+        allowsRateOverride: false,
         today: new Intl.DateTimeFormat('en-CA', { timeZone: 'Europe/Madrid' }).format(new Date()),
       });
     } finally {

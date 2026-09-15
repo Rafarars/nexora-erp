@@ -32,7 +32,7 @@ export interface OrderLine {
 export async function aDraftOrder(
   request: APIRequestContext,
   token: string,
-  data: { supplierId: string; warehouseId: string; lines: OrderLine[] },
+  data: { supplierId: string; warehouseId: string; lines: OrderLine[]; date?: string; currency?: string; exchangeRate?: number },
   baseUrl = '',
 ) {
   const notes = `e2e ${unique()}`;
@@ -51,9 +51,10 @@ export async function aDraftReceipt(
   orderId: string,
   lines: { orderLineId: string; quantity: number }[],
   baseUrl = '',
+  extra: { date?: string; exchangeRate?: number } = {},
 ) {
   const notes = `e2e ${unique()}`;
-  const response = await request.post(`${baseUrl}${RECEIPTS}`, { headers: auth(token), data: { orderId, notes, lines } });
+  const response = await request.post(`${baseUrl}${RECEIPTS}`, { headers: auth(token), data: { orderId, notes, lines, ...extra } });
 
   expect(response.status(), await response.text()).toBe(201);
 

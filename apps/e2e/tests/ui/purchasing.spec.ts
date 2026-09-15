@@ -2,8 +2,8 @@ import { expect, test } from '@playwright/test';
 import { ACCOUNTANT, ACME_ADMIN, LoginPage } from '../../pages/login.page.js';
 import { InventoryPage } from '../../pages/inventory.page.js';
 import { PurchasingPage } from '../../pages/purchasing.page.js';
-import { aFreshItem, tokenFor } from '../../support/inventory-fixtures.js';
-import { aFreshSupplier } from '../../support/purchasing-fixtures.js';
+import { ACME_INVENTORY, aFreshItem, tokenFor } from '../../support/inventory-fixtures.js';
+import { aDraftOrder, aFreshSupplier } from '../../support/purchasing-fixtures.js';
 
 const API = process.env.API_URL ?? 'http://localhost:3001';
 
@@ -64,6 +64,42 @@ test.describe('Purchasing, from the screen', () => {
 
     await inventory.open('existencias');
     await expect(inventory.stockOf(item.sku, 'Principal')).toHaveText('0 un');
+  });
+
+  // La tasa la escribio una persona: la orden la muestra con su total en bolivares, y al editarla la
+  // moneda y la tasa vuelven a sus campos.
+  test('shows the rate an order froze and its total in bolivars', async ({ page, request }) => {
+    const token = await tokenFor(request, ACME_ADMIN.email, API);
+    const [item, supplier] = await Promise.all([aFreshItem(request, token, API), aFreshSupplier(request, token, API)]);
+    const order = await aDraftOrder(
+      request,
+      token,
+      {
+        supplierId: supplier.id,
+        warehouseId: ACME_INVENTORY.mainWarehouse,
+        date: '2026-09-11',
+        currency: 'EUR',
+        exchangeRate: 180.5,
+        lines: [{ itemId: item.id, unitId: ACME_INVENTORY.box, quantity: 10, unitCost: 12 }],
+      },
+      API,
+    );
+    const purchasing = new PurchasingPage(page);
+
+    await new LoginPage(page).signIn(ACME_ADMIN);
+    await purchasing.open('ordenes');
+
+    await expect(page.getByTestId(`order-total-${order.code}`)).toContainText('EUR 120,00');
+    await expect(page.getByTestId(`order-rate-${order.code}`)).toHaveText('EUR a 180,50 Bs. (a mano) · Bs. 21660,00');
+
+    await page.getByTestId(`order-options-${order.code}`).click();
+    await page.getByTestId(`order-edit-${order.code}`).click();
+
+    await expect(page.getByTestId('order-currency')).toHaveValue('EUR');
+    await expect(page.getByTestId('order-exchange-rate')).toHaveValue('180,50');
+
+    await page.getByTestId('order-currency').selectOption('USD');
+    await expect(page.getByTestId('order-exchange-rate')).toHaveCount(0);
   });
 
   test('explains in Spanish that a receipt cannot bring more than what is pending', async ({ page, request }) => {
