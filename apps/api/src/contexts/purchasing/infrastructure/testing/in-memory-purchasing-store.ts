@@ -12,6 +12,7 @@ import { ReceiptPosting, ReceiptPostingResult } from '../../domain/receipt/posti
 import { GoodsReceipt, GoodsReceiptId, GoodsReceiptPrimitives } from '../../domain/receipt/goods-receipt.entity.js';
 import { GoodsReceiptRepository } from '../../domain/receipt/goods-receipt.repository.js';
 import { TenantId } from '../../domain/shared/tenant-id.vo.js';
+import { InMemoryPurchasingCatalog } from './in-memory-purchasing-catalog.js';
 
 const key = (tenantId: string, itemId: string, warehouseId: string) => `${tenantId}|${itemId}|${warehouseId}`;
 
@@ -36,6 +37,10 @@ export class InMemoryPurchasingStore {
   private readonly stockLines: StockLine[] = [];
   private readonly withdrawn = new Map<string, number>();
   private queue: Promise<unknown> = Promise.resolve();
+
+  // El catalogo de la prueba hace de tabla de articulos: confirmar una orden lo lee como si lo
+  // tuviera bloqueado.
+  constructor(private readonly catalog: InMemoryPurchasingCatalog) {}
 
   stockOf(tenantId: string, itemId: string, warehouseId: string): number {
     const lines = this.stockLines.filter((line) => key(line.tenantId, line.itemId, line.warehouseId) === key(tenantId, itemId, warehouseId));
@@ -112,7 +117,19 @@ export class InMemoryPurchasingStore {
 
           if (!order) throw new PurchaseOrderNotFoundError(orderId.value);
 
-          work(order);
+          work(order, {
+            item: (itemId) => {
+              const item = this.catalog.items.find((candidate) => candidate.tenantId === tenantId.value && candidate.id === itemId.value);
+
+              return item
+                ? {
+                    isActive: item.isActive,
+                    type: item.type,
+                    factorOf: (unitId) => item.units.find((unit) => unit.unitId === unitId.value)?.conversionFactor ?? null,
+                  }
+                : null;
+            },
+          });
           this.orderRows.set(order.id.value, structuredClone(order.toPrimitives()));
         }),
     };

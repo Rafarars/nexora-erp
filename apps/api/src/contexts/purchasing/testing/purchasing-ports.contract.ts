@@ -4,12 +4,14 @@ import {
   GoodsReceiptAlreadyCancelledError,
   GoodsReceiptNotEditableError,
   GoodsReceiptNotFoundError,
+  PurchaseItemChangedError,
   PurchaseOrderNotEditableError,
   PurchaseOrderNotFoundError,
   PurchaseOrderWithReceiptsError,
   ReceiptExceedsPendingError,
   ReceivedGoodsAlreadyUsedError,
 } from '../domain/errors/purchasing.errors.js';
+import { ensureOrderMatchesCatalog } from '../domain/order/posting/ordered-items-check.js';
 import { PurchaseOrderLine } from '../domain/order/purchase-order-line.js';
 import { PurchaseOrder, PurchaseOrderId } from '../domain/order/purchase-order.entity.js';
 import { GoodsReceiptLine, GoodsReceiptLineId } from '../domain/receipt/goods-receipt-line.js';
@@ -132,6 +134,30 @@ export function describePurchasingPortsContract(implementation: string, createHa
         const stale = PurchaseOrder.fromPrimitives({ ...order.toPrimitives(), status: 'draft' });
 
         await expect(ports.orders.save(stale)).rejects.toThrow(PurchaseOrderNotEditableError);
+      });
+
+      // Con los articulos bloqueados se ve la caja de hoy: 10 cajas anotadas como 120 no se anuncian.
+      it('refuses to confirm base quantities that no longer match the unit of the item', async () => {
+        const id = PurchaseOrderId.of(`0d000000-0000-4000-8000-${next()}`);
+
+        await ports.orders.save(
+          PurchaseOrder.draft(id, tenant, `OC${next().slice(-6)}`, {
+            supplierId: SupplierId.of(SUPPLIER),
+            warehouseId: WarehouseRef.of(MAIN),
+            orderDate: PurchaseDate.of(TODAY),
+            expectedDate: null,
+            notes: 'contrato',
+            lines: [anOrderLine({ quantity: 10, factor: 12, unitCost: 12 })],
+          }, NOW),
+        );
+
+        await expect(
+          ports.orderPosting.post(tenant, id, (locked, items) => {
+            ensureOrderMatchesCatalog(locked, items);
+            locked.confirm(NOW);
+          }),
+        ).rejects.toThrow(PurchaseItemChangedError);
+        expect((await ports.orders.find(tenant, id))?.currentStatus()).toBe('draft');
       });
 
       it('answers not found when posting an order of another tenant', async () => {

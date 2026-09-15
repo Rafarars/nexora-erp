@@ -35,8 +35,8 @@ export function aPurchasingScenario() {
   const clock = new FixedClock(NOW);
   const ids = new SequentialIdGenerator();
   const suppliers = new InMemorySupplierRepository();
-  const store = new InMemoryPurchasingStore();
   const catalog = new InMemoryPurchasingCatalog(purchasableItems(), purchaseWarehouses());
+  const store = new InMemoryPurchasingStore(catalog);
   const codes = new InMemoryPurchasingCodeSequence();
   const supplierFinder = new SupplierFinder(suppliers);
   const uniqueness = new SupplierUniqueness(suppliers);

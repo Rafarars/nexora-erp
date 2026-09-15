@@ -2,7 +2,12 @@ import { Inject, Injectable } from '@nestjs/common';
 import { DOCUMENT_STOCK_POSTING } from '../../../../shared/prisma/document-stock-posting.js';
 import type { DocumentStockPosting } from '../../../../shared/prisma/document-stock-posting.js';
 import { PrismaService } from '../../../../shared/prisma/prisma.service.js';
-import { GoodsReceiptNotFoundError, ReceivedGoodsAlreadyUsedError } from '../../domain/errors/purchasing.errors.js';
+import {
+  GoodsReceiptNotFoundError,
+  InactivePurchaseItemError,
+  ReceivedGoodsAlreadyUsedError,
+  ServiceNotPurchasableError,
+} from '../../domain/errors/purchasing.errors.js';
 import { PurchaseOrder } from '../../domain/order/purchase-order.entity.js';
 import { ReceiptPosting, ReceiptPostingResult } from '../../domain/receipt/posting/receipt-posting.js';
 import { GoodsReceipt, GoodsReceiptId } from '../../domain/receipt/goods-receipt.entity.js';
@@ -51,32 +56,35 @@ export class PrismaReceiptPosting implements ReceiptPosting {
       const document = { type: 'receipt' as const, id: header.id };
 
       if (result.stock.kind === 'receive') {
-        await this.stock.receive(
-          tx,
-          tenant,
-          document,
-          result.stock.entries.map((entry) => ({
-            lineId: entry.lineId,
-            itemId: entry.itemId.value,
-            warehouseId: entry.warehouseId.value,
-            quantity: entry.quantity.toNumber(),
-            unitCost: entry.unitCost.toNumber(),
-          })),
-          now,
-        );
-      } else if (result.stock.kind === 'reverse') {
-        try {
-          await this.stock.reverse(tx, tenant, document, now);
-        } catch (error) {
-          // Capa anticorrupcion: el inventario habla de existencia insuficiente; compras,
-          // de mercancia de esta entrada que ya salio.
-          if (error instanceof Error && error.name === 'InsufficientStockError') {
-            throw new ReceivedGoodsAlreadyUsedError(header.id);
-          }
+        const entries = result.stock.entries.map((entry) => ({
+          lineId: entry.lineId,
+          itemId: entry.itemId.value,
+          warehouseId: entry.warehouseId.value,
+          quantity: entry.quantity.toNumber(),
+          unitCost: entry.unitCost.toNumber(),
+        }));
 
-          throw error;
-        }
+        await moveStock(() => this.stock.receive(tx, tenant, document, entries, now), header.id);
+      } else if (result.stock.kind === 'reverse') {
+        await moveStock(() => this.stock.reverse(tx, tenant, document, now), header.id);
       }
     });
   }
 }
+
+// Capa anticorrupcion: el inventario habla de existencia insuficiente y de articulos que no mueven
+// existencia; compras, de mercancia de esta entrada que ya salio y de articulos que ya no se compran.
+async function moveStock(move: () => Promise<void>, receiptId: string): Promise<void> {
+  try {
+    await move();
+  } catch (error) {
+    if (!(error instanceof Error)) throw error;
+    if (error.name === 'InsufficientStockError') throw new ReceivedGoodsAlreadyUsedError(receiptId);
+    if (error.name === 'InactiveStockItemError') throw new InactivePurchaseItemError(itemOf(error));
+    if (error.name === 'ServiceHasNoStockError') throw new ServiceNotPurchasableError(itemOf(error));
+
+    throw error;
+  }
+}
+
+const itemOf = (error: Error) => String((error as Error & { itemId?: string }).itemId);

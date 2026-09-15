@@ -6,7 +6,6 @@ import {
   InvalidPurchaseQuantityError,
   PurchaseItemNotFoundError,
   PurchaseOrderNotReceivableError,
-  PurchaseUnitNotOfItemError,
   PurchaseWarehouseNotFoundError,
   ReceiptExceedsPendingError,
 } from '../../errors/purchasing.errors.js';
@@ -24,8 +23,9 @@ export interface GoodsReceiptLineInput {
 }
 
 // Arma las lineas de una entrada a partir de su orden: cada una sale de una linea de la
-// orden, no trae mas de lo pendiente, y su cantidad base se calcula con el factor que el
-// articulo tiene HOY. La orden se vuelve a comprobar, ya bloqueada, al confirmar.
+// orden y no trae mas de lo pendiente. Su cantidad base es la proporcional de la linea de la
+// orden, que es lo que la orden anuncio en camino: asi lo que entra cuadra con lo que llega. La
+// orden se vuelve a comprobar, ya bloqueada, al confirmar.
 export class GoodsReceiptLineFactory {
   constructor(
     private readonly catalog: PurchasingCatalog,
@@ -50,12 +50,8 @@ export class GoodsReceiptLineFactory {
       if (!item) throw new PurchaseItemNotFoundError(orderLine.itemId.value);
       if (!item.isActive) throw new InactivePurchaseItemError(item.id);
 
-      const unit = item.units.find((candidate) => candidate.unitId === orderLine.unitId.value);
-
-      if (!unit) throw new PurchaseUnitNotOfItemError(orderLine.unitId.value, item.id);
-
       const quantity = Quantity.of(input.quantity);
-      const baseQuantity = quantity.times(unit.conversionFactor);
+      const baseQuantity = orderLine.baseOf(quantity);
 
       if (quantity.isZero() || baseQuantity.isZero()) throw new InvalidPurchaseQuantityError(input.quantity);
 

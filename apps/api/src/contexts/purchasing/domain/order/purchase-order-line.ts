@@ -101,6 +101,12 @@ export class PurchaseOrderLine {
     return this.baseQuantity.proportionOf(this.pending(), this.quantity);
   }
 
+  // Una cantidad en la unidad de la linea, en unidad base con la proporcion que guardo la orden:
+  // 2 de 10 cajas son 48 unidades aunque el articulo cambie despues su caja.
+  baseOf(quantity: Quantity): Quantity {
+    return this.baseQuantity.proportionOf(quantity, this.quantity);
+  }
+
   isFullyReceived(): boolean {
     return this.received.equals(this.quantity);
   }

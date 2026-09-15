@@ -3,10 +3,11 @@ import { PurchasingPorts, PurchasingPortsHarness } from '../../testing/purchasin
 import { InMemoryPurchasingCodeSequence } from './in-memory-purchasing-code-sequence.js';
 import { InMemoryPurchasingStore } from './in-memory-purchasing-store.js';
 import { InMemorySupplierRepository } from './in-memory-supplier.repository.js';
-import { TENANT_A } from '../../domain/testing/purchasing.mother.js';
+import { TENANT_A, purchasableItems, purchaseWarehouses } from '../../domain/testing/purchasing.mother.js';
+import { InMemoryPurchasingCatalog } from './in-memory-purchasing-catalog.js';
 
 class InMemoryPurchasingPortsHarness implements PurchasingPortsHarness {
-  private store = new InMemoryPurchasingStore();
+  private store = new InMemoryPurchasingStore(new InMemoryPurchasingCatalog(purchasableItems(), purchaseWarehouses()));
   private current = this.build();
 
   ports(): PurchasingPorts {
@@ -22,7 +23,7 @@ class InMemoryPurchasingPortsHarness implements PurchasingPortsHarness {
   }
 
   async reset(): Promise<void> {
-    this.store = new InMemoryPurchasingStore();
+    this.store = new InMemoryPurchasingStore(new InMemoryPurchasingCatalog(purchasableItems(), purchaseWarehouses()));
     this.current = this.build();
   }
 

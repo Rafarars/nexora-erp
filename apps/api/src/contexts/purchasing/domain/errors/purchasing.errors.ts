@@ -62,6 +62,15 @@ export class InactiveSupplierError extends ConflictError {
 
 // ---------------------------------------------------------------- lineas y catalogo
 
+// El articulo cambio su unidad desde que se escribio el documento, o en el instante entre
+// revalidarlo y bloquearlo: confirmar con esas cantidades base contaria otra cosa. Se revisa el
+// documento, se guarda y se vuelve a confirmar.
+export class PurchaseItemChangedError extends ConflictError {
+  constructor(id: string) {
+    super(`Item <${id}> changed while the document was being confirmed.`, 'An item changed since the document was written: review the document and save it again.');
+  }
+}
+
 export class InactivePurchaseItemError extends ConflictError {
   constructor(id: string) {
     super(`Item <${id}> is inactive.`, 'The document uses an item that is inactive.');

@@ -3,6 +3,7 @@ import {
   GoodsReceiptNotEditableError,
   InactivePurchaseItemError,
   InactiveSupplierError,
+  PurchaseItemChangedError,
   PurchaseItemNotFoundError,
   PurchaseOrderNotEditableError,
   PurchaseOrderNotFoundError,
@@ -126,14 +127,20 @@ describe('purchase orders', () => {
     expect((await latestOrder(s)).status).toBe('draft');
   });
 
-  it('recalculates base quantities with the conversion the item has today when confirming', async () => {
+  // 10 cajas pedidas cuando traian 24 no se anuncian como 120 en silencio: se revisa y se guarda.
+  it('refuses to confirm a draft whose box changed until the draft is saved again', async () => {
     const { s, supplierId } = await world();
     await s.createOrder.run(orderRequest(supplierId));
+    const { id } = await latestOrder(s);
     s.catalog.items.find((item) => item.id === WATER)!.units.find((unit) => unit.unitId === BOX)!.conversionFactor = 12;
 
-    await s.confirmOrder.run({ tenantId: TENANT_A, orderId: (await latestOrder(s)).id });
+    await expect(s.confirmOrder.run({ tenantId: TENANT_A, orderId: id })).rejects.toThrow(PurchaseItemChangedError);
+    expect(await latestOrder(s)).toMatchObject({ status: 'draft', lines: [{ baseQuantity: 240 }, {}] });
 
-    expect((await latestOrder(s)).lines[0]).toMatchObject({ quantity: 10, baseQuantity: 120 });
+    await s.updateOrder.run({ ...orderRequest(supplierId), orderId: id });
+    await s.confirmOrder.run({ tenantId: TENANT_A, orderId: id });
+
+    expect(await latestOrder(s)).toMatchObject({ status: 'confirmed', lines: [{ quantity: 10, baseQuantity: 120 }, {}] });
   });
 
   // Un cliente que leyo el borrador recibe por esos identificadores despues de confirmar.
@@ -313,5 +320,17 @@ describe('goods receipts', () => {
 
     await expect(s.confirmReceipt.run({ tenantId: TENANT_A, receiptId: (await latestReceipt(s)).id })).rejects.toThrow(InactivePurchaseItemError);
     expect(s.store.stockOf(TENANT_A, WATER, MAIN)).toBe(0);
+  });
+
+  // La orden anuncio 10 cajas como 240 unidades en camino: lo que entra tiene que cuadrar con eso,
+  // aunque el articulo diga despues que su caja trae 12.
+  it('receives in the base units the order promised, whatever the item says today', async () => {
+    const { s, order } = await confirmedOrder();
+    s.catalog.items.find((item) => item.id === WATER)!.units.find((unit) => unit.unitId === BOX)!.conversionFactor = 12;
+
+    await receive(s, order.id, [{ orderLineId: order.lines[0].id, quantity: 10 }]);
+
+    expect((await latestReceipt(s)).lines[0]).toMatchObject({ quantity: 10, baseQuantity: 240 });
+    expect(s.store.stockOf(TENANT_A, WATER, MAIN)).toBe(240);
   });
 });
