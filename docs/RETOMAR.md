@@ -23,7 +23,7 @@ de ninguna conversación anterior**.
 |---|---|
 | Repositorio | github.com/Rafarars/nexora-erp |
 | Reporte de pruebas | https://rafarars.github.io/nexora-erp/ |
-| Pruebas | 2402 + 168 unitarias · 154 de contrato · 336 end-to-end |
+| Pruebas | 2424 + 170 unitarias · 155 de contrato · 341 end-to-end |
 | **H0 — Fundación** | **Completado** |
 | **H1 — Multiempresa y acceso** | **Completado** y revisado |
 | **H2 — Catálogo** | **Completado** ([`H2-CATALOGO.md`](H2-CATALOGO.md)) |
@@ -431,26 +431,29 @@ Informe completo en [`revision/inventario/articulos.md`](revision/inventario/art
 |---|---|---|
 | 1 · Integridad | H8 una sola base en la base de datos; H1 unidades protegidas con órdenes o pedidos abiertos y entrada con la base de la orden; H2 no desactivar con documentos abiertos; H9 bloqueos `FOR UPDATE`/`FOR SHARE` contra carreras; borradores con caja cambiada piden revisión | ✅ Commits `539659b..ff3360e`, CI en verde, segunda pasada del método hecha |
 | 2 · Artículos en Inventario | Mover **código, pantalla y permisos**: contexto `catalog` → `inventory`, ruta `/inventario/articulos`, menú, `catalog.items.*` → `inventory.items.*` (semillas, roles, aislamiento, documentación). Añadir la prueba de interfaz de los mensajes del artículo | ✅ Código en `contexts/inventory`, puertos `CatalogReferences` e `ItemUsage`, migración de permisos, prueba de interfaz de los mensajes |
-| 3 · Configuración de la empresa y monedas | Investigada y decidida ([informe](revision/temas/configuracion-empresa.md)): contexto propio `company`, todo de una vez, multimoneda con tasas cargadas a mano, zona horaria. Cinco pasos: 1 Empresa y hoy por zona · 2 Monedas y tasas · 3 Compras · 4 Ventas y cobranza · 5 Reportes | 🔨 **En curso**: pasos 1 y 2 hechos ([módulo](modulos/empresa.md)); sigue el paso 3 |
+| 3 · Configuración de la empresa y monedas | Investigada y decidida ([informe](revision/temas/configuracion-empresa.md)): contexto propio `company`, todo de una vez, multimoneda con tasas cargadas a mano, zona horaria. Cinco pasos: 1 Empresa y hoy por zona · 2 Monedas y tasas · 3 Compras · 4 Ventas y cobranza · 5 Reportes | 🔨 **En curso**: pasos 1 a 3 hechos ([módulo](modulos/empresa.md)); sigue el paso 4 |
 | 4 · Artículo completo | H5 impuesto de venta y de compra; H4 factor con 8 decimales; H6 código de barras, comprable/vendible, mínimo/máximo/reorden; H7 copiar SKU y nombre en las líneas; paginación y búsqueda | ⬜ |
 | 5 · Listas de precio | Investigar su ubicación; maestro, precio por artículo, lista en el cliente, precio mínimo, precio sugerido en el pedido | ⬜ |
 | 6 · Servicios (H3) | Corregir documentación y pantalla. Comprar y vender servicios se hace en Compras y Facturas con la regla del compañero: la línea de servicio no cuenta para recibido o despachado | ⬜ |
 | 7 · Cierre | Informe, checklist en ✅, `make verify` | ⬜ |
 
 **Dónde quedamos (15-sep-2026).** Fases 1 y 2 de Artículos cerradas. Fase 3, configuración de la empresa y monedas:
-investigada, decidida y con los **pasos 1 y 2 hechos**:
+investigada, decidida y con los **pasos 1 a 3 hechos**:
 
 - **Paso 1:** contexto `company` con datos, parámetros y monedas, «hoy» por zona horaria, RIF en reportes.
-- **Paso 2:** tasas de cambio por empresa, moneda, fecha y tipo (`legal` o `manual`) cargadas a mano en
-  Administración › Tasas de cambio; cargar la misma combinación corrige; desactivar hace que los documentos usen la
-  anterior; la serie de los documentos en los parámetros (`rateType`); contrato publicado `DocumentRates` (la del día o
-  la última anterior, nunca posterior; sin tasa no se emite). Detalle en [`modulos/empresa.md`](modulos/empresa.md) §4.
+- **Paso 2:** tasas de cambio por empresa, moneda, fecha y tipo cargadas a mano (Administración › Tasas de cambio);
+  la serie de los documentos en los parámetros; contrato publicado `DocumentRates`.
+- **Paso 3:** órdenes y entradas de compra con `currency`, `exchange_rate`, `base_currency`, `base_exchange_rate` y
+  `manual_exchange_rate`. La moneda la elige quien captura (la de la empresa por defecto); las tasas se refrescan en el
+  borrador y se congelan al confirmar; la entrada usa las de su día; el costo entra al inventario en la moneda de la
+  empresa. Tasa a mano según el parámetro `allowsRateOverride` (decisión de Rafael). Detalle en
+  [`modulos/compras.md`](modulos/compras.md) §2.4 y §3.3.
 
-**Sigue el paso 3, compras:** órdenes y entradas con moneda propia y las dos tasas congeladas
-(`currency`/`exchange_rate` y `base_currency`/`base_exchange_rate`) usando `DocumentRates`; decidir si la tasa de un
-documento se puede corregir a mano (`allows_rate_override` del compañero). Después: paso 4 ventas y cobranza (importes
-en bolívares en factura y cobro, diferencial cambiario, redondeo según los decimales de la empresa) y paso 5 reportes.
-Detalle en [`revision/temas/configuracion-empresa.md`](revision/temas/configuracion-empresa.md) §8.
+**Sigue el paso 4, ventas y cobranza:** pedidos, facturas y cobros con moneda y tasas por `DocumentRates`; facturas y
+cobros con importes en bolívares en la cabecera (`subtotal_ves`, `tax_amount_ves`, `total_ves`); el cobro con la tasa de
+su fecha y el diferencial cambiario de cada aplicación; redondeo según los decimales de la empresa y columnas de importes
+a 4 decimales; límite de crédito en la moneda de la empresa. Después, paso 5 reportes. Detalle en
+[`revision/temas/configuracion-empresa.md`](revision/temas/configuracion-empresa.md) §8.
 
 **Decisiones de Rafael que no hay que volver a discutir:**
 

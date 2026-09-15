@@ -45,6 +45,7 @@ sigue en Acceso; datos y parámetros van uno a uno por empresa.
 | `amount_decimals` | 2 | De 0 a 4 (el techo de la columna de importes) |
 | `price_decimals` | 6 | De 0 a 6 |
 | `rate_type` | `legal` | La serie de tasas con que se valoran los documentos: `legal` (BCV) o `manual` (interna) |
+| `allows_rate_override` | sí | Si un documento puede llevar una tasa escrita a mano. Nunca la de la moneda de la empresa ni la del bolívar |
 
 **Reglas**
 
@@ -98,9 +99,17 @@ interfaz ya no calcula la fecha: la toma de `today` en los parámetros.
 3. Sin ninguna, el documento en esa moneda **no se emite** (`MissingExchangeRateError`, 409): mejor no emitir que
    emitir con tasa 1.
 
-**Contrato publicado:** `DocumentRates` (`shared/domain/ports/document-rates.ts`). `forDocument(empresa, moneda,
-fecha)` devuelve las dos tasas que congela un documento: la de su moneda y la de la moneda de la empresa, de la serie
-que eligió en sus parámetros. Lo consumirán compras (paso 3) y ventas y cobranza (paso 4).
+**Contrato publicado:** `DocumentRates` (`shared/domain/ports/document-rates.ts`). `forDocument(empresa, { moneda,
+fecha, tasa a mano, conserva la moneda })` devuelve las dos tasas que congela un documento: la de su moneda (la de la
+empresa si no dice) y la de la moneda de la empresa, de la serie que eligió en sus parámetros.
+
+- Comprueba que la moneda exista y esté activa; un documento que **ya la tenía** la conserva aunque se haya retirado.
+- Una tasa a mano solo si la empresa lo permite (`RateOverrideNotAllowedError`) y nunca para su moneda ni el bolívar
+  (`FixedExchangeRateError`); la de la empresa siempre sale del catálogo.
+- Los errores que cruzan contextos (`MissingExchangeRateError` y los dos anteriores) viven en el contrato. Las pruebas
+  de los demás contextos usan el doble `FixedDocumentRates`.
+- Lo usan las órdenes y entradas de compra ([compras.md §2.4](compras.md#24-moneda-y-tasas)); ventas y cobranza, en el
+  paso 4.
 
 ## 5. API y permisos
 
@@ -136,7 +145,8 @@ pedida o de la que usa la empresa.
 - Arriba, las **vigentes hoy** de cada moneda para la serie de la empresa, con el día de la tasa si es anterior.
 - El listado con filtros por moneda, tipo y fechas. **Cargar tasa** abre un panel lateral y cada fila ofrece
   **Corregir** y **Desactivar** o **Reactivar**, según el rol. La tasa se escribe con coma decimal.
-- En **Parámetros**, «Tasa de los documentos» elige la serie legal o interna.
+- En **Parámetros**, «Tasa de los documentos» elige la serie legal o interna, y «Tasa escrita a mano en un documento»
+  si se permite.
 
 ## 7. Datos de demostración
 

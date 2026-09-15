@@ -116,6 +116,8 @@ sola pantalla, «Empresa», con permisos `access.company.search` y `access.compa
 | Multimoneda con tasas | **En esta fase**, para no dejar cabos sueltos |
 | Zona horaria | Se corrige en esta fase |
 | Ubicación | Pidió la buena práctica antes de decidir (§9) |
+| Tasa escrita a mano en un documento | **Configurable por empresa** (parámetro `allows_rate_override`) |
+| Moneda de la orden de compra | **La elige quien captura**, con la de la empresa por defecto; sin moneda por proveedor |
 
 ## 8. Multimoneda: lo investigado
 
@@ -168,7 +170,8 @@ sola pantalla, «Empresa», con permisos `access.company.search` y `access.compa
    Documentado en [modulos/empresa.md](../../modulos/empresa.md).
 2. ✅ Monedas y tasas: tasas por fecha y tipo cargadas a mano, la serie de la empresa en sus parámetros y la
    resolución de la tasa de un documento. Documentado en [modulos/empresa.md §4](../../modulos/empresa.md#4-tasas-de-cambio--exchange_rates).
-3. Compras: moneda y tasas congeladas en órdenes y entradas.
+3. ✅ Compras: moneda y tasas congeladas en órdenes y entradas, tasa a mano según la empresa y el costo del inventario
+   en la moneda de la empresa. Documentado en [modulos/compras.md §2.4](../../modulos/compras.md#24-moneda-y-tasas).
 4. Ventas y cobranza: pedidos, facturas con importes en bolívares, cobros con la tasa de su fecha y el diferencial
    cambiario de cada aplicación.
 5. Reportes en la moneda de la empresa, con el equivalente en la secundaria.

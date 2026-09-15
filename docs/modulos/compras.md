@@ -67,6 +67,11 @@ de ninguno de los dos.
 | `order_date` | fecha | Por defecto hoy. **No puede ser futura** |
 | `expected_date` | fecha | Opcional. **Sí puede ser futura**, pero no anterior a la de la orden |
 | `notes` | texto(500) | Opcional |
+| `currency` | char(3) | La elige quien captura; **por defecto, la de la empresa**. Existe y está activa |
+| `exchange_rate` | decimal(18,8) | Bolívares por 1 unidad de `currency`, **de la fecha del documento o la última anterior**. 1 si es el bolívar |
+| `base_currency` | char(3) | La moneda de la empresa **en ese momento** |
+| `base_exchange_rate` | decimal(18,8) | Bolívares por 1 unidad de `base_currency`, siempre del catálogo de tasas |
+| `manual_exchange_rate` | booleano | La tasa la escribió una persona (si la empresa lo permite) |
 | `status` | ver ciclo de vida | |
 
 ### 2.2 Líneas — `purchase_order_lines`
@@ -128,6 +133,26 @@ Ejemplo: 10 cajas a 12 con 16 % y 5 kg a 3,20 exento → subtotal 136,00, impues
 - Anular una orden con entradas en borrador es posible: esas entradas ya no se podrán confirmar,
   solo anular.
 
+### 2.4 Moneda y tasas
+
+La orden guarda su moneda y **las dos tasas que congela**: la de su moneda y la de la moneda de la empresa, ambas en
+bolívares por unidad. Con los dos pares se reexpresa en bolívares y en la moneda de la empresa aunque esta cambie
+después. Las pide al contexto de empresa por el contrato publicado `DocumentRates`
+([empresa.md §4](empresa.md#4-tasas-de-cambio--exchange_rates)).
+
+| Momento | Qué pasa con las tasas |
+|---|---|
+| **Crear o editar el borrador** | Se buscan otra vez: la del día de la orden o la última anterior, de la serie de la empresa |
+| **Confirmar** | Se buscan una última vez y **quedan congeladas**. Cargar después otra tasa no cambia la orden |
+| **Tasa escrita a mano** | Se conserva al editar y al confirmar. Solo si la empresa lo permite, y nunca para su moneda ni para el bolívar |
+
+- **Sin tasa, la orden no se guarda** (`MissingExchangeRateError`, 409): ni la de su moneda ni la de la empresa pueden
+  faltar. Mejor no emitir que emitir con tasa 1.
+- La fecha futura se rechaza **antes** de buscar tasas.
+- Una moneda retirada del catálogo no se elige; un borrador que ya la tenía la conserva al guardarse.
+- **Las órdenes anteriores al multimoneda** quedaron en la moneda de la empresa y **sin tasas**: así se escribieron.
+- En la pantalla, el total lleva la moneda y, debajo, la tasa y su equivalente en bolívares.
+
 ---
 
 ## 3. Entradas de mercancía
@@ -141,6 +166,11 @@ Ejemplo: 10 cajas a 12 con 16 % y 5 kg a 3,20 exento → subtotal 136,00, impues
 | `warehouse_id` | bodega | **La de la orden**. No cambia |
 | `receipt_date` | fecha | Por defecto hoy. **No puede ser futura** |
 | `notes` | texto(500) | Opcional |
+| `currency` | char(3) | **La de su orden**. No cambia |
+| `exchange_rate` | decimal(18,8) | Bolívares por 1 unidad de `currency`, **del día en que llegó o la última anterior**. 1 si es el bolívar |
+| `base_currency` | char(3) | La moneda de la empresa **en ese momento** |
+| `base_exchange_rate` | decimal(18,8) | Bolívares por 1 unidad de `base_currency`, siempre del catálogo de tasas |
+| `manual_exchange_rate` | booleano | La tasa la escribió una persona (si la empresa lo permite) |
 | `status` | `draft` \| `confirmed` \| `cancelled` | |
 
 ### 3.2 Líneas — `goods_receipt_lines`
@@ -163,8 +193,13 @@ Ejemplo: 10 cajas a 12 con 16 % y 5 kg a 3,20 exento → subtotal 136,00, impues
 | **Anular un borrador** | Nada | Nada |
 | **Anular una confirmada** | Resta lo recibido; la orden retrocede de estado | Revierte los movimientos con contrapartidas. **Se rechaza si la mercancía ya salió** |
 
-**Costo que entra al inventario**: el de la orden repartido en unidades base. 4 cajas de 24 a 12
-cada una entran como 96 unidades a 0,50.
+**Costo que entra al inventario**: el de la orden repartido en unidades base **y llevado a la moneda de la
+empresa con las tasas de la entrada**, porque el inventario se valora en la moneda de la empresa. 4 cajas de 24 a 12
+dólares entran como 96 unidades a 0,50. Si la orden es en euros, con el euro a 175,05 Bs y el dólar a 153,10 Bs, esas
+96 unidades entran a 0,50 × 175,05 ÷ 153,10 = **0,571685** dólares.
+
+**Tasas de la entrada.** Lleva la moneda de su orden, pero **las tasas del día en que llegó**: la mercancía se valora
+cuando entra. Se refrescan en el borrador y se congelan al confirmar; una escrita a mano se conserva.
 
 **Dos borradores que juntos se pasan.** Sobre 10 cajas, dos borradores de 6 son válidos por
 separado. Al confirmar, el primero entra y el segundo se rechaza con «La entrada trae más de lo que
@@ -311,3 +346,4 @@ compra.
 | API | `tests/api/purchasing.api.spec.ts` | Recorrido por HTTP, costo promedio con dos compras, entradas simultáneas, anulación con retroceso, permisos |
 | Interfaz | `tests/ui/purchasing.spec.ts` | Pedir → en camino → recibir en parte → existencias → kardex → anular entrada; error en español; proveedor; solo lectura |
 | Aislamiento | `tests/isolation/*` | 11 ataques: proveedores, órdenes y entradas de Globex, pedirle a su proveedor, recibir su orden y filtrar lo que le viene en camino |
+| Moneda y tasas | `application/purchase-currency.spec.ts`, `document-currency.spec.ts`, `tests/api/purchasing.api.spec.ts`, `tests/ui/purchasing.spec.ts` | La moneda de la empresa por defecto, tasas que se refrescan en el borrador y se congelan al confirmar, tasa a mano, sin tasa no se guarda, la entrada con las tasas de su día y el costo en la moneda de la empresa |
