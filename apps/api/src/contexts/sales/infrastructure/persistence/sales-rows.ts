@@ -17,6 +17,11 @@ export interface SalesOrderRow {
   customerId: string;
   warehouseId: string;
   orderDate: Date;
+  currency: string;
+  exchangeRate: Decimalish | null;
+  baseCurrency: string;
+  baseExchangeRate: Decimalish | null;
+  manualExchangeRate: boolean;
   notes: string | null;
   status: 'draft' | 'confirmed' | 'partially_dispatched' | 'dispatched' | 'cancelled';
   confirmedAt: Date | null;
@@ -40,6 +45,8 @@ export function orderFromRow(row: SalesOrderRow): SalesOrder {
   return SalesOrder.fromPrimitives({
     ...row,
     orderDate: day(row.orderDate),
+    exchangeRate: row.exchangeRate ? n(row.exchangeRate) : null,
+    baseExchangeRate: row.baseExchangeRate ? n(row.baseExchangeRate) : null,
     lines: row.lines.map((line) => ({
       id: line.id,
       lineNumber: line.lineNumber,
@@ -61,6 +68,11 @@ export interface DispatchRow {
   orderId: string;
   warehouseId: string;
   dispatchDate: Date;
+  currency: string;
+  exchangeRate: Decimalish | null;
+  baseCurrency: string;
+  baseExchangeRate: Decimalish | null;
+  manualExchangeRate: boolean;
   notes: string | null;
   status: 'draft' | 'confirmed' | 'cancelled';
   confirmedAt: Date | null;
@@ -74,6 +86,8 @@ export function dispatchFromRow(row: DispatchRow): Dispatch {
   return Dispatch.fromPrimitives({
     ...row,
     dispatchDate: day(row.dispatchDate),
+    exchangeRate: row.exchangeRate ? n(row.exchangeRate) : null,
+    baseExchangeRate: row.baseExchangeRate ? n(row.baseExchangeRate) : null,
     lines: row.lines.map((line) => ({
       id: line.id,
       lineNumber: line.lineNumber,
@@ -95,11 +109,19 @@ export interface InvoiceRow {
   customerId: string;
   issueDate: Date;
   dueDate: Date;
+  currency: string;
+  exchangeRate: Decimalish | null;
+  baseCurrency: string;
+  baseExchangeRate: Decimalish | null;
+  manualExchangeRate: boolean;
   notes: string | null;
   status: 'issued' | 'cancelled';
   subtotal: Decimalish;
   tax: Decimalish;
   total: Decimalish;
+  subtotalVes: Decimalish | null;
+  taxVes: Decimalish | null;
+  totalVes: Decimalish | null;
   cancelledAt: Date | null;
   createdAt: Date;
   updatedAt: Date;
@@ -121,9 +143,14 @@ export function invoiceFromRow(row: InvoiceRow): Invoice {
     ...row,
     issueDate: day(row.issueDate),
     dueDate: day(row.dueDate),
+    exchangeRate: row.exchangeRate ? n(row.exchangeRate) : null,
+    baseExchangeRate: row.baseExchangeRate ? n(row.baseExchangeRate) : null,
     subtotal: n(row.subtotal),
     tax: n(row.tax),
     total: n(row.total),
+    subtotalVes: row.subtotalVes ? n(row.subtotalVes) : null,
+    taxVes: row.taxVes ? n(row.taxVes) : null,
+    totalVes: row.totalVes ? n(row.totalVes) : null,
     lines: row.lines
       .sort((a, b) => a.lineNumber - b.lineNumber)
       .map((line) => ({

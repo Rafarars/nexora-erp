@@ -1,3 +1,4 @@
+import { DocumentCurrency } from "../shared/document-currency.js";
 import { PaymentDetails } from '../payment/customer-payment.entity.js';
 import { ReceivableInvoice, ReceivableInvoicePrimitives } from '../ledger/receivable-invoice.js';
 import { ReceivablesDate } from '../shared/receivables-date.vo.js';
@@ -26,7 +27,7 @@ export function anInvoice(overrides: Partial<ReceivableInvoicePrimitives> = {}):
     dueDate: '2026-01-20',
     status: 'issued',
     total: 100,
-    paid: 0,
+    paid: 0, exchangeRate: null,
     ...overrides,
   });
 }
@@ -38,7 +39,8 @@ export function paymentDetails(overrides: Partial<PaymentDetails> = {}): Payment
     method: 'transfer',
     reference: 'TRF-001',
     notes: null,
-    allocations: [{ id: 'a1000000-0000-4000-8000-000000000001', invoiceId: INVOICE, amount: 40 }],
+    currency: DocumentCurrency.of({ currency: "USD", exchangeRate: 1, baseCurrency: "USD", baseExchangeRate: 1, manualRate: false }),
+    allocations: [{ id: 'a1000000-0000-4000-8000-000000000001', invoiceId: INVOICE, amount: 40, exchangeDifference: 0 }],
     ...overrides,
   };
 }

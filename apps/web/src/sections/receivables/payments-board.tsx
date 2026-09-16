@@ -8,14 +8,17 @@ import { RowOptions } from '@/sections/shared/row-options';
 import { SlideOver } from '@/sections/shared/slide-over';
 import { emptyState } from '@/shared/forms/form-state';
 import type { FormState } from '@/shared/forms/form-state';
-import { formatAmount } from '@/modules/purchasing/domain/purchasing';
+import { formatAmount } from '@/modules/sales/domain/sales';
+import { AmountDual } from '@/shared/components/amount-dual';
 import { PAYMENT_METHOD_LABELS, PAYMENT_STATUS_LABELS, customersWithDebt, overdueLabel, payableInvoices, paymentActions } from '@/modules/receivables/domain/receivables';
 import type { Payment, PaymentMethod, Receivable } from '@/modules/receivables/domain/receivables';
+import type { CompanySettings } from '@/modules/company/domain/company';
+import { ExchangeRateField } from '@/shared/forms/exchange-rate-field';
 
 export function PaymentsBoard({
   payments,
   receivables,
-  today,
+  settings,
   canCreate,
   canUpdate,
   canConfirm,
@@ -23,7 +26,7 @@ export function PaymentsBoard({
 }: {
   payments: Payment[];
   receivables: Receivable[];
-  today: string;
+  settings: CompanySettings;
   canCreate: boolean;
   canUpdate: boolean;
   canConfirm: boolean;
@@ -179,7 +182,7 @@ export function PaymentsBoard({
       >
         <form action={save} className="space-y-4" key={editing?.id ?? 'new'}>
           <input type="hidden" name="id" value={editing?.id ?? ''} />
-          <PaymentFields payment={editing} receivables={receivables} today={today} />
+          <PaymentFields payment={editing} receivables={receivables} settings={settings} />
           <FormError message={saveState.error} testId="payment-error" />
           <SubmitButton pending={saving} testId="payment-submit">
             Guardar borrador
@@ -190,7 +193,7 @@ export function PaymentsBoard({
   );
 }
 
-function PaymentFields({ payment, receivables, today }: { payment: Payment | null; receivables: Receivable[]; today: string }) {
+function PaymentFields({ payment, receivables, settings }: { payment: Payment | null; receivables: Receivable[]; settings: CompanySettings }) {
   const [customerId, setCustomerId] = useState(payment?.customer.id ?? '');
   const invoices = payableInvoices(receivables, customerId, payment);
 
@@ -226,8 +229,8 @@ function PaymentFields({ payment, receivables, today }: { payment: Payment | nul
             id="payment-date"
             name="date"
             type="date"
-            max={today}
-            defaultValue={payment?.paymentDate ?? today}
+            max={settings.today}
+            defaultValue={payment?.paymentDate ?? settings.today}
             data-testid="payment-date"
             className="border-line w-full rounded-md border bg-transparent px-3 py-2 text-sm"
           />

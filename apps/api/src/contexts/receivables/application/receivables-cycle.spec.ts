@@ -24,10 +24,10 @@ function world(): ReceivablesScenario {
 
   s.store.customer(TENANT_A, { id: CUSTOMER, code: 'CLI000001', name: 'Comercial Delta', paymentTermDays: 15, creditLimit: 500, isActive: true });
   s.store.customer(TENANT_A, { id: OTHER_CUSTOMER, code: 'CLI000002', name: 'Talleres Omega', paymentTermDays: 0, creditLimit: null, isActive: false });
-  s.store.invoice(TENANT_A, { id: INVOICE, code: 'FAC000002', customerId: CUSTOMER, issueDate: '2026-01-05', dueDate: '2026-01-20', status: 'issued', total: 100 });
-  s.store.invoice(TENANT_A, { id: OTHER_INVOICE, code: 'FAC000001', customerId: CUSTOMER, issueDate: '2025-12-26', dueDate: '2026-01-10', status: 'issued', total: 50 });
-  s.store.invoice(TENANT_A, { id: THIRD_INVOICE, code: 'FAC000003', customerId: OTHER_CUSTOMER, issueDate: '2026-01-14', dueDate: '2026-01-14', status: 'issued', total: 30 });
-  s.store.invoice(TENANT_B, { id: FOREIGN_INVOICE, code: 'FAC000001', customerId: 'c9999999-9999-4999-8999-999999999999', issueDate: '2026-01-05', dueDate: '2026-01-05', status: 'issued', total: 10 });
+  s.store.invoice(TENANT_A, { id: INVOICE, code: 'FAC000002', customerId: CUSTOMER, issueDate: '2026-01-05', dueDate: '2026-01-20', status: 'issued', exchangeRate: 1, total: 100 });
+  s.store.invoice(TENANT_A, { id: OTHER_INVOICE, code: 'FAC000001', customerId: CUSTOMER, issueDate: '2025-12-26', dueDate: '2026-01-10', status: 'issued', exchangeRate: 1, total: 50 });
+  s.store.invoice(TENANT_A, { id: THIRD_INVOICE, code: 'FAC000003', customerId: OTHER_CUSTOMER, issueDate: '2026-01-14', dueDate: '2026-01-14', status: 'issued', exchangeRate: 1, total: 30 });
+  s.store.invoice(TENANT_B, { id: FOREIGN_INVOICE, code: 'FAC000001', customerId: 'c9999999-9999-4999-8999-999999999999', issueDate: '2026-01-05', dueDate: '2026-01-05', status: 'issued', exchangeRate: 1, total: 10 });
 
   return s;
 }

@@ -1,5 +1,6 @@
 import { Clock } from '../../../../shared/domain/ports/clock.js';
 import { BusinessCalendar } from '../../../../shared/domain/ports/business-calendar.js';
+import { DocumentRates } from '../../../../shared/domain/ports/document-rates.js';
 import { SalesOrderFinder } from '../../domain/order/find/sales-order-finder.js';
 import { SalesOrderReferences } from '../../domain/order/lines/sales-order-references.js';
 import { ensureBaseQuantitiesUnchanged } from '../../domain/order/lines/unchanged-base-quantities.js';
@@ -19,6 +20,7 @@ export class SalesOrderConfirmer {
     private readonly reservation: StockReservation,
     private readonly clock: Clock,
     private readonly calendar: BusinessCalendar,
+    private readonly rates: DocumentRates,
   ) {}
 
   async run(request: { tenantId: string; orderId: string }): Promise<void> {
@@ -34,15 +36,19 @@ export class SalesOrderConfirmer {
       const row = order.toPrimitives();
       const details = await salesOrderDetails(
         this.references,
+        this.rates,
         tenantId,
         {
           customerId: row.customerId,
           warehouseId: row.warehouseId,
           date: row.orderDate,
           notes: row.notes,
+          currency: row.currency,
+          exchangeRate: row.exchangeRate,
           lines: row.lines.map(({ id, itemId, unitId, quantity, unitPrice }) => ({ id, itemId, unitId, quantity, unitPrice })),
         },
         today,
+        true,
       );
 
       ensureBaseQuantitiesUnchanged(order.lines(), details.lines);

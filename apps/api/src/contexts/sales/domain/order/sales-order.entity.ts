@@ -10,10 +10,11 @@ import {
   SalesOrderWithDispatchesError,
 } from '../errors/sales.errors.js';
 import { CustomerId } from '../customer/customer.entity.js';
-import { centsToNumber } from '../shared/money.js';
+import { baseToNumber } from '../shared/money.js';
 import { Quantity } from '../shared/quantity.vo.js';
 import { WarehouseRef } from '../shared/references.vo.js';
 import { SalesDate } from '../shared/sales-date.vo.js';
+import { DocumentCurrency, DocumentCurrencyPrimitives } from "../shared/document-currency.js";
 import { optionalText } from '../shared/text.js';
 import { TenantId } from '../shared/tenant-id.vo.js';
 import { SalesOrderLine, SalesOrderLineId, SalesOrderLinePrimitives } from './sales-order-line.js';
@@ -30,11 +31,12 @@ export interface SalesOrderDetails {
   customerId: CustomerId;
   warehouseId: WarehouseRef;
   orderDate: SalesDate;
+  currency: DocumentCurrency;
   notes: string | null;
   lines: SalesOrderLine[];
 }
 
-export interface SalesOrderPrimitives {
+export interface SalesOrderPrimitives extends DocumentCurrencyPrimitives {
   id: string;
   tenantId: string;
   code: string;
@@ -89,6 +91,7 @@ export class SalesOrder {
         customerId: CustomerId.of(row.customerId),
         warehouseId: WarehouseRef.of(row.warehouseId),
         orderDate: SalesDate.of(row.orderDate),
+        currency: DocumentCurrency.fromPrimitives(row),
         notes: row.notes,
         lines: [...row.lines].sort((a, b) => a.lineNumber - b.lineNumber).map((line) => SalesOrderLine.fromPrimitives(line)),
       },
@@ -108,6 +111,7 @@ export class SalesOrder {
       customerId: this.details.customerId.value,
       warehouseId: this.details.warehouseId.value,
       orderDate: this.details.orderDate.value,
+      ...this.details.currency.toPrimitives(),
       notes: this.details.notes,
       status: this.status,
       confirmedAt: this.confirmedAt,
@@ -128,6 +132,10 @@ export class SalesOrder {
 
   warehouseId(): WarehouseRef {
     return this.details.warehouseId;
+  }
+
+  currency(): DocumentCurrency {
+    return this.details.currency;
   }
 
   orderDate(): SalesDate {
@@ -156,10 +164,10 @@ export class SalesOrder {
   }
 
   totals(): { subtotal: number; tax: number; total: number } {
-    const subtotal = this.details.lines.reduce((sum, line) => sum + line.subtotalCents(), 0n);
-    const tax = this.details.lines.reduce((sum, line) => sum + line.taxCents(), 0n);
+    const subtotal = this.details.lines.reduce((sum, line) => sum + line.subtotalBase(), 0n);
+    const tax = this.details.lines.reduce((sum, line) => sum + line.taxBase(), 0n);
 
-    return { subtotal: centsToNumber(subtotal), tax: centsToNumber(tax), total: centsToNumber(subtotal + tax) };
+    return { subtotal: baseToNumber(subtotal), tax: baseToNumber(tax), total: baseToNumber(subtotal + tax) };
   }
 
   // Lo que el pedido reserva por articulo, en unidad base. Un borrador aun no reserva nada, pero

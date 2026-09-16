@@ -7,6 +7,8 @@ export interface PaymentInput {
   reference: string | null;
   notes: string | null;
   allocations: { invoiceId: string; amount: number }[];
+  currency?: string;
+  manualExchangeRate?: number | null;
 }
 
 export interface ReceivablesApi {

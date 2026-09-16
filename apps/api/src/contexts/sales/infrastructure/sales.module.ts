@@ -1,3 +1,5 @@
+import { DOCUMENT_RATES } from '../../../shared/domain/ports/document-rates.js';
+import type { DocumentRates } from '../../../shared/domain/ports/document-rates.js';
 import { BUSINESS_CALENDAR } from '../../../shared/domain/ports/business-calendar.js';
 import type { BusinessCalendar } from '../../../shared/domain/ports/business-calendar.js';
 import { Module } from '@nestjs/common';
@@ -156,19 +158,19 @@ import { PrismaSalesStock } from './persistence/prisma-sales-stock.js';
 
     {
       provide: SalesOrderCreator,
-      useFactory: (x: SalesOrderReferences, r: SalesOrderRepository, c: SalesCodeSequence, i: IdGenerator, k: Clock, cal: BusinessCalendar) => new SalesOrderCreator(x, r, c, i, k, cal),
-      inject: [SalesOrderReferences, SALES_ORDER_REPOSITORY, SALES_CODE_SEQUENCE, ID_GENERATOR, CLOCK, BUSINESS_CALENDAR],
+      useFactory: (x: SalesOrderReferences, r: SalesOrderRepository, c: SalesCodeSequence, i: IdGenerator, k: Clock, cal: BusinessCalendar, dr: DocumentRates) => new SalesOrderCreator(x, r, c, i, k, cal, dr),
+      inject: [SalesOrderReferences, SALES_ORDER_REPOSITORY, SALES_CODE_SEQUENCE, ID_GENERATOR, CLOCK, BUSINESS_CALENDAR, DOCUMENT_RATES],
     },
     {
       provide: SalesOrderUpdater,
-      useFactory: (f: SalesOrderFinder, x: SalesOrderReferences, r: SalesOrderRepository, k: Clock, cal: BusinessCalendar) => new SalesOrderUpdater(f, x, r, k, cal),
-      inject: [SalesOrderFinder, SalesOrderReferences, SALES_ORDER_REPOSITORY, CLOCK, BUSINESS_CALENDAR],
+      useFactory: (f: SalesOrderFinder, x: SalesOrderReferences, r: SalesOrderRepository, k: Clock, cal: BusinessCalendar, dr: DocumentRates) => new SalesOrderUpdater(f, x, r, k, cal, dr),
+      inject: [SalesOrderFinder, SalesOrderReferences, SALES_ORDER_REPOSITORY, CLOCK, BUSINESS_CALENDAR, DOCUMENT_RATES],
     },
     {
       provide: SalesOrderConfirmer,
-      useFactory: (f: SalesOrderFinder, x: SalesOrderReferences, r: SalesOrderRepository, p: SalesOrderPosting, s: StockReservation, k: Clock, cal: BusinessCalendar) =>
-        new SalesOrderConfirmer(f, x, r, p, s, k, cal),
-      inject: [SalesOrderFinder, SalesOrderReferences, SALES_ORDER_REPOSITORY, SALES_ORDER_POSTING, StockReservation, CLOCK, BUSINESS_CALENDAR],
+      useFactory: (f: SalesOrderFinder, x: SalesOrderReferences, r: SalesOrderRepository, p: SalesOrderPosting, s: StockReservation, k: Clock, cal: BusinessCalendar, dr: DocumentRates) =>
+        new SalesOrderConfirmer(f, x, r, p, s, k, cal, dr),
+      inject: [SalesOrderFinder, SalesOrderReferences, SALES_ORDER_REPOSITORY, SALES_ORDER_POSTING, StockReservation, CLOCK, BUSINESS_CALENDAR, DOCUMENT_RATES],
     },
     { provide: SalesOrderCanceller, useFactory: (p: SalesOrderPosting, k: Clock) => new SalesOrderCanceller(p, k), inject: [SALES_ORDER_POSTING, CLOCK] },
     {

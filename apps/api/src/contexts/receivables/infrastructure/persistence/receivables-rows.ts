@@ -21,12 +21,19 @@ export interface PaymentRow {
   reference: string | null;
   notes: string | null;
   amount: Decimalish;
+
+  currency: string;
+  exchangeRate: Decimalish | null;
+  baseCurrency: string;
+  baseExchangeRate: Decimalish | null;
+  manualExchangeRate: boolean;
+  amountVes: Decimalish | null;
   status: PaymentStatus;
   confirmedAt: Date | null;
   cancelledAt: Date | null;
   createdAt: Date;
   updatedAt: Date;
-  allocations: { id: string; invoiceId: string; amount: Decimalish }[];
+  allocations: { id: string; invoiceId: string; amount: Decimalish; exchangeDifference: Decimalish }[];
 }
 
 export function paymentFromRow(row: PaymentRow): CustomerPayment {
@@ -34,7 +41,10 @@ export function paymentFromRow(row: PaymentRow): CustomerPayment {
     ...row,
     paymentDate: day(row.paymentDate),
     amount: row.amount.toNumber(),
-    allocations: row.allocations.map((allocation) => ({ id: allocation.id, invoiceId: allocation.invoiceId, amount: allocation.amount.toNumber() })),
+    exchangeRate: row.exchangeRate ? row.exchangeRate.toNumber() : null,
+    baseExchangeRate: row.baseExchangeRate ? row.baseExchangeRate.toNumber() : null,
+    amountVes: row.amountVes ? row.amountVes.toNumber() : null,
+    allocations: row.allocations.map((allocation) => ({ id: allocation.id, invoiceId: allocation.invoiceId, amount: allocation.amount.toNumber(), exchangeDifference: allocation.exchangeDifference.toNumber() })),
   });
 }
 
@@ -52,6 +62,7 @@ export function invoiceSelect(excludedPayment?: string) {
     dueDate: true,
     status: true,
     total: true,
+    exchangeRate: true,
     allocations: {
       where: { payment: { status: 'confirmed' as const, ...(excludedPayment ? { id: { not: excludedPayment } } : {}) } },
       select: { amount: true },
@@ -67,9 +78,10 @@ export function invoiceFromRow(row: {
   dueDate: Date;
   status: 'issued' | 'cancelled';
   total: Decimalish;
+  exchangeRate: Decimalish | null;
   allocations: { amount: Decimalish }[];
 }): ReceivableInvoice {
-  const paidCents = row.allocations.reduce((sum, allocation) => sum + Math.round(allocation.amount.toNumber() * 100), 0);
+  const paidBase = row.allocations.reduce((sum, allocation) => sum + Math.round(allocation.amount.toNumber() * 10000), 0);
 
   return ReceivableInvoice.of({
     id: row.id,
@@ -79,6 +91,7 @@ export function invoiceFromRow(row: {
     dueDate: day(row.dueDate),
     status: row.status,
     total: row.total.toNumber(),
-    paid: paidCents / 100,
+    exchangeRate: row.exchangeRate ? row.exchangeRate.toNumber() : null,
+    paid: paidBase / 10000,
   });
 }

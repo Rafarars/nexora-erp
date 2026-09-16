@@ -36,6 +36,8 @@ export async function savePayment(_state: FormState, form: FormData): Promise<Fo
       method: text(form, 'method'),
       reference: optional(form, 'reference'),
       notes: optional(form, 'notes'),
+      currency: 'USD',
+      manualExchangeRate: parseDecimal(optional(form, 'manualExchangeRate') || ''),
       allocations: invoices
         .map((invoiceId, index) => ({ invoiceId, raw: (amounts[index] ?? '').trim() }))
         .filter(({ raw }) => raw !== '')

@@ -4,6 +4,7 @@ import { Dispatch, DispatchId } from '../../domain/dispatch/dispatch.entity.js';
 import { DispatchRepository } from '../../domain/dispatch/dispatch.repository.js';
 import { DispatchNotEditableError } from '../../domain/errors/sales.errors.js';
 import { SalesOrderId } from '../../domain/order/sales-order.entity.js';
+import { ConcurrentModificationError } from '../../../../shared/domain/concurrent-modification.error.js';
 import { TenantId } from '../../domain/shared/tenant-id.vo.js';
 import { asDate, dispatchFromRow } from './sales-rows.js';
 
@@ -15,17 +16,20 @@ export class PrismaDispatchRepository implements DispatchRepository {
     const { lines, dispatchDate, ...row } = dispatch.toPrimitives();
 
     await this.prisma.$transaction(async (tx) => {
-      const exists = await tx.dispatch.findFirst({ where: { tenantId: row.tenantId, id: row.id }, select: { status: true } });
+      const exists = await tx.dispatch.findFirst({ where: { tenantId: row.tenantId, id: row.id }, select: { status: true, updatedAt: true } });
 
       if (!exists) {
         await tx.dispatch.create({ data: { ...row, dispatchDate: asDate(dispatchDate) } });
       } else {
         const { count } = await tx.dispatch.updateMany({
-          where: { tenantId: row.tenantId, id: row.id, status: 'draft' },
-          data: { dispatchDate: asDate(dispatchDate), notes: row.notes, updatedAt: row.updatedAt },
+          where: { tenantId: row.tenantId, id: row.id, status: 'draft', updatedAt: row.updatedAt },
+          data: { dispatchDate: asDate(dispatchDate), notes: row.notes, currency: row.currency, exchangeRate: row.exchangeRate, baseCurrency: row.baseCurrency, baseExchangeRate: row.baseExchangeRate, manualExchangeRate: row.manualExchangeRate, updatedAt: row.updatedAt },
         });
 
-        if (count === 0) throw new DispatchNotEditableError(row.id, exists.status);
+        if (count === 0) {
+          if (exists.status !== 'draft') throw new DispatchNotEditableError(row.id, exists.status);
+          throw new ConcurrentModificationError(row.id);
+        }
 
         await tx.dispatchLine.deleteMany({ where: { tenantId: row.tenantId, dispatchId: row.id } });
       }

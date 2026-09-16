@@ -24,9 +24,9 @@ export function describeReceivablesPortsContract(implementation: string, createH
       await harness.customer(TENANT_A, { id: CUSTOMER, code: 'CLI900001', name: 'Contrato Delta', paymentTermDays: 15, creditLimit: 500.5, isActive: true });
       await harness.customer(TENANT_A, { id: OTHER_CUSTOMER, code: 'CLI900002', name: 'Contrato Omega', paymentTermDays: 0, creditLimit: null, isActive: false });
       await harness.customer(TENANT_B, { id: FOREIGN_CUSTOMER, code: 'CLI900001', name: 'Contrato ajeno', paymentTermDays: 0, creditLimit: null, isActive: true });
-      await harness.invoice(TENANT_A, { id: INVOICE, code: 'FAC900002', customerId: CUSTOMER, issueDate: '2026-01-05', dueDate: '2026-01-20', status: 'issued', total: 100 });
-      await harness.invoice(TENANT_A, { id: OTHER_INVOICE, code: 'FAC900001', customerId: OTHER_CUSTOMER, issueDate: '2026-01-02', dueDate: '2026-01-02', status: 'issued', total: 30.3 });
-      await harness.invoice(TENANT_B, { id: FOREIGN_INVOICE, code: 'FAC900001', customerId: FOREIGN_CUSTOMER, issueDate: '2026-01-02', dueDate: '2026-01-02', status: 'issued', total: 10 });
+      await harness.invoice(TENANT_A, { id: INVOICE, code: 'FAC900002', customerId: CUSTOMER, issueDate: '2026-01-05', dueDate: '2026-01-20', status: 'issued', total: 10, exchangeRate: null });
+      await harness.invoice(TENANT_A, { id: OTHER_INVOICE, code: 'FAC900001', customerId: OTHER_CUSTOMER, issueDate: '2026-01-02', dueDate: '2026-01-02', status: 'issued', total: 30.3, exchangeRate: null });
+      await harness.invoice(TENANT_B, { id: FOREIGN_INVOICE, code: 'FAC900001', customerId: FOREIGN_CUSTOMER, issueDate: '2026-01-02', dueDate: '2026-01-02', status: 'issued', total: 10, exchangeRate: null });
     });
 
     afterEach(async () => {
@@ -38,13 +38,13 @@ export function describeReceivablesPortsContract(implementation: string, createH
     });
 
     const next = () => String((counter += 1)).padStart(12, '0');
-    const allocation = (invoiceId: string, amount: number): PaymentAllocationPrimitives => ({ id: `da000000-0000-4000-8000-${next()}`, invoiceId, amount });
+    const allocation = (invoiceId: string, amount: number): PaymentAllocationPrimitives => ({ id: `da000000-0000-4000-8000-${next()}`, invoiceId, amount, exchangeDifference: 0 });
 
     async function draft(allocations: PaymentAllocationPrimitives[], customerId = CUSTOMER): Promise<PaymentId> {
       const id = PaymentId.of(`d0000000-0000-4000-8000-${next()}`);
 
       await ports.payments.save(
-        CustomerPayment.draft(id, tenant, `COB${next().slice(-6)}`, { customerId, date: ReceivablesDate.of(TODAY), method: 'transfer', reference: 'TRF', notes: 'contrato', allocations }, NOW, TODAY),
+        CustomerPayment.draft(id, tenant, `COB${next().slice(-6)}`, { customerId, date: ReceivablesDate.of(TODAY), method: 'transfer', currency: { currency: 'USD', exchangeRate: 1, baseCurrency: 'USD', baseExchangeRate: 1, manualRate: false, toPrimitives: () => ({ currency: 'USD', exchangeRate: 1, baseCurrency: 'USD', baseExchangeRate: 1, manualExchangeRate: false }) } as any, reference: 'TRF', notes: 'contrato', allocations, currency: { currency: 'USD', exchangeRate: 1, baseCurrency: 'USD', baseExchangeRate: 1, manualRate: false } as any }, NOW, TODAY),
       );
 
       return id;
@@ -140,7 +140,7 @@ export function describeReceivablesPortsContract(implementation: string, createH
         expect((await ports.ledger.invoices(tenant)).map((row) => row.toPrimitives().code)).toEqual(['FAC900002', 'FAC900001']);
         expect((await ports.ledger.invoices(tenant, { customerId: OTHER_CUSTOMER })).map((row) => row.id)).toEqual([OTHER_INVOICE]);
         expect(await ports.ledger.invoices(tenant, { ids: [FOREIGN_INVOICE] })).toEqual([]);
-        expect((await invoice()).toPrimitives()).toEqual({ id: INVOICE, code: 'FAC900002', customerId: CUSTOMER, issueDate: '2026-01-05', dueDate: '2026-01-20', status: 'issued', total: 100, paid: 0 });
+        expect((await invoice()).toPrimitives()).toEqual({ id: INVOICE, code: 'FAC900002', customerId: CUSTOMER, issueDate: '2026-01-05', dueDate: '2026-01-20', status: 'issued', total: 10, exchangeRate: null, paid: 0 });
       });
     });
 

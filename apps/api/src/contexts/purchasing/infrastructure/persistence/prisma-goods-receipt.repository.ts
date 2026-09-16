@@ -4,6 +4,7 @@ import { GoodsReceiptNotEditableError } from '../../domain/errors/purchasing.err
 import { PurchaseOrderId } from '../../domain/order/purchase-order.entity.js';
 import { GoodsReceipt, GoodsReceiptId } from '../../domain/receipt/goods-receipt.entity.js';
 import { GoodsReceiptRepository } from '../../domain/receipt/goods-receipt.repository.js';
+import { ConcurrentModificationError } from '../../../../shared/domain/concurrent-modification.error.js';
 import { TenantId } from '../../domain/shared/tenant-id.vo.js';
 import { asDate, receiptFromRow } from './purchasing-rows.js';
 
@@ -16,13 +17,13 @@ export class PrismaGoodsReceiptRepository implements GoodsReceiptRepository {
     const { lines, receiptDate, ...row } = receipt.toPrimitives();
 
     await this.prisma.$transaction(async (tx) => {
-      const exists = await tx.goodsReceipt.findFirst({ where: { tenantId: row.tenantId, id: row.id }, select: { status: true } });
+      const exists = await tx.goodsReceipt.findFirst({ where: { tenantId: row.tenantId, id: row.id }, select: { status: true, updatedAt: true } });
 
       if (!exists) {
         await tx.goodsReceipt.create({ data: { ...row, receiptDate: asDate(receiptDate) } });
       } else {
         const { count } = await tx.goodsReceipt.updateMany({
-          where: { tenantId: row.tenantId, id: row.id, status: 'draft' },
+          where: { tenantId: row.tenantId, id: row.id, status: 'draft', updatedAt: row.updatedAt },
           data: {
             receiptDate: asDate(receiptDate),
             notes: row.notes,
@@ -34,7 +35,10 @@ export class PrismaGoodsReceiptRepository implements GoodsReceiptRepository {
           },
         });
 
-        if (count === 0) throw new GoodsReceiptNotEditableError(row.id, exists.status);
+        if (count === 0) {
+          if (exists.status !== 'draft') throw new GoodsReceiptNotEditableError(row.id, exists.status);
+          throw new ConcurrentModificationError(row.id);
+        }
 
         await tx.goodsReceiptLine.deleteMany({ where: { tenantId: row.tenantId, receiptId: row.id } });
       }

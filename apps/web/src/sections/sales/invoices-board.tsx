@@ -7,6 +7,7 @@ import { FormError } from '@/sections/shared/field';
 import { RowOptions } from '@/sections/shared/row-options';
 import { emptyState } from '@/shared/forms/form-state';
 import { formatQuantity } from '@/modules/inventory/domain/inventory';
+import { AmountDual } from '@/shared/components/amount-dual';
 import { formatAmount } from '@/modules/purchasing/domain/purchasing';
 import { INVOICE_STATUS_LABELS } from '@/modules/sales/domain/sales';
 import type { Invoice } from '@/modules/sales/domain/sales';

@@ -3,6 +3,7 @@ import { PrismaService } from '../../../../shared/prisma/prisma.service.js';
 import { Adjustment, AdjustmentId } from '../../domain/adjustment/adjustment.entity.js';
 import { AdjustmentRepository } from '../../domain/adjustment/adjustment.repository.js';
 import { AdjustmentNotEditableError } from '../../domain/errors/inventory.errors.js';
+import { ConcurrentModificationError } from '../../../../shared/domain/concurrent-modification.error.js';
 import { TenantId } from '../../domain/shared/tenant-id.vo.js';
 import { adjustmentFromRow } from './inventory-rows.js';
 
@@ -18,17 +19,20 @@ export class PrismaAdjustmentRepository implements AdjustmentRepository {
     const date = new Date(`${adjustmentDate}T00:00:00.000Z`);
 
     await this.prisma.$transaction(async (tx) => {
-      const exists = await tx.adjustment.findFirst({ where: { tenantId: row.tenantId, id: row.id }, select: { status: true } });
+      const exists = await tx.adjustment.findFirst({ where: { tenantId: row.tenantId, id: row.id }, select: { status: true, updatedAt: true } });
 
       if (!exists) {
         await tx.adjustment.create({ data: { ...row, adjustmentDate: date } });
       } else {
         const { count } = await tx.adjustment.updateMany({
-          where: { tenantId: row.tenantId, id: row.id, status: 'draft' },
+          where: { tenantId: row.tenantId, id: row.id, status: 'draft', updatedAt: row.updatedAt },
           data: { warehouseId: row.warehouseId, adjustmentDate: date, notes: row.notes, updatedAt: row.updatedAt },
         });
 
-        if (count === 0) throw new AdjustmentNotEditableError(row.id, exists.status);
+        if (count === 0) {
+          if (exists.status !== 'draft') throw new AdjustmentNotEditableError(row.id, exists.status);
+          throw new ConcurrentModificationError(row.id);
+        }
 
         await tx.adjustmentLine.deleteMany({ where: { tenantId: row.tenantId, adjustmentId: row.id } });
       }

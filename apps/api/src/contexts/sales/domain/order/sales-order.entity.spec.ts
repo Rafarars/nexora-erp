@@ -28,7 +28,7 @@ describe('SalesOrder', () => {
       expect(() => aDraftOrder([])).toThrow(EmptySalesOrderError);
       expect(() =>
         aDraftOrder().update(
-          { customerId: CustomerId.of(CUSTOMER), warehouseId: WarehouseRef.of(MAIN), orderDate: SalesDate.of('2026-01-16'), notes: null, lines: [anOrderLine()] },
+          { customerId: CustomerId.of(CUSTOMER), warehouseId: WarehouseRef.of(MAIN), orderDate: SalesDate.of('2026-01-16'), notes: null, currency: { currency: 'USD', exchangeRate: 1, baseCurrency: 'USD', baseExchangeRate: 1, manualRate: false, toPrimitives: () => ({ currency: 'USD', exchangeRate: 1, baseCurrency: 'USD', baseExchangeRate: 1, manualExchangeRate: false }) } as any, lines: [anOrderLine()] },
           NOW, TODAY,
         ),
       ).toThrow(FutureSalesDateError);

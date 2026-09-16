@@ -2,7 +2,7 @@ import { SalesCatalog } from '../../domain/catalog/sales-catalog.js';
 import { CustomerRepository } from '../../domain/customer/customer.repository.js';
 import { SalesOrderStatus } from '../../domain/order/sales-order.entity.js';
 import { SalesOrderRepository } from '../../domain/order/sales-order.repository.js';
-import { centsToNumber } from '../../domain/shared/money.js';
+import { baseToNumber } from '../../domain/shared/money.js';
 import { ItemRef, WarehouseRef } from '../../domain/shared/references.vo.js';
 import { TenantId } from '../../domain/shared/tenant-id.vo.js';
 
@@ -86,7 +86,7 @@ export class SalesOrderSearcher {
                 taxRate,
                 dispatchedQuantity,
                 pendingQuantity: line.pending().toNumber(),
-                subtotal: centsToNumber(line.subtotalCents()),
+                subtotal: baseToNumber(line.subtotalBase()),
               };
             }),
           };

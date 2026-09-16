@@ -1,5 +1,5 @@
 import { InvoiceNotPayableError, InvoiceOfAnotherCustomerError, PaymentBeforeInvoiceError, PaymentExceedsBalanceError } from '../errors/receivables.errors.js';
-import { centsToNumber, toCents } from '../shared/amount.js';
+import { baseToNumber, toBase } from '../shared/amount.js';
 import { ReceivablesDate } from '../shared/receivables-date.vo.js';
 
 export type CollectionStatus = 'pending' | 'partially_paid' | 'paid' | 'cancelled';
@@ -14,6 +14,7 @@ export interface ReceivableInvoicePrimitives {
   total: number;
   // Lo aplicado por cobros confirmados.
   paid: number;
+  exchangeRate: number | null;
 }
 
 // Una factura vista desde la cobranza. La emite ventas; aqui solo importa cuanto se debe y
@@ -37,24 +38,24 @@ export class ReceivableInvoice {
     return this.row.customerId;
   }
 
-  balanceCents(): bigint {
-    return this.row.status === 'cancelled' ? 0n : toCents(this.row.total) - toCents(this.row.paid);
+  balanceBase(): bigint {
+    return this.row.status === 'cancelled' ? 0n : toBase(this.row.total) - toBase(this.row.paid);
   }
 
   balance(): number {
-    return centsToNumber(this.balanceCents());
+    return baseToNumber(this.balanceBase());
   }
 
   collectionStatus(): CollectionStatus {
     if (this.row.status === 'cancelled') return 'cancelled';
-    if (this.balanceCents() <= 0n) return 'paid';
+    if (this.balanceBase() <= 0n) return 'paid';
 
-    return toCents(this.row.paid) > 0n ? 'partially_paid' : 'pending';
+    return toBase(this.row.paid) > 0n ? 'partially_paid' : 'pending';
   }
 
   // Vencida es la que ya paso su fecha y todavia debe algo. El dia del vencimiento aun no cuenta.
   daysOverdue(today: ReceivablesDate): number {
-    if (this.balanceCents() <= 0n) return 0;
+    if (this.balanceBase() <= 0n) return 0;
 
     return Math.max(0, ReceivablesDate.of(this.row.dueDate).daysUntil(today));
   }
@@ -63,10 +64,10 @@ export class ReceivableInvoice {
     return this.daysOverdue(today) > 0;
   }
 
-  ensureAccepts(customerId: string, date: ReceivablesDate, amountCents: bigint): void {
+  ensureAccepts(customerId: string, date: ReceivablesDate, amountBase: bigint): void {
     if (this.row.status !== 'issued') throw new InvoiceNotPayableError(this.row.id);
     if (this.row.customerId !== customerId) throw new InvoiceOfAnotherCustomerError(this.row.id, customerId);
     if (date.isBefore(ReceivablesDate.of(this.row.issueDate))) throw new PaymentBeforeInvoiceError(this.row.id, date.value);
-    if (amountCents > this.balanceCents()) throw new PaymentExceedsBalanceError(this.row.id, this.balance(), centsToNumber(amountCents));
+    if (amountBase > this.balanceBase()) throw new PaymentExceedsBalanceError(this.row.id, this.balance(), baseToNumber(amountBase));
   }
 }

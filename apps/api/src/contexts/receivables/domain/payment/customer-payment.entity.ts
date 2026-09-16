@@ -9,7 +9,7 @@ import {
   ReceivableInvoiceNotFoundError,
 } from '../errors/receivables.errors.js';
 import { ReceivableInvoice } from '../ledger/receivable-invoice.js';
-import { centsToNumber, paymentCents, toCents } from '../shared/amount.js';
+import { baseToNumber, paymentBase, toBase } from '../shared/amount.js';
 import { ReceivablesDate } from '../shared/receivables-date.vo.js';
 import { optionalText } from '../shared/text.js';
 import { TenantId } from '../shared/tenant-id.vo.js';
@@ -30,9 +30,13 @@ export interface PaymentAllocationPrimitives {
   id: string;
   invoiceId: string;
   amount: number;
+  exchangeDifference: number;
 }
 
-export interface PaymentPrimitives {
+import { DocumentCurrencyPrimitives, DocumentCurrency } from '../shared/document-currency.js';
+
+export interface PaymentPrimitives extends DocumentCurrencyPrimitives {
+  amountVes: number | null;
   id: string;
   tenantId: string;
   code: string;
@@ -57,6 +61,7 @@ export interface PaymentDetails {
   reference?: string | null;
   notes?: string | null;
   allocations: PaymentAllocationPrimitives[];
+  currency: DocumentCurrency;
 }
 
 type Body = Pick<PaymentPrimitives, 'customerId' | 'paymentDate' | 'method' | 'reference' | 'notes' | 'amount' | 'allocations'>;
@@ -73,6 +78,8 @@ export class CustomerPayment {
       tenantId: tenantId.value,
       code,
       ...validated(details, today),
+      ...details.currency.toPrimitives(),
+      amountVes: null,
       status: 'draft',
       confirmedAt: null,
       cancelledAt: null,
@@ -124,7 +131,7 @@ export class CustomerPayment {
 
       if (!invoice) throw new ReceivableInvoiceNotFoundError(allocation.invoiceId);
 
-      invoice.ensureAccepts(this.row.customerId, date, toCents(allocation.amount));
+      invoice.ensureAccepts(this.row.customerId, date, toBase(allocation.amount));
     }
   }
 
@@ -133,6 +140,19 @@ export class CustomerPayment {
 
     ReceivablesDate.of(this.row.paymentDate).ensureNotAfter(today);
     this.ensureFits(invoices);
+
+    const rate = this.row.exchangeRate;
+    if (rate !== null) {
+      this.row.amountVes = Math.round(this.row.amount * rate * 10000) / 10000;
+      this.row.allocations = this.row.allocations.map((a) => {
+        const inv = invoices.find(i => i.id === a.invoiceId);
+        const invRate = inv?.toPrimitives().exchangeRate;
+        if (invRate !== null && invRate !== undefined) {
+          a.exchangeDifference = Math.round(((a.amount * rate) - (a.amount * invRate)) * 10000) / 10000;
+        }
+        return a;
+      });
+    }
 
     this.row = { ...this.row, status: 'confirmed', confirmedAt: now, updatedAt: now };
   }
@@ -157,7 +177,7 @@ function validated(details: PaymentDetails, today: string): Body {
 
     seen.add(allocation.invoiceId);
 
-    return { id: allocation.id, invoiceId: allocation.invoiceId, cents: paymentCents(allocation.amount) };
+    return { id: allocation.id, invoiceId: allocation.invoiceId, base: paymentBase(allocation.amount) };
   });
 
   return {
@@ -166,7 +186,7 @@ function validated(details: PaymentDetails, today: string): Body {
     method: details.method as PaymentMethod,
     reference: optionalText(details.reference, 100, 'PaymentReference'),
     notes: optionalText(details.notes, 500, 'PaymentNotes'),
-    amount: centsToNumber(allocations.reduce((sum, allocation) => sum + allocation.cents, 0n)),
-    allocations: allocations.map(({ cents, ...allocation }) => ({ ...allocation, amount: centsToNumber(cents) })),
+    amount: baseToNumber(allocations.reduce((sum, allocation) => sum + allocation.base, 0n)),
+    allocations: allocations.map(({ base, ...allocation }) => ({ ...allocation, amount: baseToNumber(base), exchangeDifference: 0 })),
   };
 }

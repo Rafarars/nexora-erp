@@ -1,3 +1,4 @@
+import { DocumentRates } from '../../../shared/domain/ports/document-rates.js';
 import { BUSINESS_CALENDAR } from '../../../shared/domain/ports/business-calendar.js';
 import type { BusinessCalendar } from '../../../shared/domain/ports/business-calendar.js';
 import { Module } from '@nestjs/common';
@@ -64,12 +65,12 @@ import { PrismaReceivablesLedger } from './persistence/prisma-receivables-ledger
     { provide: PaymentFinder, useFactory: (r: PaymentRepository) => new PaymentFinder(r), inject: [PAYMENT_REPOSITORY] },
     {
       provide: PaymentCreator,
-      useFactory: (l: ReceivablesLedger, r: PaymentRepository, c: ReceivablesCodeSequence, i: IdGenerator, k: Clock, cal: BusinessCalendar) => new PaymentCreator(l, r, c, i, k, cal),
+      useFactory: (l: ReceivablesLedger, r: PaymentRepository, c: ReceivablesCodeSequence, i: IdGenerator, k: Clock, cal: BusinessCalendar, dr: DocumentRates) => new PaymentCreator(l, r, c, i, k, cal, dr),
       inject: [RECEIVABLES_LEDGER, PAYMENT_REPOSITORY, RECEIVABLES_CODE_SEQUENCE, ID_GENERATOR, CLOCK, BUSINESS_CALENDAR],
     },
     {
       provide: PaymentUpdater,
-      useFactory: (f: PaymentFinder, l: ReceivablesLedger, r: PaymentRepository, i: IdGenerator, k: Clock, cal: BusinessCalendar) => new PaymentUpdater(f, l, r, i, k, cal),
+      useFactory: (f: PaymentFinder, l: ReceivablesLedger, r: PaymentRepository, i: IdGenerator, k: Clock, cal: BusinessCalendar, dr: DocumentRates) => new PaymentUpdater(f, l, r, i, k, cal, dr),
       inject: [PaymentFinder, RECEIVABLES_LEDGER, PAYMENT_REPOSITORY, ID_GENERATOR, CLOCK, BUSINESS_CALENDAR],
     },
     { provide: PaymentConfirmer, useFactory: (p: PaymentPosting, k: Clock, cal: BusinessCalendar) => new PaymentConfirmer(p, k, cal), inject: [PAYMENT_POSTING, CLOCK, BUSINESS_CALENDAR] },

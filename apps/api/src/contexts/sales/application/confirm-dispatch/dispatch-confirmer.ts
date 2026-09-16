@@ -35,6 +35,7 @@ export class DispatchConfirmer {
       dispatch.update(
         {
           date: dispatch.date(),
+          currency: order.currency(),
           notes: dispatch.notes(),
           lines: await this.factory.lines(
             tenantId,

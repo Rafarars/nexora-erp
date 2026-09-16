@@ -48,8 +48,8 @@ export class PrismaReceivablesPortsHarness implements ReceivablesPortsHarness {
     const warehouseId = WAREHOUSE[tenantId];
     const date = asDate(invoice.issueDate);
 
-    await this.prisma.salesOrder.create({ data: { id: orderId, tenantId, code: `PED7${n.slice(-5)}`, customerId: invoice.customerId, warehouseId, orderDate: date, status: 'dispatched', updatedAt: date } });
-    await this.prisma.dispatch.create({ data: { id: dispatchId, tenantId, code: `DES7${n.slice(-5)}`, orderId, warehouseId, dispatchDate: date, status: 'confirmed', updatedAt: date } });
+    await this.prisma.salesOrder.create({ data: { id: orderId, tenantId, code: `PED7${n.slice(-5)}`, customerId: invoice.customerId, warehouseId, orderDate: date, status: 'dispatched', currency: 'USD', exchangeRate: 1, baseCurrency: 'USD', baseExchangeRate: 1, manualExchangeRate: false, subtotalVes: 0, taxVes: 0, totalVes: 0, updatedAt: date, taxVes: 0, totalVes: 0 } });
+    await this.prisma.dispatch.create({ data: { id: dispatchId, tenantId, code: `DES7${n.slice(-5)}`, orderId, warehouseId, dispatchDate: date, status: 'confirmed', currency: 'USD', exchangeRate: 1, baseCurrency: 'USD', baseExchangeRate: 1, manualExchangeRate: false, amountVes: 0, updatedAt: date } });
     await this.prisma.invoice.create({
       data: {
         id: invoice.id,
@@ -61,9 +61,9 @@ export class PrismaReceivablesPortsHarness implements ReceivablesPortsHarness {
         issueDate: date,
         dueDate: asDate(invoice.dueDate),
         status: invoice.status,
-        subtotal: invoice.total,
+        subtotal: invoice.total, currency: 'USD', exchangeRate: 1, baseCurrency: 'USD', baseExchangeRate: 1, manualExchangeRate: false, subtotalVes: 0, taxVes: 0, totalVes: 0, taxVes: 0, totalVes: 0,
         tax: 0,
-        total: invoice.total,
+        total: invoice.total, currency: 'USD', exchangeRate: 1, baseCurrency: 'USD', baseExchangeRate: 1, manualExchangeRate: false, subtotalVes: 0, taxVes: 0, totalVes: 0, taxVes: 0, totalVes: 0,
         updatedAt: date,
       },
     });

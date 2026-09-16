@@ -2,7 +2,7 @@ import { BusinessCalendar } from '../../../../shared/domain/ports/business-calen
 import { ReceivableCustomerNotFoundError } from '../../domain/errors/receivables.errors.js';
 import { ReceivablesLedger } from '../../domain/ledger/receivables-ledger.js';
 import { PaymentRepository } from '../../domain/payment/payment.repository.js';
-import { centsToNumber, toCents } from '../../domain/shared/amount.js';
+import { baseToNumber, toBase } from '../../domain/shared/amount.js';
 import { ReceivablesDate } from '../../domain/shared/receivables-date.vo.js';
 import { TenantId } from '../../domain/shared/tenant-id.vo.js';
 import { CustomerBalanceResponse, customerBalance } from '../search-customer-balances/customer-balance-searcher.js';
@@ -39,11 +39,11 @@ export class CustomerStatementSearcher {
       ...invoices
         .map((invoice) => invoice.toPrimitives())
         .filter((invoice) => invoice.status === 'issued')
-        .map((invoice) => ({ date: invoice.issueDate, type: 'invoice' as const, code: invoice.code, cents: toCents(invoice.total) })),
+        .map((invoice) => ({ date: invoice.issueDate, type: 'invoice' as const, code: invoice.code, base: toBase(invoice.total) })),
       ...payments
         .map((payment) => payment.toPrimitives())
         .filter((payment) => payment.customerId === customer.id && payment.status === 'confirmed')
-        .map((payment) => ({ date: payment.paymentDate, type: 'payment' as const, code: payment.code, cents: -toCents(payment.amount) })),
+        .map((payment) => ({ date: payment.paymentDate, type: 'payment' as const, code: payment.code, base: -toBase(payment.amount) })),
     ].sort((a, b) => a.date.localeCompare(b.date) || (a.type === b.type ? a.code.localeCompare(b.code) : a.type === 'invoice' ? -1 : 1));
 
     let running = 0n;
@@ -51,15 +51,15 @@ export class CustomerStatementSearcher {
     return {
       summary: customerBalance(customer, invoices, today),
       movements: entries.map((entry) => {
-        running += entry.cents;
+        running += entry.base;
 
         return {
           date: entry.date,
           type: entry.type,
           code: entry.code,
-          debit: entry.cents > 0n ? centsToNumber(entry.cents) : 0,
-          credit: entry.cents < 0n ? centsToNumber(-entry.cents) : 0,
-          balance: centsToNumber(running),
+          debit: entry.base > 0n ? baseToNumber(entry.base) : 0,
+          credit: entry.base < 0n ? baseToNumber(-entry.base) : 0,
+          balance: baseToNumber(running),
         };
       }),
     };

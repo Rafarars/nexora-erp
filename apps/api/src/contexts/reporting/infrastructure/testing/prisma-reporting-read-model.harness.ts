@@ -61,8 +61,8 @@ export class PrismaReportingReadModelHarness implements ReportingReadModelHarnes
     const dispatchId = uuid();
     const date = asDate(invoice.issueDate);
 
-    await this.prisma.salesOrder.create({ data: { id: orderId, tenantId, code: this.code('PED'), customerId: invoice.customerId, warehouseId, orderDate: date, status: 'dispatched', updatedAt: date } });
-    await this.prisma.dispatch.create({ data: { id: dispatchId, tenantId, code: this.code('DES'), orderId, warehouseId, dispatchDate: date, status: 'confirmed', updatedAt: date } });
+    await this.prisma.salesOrder.create({ data: { id: orderId, tenantId, code: this.code('PED'), customerId: invoice.customerId, warehouseId, orderDate: date, status: 'dispatched', currency: 'USD', exchangeRate: 1, baseCurrency: 'USD', baseExchangeRate: 1, manualExchangeRate: false, subtotalVes: 0, taxVes: 0, totalVes: 0, updatedAt: date } });
+    await this.prisma.dispatch.create({ data: { id: dispatchId, tenantId, code: this.code('DES'), orderId, warehouseId, dispatchDate: date, status: 'confirmed', currency: 'USD', exchangeRate: 1, baseCurrency: 'USD', baseExchangeRate: 1, manualExchangeRate: false, amountVes: 0, updatedAt: date } });
     await this.prisma.invoice.create({
       data: {
         id: invoice.id,
@@ -76,7 +76,7 @@ export class PrismaReportingReadModelHarness implements ReportingReadModelHarnes
         status: invoice.status,
         subtotal: invoice.subtotal,
         tax: invoice.tax,
-        total: invoice.total,
+        total: invoice.total, currency: 'USD', exchangeRate: 1, baseCurrency: 'USD', baseExchangeRate: 1, manualExchangeRate: false, subtotalVes: 0, taxVes: 0, totalVes: 0,
         updatedAt: date,
       },
     });

@@ -29,7 +29,7 @@ export function aReceivablesScenario() {
     calendar,
     store,
     codes,
-    createPayment: new PaymentCreator(store.ledger, store.payments, codes, ids, clock, calendar),
+    createPayment: new PaymentCreator(store.ledger, store.payments, codes, ids, clock, calendar, rates),
     updatePayment: new PaymentUpdater(finder, store.ledger, store.payments, ids, clock, calendar),
     confirmPayment: new PaymentConfirmer(store.posting, clock, calendar),
     cancelPayment: new PaymentCanceller(store.posting, clock),

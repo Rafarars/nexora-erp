@@ -21,7 +21,7 @@ import { NOW, OTHER_CUSTOMER, OTHER_INVOICE, PAYMENT, TENANT_A, TODAY, anInvoice
 import { CustomerPayment, PaymentDetails, PaymentId } from './customer-payment.entity.js';
 
 const draft = (overrides: Partial<PaymentDetails> = {}) => CustomerPayment.draft(PaymentId.of(PAYMENT), TenantId.of(TENANT_A), 'COB000001', paymentDetails(overrides), NOW, TODAY);
-const allocation = (invoiceId: string, amount: number, n = 1) => ({ id: `a1000000-0000-4000-8000-00000000000${n}`, invoiceId, amount });
+const allocation = (invoiceId: string, amount: number, n = 1) => ({ id: `a1000000-0000-4000-8000-00000000000${n}`, invoiceId, amount, exchangeDifference: 0 });
 
 describe('CustomerPayment', () => {
   it('is born as a draft whose amount is the sum of what it applies', () => {

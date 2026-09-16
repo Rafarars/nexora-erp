@@ -4,7 +4,8 @@ import { CustomerId } from '../customer/customer.entity.js';
 import { CustomerCredit, ensureCreditAllows } from './credit/customer-credit.js';
 import { Dispatch, DispatchId } from '../dispatch/dispatch.entity.js';
 import { SalesOrder, SalesOrderId } from '../order/sales-order.entity.js';
-import { centsToNumber, lineSubtotalCents, taxCents } from '../shared/money.js';
+import { baseToNumber, lineSubtotalBase, taxBase } from '../shared/money.js';
+import { DocumentCurrency, DocumentCurrencyPrimitives } from '../shared/document-currency.js';
 import { ItemRef, UnitRef } from '../shared/references.vo.js';
 import { SalesDate } from '../shared/sales-date.vo.js';
 import { optionalText } from '../shared/text.js';
@@ -30,7 +31,7 @@ export interface InvoiceLinePrimitives {
   tax: number;
 }
 
-export interface InvoicePrimitives {
+export interface InvoicePrimitives extends DocumentCurrencyPrimitives {
   id: string;
   tenantId: string;
   code: string;
@@ -44,6 +45,9 @@ export interface InvoicePrimitives {
   subtotal: number;
   tax: number;
   total: number;
+  subtotalVes: number | null;
+  taxVes: number | null;
+  totalVes: number | null;
   cancelledAt: Date | null;
   createdAt: Date;
   updatedAt: Date;
@@ -58,6 +62,7 @@ export interface InvoiceIssue {
   // El plazo, el limite y la deuda del cliente de hoy, leidos con el cliente bloqueado.
   credit: CustomerCredit;
   date: SalesDate;
+  currency: DocumentCurrency;
   notes: string | null;
   lineIds: () => string;
 }
@@ -78,8 +83,8 @@ export class Invoice {
 
     const lines = dispatch.lines().map((line, index) => {
       const orderLine = order.line(line.orderLineId);
-      const subtotal = lineSubtotalCents(line.quantity, orderLine.unitPrice);
-      const tax = taxCents(subtotal, orderLine.taxRate);
+      const subtotal = lineSubtotalBase(line.quantity, orderLine.unitPrice);
+      const tax = taxBase(subtotal, orderLine.taxRate);
 
       return {
         id: issue.lineIds(),
@@ -89,15 +94,20 @@ export class Invoice {
         quantity: line.quantity.toNumber(),
         unitPrice: orderLine.unitPrice.toNumber(),
         taxRate: orderLine.taxRate.toNumber(),
-        subtotalCents: subtotal,
-        taxCents: tax,
+        subtotalBase: subtotal,
+        taxBase: tax,
       };
     });
-    const subtotal = lines.reduce((sum, line) => sum + line.subtotalCents, 0n);
-    const tax = lines.reduce((sum, line) => sum + line.taxCents, 0n);
+    const subtotal = lines.reduce((sum, line) => sum + line.subtotalBase, 0n);
+    const tax = lines.reduce((sum, line) => sum + line.taxBase, 0n);
 
     ensureCreditAllows(issue.credit, subtotal + tax);
 
+    const currency = issue.currency;
+    const isVes = currency.baseCurrency === 'VES' || currency.currency === 'VES';
+    const subtotalVes = currency.exchangeRate ? baseToNumber(subtotal) * currency.exchangeRate : null;
+    const taxVes = currency.exchangeRate ? baseToNumber(tax) * currency.exchangeRate : null;
+    
     return new Invoice({
       id: id.value,
       tenantId: tenantId.value,
@@ -107,18 +117,22 @@ export class Invoice {
       customerId: order.customerId().value,
       issueDate: issue.date.value,
       dueDate: issue.date.plusDays(issue.credit.paymentTermDays).value,
+      ...currency.toPrimitives(),
       notes: optionalText(issue.notes, 500, 'InvoiceNotes'),
       status: 'issued',
-      subtotal: centsToNumber(subtotal),
-      tax: centsToNumber(tax),
-      total: centsToNumber(subtotal + tax),
+      subtotal: baseToNumber(subtotal),
+      tax: baseToNumber(tax),
+      total: baseToNumber(subtotal + tax),
+      subtotalVes,
+      taxVes,
+      totalVes: subtotalVes !== null && taxVes !== null ? subtotalVes + taxVes : null,
       cancelledAt: null,
       createdAt: now,
       updatedAt: now,
-      lines: lines.map(({ subtotalCents, taxCents: lineTax, ...line }) => ({
+      lines: lines.map(({ subtotalBase, taxBase: lineTax, ...line }) => ({
         ...line,
-        subtotal: centsToNumber(subtotalCents),
-        tax: centsToNumber(lineTax),
+        subtotal: baseToNumber(subtotalBase),
+        tax: baseToNumber(lineTax),
       })),
     });
   }

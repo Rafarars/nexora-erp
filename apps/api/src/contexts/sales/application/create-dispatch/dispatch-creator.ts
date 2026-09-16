@@ -40,6 +40,7 @@ export class DispatchCreator {
     const order = await this.orders.find(tenantId, SalesOrderId.of(request.orderId));
     const details = {
       date: request.date ? SalesDate.of(request.date) : SalesDate.of(today),
+      currency: order.currency(),
       notes: request.notes ?? null,
       lines: await this.factory.lines(tenantId, order, request.lines),
     };

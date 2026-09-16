@@ -86,6 +86,7 @@ export function aDraftOrder(lines: SalesOrderLine[] = [anOrderLine()], id = '5b0
     warehouseId: WarehouseRef.of(MAIN),
     orderDate: SalesDate.of(TODAY),
     notes: null,
+    currency: { currency: 'USD', exchangeRate: 1, baseCurrency: 'USD', baseExchangeRate: 1, manualRate: false, toPrimitives: () => ({ currency: 'USD', exchangeRate: 1, baseCurrency: 'USD', baseExchangeRate: 1, manualExchangeRate: false }) } as any,
     lines,
   }, NOW, TODAY);
 }

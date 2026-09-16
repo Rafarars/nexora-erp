@@ -13,7 +13,7 @@ const receivable = (overrides: Partial<Receivable>): Receivable => ({
 
 const payment = (overrides: Partial<Payment>): Payment => ({
   id: 'p1', code: 'COB000001', customer: { id: 'delta', code: 'CLI000001', name: 'Delta' }, paymentDate: '2026-09-10', method: 'cash',
-  reference: null, notes: null, amount: 100, status: 'draft', allocations: [], ...overrides,
+  reference: null, notes: null, amount: 100, amountVes: null, currency: 'USD', exchangeRate: null, baseCurrency: 'USD', baseExchangeRate: null, manualExchangeRate: false, status: 'draft', allocations: [], ...overrides,
 });
 
 describe('paymentActions', () => {

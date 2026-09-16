@@ -31,7 +31,7 @@ export default async function PaymentsPage() {
     <PaymentsBoard
       payments={payments}
       receivables={receivables}
-      today={(await companyApi().settings(token)).today}
+      settings={await companyApi().settings(token)}
       canCreate={canCreate}
       canUpdate={canUpdate}
       canConfirm={can(session, 'receivables.payments.confirm')}

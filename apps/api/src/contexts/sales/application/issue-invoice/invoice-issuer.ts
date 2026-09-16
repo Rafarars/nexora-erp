@@ -50,6 +50,7 @@ export class InvoiceIssuer {
         // El plazo y el limite del cliente de hoy: son los que rigen desde que se emite.
         credit: currentCredit,
         date,
+        currency: currentOrder.currency(),
         notes: request.notes ?? null,
         lineIds: () => this.ids.next(),
       }, now, today.value);

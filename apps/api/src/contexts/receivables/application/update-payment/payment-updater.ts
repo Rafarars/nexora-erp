@@ -1,3 +1,5 @@
+import { DocumentCurrency } from '../../domain/shared/document-currency.js';
+import { DocumentRates } from '../../../../shared/domain/ports/document-rates.js';
 import { Clock } from '../../../../shared/domain/ports/clock.js';
 import { BusinessCalendar } from '../../../../shared/domain/ports/business-calendar.js';
 import { IdGenerator } from '../../../../shared/domain/ports/id-generator.js';
@@ -19,6 +21,7 @@ export class PaymentUpdater {
     private readonly ids: IdGenerator,
     private readonly clock: Clock,
     private readonly calendar: BusinessCalendar,
+    private readonly rates: DocumentRates,
   ) {}
 
   async run(request: PaymentRequest & { paymentId: string }): Promise<void> {
@@ -30,16 +33,27 @@ export class PaymentUpdater {
 
     if (!(await this.ledger.customer(tenantId, request.customerId))) throw new ReceivableCustomerNotFoundError(request.customerId);
 
+    const paymentDate = request.date ? ReceivablesDate.of(request.date) : ReceivablesDate.of(today);
+    
+    const rates = await this.rates.forDocument(tenantId.value, {
+      currency: request.currency,
+      date: paymentDate.value,
+      manualRate: request.manualExchangeRate,
+      keepsCurrency: true,
+    });
+
     payment.update(
       {
         customerId: request.customerId,
-        date: request.date ? ReceivablesDate.of(request.date) : ReceivablesDate.of(today),
+        date: paymentDate,
+        currency: DocumentCurrency.of(rates),
         method: request.method,
         reference: request.reference,
         notes: request.notes,
         allocations: request.allocations.map((allocation) => ({
           id: previous.find((kept) => kept.invoiceId === allocation.invoiceId)?.id ?? this.ids.next(),
           ...allocation,
+          exchangeDifference: 0
         })),
       },
       now,

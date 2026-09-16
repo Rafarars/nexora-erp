@@ -1,5 +1,6 @@
 import { Clock } from '../../../../shared/domain/ports/clock.js';
 import { BusinessCalendar } from '../../../../shared/domain/ports/business-calendar.js';
+import { DocumentRates } from '../../../../shared/domain/ports/document-rates.js';
 import { SalesOrderFinder } from '../../domain/order/find/sales-order-finder.js';
 import { SalesOrderReferences } from '../../domain/order/lines/sales-order-references.js';
 import { SalesOrderId } from '../../domain/order/sales-order.entity.js';
@@ -20,6 +21,7 @@ export class SalesOrderUpdater {
     private readonly orders: SalesOrderRepository,
     private readonly clock: Clock,
     private readonly calendar: BusinessCalendar,
+    private readonly rates: DocumentRates,
   ) {}
 
   async run(request: SalesOrderUpdaterRequest): Promise<void> {
@@ -28,7 +30,7 @@ export class SalesOrderUpdater {
     const now = this.clock.now();
     const today = await this.calendar.today(request.tenantId);
 
-    order.update(await salesOrderDetails(this.references, tenantId, request, today), now, today);
+    order.update(await salesOrderDetails(this.references, this.rates, tenantId, request, today, true), now, today);
     await this.orders.save(order);
   }
 }

@@ -20,7 +20,7 @@ describe('aging', () => {
     expect(bucketOf(dueOn(dueDate), today)).toBe(bucket);
   });
 
-  it('leaves out what owes nothing and adds up the rest in cents', () => {
+  it('leaves out what owes nothing and adds up the rest in base', () => {
     const totals = agingOf(
       [dueOn('2026-07-15', { total: 0.1 }), dueOn('2026-07-20', { total: 0.2 }), dueOn('2026-06-01', { total: 50, paid: 20 }), dueOn('2026-01-01', { paid: 100 }), dueOn('2026-01-01', { status: 'cancelled' })],
       today,
