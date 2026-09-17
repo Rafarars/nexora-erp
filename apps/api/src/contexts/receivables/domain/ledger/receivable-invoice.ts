@@ -54,13 +54,14 @@ export class ReceivableInvoice {
     return unitsToNumber(this.balanceUnits());
   }
 
-  // Lo que debe en la moneda de la empresa, con las tasas de su emision: asi se suman los saldos.
-  companyBalanceUnits(): bigint {
-    return this.currency().toBase(this.balanceUnits());
+  // Lo que debe en la moneda de la empresa, con las tasas de su emision y redondeado a sus decimales:
+  // asi se suman los saldos, igual que en la base al emitir a credito.
+  companyBalanceUnits(decimals: number): bigint {
+    return this.currency().baseAmount(this.balanceUnits(), decimals);
   }
 
-  companyBalance(): number {
-    return unitsToNumber(this.companyBalanceUnits());
+  companyBalance(decimals: number): number {
+    return unitsToNumber(this.companyBalanceUnits(decimals));
   }
 
   collectionStatus(): CollectionStatus {

@@ -1,3 +1,4 @@
+import { DocumentRates } from '../../../../shared/domain/ports/document-rates.js';
 import { BusinessCalendar } from '../../../../shared/domain/ports/business-calendar.js';
 import { ReceivableCustomerNotFoundError } from '../../domain/errors/receivables.errors.js';
 import { ReceivablesLedger } from '../../domain/ledger/receivables-ledger.js';
@@ -28,6 +29,7 @@ export class CustomerStatementSearcher {
     private readonly ledger: ReceivablesLedger,
     private readonly payments: PaymentRepository,
     private readonly calendar: BusinessCalendar,
+    private readonly rates: DocumentRates,
   ) {}
 
   async run(request: { tenantId: string; customerId: string }): Promise<{ summary: CustomerBalanceResponse; movements: StatementMovement[] }> {
@@ -37,16 +39,32 @@ export class CustomerStatementSearcher {
 
     if (!customer) throw new ReceivableCustomerNotFoundError(request.customerId);
 
-    const [invoices, payments] = await Promise.all([this.ledger.invoices(tenantId, { customerId: customer.id }), this.payments.searchByTenant(tenantId)]);
-    const inCompanyCurrency = (invoiceId: string, amount: number) =>
-      invoices.find((invoice) => invoice.id === invoiceId)?.currency().toBase(amountUnits(amount)) ?? amountUnits(amount);
+    const [invoices, payments, decimals] = await Promise.all([
+      this.ledger.invoices(tenantId, { customerId: customer.id }),
+      this.payments.searchByTenant(tenantId),
+      this.rates.amountDecimals(request.tenantId),
+    ]);
+    // Lo que aun debe cada factura, en su moneda. Un cobro rebaja en la moneda de la empresa lo que
+    // valia el saldo antes menos lo que vale despues, ambos redondeados: asi el ultimo saldo es
+    // exactamente la suma de los saldos de las facturas, sin centimos que se pierdan al redondear.
+    const owed = new Map<string, bigint>();
+    const inCompanyCurrency = (invoiceId: string, units: bigint) =>
+      invoices.find((invoice) => invoice.id === invoiceId)?.currency().baseAmount(units, decimals) ?? units;
+    const paidOff = (invoiceId: string, amount: number) => {
+      const before = owed.get(invoiceId) ?? 0n;
+      const after = before - amountUnits(amount);
+
+      owed.set(invoiceId, after);
+
+      return inCompanyCurrency(invoiceId, before) - inCompanyCurrency(invoiceId, after);
+    };
     const entries = [
       ...invoices
         .filter((invoice) => invoice.toPrimitives().status === 'issued')
         .map((invoice) => {
           const row = invoice.toPrimitives();
 
-          return { date: row.issueDate, type: 'invoice' as const, code: row.code, units: invoice.currency().toBase(amountUnits(row.total)), difference: null };
+          return { date: row.issueDate, type: 'invoice' as const, code: row.code, invoiceId: row.id, total: row.total, allocations: [], difference: null };
         }),
       ...payments
         .map((payment) => payment.toPrimitives())
@@ -58,7 +76,9 @@ export class CustomerStatementSearcher {
             date: payment.paymentDate,
             type: 'payment' as const,
             code: payment.code,
-            units: -payment.allocations.reduce((sum, allocation) => sum + inCompanyCurrency(allocation.invoiceId, allocation.amount), 0n),
+            invoiceId: null,
+            total: 0,
+            allocations: payment.allocations,
             difference: differences.length === 0 ? null : unitsToNumber(differences.reduce((sum, value) => sum + amountUnits(value), 0n)),
           };
         }),
@@ -67,16 +87,23 @@ export class CustomerStatementSearcher {
     let running = 0n;
 
     return {
-      summary: customerBalance(customer, invoices, today),
+      summary: customerBalance(customer, invoices, today, decimals),
       movements: entries.map((entry) => {
-        running += entry.units;
+        if (entry.invoiceId !== null) owed.set(entry.invoiceId, amountUnits(entry.total));
+
+        const units =
+          entry.invoiceId !== null
+            ? inCompanyCurrency(entry.invoiceId, amountUnits(entry.total))
+            : -entry.allocations.reduce((sum, allocation) => sum + paidOff(allocation.invoiceId, allocation.amount), 0n);
+
+        running += units;
 
         return {
           date: entry.date,
           type: entry.type,
           code: entry.code,
-          debit: entry.units > 0n ? unitsToNumber(entry.units) : 0,
-          credit: entry.units < 0n ? unitsToNumber(-entry.units) : 0,
+          debit: units > 0n ? unitsToNumber(units) : 0,
+          credit: units < 0n ? unitsToNumber(-units) : 0,
           balance: unitsToNumber(running),
           exchangeDifference: entry.difference,
         };

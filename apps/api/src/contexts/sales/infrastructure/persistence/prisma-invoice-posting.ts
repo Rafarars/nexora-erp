@@ -25,14 +25,15 @@ export class PrismaInvoicePosting implements InvoicePosting {
     @Inject(RECEIVABLE_BALANCES) private readonly balances: ReceivableBalances,
   ) {}
 
-  async credit(tenantId: TenantId, customerId: CustomerId, today: SalesDate): Promise<CustomerCredit> {
-    return this.creditOf(this.prisma, tenantId.value, customerId.value, today.value, false);
+  async credit(tenantId: TenantId, customerId: CustomerId, today: SalesDate, decimals: number): Promise<CustomerCredit> {
+    return this.creditOf(this.prisma, tenantId.value, customerId.value, today.value, decimals, false);
   }
 
   async issue(
     tenantId: TenantId,
     dispatchId: DispatchId,
     today: SalesDate,
+    decimals: number,
     work: (dispatch: Dispatch, order: SalesOrder, alreadyInvoiced: boolean, credit: CustomerCredit) => Invoice,
   ): Promise<void> {
     const tenant = tenantId.value;
@@ -41,7 +42,7 @@ export class PrismaInvoicePosting implements InvoicePosting {
       await this.prisma.$transaction(async (tx) => {
         const { dispatch, invoiced } = await lockDispatch(tx, tenant, dispatchId.value);
         const order = await lockOrder(tx, tenant, dispatch.orderId.value);
-        const credit = await this.creditOf(tx, tenant, order.customerId().value, today.value, true);
+        const credit = await this.creditOf(tx, tenant, order.customerId().value, today.value, decimals, true);
         const { lines, issueDate, dueDate, ...row } = work(dispatch, order, invoiced, credit).toPrimitives();
 
         await tx.invoice.create({ data: { ...row, issueDate: asDate(issueDate), dueDate: asDate(dueDate) } });
@@ -75,8 +76,8 @@ export class PrismaInvoicePosting implements InvoicePosting {
     });
   }
 
-  private async creditOf(db: TransactionClient, tenantId: string, customerId: string, today: string, lock: boolean): Promise<CustomerCredit> {
-    const exposure = lock ? await this.balances.lockCustomer(db, tenantId, customerId, today) : await this.balances.exposure(db, tenantId, customerId, today);
+  private async creditOf(db: TransactionClient, tenantId: string, customerId: string, today: string, decimals: number, lock: boolean): Promise<CustomerCredit> {
+    const exposure = lock ? await this.balances.lockCustomer(db, tenantId, customerId, today, decimals) : await this.balances.exposure(db, tenantId, customerId, today, decimals);
     const customer = await db.customer.findFirst({ where: { tenantId, id: customerId }, select: { paymentTermDays: true, creditLimit: true } });
 
     if (!customer) throw new CustomerNotFoundError(customerId);

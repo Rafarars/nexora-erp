@@ -222,15 +222,15 @@ export class InMemorySalesStore {
 
   get invoicePosting(): InvoicePosting {
     return {
-      credit: (tenantId, customerId, today) => this.credit(tenantId, customerId.value, today.value),
-      issue: (tenantId, dispatchId, today, work) =>
+      credit: (tenantId, customerId, today, decimals) => this.credit(tenantId, customerId.value, today.value, decimals),
+      issue: (tenantId, dispatchId, today, decimals, work) =>
         this.serial(async () => {
           const dispatch = this.loadDispatch(tenantId, dispatchId.value);
 
           if (!dispatch) throw new DispatchNotFoundError(dispatchId.value);
 
           const order = this.loadOrder(tenantId, dispatch.orderId.value) as SalesOrder;
-          const credit = await this.credit(tenantId, order.customerId().value, today.value);
+          const credit = await this.credit(tenantId, order.customerId().value, today.value, decimals);
           const invoice = work(dispatch, order, this.invoiced(tenantId.value, dispatch.id.value), credit);
 
           this.invoiceRows.set(invoice.id.value, invoice.toPrimitives());
@@ -247,14 +247,14 @@ export class InMemorySalesStore {
     };
   }
 
-  private async credit(tenantId: TenantId, customerId: string, today: string): Promise<CustomerCredit> {
+  private async credit(tenantId: TenantId, customerId: string, today: string, decimals: number): Promise<CustomerCredit> {
     const customer = await this.customers.find(tenantId, CustomerId.of(customerId));
 
     if (!customer) throw new CustomerNotFoundError(customerId);
 
     const open = [...this.invoiceRows.values()]
       .filter((row) => row.tenantId === tenantId.value && row.customerId === customerId && row.status === 'issued')
-      .map((row) => ({ dueDate: row.dueDate, balance: DocumentCurrency.fromPrimitives(row).toBase(amountUnits(row.total) - amountUnits(this.paid.get(row.id) ?? 0)) }))
+      .map((row) => ({ dueDate: row.dueDate, balance: DocumentCurrency.fromPrimitives(row).baseAmount(amountUnits(row.total) - amountUnits(this.paid.get(row.id) ?? 0), decimals) }))
       .filter((row) => row.balance > 0n);
 
     return {

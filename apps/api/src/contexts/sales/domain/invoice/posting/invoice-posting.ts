@@ -14,11 +14,13 @@ export const INVOICE_POSTING = Symbol('InvoicePosting');
 // parcial. Anular bloquea la factura y lee lo cobrado. Los trabajos son sincronos y puros.
 export interface InvoicePosting {
   // Sin bloqueo, para rechazar antes de gastar un numero.
-  credit(tenantId: TenantId, customerId: CustomerId, today: SalesDate): Promise<CustomerCredit>;
+  // `decimals`: los de la empresa, con los que se redondea lo que debe cada factura.
+  credit(tenantId: TenantId, customerId: CustomerId, today: SalesDate, decimals: number): Promise<CustomerCredit>;
   issue(
     tenantId: TenantId,
     dispatchId: DispatchId,
     today: SalesDate,
+    decimals: number,
     work: (dispatch: Dispatch, order: SalesOrder, alreadyInvoiced: boolean, credit: CustomerCredit) => Invoice,
   ): Promise<void>;
   cancel(tenantId: TenantId, invoiceId: InvoiceId, work: (invoice: Invoice, paid: number) => void): Promise<void>;

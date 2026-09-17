@@ -111,15 +111,15 @@ describe('collecting in another currency', () => {
 });
 
 describe('what a customer owes, in the company currency', () => {
-  // 100 EUR con el euro a 40 y el dolar a 36,50 son 109,59 USD.
+  // 100 EUR con el euro a 40 y el dolar a 36,50 son 109,589 USD, que a 2 decimales son 109,59.
   it('adds up balances, aging and credit with the rates of each invoice', async () => {
     const s = world();
 
-    expect((await s.searchCustomerBalances.run({ tenantId: TENANT_A })).customers[0]).toMatchObject({ balance: 259.589, availableCredit: 240.411 });
+    expect((await s.searchCustomerBalances.run({ tenantId: TENANT_A })).customers[0]).toMatchObject({ balance: 259.59, availableCredit: 240.41 });
     expect((await s.searchReceivables.run({ tenantId: TENANT_A })).receivables.find((row) => row.id === EURO_INVOICE)).toMatchObject({
       currency: 'EUR',
       balance: 100,
-      companyBalance: 109.589,
+      companyBalance: 109.59,
     });
   });
 
@@ -133,4 +133,21 @@ describe('what a customer owes, in the company currency', () => {
     expect(movements.find((row) => row.type === 'payment')).toMatchObject({ credit: 40, exchangeDifference: 60 });
     expect(movements.at(-1)?.balance).toBe(summary.balance);
   });
+
+  // Convertir cada movimiento por separado pierde diezmilesimas al redondear; el estado de cuenta
+  // rebaja lo que valia el saldo antes menos lo que vale despues, y cuadra con la antiguedad.
+  it('ends the statement exactly at the balance of the customer, in company decimals, however the euros round', async () => {
+    const s = world();
+
+    for (const amount of [0.02, 0.03, 0.01]) await collect(s, [{ invoiceId: EURO_INVOICE, amount }], { currency: 'EUR' });
+
+    const { summary, movements } = await s.searchCustomerStatement.run({ tenantId: TENANT_A, customerId: CUSTOMER });
+    const receivable = (await s.searchReceivables.run({ tenantId: TENANT_A })).receivables.find((row) => row.id === EURO_INVOICE);
+
+    expect(receivable).toMatchObject({ balance: 99.94, companyBalance: 109.52 });
+    expect(summary.balance).toBe(259.52);
+    expect(movements.at(-1)?.balance).toBe(summary.balance);
+    expect(movements.every((row) => Number.isInteger(Math.round(row.balance * 100 * 1e6) / 1e6))).toBe(true);
+  });
 });
+

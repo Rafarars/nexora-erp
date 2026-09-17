@@ -1,4 +1,5 @@
 import { BusinessCalendar } from '../../../../shared/domain/ports/business-calendar.js';
+import { DocumentRates } from '../../../../shared/domain/ports/document-rates.js';
 import { AgingBucket, bucketOf } from '../../domain/aging/aging.js';
 import { ReceivableCustomerNotFoundError } from '../../domain/errors/receivables.errors.js';
 import { CollectionStatus } from '../../domain/ledger/receivable-invoice.js';
@@ -31,12 +32,17 @@ export class ReceivableSearcher {
   constructor(
     private readonly ledger: ReceivablesLedger,
     private readonly calendar: BusinessCalendar,
+    private readonly rates: DocumentRates,
   ) {}
 
   async run(request: { tenantId: string; customerId?: string }): Promise<{ receivables: ReceivableResponse[] }> {
     const tenantId = TenantId.of(request.tenantId);
     const today = ReceivablesDate.of(await this.calendar.today(request.tenantId));
-    const [customers, invoices] = await Promise.all([this.ledger.customers(tenantId), this.ledger.invoices(tenantId, { customerId: request.customerId })]);
+    const [customers, invoices, decimals] = await Promise.all([
+      this.ledger.customers(tenantId),
+      this.ledger.invoices(tenantId, { customerId: request.customerId }),
+      this.rates.amountDecimals(request.tenantId),
+    ]);
 
     if (request.customerId && !customers.some((customer) => customer.id === request.customerId)) throw new ReceivableCustomerNotFoundError(request.customerId);
 
@@ -57,7 +63,7 @@ export class ReceivableSearcher {
             total: row.total,
             paid: row.paid,
             balance: invoice.balance(),
-            companyBalance: invoice.companyBalance(),
+            companyBalance: invoice.companyBalance(decimals),
             status: invoice.collectionStatus(),
             daysOverdue: invoice.daysOverdue(today),
             bucket: bucketOf(invoice, today),

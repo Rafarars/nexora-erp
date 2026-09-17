@@ -22,7 +22,7 @@ export function bucketOf(invoice: ReceivableInvoice, today: ReceivablesDate): Ag
   return 'over90';
 }
 
-export function agingOf(invoices: ReceivableInvoice[], today: ReceivablesDate): AgingTotals {
+export function agingOf(invoices: ReceivableInvoice[], today: ReceivablesDate, decimals: number): AgingTotals {
   const units = Object.fromEntries([...AGING_BUCKETS, 'total'].map((bucket) => [bucket, 0n])) as Record<AgingBucket | 'total', bigint>;
 
   for (const invoice of invoices) {
@@ -31,8 +31,8 @@ export function agingOf(invoices: ReceivableInvoice[], today: ReceivablesDate): 
     if (!bucket) continue;
 
     // En la moneda de la empresa: una factura en euros y otra en dolares no se suman tal cual.
-    units[bucket] += invoice.companyBalanceUnits();
-    units.total += invoice.companyBalanceUnits();
+    units[bucket] += invoice.companyBalanceUnits(decimals);
+    units.total += invoice.companyBalanceUnits(decimals);
   }
 
   return Object.fromEntries(Object.entries(units).map(([bucket, value]) => [bucket, unitsToNumber(value)])) as AgingTotals;

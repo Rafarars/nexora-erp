@@ -1,3 +1,4 @@
+import { DocumentRates } from '../../../../shared/domain/ports/document-rates.js';
 import { BusinessCalendar } from '../../../../shared/domain/ports/business-calendar.js';
 import { AgingTotals, agingOf } from '../../domain/aging/aging.js';
 import { ReceivableInvoice } from '../../domain/ledger/receivable-invoice.js';
@@ -26,18 +27,19 @@ export class CustomerBalanceSearcher {
   constructor(
     private readonly ledger: ReceivablesLedger,
     private readonly calendar: BusinessCalendar,
+    private readonly rates: DocumentRates,
   ) {}
 
   async run(request: { tenantId: string }): Promise<{ customers: CustomerBalanceResponse[]; totals: AgingTotals }> {
     const tenantId = TenantId.of(request.tenantId);
     const today = ReceivablesDate.of(await this.calendar.today(request.tenantId));
-    const [customers, invoices] = await Promise.all([this.ledger.customers(tenantId), this.ledger.invoices(tenantId)]);
+    const [customers, invoices, decimals] = await Promise.all([this.ledger.customers(tenantId), this.ledger.invoices(tenantId), this.rates.amountDecimals(request.tenantId)]);
 
     return {
       customers: customers
-        .map((customer) => customerBalance(customer, invoices.filter((invoice) => invoice.customerId() === customer.id), today))
+        .map((customer) => customerBalance(customer, invoices.filter((invoice) => invoice.customerId() === customer.id), today, decimals))
         .filter((row) => row.balance > 0),
-      totals: agingOf(invoices, today),
+      totals: agingOf(invoices, today, decimals),
     };
   }
 }
@@ -46,9 +48,10 @@ export function customerBalance(
   customer: { id: string; code: string; name: string; isActive: boolean; paymentTermDays: number; creditLimit: number | null },
   invoices: ReceivableInvoice[],
   today: ReceivablesDate,
+  decimals: number,
 ): CustomerBalanceResponse {
-  const aging = agingOf(invoices, today);
-  const overdue = invoices.filter((invoice) => invoice.isOverdue(today)).reduce((sum, invoice) => sum + invoice.companyBalanceUnits(), 0n);
+  const aging = agingOf(invoices, today, decimals);
+  const overdue = invoices.filter((invoice) => invoice.isOverdue(today)).reduce((sum, invoice) => sum + invoice.companyBalanceUnits(decimals), 0n);
 
   return {
     customer: { id: customer.id, code: customer.code, name: customer.name, isActive: customer.isActive },

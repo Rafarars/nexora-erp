@@ -24,6 +24,7 @@ describe('aging', () => {
     const totals = agingOf(
       [dueOn('2026-07-15', { total: 0.1 }), dueOn('2026-07-20', { total: 0.2 }), dueOn('2026-06-01', { total: 50, paid: 20 }), dueOn('2026-01-01', { paid: 100 }), dueOn('2026-01-01', { status: 'cancelled' })],
       today,
+      2,
     );
 
     expect(totals).toEqual({ current: 0.3, days1To30: 30, days31To60: 0, days61To90: 0, over90: 0, total: 30.3 });

@@ -42,7 +42,6 @@ export class InvoiceIssuer {
     const dispatch = await this.dispatches.find(tenantId, DispatchId.of(request.dispatchId));
     const order = await this.orders.find(tenantId, dispatch.orderId);
     const today = SalesDate.of(await this.calendar.today(request.tenantId));
-    const credit = await this.posting.credit(tenantId, order.customerId(), today);
     const id = InvoiceId.of(this.ids.next());
     const date = request.date ? SalesDate.of(request.date) : today;
 
@@ -54,6 +53,7 @@ export class InvoiceIssuer {
       this.rates.forDocument(request.tenantId, { currency: order.currency().currency, date: date.value, keepsCurrency: true }),
       this.rates.amountDecimals(request.tenantId),
     ]);
+    const credit = await this.posting.credit(tenantId, order.customerId(), today, amountDecimals);
     const currency = DocumentCurrency.of(rates);
     const issue = (code: string, current = dispatch, currentOrder = order, alreadyInvoiced = false, currentCredit: CustomerCredit = credit) =>
       Invoice.issue(id, tenantId, code, {
@@ -73,6 +73,6 @@ export class InvoiceIssuer {
 
     const code = salesCode('FAC', await this.codes.next(tenantId, 'FAC'));
 
-    await this.posting.issue(tenantId, dispatch.id, today, (locked, lockedOrder, alreadyInvoiced, lockedCredit) => issue(code, locked, lockedOrder, alreadyInvoiced, lockedCredit));
+    await this.posting.issue(tenantId, dispatch.id, today, amountDecimals, (locked, lockedOrder, alreadyInvoiced, lockedCredit) => issue(code, locked, lockedOrder, alreadyInvoiced, lockedCredit));
   }
 }

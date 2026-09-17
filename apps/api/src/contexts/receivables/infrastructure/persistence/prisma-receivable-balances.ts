@@ -4,23 +4,23 @@ import { CustomerExposure, ReceivableBalances } from '../../../../shared/prisma/
 
 // Implementa lo que cuentas por cobrar publica para ventas. El saldo se calcula en SQL: facturas
 // emitidas menos lo aplicado por cobros confirmados, llevado a la moneda de la empresa con las tasas
-// de cada factura.
+// de cada factura y redondeado a los decimales de la empresa, como lo redondea el dominio.
 @Injectable()
 export class PrismaReceivableBalances implements ReceivableBalances {
-  async lockCustomer(tx: TransactionClient, tenantId: string, customerId: string, today: string): Promise<CustomerExposure> {
+  async lockCustomer(tx: TransactionClient, tenantId: string, customerId: string, today: string, decimals: number): Promise<CustomerExposure> {
     await tx.$queryRaw`SELECT id FROM customers WHERE tenant_id = ${tenantId}::uuid AND id = ${customerId}::uuid FOR UPDATE`;
 
-    return this.exposure(tx, tenantId, customerId, today);
+    return this.exposure(tx, tenantId, customerId, today, decimals);
   }
 
-  async exposure(db: TransactionClient, tenantId: string, customerId: string, today: string): Promise<CustomerExposure> {
+  async exposure(db: TransactionClient, tenantId: string, customerId: string, today: string, decimals: number): Promise<CustomerExposure> {
     const [row] = await db.$queryRaw<{ open_balance: string | null; overdue: bigint }[]>`
       SELECT COALESCE(SUM(balance), 0)::text AS open_balance,
              COUNT(*) FILTER (WHERE due_date < ${today}::date) AS overdue
       FROM (
         SELECT i.due_date,
                ROUND((i.total - COALESCE(SUM(a.amount) FILTER (WHERE p.status = 'confirmed'), 0))
-                 * CASE WHEN i.currency = i.base_currency OR i.exchange_rate IS NULL THEN 1 ELSE i.exchange_rate / i.base_exchange_rate END, 4) AS balance
+                 * CASE WHEN i.currency = i.base_currency OR i.exchange_rate IS NULL THEN 1 ELSE i.exchange_rate / i.base_exchange_rate END, ${decimals}::int) AS balance
         FROM invoices i
         LEFT JOIN payment_allocations a ON a.tenant_id = i.tenant_id AND a.invoice_id = i.id
         LEFT JOIN customer_payments p ON p.tenant_id = a.tenant_id AND p.id = a.payment_id
