@@ -53,7 +53,15 @@ sigue en Acceso; datos y parámetros van uno a uno por empresa.
   compañero para Venezuela.
 - **La moneda principal no cambia con documentos confirmados** (`BaseCurrencyLockedError`): el histórico dice lo que
   dijo en su moneda, como en SAP Business One. Cuenta cualquier ajuste, orden, entrada, pedido, despacho o cobro que ya
-  no sea borrador, y cualquier factura. La secundaria, la zona y los decimales sí cambian.
+  no sea borrador, y cualquier factura. La secundaria y la zona sí cambian.
+- **Con documentos confirmados, los decimales solo suben** (`DecimalPlacesLockedError`), también como en SAP. Con
+  menos decimales de importe, una factura que debe 39,60 ya no se podría cobrar entera; con menos de precio, un
+  pedido escrito con 30,155 ya no se podría confirmar.
+- **Qué hace cada decimal:** `amount_decimals` redondea subtotales, impuestos, totales, importes en bolívares y
+  saldos en la moneda de la empresa, y limita los montos de un cobro; `price_decimals` limita los precios de los
+  pedidos y los costos de las órdenes de compra (`PriceDecimalsExceededError`).
+- **La moneda secundaria no cambia lo que se ve en los documentos:** la tasa y el equivalente en bolívares se
+  muestran siempre, porque la ley venezolana los exige en la factura. `dual_currency` solo informa.
 - Una moneda **retirada** del catálogo no se elige; la que la empresa ya tenía se conserva al guardar lo demás.
 
 ## 3. Hoy, en la zona de la empresa
@@ -108,7 +116,8 @@ empresa si no dice) y la de la moneda de la empresa, de la serie que eligió en 
   (`FixedExchangeRateError`); la de la empresa siempre sale del catálogo.
 - Los errores que cruzan contextos (`MissingExchangeRateError` y los dos anteriores) viven en el contrato. Las pruebas
   de los demás contextos usan el doble `FixedDocumentRates`.
-- `amountDecimals(empresa)` devuelve los decimales de importe (`amount_decimals`) con que se redondean los montos.
+- `amountDecimals(empresa)` y `priceDecimals(empresa)` devuelven los decimales de importe y de precio; la función
+  `ensurePriceDecimals` del contrato rechaza el precio o costo que tenga más.
 - Lo usan las órdenes y entradas de compra ([compras.md §2.4](compras.md#24-moneda-y-tasas)), los pedidos y facturas de
   venta ([ventas.md §2.4](ventas.md#24-moneda-y-tasas)) y los cobros
   ([cuentas-por-cobrar.md §1.5](cuentas-por-cobrar.md#15-cobrar-en-otra-moneda-y-el-diferencial-cambiario)).
@@ -161,16 +170,18 @@ pedida o de la que usa la empresa.
 
 Se reescriben en cada corrida de semillas. Las monedas (USD, EUR, VES) llegan con la migración.
 
-Tasas de septiembre de 2026: Acme tiene la legal del dólar (días 1, 8 y 11) y del euro (1 y 11) y una interna del
-dólar; Globex, la legal del dólar del día 10, que es la que atacan las pruebas de aislamiento.
+Tasas: las cuatro empresas tienen la legal del dólar del **1 de enero de 2026** (Acme también la del euro), para que
+cualquier documento del año tenga tasa. En septiembre, Acme tiene la legal del dólar (días 1, 8 y 11), la del euro
+(1 y 11) y una interna del dólar; Globex, la legal del dólar del día 10, que es la que atacan las pruebas de
+aislamiento.
 
 ## 8. Pruebas que lo protegen
 
 | Nivel | Dónde | Qué cubre |
 |---|---|---|
-| Dominio y aplicación | `contexts/company/**/*.spec.ts` | Valores por defecto, zona horaria (22:00 de Caracas sigue siendo hoy), monedas activas, moneda principal fija con documentos |
+| Dominio y aplicación | `contexts/company/**/*.spec.ts` | Valores por defecto, zona horaria (22:00 de Caracas sigue siendo hoy), monedas activas, moneda principal fija y decimales que solo suben con documentos |
 | Contrato | `company-ports.contract.ts` | Datos y parámetros por empresa, catálogo de monedas, nombre registrado y documentos confirmados, contra doble y PostgreSQL |
-| API | `tests/api/company.api.spec.ts` | Lectura por cualquier miembro, cambios y sus rechazos, moneda fija de Acme, permisos y sesión |
+| API | `tests/api/company.api.spec.ts` | Lectura por cualquier miembro, cambios y sus rechazos, moneda fija y decimales que no bajan en Acme, permisos y sesión |
 | Interfaz | `tests/ui/company.spec.ts` | Editar los datos, error en español, solo lectura |
 | Dominio y aplicación | `domain/rate/*.spec.ts`, `application/exchange-rates.spec.ts` | Tasa válida, bolívar sin tasa, corregir en lugar de duplicar, la del día o la anterior y nunca una posterior, serie de la empresa, tasas de un documento |
 | Contrato | `company-ports.contract.ts` | Guardar, clave única, la última activa hasta un día y el listado con filtros, contra doble y PostgreSQL |

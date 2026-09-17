@@ -189,6 +189,31 @@ pide más, y todo cabe sobre lo construido. Decidido con Rafael al aprobar el al
 **Qué habría que hacer:** moverlo a `modules/shared/` con su traducción base, y que cada
 módulo añada sus códigos.
 
+### Multimoneda: lo que la revalidación del 17-sep-2026 dejó fuera
+
+Detalle y fuentes en [revision/temas/configuracion-empresa.md §10](revision/temas/configuracion-empresa.md#10-revalidación-17-sep-2026).
+
+- **IGTF (3 %)** sobre pagos en divisas, que perciben los contribuyentes especiales. **Por qué:** es obligatorio para
+  ellos y va en la factura. **Qué haría falta:** marcar a la empresa como agente de percepción, una forma de pago en
+  divisas y el impuesto calculado en el cobro; resolver cómo se documenta cuando se cobra después de facturar.
+- **Notas de débito y crédito**, también por el diferencial cambiario (Reglamento LIVA art. 51). **Por qué:** es como
+  se regulariza la variación cuando el contrato tiene cláusula de ajuste. **Qué haría falta:** documento propio con
+  referencia a la factura, sus importes en bolívares y su efecto en el saldo.
+- **Base e IVA en bolívares por alícuota**, con el IVA en bolívares calculado sobre la base convertida. **Por qué:** la
+  Providencia 0071 pide el desglose en el documento fiscal; hoy solo se guardan los totales y el IVA se convierte ya
+  redondeado. **Qué haría falta:** importes en bolívares por línea o por alícuota al emitir.
+- **Documento fiscal impreso o digital** (Providencia 0071 o SNAT/2024/000102). **Qué haría falta:** numeración de
+  control, datos de imprenta o proveedor autorizado y el PDF de la factura.
+- **Diferencial cambiario en la moneda de la empresa** y **revaluación de saldos abiertos**. **Por qué:** los ERP
+  registran la ganancia o pérdida realizada en la moneda contable y ajustan lo pendiente a la tasa del día; una factura
+  en bolívares de una empresa en dólares hoy da diferencial 0 aunque pierda valor. **Qué haría falta:** la
+  contabilidad.
+- **Decimales por moneda y tolerancia al aplicar cobros** (como *Application Rounding Precision* de Business Central).
+- **La web formatea importes con 2 a 4 decimales fijos**, no con los de la empresa. **Qué haría falta:** pasar los
+  parámetros a cada tabla o un formateador por sesión.
+- **Tasa a mano en la factura.** El compañero la admite si la empresa lo permite; aquí no, porque la ley pide la tasa
+  oficial. Se reabre si una empresa factura con una convención especial.
+
 ## Infraestructura y despliegue
 
 ### Comandos de despliegue en el Makefile

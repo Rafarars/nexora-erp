@@ -88,7 +88,9 @@ de ninguno de los dos.
 
 **Por qué se copia el impuesto.** Si mañana el IVA cambia, la orden sigue diciendo lo que se pactó.
 
-**Montos**, redondeados a céntimos una sola vez por línea:
+**Montos**, redondeados una sola vez por línea a los **decimales de importe de la empresa** (`amount_decimals`), y
+no se guardan: se calculan al leer. El costo por unidad admite como mucho los **decimales de precio**
+(`price_decimals`); con más, `PriceDecimalsExceededError`:
 
 ```
 subtotal de la línea = cantidad × costo
@@ -301,6 +303,11 @@ POST /api/v1/purchasing/receipts
 | `PurchaseOrderNotReceivableError` | 409 | Recibir de un borrador, una anulada o una ya recibida |
 | `ReceiptExceedsPendingError` | 409 | La entrada supera lo pendiente |
 | `ReceivedGoodsAlreadyUsedError` | 409 | Anular una entrada cuya mercancía ya salió |
+| `MissingExchangeRateError` | 409 | No hay tasa de esa moneda en la fecha del documento ni antes |
+| `RateOverrideNotAllowedError` | 409 | Tasa escrita a mano en una empresa que no lo permite |
+| `FixedExchangeRateError` | 400 | Tasa escrita a mano para la moneda de la empresa o el bolívar |
+| `ConcurrentModificationError` | 409 | Otra persona guardó el borrador mientras lo tenías abierto: se recarga y se repite |
+| `PriceDecimalsExceededError` | 400 | Un precio o costo con más decimales de los que usa la empresa (`price_decimals`) |
 
 ---
 
@@ -340,7 +347,7 @@ compra.
 
 | Nivel | Dónde | Qué cubre |
 |---|---|---|
-| Dominio | `contexts/purchasing/domain/**/*.spec.ts` | Montos en céntimos, cantidades exactas, proveedor, ciclo de la orden (recibir todo o nada, retroceder al anular), ciclo de la entrada, confirmación y anulación puras |
+| Dominio | `contexts/purchasing/domain/**/*.spec.ts` | Montos con los decimales de la empresa (0, 2 y 4), cantidades exactas, proveedor, ciclo de la orden (recibir todo o nada, retroceder al anular), ciclo de la entrada, confirmación y anulación puras |
 | Aplicación | `supplier-lifecycle.spec.ts`, `purchase-cycle.spec.ts` | Proveedores; órdenes con revalidación y conservación de líneas; en camino; entradas parciales, dos borradores que se pasan, anular y retroceder, mercancía que ya salió |
 | Contrato | `purchasing-ports.contract.ts` | 14 casos contra doble y PostgreSQL con el inventario real: atomicidad, **dos entradas simultáneas que no caben**, doble confirmación, **anular la orden mientras una entrada la recibe** |
 | API | `tests/api/purchasing.api.spec.ts` | Recorrido por HTTP, costo promedio con dos compras, entradas simultáneas, anulación con retroceso, permisos |

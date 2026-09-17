@@ -23,7 +23,7 @@ de ninguna conversación anterior**.
 |---|---|
 | Repositorio | github.com/Rafarars/nexora-erp |
 | Reporte de pruebas | https://rafarars.github.io/nexora-erp/ |
-| Pruebas | 2456 + 170 unitarias · 159 de contrato · 346 end-to-end |
+| Pruebas | 2466 + 172 unitarias · 160 de contrato · 347 end-to-end |
 | **H0 — Fundación** | **Completado** |
 | **H1 — Multiempresa y acceso** | **Completado** y revisado |
 | **H2 — Catálogo** | **Completado** ([`H2-CATALOGO.md`](H2-CATALOGO.md)) |
@@ -455,9 +455,14 @@ investigada, decidida y con los **pasos 1 a 4 hechos**:
   `shared/domain/amount.ts` y `document-currency.ts`. Bloqueo optimista de los borradores corregido. Detalle en
   [`modulos/ventas.md`](modulos/ventas.md) §2.4 y [`modulos/cuentas-por-cobrar.md`](modulos/cuentas-por-cobrar.md) §1.5.
 
+**Revalidación (17-sep-2026):** los pasos 1 a 4 se compararon con la ley y los ERP, con el compañero, con el código y
+la interfaz. Se corrigieron el bloqueo optimista de los cobros, el redondeo de saldos y del estado de cuenta, los
+decimales de compras y de precio, los decimales que ya no bajan con documentos y las llaves de `base_currency`. Quedan
+**cuatro decisiones legales de Rafael** (tasa de fines de semana, serie legal en facturas, fecha del hecho imponible,
+IGTF): [`revision/temas/configuracion-empresa.md`](revision/temas/configuracion-empresa.md) §10.3.
+
 **Sigue el paso 5, reportes:** tablero, antigüedad, estado de cuenta, ventas por cliente y valuación en la moneda de la
-empresa, con el equivalente en la secundaria; los totales de las órdenes de compra todavía redondean a 2 decimales en
-vez de a los de la empresa. Detalle en
+empresa, con el equivalente en la secundaria. Detalle en
 [`revision/temas/configuracion-empresa.md`](revision/temas/configuracion-empresa.md) §8.
 
 **Decisiones de Rafael que no hay que volver a discutir:**

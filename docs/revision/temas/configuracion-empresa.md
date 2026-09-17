@@ -34,7 +34,8 @@ configuración vive hoy fijo en el código o repartido por los maestros:
     presentación que acompaña a cada importe;
   - `rate_type` (`legal` o `manual`) y `allows_rate_override`;
   - `amount_decimals` (0–6, por defecto 2) y `price_decimals` (0–8, por defecto 6);
-  - `adjustment_approval_threshold`: umbral de costo a partir del cual un ajuste pide aprobación.
+  - `adjustment_approval_threshold`: umbral de costo a partir del cual un ajuste pide aprobación (está en su modelo
+    `app/Modules/Configuration/Models/Configuration.php`, no en `monedas.md`).
 - **Se crea sola**: junto con la empresa, o en el primer acceso si falta. Permisos `configuration.show` y
   `configuration.update`; una sola pantalla de edición.
 - El resto de valores por defecto (bodega sugerida, lista por defecto) vive **en su maestro**, no en la
@@ -141,12 +142,17 @@ sola pantalla, «Empresa», con permisos `access.company.search` y `access.compa
 
 ### 8.2 Ley venezolana
 
-- Con precio en divisa, la factura expresa **el equivalente en bolívares** de base imponible e impuesto y **la tasa
-  del BCV** usada: Providencia SENIAT 0071, art. 13 num. 14
-  ([Alliott Venezuela](https://alliottve.com/publicaciones/https-alliottve-com-precios-moneda-extranjera-comerciantes/),
-  [Nayma Consultores](https://naymaconsultores.com/precios-en-moneda-extranjera-en-venezuela-que-permite-la-ley/)).
-- El pago se convierte a la **tasa oficial vigente en la fecha de pago** (Ley del BCV, art. 128); la variación se
-  regulariza con notas de débito o crédito.
+- Con precio en divisa, la factura lleva **ambas cantidades, con indicación del monto total y del tipo de cambio
+  aplicable**: Providencia SENIAT 0071, art. 13 num. 14 ([texto](https://tributos.ivecofi.net/informacion/legislacion/providencias/pa-2011-71));
+  la misma regla está en los arts. 14.9, 15.11 y 16.8, y las notas de débito y crédito la heredan (arts. 23 y 24).
+  En la práctica se expresan en bolívares base e IVA ([Nayma Consultores](https://naymaconsultores.com/precios-en-moneda-extranjera-en-venezuela-que-permite-la-ley/);
+  [Alliott Venezuela](https://alliottve.com/publicaciones/https-alliottve-com-precios-moneda-extranjera-comerciantes/) cita el art. 15.11).
+- La base imponible en divisa se convierte al tipo de cambio del **día del hecho imponible** (LIVA art. 25). El hecho
+  imponible de una venta es la emisión de la factura, el pago o la entrega, **lo que ocurra primero** (LIVA art. 13.1).
+- El pago se convierte **al tipo de cambio corriente en la fecha de pago, salvo convención especial** (Ley del BCV,
+  art. 128; Convenio Cambiario N.º 1, art. 8 a). Las **notas de débito o crédito** por la variación vienen del
+  Reglamento de la LIVA, art. 51, cuando el contrato tiene cláusula de ajuste; con la factura ya en divisas, las
+  fuentes no coinciden en si hace falta nota.
 
 ### 8.3 ERP
 
@@ -202,3 +208,51 @@ sola pantalla, «Empresa», con permisos `access.company.search` y `access.compa
   contrato publicado.
 - **Tasas cargadas a mano**, legales (BCV) o internas. La descarga automática queda fuera: el BCV no ofrece una API
   oficial estable y sería una integración que se rompe. Se puede sumar después.
+
+## 10. Revalidación (17-sep-2026)
+
+Rafael pidió volver a comparar lo construido en los pasos 1 a 4 con la investigación web, la documentación del
+compañero, la interfaz y el código. Tres revisiones independientes (compañero, ley y ERP, código contra la
+documentación) y la suite de interfaz. Cada hallazgo se verificó en el código antes de tocarlo.
+
+### 10.1 Corregido
+
+| Hallazgo | Fuente | Arreglo |
+|---|---|---|
+| Confirmar un cobro podía congelar tasas de otra versión del borrador | Código | El cobro compara su versión sobre la fila bloqueada (`ensureUnchangedSince`) |
+| Los cobros no tenían bloqueo optimista | Código | `version()` y `ConcurrentModificationError` como en los demás borradores; prueba de contrato |
+| Saldos en la moneda de la empresa con 4 decimales | Código | Redondeados a `amount_decimals` en el dominio y en el SQL del crédito |
+| El estado de cuenta podía terminar 0,0001 por debajo de la antigüedad | Código | Cada abono rebaja el saldo antes menos el saldo después, redondeados |
+| Compras redondeaba a céntimos fijos | Compañero y código | Totales con `amount_decimals`, como ventas |
+| `price_decimals` no tenía efecto | Compañero | Precios de pedidos y costos de órdenes limitados (`PriceDecimalsExceededError`) |
+| Bajar decimales dejaba saldos imposibles de cobrar | Compañero y código | Con documentos confirmados solo suben (`DecimalPlacesLockedError`), como SAP |
+| `base_currency` sin clave foránea | Código | Migración `20260923000000_add_base_currency_foreign_keys` |
+| La tabla de facturas por cobrar no decía cuánto vale un saldo en la moneda de la empresa | Código | Segunda línea con la moneda de la empresa |
+| Documentación desactualizada: «fecha UTC», «céntimos», crédito «del pedido», errores de moneda | Código | Corregida en `empresa.md`, `compras.md`, `ventas.md`, `cuentas-por-cobrar.md` y `ARCHITECTURE.md` |
+| Resumen de la ley impreciso | Web | §8.2 reescrito con el texto primario |
+
+### 10.2 Coincide
+
+Tasa en bolívares por unidad y bolívar sin tasa; tasa del día o la anterior; una por moneda, fecha y tipo; tasa a mano
+según la empresa y nunca para su moneda; borrador que refresca y confirmar que congela; factura con la tasa de su
+emisión y `*_ves`; cobro con la tasa de su fecha y conversión por el bolívar; nunca se cobra de más; factura con cobros
+no se anula; costo de la entrada en la moneda de la empresa. Las diferencias con el compañero que ya tenían decisión
+(moneda por defecto la de la empresa, crédito al facturar, diferencial guardado, decimales hasta 4 y 6, moneda
+principal fija) siguen escritas en §7 y en los módulos.
+
+### 10.3 Decisiones pendientes de Rafael
+
+| # | Tema | Qué pasa hoy | Qué dice la fuente | Opciones |
+|---|---|---|---|---|
+| 1 | Tasa de fines de semana y feriados | La del día o la última anterior (la del viernes) | LIVA art. 25 y la práctica publicada: la del día hábil siguiente, que el BCV publica el viernes con fecha valor del lunes | Mantener; o resolver hacia adelante; o cargar cada tasa con su fecha de publicación |
+| 2 | Serie de la factura | La que elija la empresa, legal o interna | La factura exige el tipo de cambio oficial | Forzar la legal en facturas y cobros; o dejarlo a la empresa |
+| 3 | Fecha de la tasa de la factura | La de emisión | Hecho imponible: emisión, entrega o pago, lo primero | Mantener (se factura el día del despacho); usar la del despacho si es anterior; o exigir facturar el mismo día |
+| 4 | IGTF 3 % | No existe | Lo perciben los contribuyentes especiales sobre pagos en divisas | Anotarlo como futuro (recomendado) o construirlo |
+
+### 10.4 Anotado como futuro
+
+IGTF, notas de débito y crédito, base e IVA en bolívares por alícuota (y el IVA en bolívares calculado sobre la base
+convertida), el documento fiscal impreso o digital, el diferencial también en la moneda de la empresa, la revaluación
+de saldos abiertos, decimales por moneda con tolerancia al aplicar cobros, y la web formateando con los decimales de la
+empresa. Detalle en [FUTURE.md](../../FUTURE.md).
+

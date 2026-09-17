@@ -58,7 +58,7 @@ fiar; se explica con ejemplos en [cuentas-por-cobrar.md §3](cuentas-por-cobrar.
 | `order_date` | Por defecto hoy; **no futura** |
 | Línea: `item_id`, `unit_id` | Artículo **activo e inventariado**; unidad **del artículo** |
 | Línea: `quantity`, `base_quantity` | Mayor que cero; base con el factor de hoy al guardar. Si la caja cambia antes de confirmar, el pedido no se confirma hasta revisarlo y guardarlo (`SalesItemChangedError`) |
-| Línea: `unit_price` | Cero o más, por unidad de la línea, **sin impuesto** |
+| Línea: `unit_price` | Cero o más, por unidad de la línea, **sin impuesto**, con como mucho los decimales de precio de la empresa (`PriceDecimalsExceededError`) |
 | Línea: `tax_rate` | **Copiado del impuesto del artículo** |
 | Línea: `dispatched_quantity` | Lo que sumaron los despachos confirmados |
 
@@ -113,8 +113,13 @@ de la empresa); el borrador refresca las tasas del día del pedido o la última 
 congela; una tasa escrita a mano se conserva si la empresa lo permite. Sin tasa, no se guarda
 (`MissingExchangeRateError`, 409).
 
-**El límite de crédito se compara en la moneda de la empresa**: el total del pedido o de la factura
-se pasa a ella con sus tasas antes de sumarlo a lo que el cliente debe.
+**El límite de crédito se compara al emitir la factura, en la moneda de la empresa**: el total de la
+factura se pasa a ella con sus tasas y se suma a lo que el cliente debe, cada factura redondeada a los
+decimales de la empresa (igual en el dominio y en el SQL que bloquea al cliente). El pedido no revisa
+el crédito ([cuentas-por-cobrar.md §3.2](cuentas-por-cobrar.md#32-la-regla-al-emitir)).
+
+**La factura no acepta tasa a mano**, aunque el pedido la tenga y la empresa lo permita: la ley pide la
+tasa oficial del día de emisión. Si falta en el catálogo, no se factura (`MissingExchangeRateError`).
 
 ---
 
@@ -223,6 +228,11 @@ confirmar, con las filas bloqueadas.
 | `CustomerWithOverdueInvoicesError` | 409 | Facturar a crédito a un cliente con vencidas |
 | `CreditLimitExceededError` | 409 | La factura a crédito supera el límite |
 | `InvoiceWithPaymentsError` | 409 | Anular una factura con cobros |
+| `MissingExchangeRateError` | 409 | No hay tasa de esa moneda en la fecha del documento ni antes |
+| `RateOverrideNotAllowedError` | 409 | Tasa escrita a mano en una empresa que no lo permite |
+| `FixedExchangeRateError` | 400 | Tasa escrita a mano para la moneda de la empresa o el bolívar |
+| `ConcurrentModificationError` | 409 | Otra persona guardó el borrador mientras lo tenías abierto: se recarga y se repite |
+| `PriceDecimalsExceededError` | 400 | Un precio o costo con más decimales de los que usa la empresa (`price_decimals`) |
 
 ---
 

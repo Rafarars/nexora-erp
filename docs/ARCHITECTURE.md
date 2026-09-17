@@ -250,6 +250,11 @@ sirve a un endpoint. Tienen el mismo nombre y trabajos distintos.
   repositorio al mismo error de dominio: 409, nunca 500. Con el adaptador de PostgreSQL,
   Prisma 7 informa el índice en `meta.driverAdapterError.cause.constraint.index`
 - **Las fechas se escriben explícitas**: el reloj es del dominio, y `@updatedAt` las pisaría
+- **Bloqueo optimista en los borradores**: la entidad recuerda el `updatedAt` con que se leyó
+  (`version()`) y el repositorio guarda solo si sigue igual; si no, `ConcurrentModificationError`
+  (409). Lo usan ajustes, órdenes, entradas, pedidos, despachos y cobros. El cobro, que se confirma
+  sobre la fila bloqueada con tasas calculadas antes del bloqueo, compara además esa versión dentro
+  de la transacción
 - Los `upsert` buscan por **empresa e identificador**
 - **Los dobles en memoria imitan las restricciones de la base**, incluida la unicidad. Si
   aceptan lo que PostgreSQL rechaza, el contrato de puerto lo descubre

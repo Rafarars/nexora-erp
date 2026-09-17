@@ -44,7 +44,7 @@ y si tiene vencidas, y al **anular una factura** pregunta si tiene cobros.
 | `method` | Efectivo, transferencia, tarjeta o cheque |
 | `reference` | Opcional, hasta 100 caracteres (número de transferencia, de cheque…) |
 | `notes` | Opcional, hasta 500 |
-| Aplicación: `invoice_id`, `amount` | Una factura **emitida, del mismo cliente**, una sola vez por cobro; monto **mayor que cero, con céntimos** |
+| Aplicación: `invoice_id`, `amount` | Una factura **emitida, del mismo cliente**, una sola vez por cobro; monto **mayor que cero**, con como mucho los decimales de importe de la empresa |
 | `currency`, `exchange_rate`, `base_*`, `manual_exchange_rate` | La moneda en que paga el cliente (por defecto, la de la empresa) y sus tasas **del día del cobro** |
 | Aplicación: `exchange_rate` | La tasa **del día del cobro** para la moneda de la factura |
 | Aplicación: `exchange_difference` | El diferencial cambiario en bolívares (§1.5). Nulo si la factura es anterior al multimoneda |
@@ -92,6 +92,11 @@ con «El cobro aplica a una factura más de lo que debe». La factura queda en 3
 Al crear o editar el borrador se hace la misma comprobación con los saldos de ese momento, para
 avisar pronto. **La que cuenta es la de confirmar.**
 
+**Bloqueo optimista.** Las tasas se calculan con el borrador leído antes de bloquearlo. Si otra persona lo
+guardó en medio (cambió la moneda, la fecha o las facturas), confirmar se rechaza con
+`ConcurrentModificationError` en vez de congelar tasas de otra versión. Guardar un borrador que alguien
+guardó mientras estaba abierto se rechaza igual: nadie pierde lo que escribió.
+
 ### 1.4 Anular
 
 Un cobro confirmado se anula y **el saldo vuelve a sus facturas**. Es la forma de corregir un cobro
@@ -111,6 +116,8 @@ estar en otra: una factura de 100 $ se paga en bolívares a la tasa del día.
 
 - **Todo pasa por el bolívar**: lo aplicado vale `monto × tasa del cobro de la moneda de la factura`
   bolívares, y eso se divide entre la tasa de la moneda del cobro.
+- **Cobro en la misma moneda que la factura con tasa a mano:** la tasa escrita vale también para la
+  factura, y el diferencial sale de ella. Es la «convención especial» que admite la Ley del BCV.
 - **Diferencial (Bs) = monto × (tasa del cobro − tasa de la factura).** Se guarda por aplicación y
   se muestra en el cobro y en el estado de cuenta. No genera asientos: la contabilidad no existe aún.
 - Sin tasa del día para alguna moneda, el cobro no se guarda (`MissingExchangeRateError`, 409).
@@ -150,7 +157,7 @@ todo lo ajeno.
 
 ### 3.1 El dato
 
-`customers.credit_limit` es un monto con céntimos, **cero o más**, o **vacío = sin límite**. Se edita
+`customers.credit_limit` es un monto con céntimos (la columna admite 4 decimales), **cero o más**, o **vacío = sin límite**. Se edita
 en **Ventas → Clientes** junto al plazo de pago.
 
 | Plazo | Límite | Qué significa |
@@ -216,10 +223,12 @@ Además: **plazo, límite, crédito disponible** (límite − saldo, o «sin lí
 **Ejemplo (hoy 01-03-2026):** Delta debe 50 de una factura que venció el 10-01 (50 días) y 100 de una
 que venció el 20-01 (40 días). Las dos van a **31 a 60 días**: 150. Bloqueado por vencidas.
 
-Los días se cuentan contra la **fecha UTC del servidor**, igual que «hoy» en todo el sistema.
+Los días se cuentan contra **hoy en la zona horaria de la empresa** ([empresa.md §3](empresa.md#3-hoy-en-la-zona-de-la-empresa)).
 
 **Saldos, tramos, límite y crédito disponible van en la moneda de la empresa**: el saldo de cada
-factura se pasa a ella con las tasas de la factura, para poder sumar facturas en monedas distintas.
+factura se pasa a ella con las tasas de la factura y **se redondea a los decimales de la empresa**
+antes de sumarse, para poder sumar facturas en monedas distintas. El SQL que ventas usa al emitir a
+crédito redondea igual, así la pantalla y el control de crédito ven la misma deuda.
 
 ---
 
@@ -243,6 +252,11 @@ Las facturas anuladas y los cobros en borrador o anulados no aparecen: no son de
 
 Los importes van en la moneda de la empresa. Cada abono muestra además su **diferencial cambiario en
 bolívares** (columna «Dif. cambiaria (Bs.)»).
+
+**Por qué cuadra al céntimo con otra moneda:** un abono no se convierte por separado. Rebaja lo que
+valía el saldo de la factura antes del cobro menos lo que vale después, ambos redondeados. Convertir
+cada movimiento por su lado pierde fracciones: una factura de 100 € con abonos de 0,02 terminaba
+0,0001 por debajo de la antigüedad.
 
 ---
 
@@ -276,7 +290,11 @@ Cuerpo de un cobro:
 | `CustomerWithOverdueInvoicesError` | 409 | (Ventas) Facturar a crédito con vencidas |
 | `CreditLimitExceededError` | 409 | (Ventas) La factura supera el límite |
 | `InvoiceWithPaymentsError` | 409 | (Ventas) Anular una factura con cobros |
-| `InvalidPaymentAmountError` | 400 | Monto cero, negativo o con fracciones de céntimo |
+| `InvalidPaymentAmountError` | 400 | Monto cero, negativo o con más decimales de los que usa la empresa |
+| `MissingExchangeRateError` | 409 | No hay tasa de esa moneda en la fecha del documento ni antes |
+| `RateOverrideNotAllowedError` | 409 | Tasa escrita a mano en una empresa que no lo permite |
+| `FixedExchangeRateError` | 400 | Tasa escrita a mano para la moneda de la empresa o el bolívar |
+| `ConcurrentModificationError` | 409 | Otra persona guardó el borrador mientras lo tenías abierto: se recarga y se repite |
 
 ---
 
@@ -285,7 +303,7 @@ Cuerpo de un cobro:
 | Ruta | Qué muestra |
 |---|---|
 | `/cuentas-por-cobrar/cobros` | Cobros con cliente, forma de pago y referencia, facturas y montos, total y estado. Menú: editar, confirmar, anular. **Nuevo cobro**: se elige el cliente y aparecen sus facturas con saldo (primero las que vencen antes), con lo que deben y si están vencidas; se escribe cuánto se cobra de cada una |
-| `/cuentas-por-cobrar/facturas` | Facturas emitidas por vencimiento: total, cobrado, saldo, estado y días vencida |
+| `/cuentas-por-cobrar/facturas` | Facturas emitidas por vencimiento: total con su moneda, cobrado, saldo (y debajo, si la factura no está en la moneda de la empresa, lo que vale en ella), estado y días vencida |
 | `/cuentas-por-cobrar/antiguedad` | Clientes con saldo por tramos, crédito disponible y bloqueo; el nombre lleva a su estado de cuenta |
 | `/cuentas-por-cobrar/estado-de-cuenta?cliente=` | Resumen (saldo, vencido, límite, disponible) y movimientos con saldo corrido |
 | `/ventas/clientes` | Columna y campo **Límite de crédito** (vacío: sin límite) |
@@ -311,7 +329,7 @@ El rol **Consulta** ve cobros, saldos, antigüedad y estados de cuenta, pero no 
 | Dominio | `contexts/receivables/domain/**/*.spec.ts` y `sales/domain/dispatch/dispatch.entity.spec.ts` | Saldo en céntimos, estados, días vencida, tramos, reglas del cobro; en ventas, contado sin control, vencidas, límite al céntimo, factura con cobros |
 | Aplicación | `receivables-currency.spec.ts` | Cobro en la moneda de la empresa, en bolívares y en otra divisa, tasa del día del cobro, diferencial, saldos en la moneda de la empresa |
 | Aplicación | `receivables-cycle.spec.ts` | Borrador que no toca saldos, **anular devuelve el saldo**, dos borradores que no caben, cliente inactivo, factura anulada en medio, estado de cuenta que cuadra con los saldos, bloqueo que vuelve al anular un cobro |
-| Contrato | `receivables-ports.contract.ts` y `sales-ports.contract.ts` | Contra doble y PostgreSQL: **dos cobros simultáneos a una factura**, **dos facturas a crédito simultáneas contra el límite**, vencida que bloquea, factura con cobros que no se anula |
+| Contrato | `receivables-ports.contract.ts` y `sales-ports.contract.ts` | Contra doble y PostgreSQL: **dos cobros simultáneos a una factura**, **un borrador guardado por otra persona en medio**, **dos facturas a crédito simultáneas contra el límite**, vencida que bloquea, factura con cobros que no se anula |
 | API | `tests/api/receivables.api.spec.ts` | Los tres del plan por HTTP (anular revierte, vencidas no facturan a crédito, estado de cuenta cuadra), contado, límite, concurrencia, **factura en dólares cobrada en bolívares con su diferencial**, tasa escrita para la moneda de la empresa |
 | Interfaz | `tests/ui/receivables.spec.ts` | Cobrar en parte y anular en pasos Dado/Cuando/Entonces, **cobrar en bolívares y ver el diferencial**, error de sobrecobro en español, facturar con vencidas desde Despachos, solo lectura |
 | Aislamiento | `tests/isolation/*` | 6 ataques a cobros, saldos y estados de cuenta de Globex |
