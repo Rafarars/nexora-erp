@@ -34,6 +34,8 @@ export interface DocumentRates {
   amountDecimals(tenantId: string): Promise<number>;
   // Cuantos decimales admiten los precios y costos por unidad.
   priceDecimals(tenantId: string): Promise<number>;
+  // En que moneda lleva la empresa sus cifras: en ella se expresan los saldos y los reportes.
+  companyCurrency(tenantId: string): Promise<string>;
 }
 
 // Un precio o costo con mas decimales de los que la empresa lleva en sus precios.

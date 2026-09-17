@@ -54,6 +54,10 @@ export class CompanyDocumentRates implements DocumentRates {
     return (await this.settings.find(TenantId.of(tenantId))).toPrimitives().priceDecimals;
   }
 
+  async companyCurrency(tenantId: string): Promise<string> {
+    return (await this.settings.find(TenantId.of(tenantId))).baseCurrency().value;
+  }
+
   private async ensureUsable(code: CurrencyCode, keeps: boolean): Promise<void> {
     const currency = await this.currencies.find(code);
 
