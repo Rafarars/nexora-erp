@@ -162,8 +162,8 @@ import { PrismaSupplierRepository } from './persistence/prisma-supplier.reposito
     },
     {
       provide: PurchaseOrderSearcher,
-      useFactory: (o: PurchaseOrderRepository, s: SupplierRepository, c: PurchasingCatalog) => new PurchaseOrderSearcher(o, s, c),
-      inject: [PURCHASE_ORDER_REPOSITORY, SUPPLIER_REPOSITORY, PURCHASING_CATALOG],
+      useFactory: (o: PurchaseOrderRepository, s: SupplierRepository, c: PurchasingCatalog, dr: DocumentRates) => new PurchaseOrderSearcher(o, s, c, dr),
+      inject: [PURCHASE_ORDER_REPOSITORY, SUPPLIER_REPOSITORY, PURCHASING_CATALOG, DOCUMENT_RATES],
     },
 
     {

@@ -1,4 +1,5 @@
 import { InvalidPurchaseCostError, InvalidTaxRateSnapshotError } from '../errors/purchasing.errors.js';
+import { roundRatio } from '../../../../shared/domain/amount.js';
 import { Quantity, roundedDivision } from './quantity.vo.js';
 
 const MAX = 999_999_999_999_999_999n;
@@ -52,16 +53,13 @@ export class TaxRate {
   }
 }
 
-// Importes en centimos. Cantidad (diezmilesimas) por costo (millonesimas) son 10^10 por
-// unidad monetaria; se redondea a centimos una sola vez por linea.
-export function lineSubtotalCents(quantity: Quantity, cost: UnitCost): bigint {
-  return roundedDivision(quantity.units * cost.micros, 100_000_000n);
+// Importes en diezmilesimas, redondeados una sola vez por linea a los decimales de la empresa, como
+// en ventas. Cantidad (diezmilesimas) por costo (millonesimas) es el importe por 10^10.
+export function lineSubtotalUnits(quantity: Quantity, cost: UnitCost, decimals: number): bigint {
+  return roundRatio(quantity.units * cost.micros, 1_000_000n, decimals);
 }
 
-export function taxCents(subtotalCents: bigint, rate: TaxRate): bigint {
-  return roundedDivision(subtotalCents * rate.units, 1_000_000n);
-}
-
-export function centsToNumber(cents: bigint): number {
-  return Number(cents) / 100;
+// Sobre el subtotal ya redondeado: subtotal (diezmilesimas) por porcentaje (diezmilesimas) entre 100.
+export function taxUnits(subtotal: bigint, rate: TaxRate, decimals: number): bigint {
+  return roundRatio(subtotal * rate.units, 1_000_000n, decimals);
 }

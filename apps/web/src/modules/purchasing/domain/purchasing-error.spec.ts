@@ -15,6 +15,10 @@ describe('readablePurchasingError', () => {
     expect(readablePurchasingError(AccessError.fromStatus(409, { code: 'PurchaseOrderWithReceiptsError' }), FALLBACK)).toContain('anula primero sus entradas');
   });
 
+  it('points to the company parameters when a price has too many decimals', () => {
+    expect(readablePurchasingError(AccessError.fromStatus(400, { code: 'PriceDecimalsExceededError' }), FALLBACK)).toContain('más decimales');
+  });
+
   it('asks to review and save an order whose item changed', () => {
     expect(readablePurchasingError(AccessError.fromStatus(409, { code: 'PurchaseItemChangedError' }), FALLBACK)).toContain('revisa las cantidades');
   });

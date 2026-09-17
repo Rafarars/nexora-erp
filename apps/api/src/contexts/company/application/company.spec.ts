@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { BaseCurrencyLockedError, InactiveCurrencyError, InvalidTimeZoneError, UnknownCurrencyError } from '../domain/errors/company.errors.js';
+import { BaseCurrencyLockedError, DecimalPlacesLockedError, InactiveCurrencyError, InvalidTimeZoneError, UnknownCurrencyError } from '../domain/errors/company.errors.js';
 import { RETIRED_CURRENCY, TENANT_A, TENANT_B, aSettingsInput } from '../domain/testing/company.mother.js';
 import { TenantId } from '../domain/shared/tenant-id.vo.js';
 import { CompanyProfileSearcher } from './search-company-profile/company-profile-searcher.js';
@@ -69,6 +69,24 @@ describe('company settings', () => {
     await expect(updaterFor(scenario).run({ tenantId: TENANT_A, ...aSettingsInput({ timeZone: 'America/Bogota', secondaryCurrency: 'EUR' }) })).resolves.toBeUndefined();
 
     expect(await settingsOf(scenario)).toMatchObject({ baseCurrency: { code: 'USD' }, timeZone: 'America/Bogota' });
+  });
+
+  // Con menos decimales, una factura que debe 39,60 ya no se podria cobrar entera.
+  it('only raises the decimal places once the company has confirmed documents', async () => {
+    const scenario = aCompanyScenario();
+    scenario.activity.tenantsWithDocuments.add(TENANT_A);
+
+    await expect(updaterFor(scenario).run({ tenantId: TENANT_A, ...aSettingsInput({ amountDecimals: 0 }) })).rejects.toThrow(DecimalPlacesLockedError);
+    await expect(updaterFor(scenario).run({ tenantId: TENANT_A, ...aSettingsInput({ priceDecimals: 2 }) })).rejects.toThrow(DecimalPlacesLockedError);
+    await expect(updaterFor(scenario).run({ tenantId: TENANT_A, ...aSettingsInput({ amountDecimals: 4 }) })).resolves.toBeUndefined();
+
+    expect(await settingsOf(scenario)).toMatchObject({ amountDecimals: 4 });
+  });
+
+  it('lowers the decimal places freely while the company has no confirmed documents', async () => {
+    const scenario = aCompanyScenario();
+
+    await expect(updaterFor(scenario).run({ tenantId: TENANT_A, ...aSettingsInput({ amountDecimals: 0, priceDecimals: 2 }) })).resolves.toBeUndefined();
   });
 
   it('publishes today in the time zone of each company', async () => {

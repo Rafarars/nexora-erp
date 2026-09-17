@@ -11,7 +11,7 @@ import {
   ReceiptLineNotInOrderError,
 } from '../errors/purchasing.errors.js';
 import { DocumentCurrency, DocumentCurrencyPrimitives } from '../../../../shared/domain/document-currency.js';
-import { centsToNumber } from '../shared/money.js';
+import { unitsToNumber } from '../../../../shared/domain/amount.js';
 import { PurchaseDate } from '../shared/purchase-date.vo.js';
 import { Quantity } from '../shared/quantity.vo.js';
 import { WarehouseRef } from '../shared/references.vo.js';
@@ -182,11 +182,12 @@ export class PurchaseOrder {
     return this.status === 'confirmed' || this.status === 'partially_received';
   }
 
-  totals(): { subtotal: number; tax: number; total: number } {
-    const subtotal = this.details.lines.reduce((sum, line) => sum + line.subtotalCents(), 0n);
-    const tax = this.details.lines.reduce((sum, line) => sum + line.taxCents(), 0n);
+  // Con los decimales de importe de la empresa.
+  totals(decimals: number): { subtotal: number; tax: number; total: number } {
+    const subtotal = this.details.lines.reduce((sum, line) => sum + line.subtotalUnits(decimals), 0n);
+    const tax = this.details.lines.reduce((sum, line) => sum + line.taxUnits(decimals), 0n);
 
-    return { subtotal: centsToNumber(subtotal), tax: centsToNumber(tax), total: centsToNumber(subtotal + tax) };
+    return { subtotal: unitsToNumber(subtotal), tax: unitsToNumber(tax), total: unitsToNumber(subtotal + tax) };
   }
 
   update(details: PurchaseOrderDetails, now: Date, today: string): void {

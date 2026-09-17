@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { MissingExchangeRateError, RateOverrideNotAllowedError } from '../../../shared/domain/ports/document-rates.js';
+import { MissingExchangeRateError, PriceDecimalsExceededError, RateOverrideNotAllowedError } from '../../../shared/domain/ports/document-rates.js';
 import { BOX, MAIN, TENANT_A, WATER } from '../domain/testing/purchasing.mother.js';
 import { PurchaseOrderCreatorRequest } from './create-order/purchase-order-creator.js';
 import { PurchasingScenario, aPurchasingScenario } from './testing/purchasing-scenario.js';
@@ -40,6 +40,28 @@ describe('the currency of a purchase order', () => {
     s.rates.set('EUR', '2026-01-12', 45);
 
     expect(await latestOrder(s)).toMatchObject({ status: 'confirmed', exchangeRate: 41 });
+  });
+
+  // Los totales no se guardan: se calculan al leer, con los decimales de hoy de la empresa.
+  it('totals its lines with the decimals of the company', async () => {
+    const { s, create } = await world();
+    s.rates.decimals = 0;
+
+    await create({ lines: [{ itemId: WATER, unitId: BOX, quantity: 10, unitCost: 30.15 }] });
+
+    const { totals, lines } = await latestOrder(s);
+
+    expect(lines[0].subtotal).toBe(302);
+    expect(totals.subtotal).toBe(302);
+    expect(Number.isInteger(totals.tax) && Number.isInteger(totals.total)).toBe(true);
+  });
+
+  it('refuses a cost with more decimals than the prices of the company', async () => {
+    const { s, create } = await world();
+    s.rates.prices = 2;
+
+    await expect(create({ lines: [{ itemId: WATER, unitId: BOX, quantity: 1, unitCost: 12.345 }] })).rejects.toThrow(PriceDecimalsExceededError);
+    await expect(create({ lines: [{ itemId: WATER, unitId: BOX, quantity: 1, unitCost: 12.34 }] })).resolves.toBeUndefined();
   });
 
   it('keeps a rate written by hand through the confirmation', async () => {

@@ -6,6 +6,7 @@ const BY_CODE: Record<string, string> = {
   InactiveCurrencyError: 'Esa moneda ya no está disponible.',
   InvalidTimeZoneError: 'Elige una zona horaria válida.',
   InvalidDecimalPlacesError: 'Los importes admiten de 0 a 4 decimales y los precios de 0 a 6.',
+  DecimalPlacesLockedError: 'Los decimales solo pueden aumentar: la empresa ya tiene documentos confirmados.',
   BaseCurrencyLockedError: 'La moneda principal no se puede cambiar: la empresa ya tiene documentos confirmados en ella.',
   RequiredCompanyTextError: 'Escribe la razón social.',
   CompanyTextTooLongError: 'Uno de los textos es demasiado largo.',

@@ -6,7 +6,7 @@ import { SalesOrder, SalesOrderDetails, SalesOrderId } from '../../domain/order/
 import { SalesOrderRepository } from '../../domain/order/sales-order.repository.js';
 import { SalesCodeSequence, salesCode } from '../../domain/shared/code-sequence.js';
 import { SalesDate } from '../../domain/shared/sales-date.vo.js';
-import { DocumentRates } from '../../../../shared/domain/ports/document-rates.js';
+import { DocumentRates, ensurePriceDecimals } from '../../../../shared/domain/ports/document-rates.js';
 import { DocumentCurrency } from '../../../../shared/domain/document-currency.js';
 import { TenantId } from '../../domain/shared/tenant-id.vo.js';
 
@@ -43,6 +43,7 @@ export async function salesOrderDetails(
   };
 
   orderDate.ensureNotAfter(today);
+  await ensurePriceDecimals(rates, tenantId.value, input.lines.map((line) => line.unitPrice));
 
   const currency = await rates.forDocument(tenantId.value, {
     currency: input.currency,

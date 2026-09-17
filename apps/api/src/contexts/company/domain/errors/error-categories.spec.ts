@@ -11,6 +11,7 @@ const cases: Array<[DomainError, typeof DomainError]> = [
   [new errors.InvalidTimeZoneError('Marte/Olympus'), InvalidArgumentError],
   [new errors.InvalidDecimalPlacesError('AmountDecimals', 9, 4), InvalidArgumentError],
   [new errors.BaseCurrencyLockedError(ID), ConflictError],
+  [new errors.DecimalPlacesLockedError(ID), ConflictError],
   [new errors.RequiredCompanyTextError('CompanyLegalName'), InvalidArgumentError],
   [new errors.CompanyTextTooLongError('CompanyAddress', 300), InvalidArgumentError],
   [new errors.InvalidCompanyEmailError('x'), InvalidArgumentError],

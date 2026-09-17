@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { MissingExchangeRateError } from '../../../shared/domain/ports/document-rates.js';
+import { MissingExchangeRateError, PriceDecimalsExceededError } from '../../../shared/domain/ports/document-rates.js';
 import { CreditLimitExceededError } from '../domain/errors/sales.errors.js';
 import { BOX, MAIN, TENANT_A, WATER } from '../domain/testing/sales.mother.js';
 import { SalesOrderCreatorRequest } from './create-order/sales-order-creator.js';
@@ -85,6 +85,14 @@ describe('the currency of an invoice', () => {
       totalVes: 14268,
     });
     expect(await latestOrder(s)).toMatchObject({ exchangeRate: 40 });
+  });
+
+  it('refuses a price with more decimals than the prices of the company', async () => {
+    const { s, order } = await world();
+    s.rates.prices = 2;
+
+    await expect(order({ lines: [{ itemId: WATER, unitId: BOX, quantity: 1, unitPrice: 30.155 }] })).rejects.toThrow(PriceDecimalsExceededError);
+    await expect(order({ lines: [{ itemId: WATER, unitId: BOX, quantity: 1, unitPrice: 30.15 }] })).resolves.toBeUndefined();
   });
 
   it('rounds its amounts to the decimals of the company', async () => {

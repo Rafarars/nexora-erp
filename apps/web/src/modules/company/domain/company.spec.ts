@@ -54,6 +54,10 @@ describe('readableCompanyError', () => {
     expect(readableCompanyError(AccessError.fromStatus(409, { code: 'BaseCurrencyLockedError' }), 'x')).toContain('documentos confirmados');
   });
 
+  it('explains why the decimal places cannot go down', () => {
+    expect(readableCompanyError(AccessError.fromStatus(409, { code: 'DecimalPlacesLockedError' }), 'x')).toContain('solo pueden aumentar');
+  });
+
   it('points at the decimals that are not a number', () => {
     expect(readableCompanyError(AccessError.fromStatus(400, { code: 'ValidationError', fields: ['priceDecimals'] }), 'x')).toContain('precios');
   });

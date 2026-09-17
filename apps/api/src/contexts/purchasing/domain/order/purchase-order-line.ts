@@ -1,6 +1,6 @@
 import { Uuid } from '../../../../shared/domain/uuid.vo.js';
 import { ReceiptExceedsPendingError } from '../errors/purchasing.errors.js';
-import { TaxRate, UnitCost, lineSubtotalCents, taxCents } from '../shared/money.js';
+import { TaxRate, UnitCost, lineSubtotalUnits, taxUnits } from '../shared/money.js';
 import { Quantity } from '../shared/quantity.vo.js';
 import { ItemRef, UnitRef } from '../shared/references.vo.js';
 
@@ -111,12 +111,12 @@ export class PurchaseOrderLine {
     return this.received.equals(this.quantity);
   }
 
-  subtotalCents(): bigint {
-    return lineSubtotalCents(this.quantity, this.unitCost);
+  subtotalUnits(decimals: number): bigint {
+    return lineSubtotalUnits(this.quantity, this.unitCost, decimals);
   }
 
-  taxCents(): bigint {
-    return taxCents(this.subtotalCents(), this.taxRate);
+  taxUnits(decimals: number): bigint {
+    return taxUnits(this.subtotalUnits(decimals), this.taxRate, decimals);
   }
 
   receive(quantity: Quantity): void {

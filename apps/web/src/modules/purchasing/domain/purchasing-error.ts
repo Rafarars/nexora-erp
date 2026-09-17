@@ -40,6 +40,7 @@ const BY_CODE: Record<string, string> = {
   MissingExchangeRateError: 'No hay tasa de cambio cargada en esa fecha ni antes para la moneda del documento o la de la empresa: cárgala en Administración › Tasas de cambio.',
   RateOverrideNotAllowedError: 'La empresa no permite escribir la tasa: deja el campo vacío y se usa la del día.',
   FixedExchangeRateError: 'La tasa de la moneda de la empresa y la del bolívar no se escriben a mano.',
+  PriceDecimalsExceededError: 'Un precio o costo tiene más decimales de los que usa la empresa: revisa los parámetros en Administración › Empresa.',
   InvalidExchangeRateError: 'La tasa tiene que ser mayor que cero, con hasta 8 decimales.',
   UnknownCurrencyError: 'Esa moneda no existe.',
   InactiveCurrencyError: 'Esa moneda ya no está disponible: elige otra.',

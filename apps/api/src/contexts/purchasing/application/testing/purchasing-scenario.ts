@@ -64,7 +64,7 @@ export function aPurchasingScenario() {
     updateOrder: new PurchaseOrderUpdater(orderFinder, references, store.orders, clock, calendar, rates),
     confirmOrder: new PurchaseOrderConfirmer(orderFinder, references, store.orders, store.orderPosting, clock, calendar, rates),
     cancelOrder: new PurchaseOrderCanceller(store.orderPosting, clock),
-    searchOrders: new PurchaseOrderSearcher(store.orders, suppliers, catalog),
+    searchOrders: new PurchaseOrderSearcher(store.orders, suppliers, catalog, rates),
     createReceipt: new GoodsReceiptCreator(orderFinder, receiptLines, store.receipts, codes, ids, clock, calendar, rates),
     updateReceipt: new GoodsReceiptUpdater(receiptFinder, orderFinder, receiptLines, store.receipts, clock, calendar, rates),
     confirmReceipt: new GoodsReceiptConfirmer(receiptFinder, orderFinder, receiptLines, store.receipts, store.receiptPosting, new ReceiptConfirmation(), clock, calendar, rates),

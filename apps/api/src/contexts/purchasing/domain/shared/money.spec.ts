@@ -1,17 +1,20 @@
 import { describe, expect, it } from 'vitest';
 import { InvalidPurchaseCostError, InvalidPurchaseQuantityError, InvalidTaxRateSnapshotError } from '../errors/purchasing.errors.js';
-import { TaxRate, UnitCost, centsToNumber, lineSubtotalCents, taxCents } from './money.js';
+import { unitsToNumber } from '../../../../shared/domain/amount.js';
+import { TaxRate, UnitCost, lineSubtotalUnits, taxUnits } from './money.js';
 import { Quantity } from './quantity.vo.js';
 
 describe('purchase amounts', () => {
-  it('multiplies quantity by cost and rounds to cents once per line', () => {
-    expect(centsToNumber(lineSubtotalCents(Quantity.of(3), UnitCost.of(0.335)))).toBe(1.01);
-    expect(centsToNumber(lineSubtotalCents(Quantity.of(2.5), UnitCost.of(12.123456)))).toBe(30.31);
+  it('multiplies quantity by cost and rounds once per line to the decimals of the company', () => {
+    expect(unitsToNumber(lineSubtotalUnits(Quantity.of(3), UnitCost.of(0.335), 2))).toBe(1.01);
+    expect(unitsToNumber(lineSubtotalUnits(Quantity.of(2.5), UnitCost.of(12.123456), 2))).toBe(30.31);
+    expect(unitsToNumber(lineSubtotalUnits(Quantity.of(2.5), UnitCost.of(12.123456), 4))).toBe(30.3086);
+    expect(unitsToNumber(lineSubtotalUnits(Quantity.of(2.5), UnitCost.of(12.123456), 0))).toBe(30);
   });
 
   it('computes the tax on the rounded subtotal, half up', () => {
-    expect(centsToNumber(taxCents(10_05n, TaxRate.of(16)))).toBe(1.61);
-    expect(centsToNumber(taxCents(10_00n, TaxRate.of(0)))).toBe(0);
+    expect(unitsToNumber(taxUnits(10_0500n, TaxRate.of(16), 2))).toBe(1.61);
+    expect(unitsToNumber(taxUnits(10_0000n, TaxRate.of(0), 2))).toBe(0);
   });
 
   it('spreads the cost of a box over its base units', () => {

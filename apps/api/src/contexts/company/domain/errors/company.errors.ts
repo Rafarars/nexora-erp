@@ -42,6 +42,16 @@ export class BaseCurrencyLockedError extends ConflictError {
   }
 }
 
+// Con menos decimales, un saldo o un precio ya escrito dejaria de poder cobrarse o repetirse.
+export class DecimalPlacesLockedError extends ConflictError {
+  constructor(tenantId: string) {
+    super(
+      `Tenant <${tenantId}> has confirmed documents; its decimal places can only increase.`,
+      'The decimal places can only increase once there are confirmed documents.',
+    );
+  }
+}
+
 export class RequiredCompanyTextError extends InvalidArgumentError {
   constructor(name: string) {
     super(`${name} is required.`, 'A required value is empty.');

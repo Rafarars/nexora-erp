@@ -1,12 +1,12 @@
 import { CurrencyCatalog } from '../../currency/currency-catalog.js';
 import { CurrencyCode } from '../../currency/currency-code.vo.js';
-import { BaseCurrencyLockedError, InactiveCurrencyError, UnknownCurrencyError } from '../../errors/company.errors.js';
+import { BaseCurrencyLockedError, DecimalPlacesLockedError, InactiveCurrencyError, UnknownCurrencyError } from '../../errors/company.errors.js';
 import { TenantId } from '../../shared/tenant-id.vo.js';
 import { CompanySettings, CompanySettingsDetails } from '../company-settings.entity.js';
 import { CompanyActivity } from './company-activity.js';
 
-// Las monedas elegidas existen y estan activas, salvo la que la empresa ya tenia. La principal no
-// cambia con documentos confirmados, como en SAP Business One.
+// Las monedas elegidas existen y estan activas, salvo la que la empresa ya tenia. Con documentos
+// confirmados la principal no cambia y los decimales solo suben, como en SAP Business One.
 export class CurrencyPolicy {
   constructor(
     private readonly currencies: CurrencyCatalog,
@@ -22,6 +22,10 @@ export class CurrencyPolicy {
 
     if (current.changesBaseCurrency(details) && (await this.activity.hasConfirmedDocuments(tenantId))) {
       throw new BaseCurrencyLockedError(tenantId.value);
+    }
+
+    if (current.lowersDecimals(details) && (await this.activity.hasConfirmedDocuments(tenantId))) {
+      throw new DecimalPlacesLockedError(tenantId.value);
     }
   }
 

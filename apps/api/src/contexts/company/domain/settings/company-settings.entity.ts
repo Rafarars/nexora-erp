@@ -107,6 +107,10 @@ export class CompanySettings {
     return !details.baseCurrency.equals(this.details.baseCurrency);
   }
 
+  lowersDecimals(details: CompanySettingsDetails): boolean {
+    return details.amountDecimals.value < this.details.amountDecimals.value || details.priceDecimals.value < this.details.priceDecimals.value;
+  }
+
   baseCurrency(): CurrencyCode {
     return this.details.baseCurrency;
   }

@@ -1,6 +1,6 @@
 import { Clock } from '../../../../shared/domain/ports/clock.js';
 import { BusinessCalendar } from '../../../../shared/domain/ports/business-calendar.js';
-import { DocumentRates } from '../../../../shared/domain/ports/document-rates.js';
+import { DocumentRates, ensurePriceDecimals } from '../../../../shared/domain/ports/document-rates.js';
 import { IdGenerator } from '../../../../shared/domain/ports/id-generator.js';
 import { PurchaseOrderLineInput, PurchaseOrderReferences } from '../../domain/order/lines/purchase-order-references.js';
 import { PurchaseOrder, PurchaseOrderDetails, PurchaseOrderId } from '../../domain/order/purchase-order.entity.js';
@@ -48,6 +48,7 @@ export async function orderDetails(
 
   // Las tasas al final y con la fecha ya validada: una orden futura no pregunta por ellas.
   orderDate.ensureNotAfter(today);
+  await ensurePriceDecimals(rates, tenantId.value, input.lines.map((line) => line.unitCost));
 
   const currency = await rates.forDocument(tenantId.value, {
     currency: input.currency,

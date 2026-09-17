@@ -53,7 +53,7 @@ describe('PurchaseOrder', () => {
     it('totals its lines with the tax each one carries', () => {
       const order = aDraftOrder([anOrderLine({ quantity: 10, unitCost: 12, taxRate: 16 }), anOrderLine({ quantity: 2.5, unitCost: 4, taxRate: 0 })]);
 
-      expect(order.totals()).toEqual({ subtotal: 130, tax: 19.2, total: 149.2 });
+      expect(order.totals(2)).toEqual({ subtotal: 130, tax: 19.2, total: 149.2 });
     });
 
     it('is editable until it is confirmed, and confirmed only once', () => {

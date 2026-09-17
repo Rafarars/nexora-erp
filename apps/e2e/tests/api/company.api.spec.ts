@@ -92,6 +92,16 @@ test.describe('company settings', () => {
     expect((await response.json()).error).toBe('BaseCurrencyLockedError');
   });
 
+  // Con menos decimales, las facturas de Acme con centimos ya no se podrian cobrar enteras.
+  test('only lets the decimal places of a company with confirmed documents go up', async ({ request }) => {
+    const token = await tokenFor(request, 'ana@acme.com');
+    const response = await request.put(SETTINGS, { headers: auth(token), data: { ...DEFAULTS, amountDecimals: 0 } });
+
+    expect(response.status()).toBe(409);
+    expect((await response.json()).error).toBe('DecimalPlacesLockedError');
+    expect(await (await request.get(SETTINGS, { headers: auth(token) })).json()).toMatchObject({ amountDecimals: 2 });
+  });
+
   test('a read-only role cannot change them, and nobody reads them without a session', async ({ request }) => {
     const token = await tokenFor(request, 'contador@externo.com');
 

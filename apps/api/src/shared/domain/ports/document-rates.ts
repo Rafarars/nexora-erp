@@ -1,3 +1,4 @@
+import { hasAtMostDecimals } from '../amount.js';
 import { ConflictError, InvalidArgumentError } from '../domain.error.js';
 
 export const DOCUMENT_RATES = Symbol('DocumentRates');
@@ -31,6 +32,16 @@ export interface DocumentRates {
   forDocument(tenantId: string, request: DocumentRateRequest): Promise<DocumentRateSet>;
   // Con cuantos decimales redondea la empresa los importes de sus documentos.
   amountDecimals(tenantId: string): Promise<number>;
+  // Cuantos decimales admiten los precios y costos por unidad.
+  priceDecimals(tenantId: string): Promise<number>;
+}
+
+// Un precio o costo con mas decimales de los que la empresa lleva en sus precios.
+export async function ensurePriceDecimals(rates: DocumentRates, tenantId: string, prices: number[]): Promise<void> {
+  const decimals = await rates.priceDecimals(tenantId);
+  const excess = prices.find((price) => Number.isFinite(price) && !hasAtMostDecimals(price, decimals));
+
+  if (excess !== undefined) throw new PriceDecimalsExceededError(excess, decimals);
 }
 
 // Los errores del lenguaje publicado: los lanza la empresa y los ven compras y ventas.
@@ -52,5 +63,11 @@ export class RateOverrideNotAllowedError extends ConflictError {
 export class FixedExchangeRateError extends InvalidArgumentError {
   constructor(currency: string) {
     super(`The rate of <${currency}> cannot be written by hand.`, 'The rate of the company currency and of the bolivar cannot be written by hand.');
+  }
+}
+
+export class PriceDecimalsExceededError extends InvalidArgumentError {
+  constructor(value: number, decimals: number) {
+    super(`The price <${value}> has more than <${decimals}> decimal places.`, 'A price has more decimal places than the company uses.');
   }
 }
