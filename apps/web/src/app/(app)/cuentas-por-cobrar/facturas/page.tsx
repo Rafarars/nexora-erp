@@ -1,5 +1,6 @@
 import { ReceivablesTable } from '@/sections/receivables/receivables-table';
 import { can } from '@/modules/access/domain/session';
+import { companyApi } from '@/shared/session/company-api';
 import { receivablesApi } from '@/shared/session/receivables-api';
 import { requireSession } from '@/shared/session/current-session';
 
@@ -16,5 +17,7 @@ export default async function ReceivablesPage() {
     );
   }
 
-  return <ReceivablesTable receivables={await receivablesApi().searchReceivables(token)} />;
+  const [receivables, settings] = await Promise.all([receivablesApi().searchReceivables(token), companyApi().settings(token)]);
+
+  return <ReceivablesTable receivables={receivables} baseCurrency={settings.baseCurrency.code} />;
 }

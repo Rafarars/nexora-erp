@@ -3,7 +3,7 @@ import { COLLECTION_STATUS_LABELS, overdueLabel } from '@/modules/receivables/do
 import type { Receivable } from '@/modules/receivables/domain/receivables';
 
 // Las facturas vistas desde la cobranza, las que vencen antes primero.
-export function ReceivablesTable({ receivables }: { receivables: Receivable[] }) {
+export function ReceivablesTable({ receivables, baseCurrency }: { receivables: Receivable[]; baseCurrency: string }) {
   return (
     <section className="space-y-4">
       <div>
@@ -46,8 +46,16 @@ export function ReceivablesTable({ receivables }: { receivables: Receivable[] })
                 <td className="px-4 py-3 text-right" data-testid={`receivable-paid-${row.code}`}>
                   {formatAmount(row.paid)}
                 </td>
-                <td className="px-4 py-3 text-right font-medium" data-testid={`receivable-balance-${row.code}`}>
-                  {formatAmount(row.balance)}
+                <td className="px-4 py-3 text-right">
+                  <p className="font-medium" data-testid={`receivable-balance-${row.code}`}>
+                    {formatAmount(row.balance)}
+                  </p>
+                  {/* Lo que se suma en saldos y credito: la moneda de la empresa, con las tasas de la factura. */}
+                  {row.currency !== baseCurrency ? (
+                    <p className="text-muted text-xs" data-testid={`receivable-company-balance-${row.code}`}>
+                      {baseCurrency} {formatAmount(row.companyBalance)}
+                    </p>
+                  ) : null}
                 </td>
                 <td className="px-4 py-3" data-testid={`receivable-status-${row.code}`}>
                   {COLLECTION_STATUS_LABELS[row.status]}
