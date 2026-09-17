@@ -1,22 +1,30 @@
+import { DocumentRates } from '../../../../shared/domain/ports/document-rates.js';
 import { ReportPeriod } from '../../domain/period/report-period.js';
 import { ReportingReadModel } from '../../domain/read-model/reporting-read-model.js';
-import { sumCents } from '../../domain/shared/money.js';
+import { sumAmounts } from '../../domain/shared/money.js';
 import { TenantId } from '../../domain/shared/tenant-id.vo.js';
 
 export interface SalesByCustomerResponse {
   period: { from: string; to: string };
+  // La moneda de la empresa: cada documento llega convertido a ella con sus propias tasas.
+  currency: string;
+
   customers: { customer: { id: string; code: string; name: string }; invoices: number; subtotal: number; tax: number; total: number }[];
   totals: { invoices: number; subtotal: number; tax: number; total: number };
 }
 
 // Lo facturado en un periodo por cliente, sin las facturas anuladas. El que mas compro, primero.
 export class SalesByCustomerReport {
-  constructor(private readonly readModel: ReportingReadModel) {}
+  constructor(
+    private readonly readModel: ReportingReadModel,
+    private readonly rates: DocumentRates,
+  ) {}
 
   async run(request: { tenantId: string; from: string; to: string }): Promise<SalesByCustomerResponse> {
     const tenantId = TenantId.of(request.tenantId);
     const period = ReportPeriod.of(request.from, request.to);
-    const [customers, sales] = await Promise.all([this.readModel.customers(tenantId), this.readModel.salesByCustomer(tenantId, period)]);
+    const [decimals, currency] = await Promise.all([this.rates.amountDecimals(request.tenantId), this.rates.companyCurrency(request.tenantId)]);
+    const [customers, sales] = await Promise.all([this.readModel.customers(tenantId), this.readModel.salesByCustomer(tenantId, period, decimals)]);
 
     const rows = sales
       .map((row) => {
@@ -28,12 +36,13 @@ export class SalesByCustomerReport {
 
     return {
       period: { from: period.from.value, to: period.to.value },
+      currency,
       customers: rows,
       totals: {
         invoices: rows.reduce((sum, row) => sum + row.invoices, 0),
-        subtotal: sumCents(rows.map((row) => row.subtotal)),
-        tax: sumCents(rows.map((row) => row.tax)),
-        total: sumCents(rows.map((row) => row.total)),
+        subtotal: sumAmounts(rows.map((row) => row.subtotal)),
+        tax: sumAmounts(rows.map((row) => row.tax)),
+        total: sumAmounts(rows.map((row) => row.total)),
       },
     };
   }

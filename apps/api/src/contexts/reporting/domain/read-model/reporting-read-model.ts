@@ -12,7 +12,7 @@ export interface ReportCustomer {
   creditLimit: number | null;
 }
 
-// Una factura emitida con lo cobrado por cobros confirmados.
+// Una factura emitida con lo cobrado por cobros confirmados, todo en la moneda de la empresa.
 export interface ReportInvoice {
   id: string;
   code: string;
@@ -21,6 +21,8 @@ export interface ReportInvoice {
   dueDate: string;
   total: number;
   paid: number;
+  // Total menos cobrado, convertido y redondeado de una vez: es lo que suman saldos y antiguedad.
+  balance: number;
 }
 
 export interface ReportStatementEntry {
@@ -58,6 +60,8 @@ export interface ReportStock {
 
 // Todo lo que los reportes leen de los demas modulos, siempre de una empresa. Solo lectura: en la
 // base el adaptador consulta las tablas de ventas, compras, cobranza e inventario.
+// Los importes llegan **en la moneda de la empresa**: cada documento se convierte con las dos tasas
+// que congelo y se redondea a `decimals`, los decimales de importe de la empresa.
 // Quien emite el reporte: la razon social y el RIF de sus datos, o el nombre con que se registro.
 export interface ReportCompany {
   name: string;
@@ -69,14 +73,15 @@ export interface ReportingReadModel {
   customers(tenantId: TenantId): Promise<ReportCustomer[]>;
   warehouseExists(tenantId: TenantId, warehouseId: string): Promise<boolean>;
   // Emitidas, con saldo o sin el; filtro opcional por cliente.
-  issuedInvoices(tenantId: TenantId, customerId?: string): Promise<ReportInvoice[]>;
-  statementEntries(tenantId: TenantId, customerId: string): Promise<ReportStatementEntry[]>;
-  salesTotal(tenantId: TenantId, period: ReportPeriod): Promise<number>;
+  issuedInvoices(tenantId: TenantId, decimals: number, customerId?: string): Promise<ReportInvoice[]>;
+  statementEntries(tenantId: TenantId, customerId: string, decimals: number): Promise<ReportStatementEntry[]>;
+  salesTotal(tenantId: TenantId, period: ReportPeriod, decimals: number): Promise<number>;
   // Lo recibido en entradas confirmadas, a su costo y sin impuesto.
-  purchasesTotal(tenantId: TenantId, period: ReportPeriod): Promise<number>;
-  collectedTotal(tenantId: TenantId, period: ReportPeriod): Promise<number>;
-  salesByCustomer(tenantId: TenantId, period: ReportPeriod): Promise<ReportCustomerSales[]>;
-  salesByItem(tenantId: TenantId, period: ReportPeriod): Promise<ReportItemSales[]>;
-  // Existencias distintas de cero, filtro opcional por bodega.
+  purchasesTotal(tenantId: TenantId, period: ReportPeriod, decimals: number): Promise<number>;
+  collectedTotal(tenantId: TenantId, period: ReportPeriod, decimals: number): Promise<number>;
+  salesByCustomer(tenantId: TenantId, period: ReportPeriod, decimals: number): Promise<ReportCustomerSales[]>;
+  salesByItem(tenantId: TenantId, period: ReportPeriod, decimals: number): Promise<ReportItemSales[]>;
+  // Existencias distintas de cero, filtro opcional por bodega. El costo promedio ya esta en la
+  // moneda de la empresa: no se convierte.
   stock(tenantId: TenantId, warehouseId?: string): Promise<ReportStock[]>;
 }

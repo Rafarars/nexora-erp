@@ -1,4 +1,4 @@
-import { centsToNumber, toCents } from '../shared/money.js';
+import { amountUnits, unitsToNumber } from '../shared/money.js';
 import { ReportDate } from '../shared/report-date.vo.js';
 
 export const AGING_BUCKETS = ['current', 'days1To30', 'days31To60', 'days61To90', 'over90'] as const;
@@ -21,16 +21,16 @@ export function bucketOf(dueDate: string, today: ReportDate): AgingBucket {
 }
 
 export function agingOf(invoices: { dueDate: string; balance: number }[], today: ReportDate): AgingTotals {
-  const cents = Object.fromEntries([...AGING_BUCKETS, 'total'].map((bucket) => [bucket, 0n])) as Record<AgingBucket | 'total', bigint>;
+  const units = Object.fromEntries([...AGING_BUCKETS, 'total'].map((bucket) => [bucket, 0n])) as Record<AgingBucket | 'total', bigint>;
 
   for (const invoice of invoices) {
-    const balance = toCents(invoice.balance);
+    const balance = amountUnits(invoice.balance);
 
     if (balance <= 0n) continue;
 
-    cents[bucketOf(invoice.dueDate, today)] += balance;
-    cents.total += balance;
+    units[bucketOf(invoice.dueDate, today)] += balance;
+    units.total += balance;
   }
 
-  return Object.fromEntries(Object.entries(cents).map(([bucket, value]) => [bucket, centsToNumber(value)])) as AgingTotals;
+  return Object.fromEntries(Object.entries(units).map(([bucket, value]) => [bucket, unitsToNumber(value)])) as AgingTotals;
 }

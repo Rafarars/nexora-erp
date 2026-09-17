@@ -1,3 +1,4 @@
+import { FixedDocumentRates } from '../../../../shared/infrastructure/testing/fixed-document-rates.js';
 import { ClockBusinessCalendar } from '../../../../shared/infrastructure/testing/clock-business-calendar.js';
 import { FixedClock } from '../../../../shared/infrastructure/testing/fixed-clock.js';
 import { NOW } from '../../domain/testing/reporting.mother.js';
@@ -12,15 +13,17 @@ export function aReportingScenario() {
   const clock = new FixedClock(NOW);
   const calendar = new ClockBusinessCalendar(clock);
   const readModel = new InMemoryReportingReadModel();
+  const rates = new FixedDocumentRates();
 
   return {
     clock,
     calendar,
     readModel,
-    dashboard: new DashboardSearcher(readModel, calendar),
-    receivablesAging: new ReceivablesAgingReport(readModel, calendar),
-    customerStatement: new CustomerStatementReport(readModel, calendar),
-    salesByCustomer: new SalesByCustomerReport(readModel),
-    inventoryValuation: new InventoryValuationReport(readModel),
+    rates,
+    dashboard: new DashboardSearcher(readModel, calendar, rates),
+    receivablesAging: new ReceivablesAgingReport(readModel, calendar, rates),
+    customerStatement: new CustomerStatementReport(readModel, calendar, rates),
+    salesByCustomer: new SalesByCustomerReport(readModel, rates),
+    inventoryValuation: new InventoryValuationReport(readModel, rates),
   };
 }

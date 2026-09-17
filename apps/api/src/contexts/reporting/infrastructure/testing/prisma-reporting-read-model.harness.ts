@@ -55,17 +55,23 @@ export class PrismaReportingReadModelHarness implements ReportingReadModelHarnes
     });
   }
 
+  // Las monedas que trae la semilla, o la de la empresa sin tasas.
+  private currencyOf({ currency, exchangeRate, baseCurrency, baseExchangeRate }: { currency?: string; exchangeRate?: number | null; baseCurrency?: string; baseExchangeRate?: number | null }) {
+    return { currency: currency ?? 'USD', exchangeRate: exchangeRate ?? null, baseCurrency: baseCurrency ?? 'USD', baseExchangeRate: baseExchangeRate ?? null };
+  }
+
   async invoice(tenantId: string, invoice: SeedInvoice): Promise<void> {
     const warehouseId = (await this.prisma.warehouse.findFirstOrThrow({ where: { tenantId } })).id;
     const orderId = uuid();
     const dispatchId = uuid();
     const date = asDate(invoice.issueDate);
 
-    await this.prisma.salesOrder.create({ data: { currency: 'USD', baseCurrency: 'USD', id: orderId, tenantId, code: this.code('PED'), customerId: invoice.customerId, warehouseId, orderDate: date, status: 'dispatched', updatedAt: date } });
+    await this.prisma.salesOrder.create({ data: { ...this.currencyOf(invoice), id: orderId, tenantId, code: this.code('PED'), customerId: invoice.customerId, warehouseId, orderDate: date, status: 'dispatched', updatedAt: date } });
     await this.prisma.dispatch.create({ data: { id: dispatchId, tenantId, code: this.code('DES'), orderId, warehouseId, dispatchDate: date, status: 'confirmed', updatedAt: date } });
     await this.prisma.invoice.create({
       data: {
-        currency: 'USD', baseCurrency: 'USD', id: invoice.id,
+        ...this.currencyOf(invoice),
+        id: invoice.id,
         tenantId,
         code: invoice.code,
         dispatchId,
@@ -90,10 +96,10 @@ export class PrismaReportingReadModelHarness implements ReportingReadModelHarnes
 
   async payment(tenantId: string, payment: SeedPayment): Promise<void> {
     const id = uuid();
-    const amount = payment.allocations.reduce((sum, allocation) => sum + Math.round(allocation.amount * 100), 0) / 100;
+    const amount = payment.amount ?? payment.allocations.reduce((sum, allocation) => sum + Math.round(allocation.amount * 100), 0) / 100;
 
     await this.prisma.customerPayment.create({
-      data: { currency: 'USD', baseCurrency: 'USD', id, tenantId, code: payment.code, customerId: payment.customerId, paymentDate: asDate(payment.date), method: 'cash', amount, status: payment.status, updatedAt: new Date() },
+      data: { ...this.currencyOf(payment), id, tenantId, code: payment.code, customerId: payment.customerId, paymentDate: asDate(payment.date), method: 'cash', amount, status: payment.status, updatedAt: new Date() },
     });
 
     for (const allocation of payment.allocations) {
@@ -109,7 +115,7 @@ export class PrismaReportingReadModelHarness implements ReportingReadModelHarnes
 
     await this.prisma.supplier.create({ data: { id: supplierId, tenantId, code: this.code('PRV'), name: `Contrato proveedor ${this.counter}`, updatedAt: date } });
     await this.prisma.purchaseOrder.create({ data: { id: orderId, tenantId, code: this.code('OC'), supplierId, warehouseId: receipt.warehouseId, orderDate: date, status: 'received', currency: 'USD', baseCurrency: 'USD', updatedAt: date } });
-    await this.prisma.goodsReceipt.create({ data: { id: receiptId, tenantId, code: this.code('ENT'), orderId, warehouseId: receipt.warehouseId, receiptDate: date, status: receipt.status, currency: 'USD', baseCurrency: 'USD', updatedAt: date } });
+    await this.prisma.goodsReceipt.create({ data: { id: receiptId, tenantId, code: this.code('ENT'), orderId, warehouseId: receipt.warehouseId, receiptDate: date, status: receipt.status, ...this.currencyOf(receipt), updatedAt: date } });
 
     for (const [index, line] of receipt.lines.entries()) {
       const orderLineId = uuid();

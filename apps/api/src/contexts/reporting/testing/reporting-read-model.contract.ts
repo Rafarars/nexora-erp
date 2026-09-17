@@ -84,11 +84,11 @@ export function describeReportingReadModelContract(implementation: string, creat
       await harness.payment(TENANT_A, { code: 'COB900004', customerId: DELTA, date: '2026-03-07', status: 'draft', allocations: [{ invoiceId: invoiceId(1), amount: 20 }] });
       const readModel = harness.readModel();
 
-      expect(await readModel.issuedInvoices(tenant, DELTA)).toEqual([
-        { id: invoiceId(1), code: 'FAC900001', customerId: DELTA, issueDate: '2026-03-05', dueDate: '2026-03-20', total: 100, paid: 30.3 },
+      expect(await readModel.issuedInvoices(tenant, 2, DELTA)).toEqual([
+        { id: invoiceId(1), code: 'FAC900001', customerId: DELTA, issueDate: '2026-03-05', dueDate: '2026-03-20', total: 100, paid: 30.3, balance: 69.7 },
       ]);
-      expect((await readModel.issuedInvoices(tenant)).map((row) => row.code)).toEqual(['FAC900001', 'FAC900003']);
-      expect(await readModel.issuedInvoices(TenantId.of(TENANT_B), DELTA)).toEqual([]);
+      expect((await readModel.issuedInvoices(tenant, 2)).map((row) => row.code)).toEqual(['FAC900001', 'FAC900003']);
+      expect(await readModel.issuedInvoices(TenantId.of(TENANT_B), 2, DELTA)).toEqual([]);
     });
 
     it('builds the statement from issued invoices and confirmed payments only', async () => {
@@ -97,7 +97,7 @@ export function describeReportingReadModelContract(implementation: string, creat
       await harness.payment(TENANT_A, { code: 'COB900001', customerId: DELTA, date: '2026-03-06', status: 'confirmed', allocations: [{ invoiceId: invoiceId(1), amount: 5 }] });
       await harness.payment(TENANT_A, { code: 'COB900002', customerId: DELTA, date: '2026-03-06', status: 'draft', allocations: [{ invoiceId: invoiceId(1), amount: 1 }] });
 
-      const entries = await harness.readModel().statementEntries(tenant, DELTA);
+      const entries = await harness.readModel().statementEntries(tenant, DELTA, 2);
 
       expect([...entries].sort((a, b) => a.code.localeCompare(b.code))).toEqual([
         { date: '2026-03-06', type: 'payment', code: 'COB900001', amount: 5 },
@@ -117,10 +117,10 @@ export function describeReportingReadModelContract(implementation: string, creat
       await harness.receipt(TENANT_A, { date: '2026-03-15', status: 'draft', warehouseId: MAIN, lines: [{ itemId: WATER, quantity: 100, unitCost: 1 }] });
       const readModel = harness.readModel();
 
-      expect(await readModel.salesTotal(tenant, march)).toBe(11.8);
-      expect(await readModel.purchasesTotal(tenant, march)).toBe(11);
-      expect(await readModel.collectedTotal(tenant, march)).toBe(1.1);
-      expect(await readModel.salesTotal(TenantId.of(TENANT_B), march)).toBe(0);
+      expect(await readModel.salesTotal(tenant, march, 2)).toBe(11.8);
+      expect(await readModel.purchasesTotal(tenant, march, 2)).toBe(11);
+      expect(await readModel.collectedTotal(tenant, march, 2)).toBe(1.1);
+      expect(await readModel.salesTotal(TenantId.of(TENANT_B), march, 2)).toBe(0);
     });
 
     it('groups sales by customer and by item', async () => {
@@ -129,17 +129,55 @@ export function describeReportingReadModelContract(implementation: string, creat
       await harness.invoice(TENANT_A, invoice(3, { customerId: OMEGA, subtotal: 1, tax: 0, total: 1, lines: [{ itemId: SOAP, subtotal: 1 }] }));
       const readModel = harness.readModel();
 
-      expect((await readModel.salesByCustomer(tenant, march)).sort((a, b) => a.total - b.total)).toEqual([
+      expect((await readModel.salesByCustomer(tenant, march, 2)).sort((a, b) => a.total - b.total)).toEqual([
         { customerId: OMEGA, invoices: 1, subtotal: 1, tax: 0, total: 1 },
         { customerId: DELTA, invoices: 2, subtotal: 30.05, tax: 1.6, total: 31.65 },
       ]);
-      expect((await readModel.salesByItem(tenant, march)).sort((a, b) => a.sku.localeCompare(b.sku))).toEqual([
+      expect((await readModel.salesByItem(tenant, march, 2)).sort((a, b) => a.sku.localeCompare(b.sku))).toEqual([
         { itemId: WATER, sku: 'REPORTE-AGUA', name: 'Reporte agua', subtotal: 26.05 },
         { itemId: SOAP, sku: 'REPORTE-JABON', name: 'Reporte jabón', subtotal: 5 },
       ]);
     });
 
-    it('reads the stock that is not zero, with its base unit, per warehouse and never across companies', async () => {
+// Lo que suma un reporte va en la moneda de la empresa: cada documento se convierte con las dos
+    // tasas que congelo. Euro a 40 y dolar a 36,50: 100 EUR son 109,59 USD.
+    it('converts every document to the company currency with the rates it froze', async () => {
+      const euros = { currency: 'EUR', exchangeRate: 40, baseCurrency: 'USD', baseExchangeRate: 36.5 };
+
+      await harness.invoice(TENANT_A, invoice(1, { subtotal: 100, tax: 0, total: 100, lines: [{ itemId: WATER, subtotal: 100 }], ...euros }));
+      await harness.payment(TENANT_A, {
+        code: 'COB900001',
+        customerId: DELTA,
+        date: '2026-03-06',
+        status: 'confirmed',
+        currency: 'VES',
+        exchangeRate: 1,
+        baseCurrency: 'USD',
+        baseExchangeRate: 36.5,
+        amount: 4000,
+        allocations: [{ invoiceId: invoiceId(1), amount: 100 }],
+      });
+      await harness.receipt(TENANT_A, { date: '2026-03-15', status: 'confirmed', warehouseId: MAIN, lines: [{ itemId: WATER, quantity: 2, unitCost: 50 }], ...euros });
+      const readModel = harness.readModel();
+
+      expect(await readModel.issuedInvoices(tenant, 2, DELTA)).toEqual([
+        { id: invoiceId(1), code: 'FAC900001', customerId: DELTA, issueDate: '2026-03-05', dueDate: '2026-03-20', total: 109.59, paid: 109.59, balance: 0 },
+      ]);
+      expect(await readModel.salesTotal(tenant, march, 2)).toBe(109.59);
+      // 100 EUR de la factura, cobrados con 4000 Bs: el cobro vale lo mismo en la moneda de la empresa.
+      expect(await readModel.collectedTotal(tenant, march, 2)).toBe(109.59);
+      expect(await readModel.purchasesTotal(tenant, march, 2)).toBe(109.59);
+      expect(await readModel.salesByCustomer(tenant, march, 2)).toEqual([{ customerId: DELTA, invoices: 1, subtotal: 109.59, tax: 0, total: 109.59 }]);
+      expect((await readModel.salesByItem(tenant, march, 2)).map((row) => row.subtotal)).toEqual([109.59]);
+      expect(await readModel.statementEntries(tenant, DELTA, 2)).toEqual(
+        expect.arrayContaining([
+          { date: '2026-03-05', type: 'invoice', code: 'FAC900001', amount: 109.59 },
+          { date: '2026-03-06', type: 'payment', code: 'COB900001', amount: 109.59 },
+        ]),
+      );
+    });
+
+        it('reads the stock that is not zero, with its base unit, per warehouse and never across companies', async () => {
       await harness.stock(TENANT_A, { itemId: WATER, warehouseId: MAIN, quantity: 288, averageCost: 0.5 });
       await harness.stock(TENANT_A, { itemId: SOAP, warehouseId: NORTH, quantity: 2.5, averageCost: 3.333333 });
       await harness.stock(TENANT_A, { itemId: SOAP, warehouseId: MAIN, quantity: 0, averageCost: 9 });

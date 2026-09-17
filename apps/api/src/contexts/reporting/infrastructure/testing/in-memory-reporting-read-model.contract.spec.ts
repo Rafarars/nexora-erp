@@ -43,12 +43,22 @@ class InMemoryReportingHarness implements ReportingReadModelHarness {
       });
     }
 
-    for (const payment of this.payments.filter((row) => row.status === 'confirmed')) {
-      model.payment(payment.tenantId, { code: payment.code, customerId: payment.customerId, date: payment.date, amount: payment.allocations.reduce((sum, a) => sum + cents(a.amount), 0) / 100 });
+    for (const { tenantId, status, code, customerId, date, amount, allocations, ...currency } of this.payments.filter((row) => row.status === 'confirmed')) {
+      void status;
+      model.payment(tenantId, {
+        ...currency,
+        code,
+        customerId,
+        date,
+        amount: amount ?? allocations.reduce((sum, a) => sum + cents(a.amount), 0) / 100,
+        allocations,
+      });
     }
 
-    for (const receipt of this.receipts.filter((row) => row.status === 'confirmed')) {
-      model.receipt(receipt.tenantId, { date: receipt.date, amount: receipt.lines.reduce((sum, line) => sum + Math.round(line.quantity * line.unitCost * 100), 0) / 100 });
+    for (const { tenantId, status, date, lines, warehouseId, ...currency } of this.receipts.filter((row) => row.status === 'confirmed')) {
+      void status;
+      void warehouseId;
+      model.receipt(tenantId, { ...currency, date, amount: lines.reduce((sum, line) => sum + Math.round(line.quantity * line.unitCost * 100), 0) / 100 });
     }
 
     for (const warehouse of this.warehouses) model.warehouse(warehouse.tenantId, warehouse.id);

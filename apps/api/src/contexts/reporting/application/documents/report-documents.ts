@@ -21,13 +21,16 @@ export function companyHeader(company: ReportCompany): string {
   return company.fiscalId ? `${company.name} · RIF ${company.fiscalId}` : company.name;
 }
 
+// Los importes van todos en la moneda de la empresa: cada documento llega convertido con sus tasas.
+const amountsIn = (currency: string) => `Importes en ${currency}`;
+
 export function receivablesAgingDocument(report: ReceivablesAgingResponse, company: string): ReportDocument {
   const buckets = AGING_BUCKETS.map((bucket) => ({ key: bucket, label: BUCKET_LABELS[bucket], kind: 'amount' as const }));
 
   return {
     fileName: `antiguedad-de-saldos-${report.asOf}`,
     title: 'Antigüedad de saldos por cobrar',
-    subtitle: [company, `Al ${report.asOf}`],
+    subtitle: [company, `Al ${report.asOf} · ${amountsIn(report.currency)}`],
     columns: [{ key: 'code', label: 'Código', kind: 'text' }, { key: 'customer', label: 'Cliente', kind: 'text' }, ...buckets, { key: 'total', label: 'Saldo', kind: 'amount' }],
     rows: report.customers.map((row) => ({ code: row.customer.code, customer: row.customer.name, ...row.aging })),
     totals: { code: 'Total', customer: null, ...report.totals },
@@ -41,7 +44,7 @@ export function customerStatementDocument(report: CustomerStatementResponse, com
   return {
     fileName: `estado-de-cuenta-${customer.code}-${report.asOf}`,
     title: `Estado de cuenta — ${customer.name}`,
-    subtitle: [company, [customer.code, customer.fiscalId].filter(Boolean).join(' · '), credit, `Al ${report.asOf} · Saldo ${report.balance.toFixed(2)} · Vencido ${report.overdue.toFixed(2)}`],
+    subtitle: [company, [customer.code, customer.fiscalId].filter(Boolean).join(' · '), credit, `Al ${report.asOf} · Saldo ${report.balance.toFixed(2)} · Vencido ${report.overdue.toFixed(2)} · ${amountsIn(report.currency)}`],
     columns: [
       { key: 'date', label: 'Fecha', kind: 'date' },
       { key: 'document', label: 'Documento', kind: 'text' },
@@ -64,7 +67,7 @@ export function salesByCustomerDocument(report: SalesByCustomerResponse, company
   return {
     fileName: `ventas-por-cliente-${report.period.from}-a-${report.period.to}`,
     title: 'Ventas por cliente',
-    subtitle: [company, `Del ${report.period.from} al ${report.period.to} · Facturas emitidas`],
+    subtitle: [company, `Del ${report.period.from} al ${report.period.to} · Facturas emitidas · ${amountsIn(report.currency)}`],
     columns: [
       { key: 'code', label: 'Código', kind: 'text' },
       { key: 'customer', label: 'Cliente', kind: 'text' },
@@ -82,7 +85,7 @@ export function inventoryValuationDocument(report: InventoryValuationResponse, c
   return {
     fileName: 'valuacion-de-inventario',
     title: 'Valuación del inventario',
-    subtitle: [company, warehouseName ? `Bodega ${warehouseName}` : 'Todas las bodegas', 'Existencia al costo promedio'],
+    subtitle: [company, warehouseName ? `Bodega ${warehouseName}` : 'Todas las bodegas', `Existencia al costo promedio · ${amountsIn(report.currency)}`],
     columns: [
       { key: 'warehouse', label: 'Bodega', kind: 'text' },
       { key: 'sku', label: 'SKU', kind: 'text' },

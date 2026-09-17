@@ -1,6 +1,10 @@
+import { DocumentCurrencyPrimitives } from '../../../shared/domain/document-currency.js';
 import { ReportCustomer, ReportingReadModel } from '../domain/read-model/reporting-read-model.js';
 
-export interface SeedInvoice {
+// Sin monedas, el documento va en la de la empresa, como lo anterior al multimoneda.
+export type SeedCurrency = Partial<DocumentCurrencyPrimitives>;
+
+export interface SeedInvoice extends SeedCurrency {
   id: string;
   code: string;
   customerId: string;
@@ -13,15 +17,18 @@ export interface SeedInvoice {
   lines: { itemId: string; subtotal: number }[];
 }
 
-export interface SeedPayment {
+export interface SeedPayment extends SeedCurrency {
   code: string;
   customerId: string;
   date: string;
   status: 'draft' | 'confirmed' | 'cancelled';
+  // En la moneda del cobro; por defecto, la suma de lo aplicado.
+  amount?: number;
+  // Cada aplicacion, en la moneda de su factura.
   allocations: { invoiceId: string; amount: number }[];
 }
 
-export interface SeedReceipt {
+export interface SeedReceipt extends SeedCurrency {
   date: string;
   status: 'draft' | 'confirmed' | 'cancelled';
   warehouseId: string;

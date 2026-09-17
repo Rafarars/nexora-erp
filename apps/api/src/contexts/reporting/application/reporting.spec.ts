@@ -3,7 +3,7 @@ import { ReportCustomerNotFoundError, ReportPeriodTooLongError, ReportWarehouseN
 import { DELTA, MAIN, NORTH, OMEGA, TENANT_A, TENANT_B, aCustomer, aStock, anInvoice } from '../domain/testing/reporting.mother.js';
 import { InMemoryInvoice } from '../infrastructure/testing/in-memory-reporting-read-model.js';
 import { companyHeader, customerStatementDocument, inventoryValuationDocument, receivablesAgingDocument, salesByCustomerDocument } from './documents/report-documents.js';
-import { stockValueCents } from './search-dashboard/dashboard-searcher.js';
+import { stockValueUnits } from '../domain/shared/money.js';
 import { aReportingScenario } from './testing/reporting-scenario.js';
 
 const invoice = (overrides: Partial<InMemoryInvoice>): InMemoryInvoice => ({
@@ -55,9 +55,31 @@ describe('dashboard', () => {
     ]);
   });
 
-  it('values stock in cents per row: 2,5 kg at 3,333333 is 8,33', () => {
-    expect(stockValueCents(2.5, 3.333333)).toBe(833n);
-    expect(stockValueCents(0.0001, 0.000001)).toBe(0n);
+  it('values stock per row with the decimals of the company: 2,5 kg at 3,333333 is 8,33', () => {
+    expect(stockValueUnits(2.5, 3.333333, 2)).toBe(83_300n);
+    expect(stockValueUnits(2.5, 3.333333, 4)).toBe(83_333n);
+    expect(stockValueUnits(0.0001, 0.000001, 2)).toBe(0n);
+  });
+});
+
+// Euro a 40 y dolar a 36,50: 100 EUR son 109,59 USD. Las cifras del mundo de arriba no cambian.
+describe('reports in the company currency', () => {
+  it('converts each document with its own rates and says in which currency it reports', async () => {
+    const s = world();
+
+    s.readModel.invoice(TENANT_A, invoice({ id: 'i4', code: 'FAC000004', issueDate: '2026-03-14', dueDate: '2026-03-29', total: 100, subtotal: 100, tax: 0, paid: 0, currency: 'EUR', exchangeRate: 40, baseCurrency: 'USD', baseExchangeRate: 36.5, lines: [{ itemId: 'water', sku: 'AGUA-500', name: 'Agua', subtotal: 100 }] }));
+
+    const dashboard = await s.dashboard.run({ tenantId: TENANT_A });
+    const sales = await s.salesByCustomer.run({ tenantId: TENANT_A, from: '2026-03-01', to: '2026-03-31' });
+    const statement = await s.customerStatement.run({ tenantId: TENANT_A, customerId: DELTA });
+
+    expect(dashboard).toMatchObject({ currency: 'USD', salesThisMonth: 260.09, receivableBalance: 220.09 });
+    expect(sales).toMatchObject({ currency: 'USD', totals: { invoices: 3, subtotal: 239.33, tax: 20.76, total: 260.09 } });
+    expect(statement.currency).toBe('USD');
+    // El ultimo saldo del estado de cuenta es lo que deben sus facturas, tambien con dos monedas.
+    expect(statement.movements.at(-1)?.balance).toBe(statement.balance);
+    expect((await s.inventoryValuation.run({ tenantId: TENANT_A })).currency).toBe('USD');
+    expect((await s.receivablesAging.run({ tenantId: TENANT_A })).currency).toBe('USD');
   });
 });
 
@@ -68,7 +90,7 @@ describe('receivables aging report', () => {
     expect(report.customers).toEqual([{ customer: { id: DELTA, code: 'CLI000001', name: 'Comercial Delta' }, aging: { current: 50.5, days1To30: 60, days31To60: 0, days61To90: 0, over90: 0, total: 110.5 } }]);
 
     const document = receivablesAgingDocument(report, 'Acme Industrial');
-    expect(document.subtitle).toEqual(['Acme Industrial', 'Al 2026-03-15']);
+    expect(document.subtitle).toEqual(['Acme Industrial', 'Al 2026-03-15 · Importes en USD']);
     expect(document.rows).toEqual([{ code: 'CLI000001', customer: 'Comercial Delta', current: 50.5, days1To30: 60, days31To60: 0, days61To90: 0, over90: 0, total: 110.5 }]);
     expect(document.totals).toMatchObject({ code: 'Total', total: 110.5 });
   });

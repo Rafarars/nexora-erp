@@ -1,3 +1,5 @@
+import { DOCUMENT_RATES } from '../../../shared/domain/ports/document-rates.js';
+import type { DocumentRates } from '../../../shared/domain/ports/document-rates.js';
 import { BUSINESS_CALENDAR } from '../../../shared/domain/ports/business-calendar.js';
 import type { BusinessCalendar } from '../../../shared/domain/ports/business-calendar.js';
 import { Module } from '@nestjs/common';
@@ -44,11 +46,23 @@ import { PdfExcelReportRenderer } from './rendering/report-renderer.js';
   providers: [
     { provide: REPORTING_READ_MODEL, useClass: PrismaReportingReadModel },
     { provide: REPORT_RENDERER, useClass: PdfExcelReportRenderer },
-    { provide: DashboardSearcher, useFactory: (r: ReportingReadModel, cal: BusinessCalendar) => new DashboardSearcher(r, cal), inject: [REPORTING_READ_MODEL, BUSINESS_CALENDAR] },
-    { provide: ReceivablesAgingReport, useFactory: (r: ReportingReadModel, cal: BusinessCalendar) => new ReceivablesAgingReport(r, cal), inject: [REPORTING_READ_MODEL, BUSINESS_CALENDAR] },
-    { provide: CustomerStatementReport, useFactory: (r: ReportingReadModel, cal: BusinessCalendar) => new CustomerStatementReport(r, cal), inject: [REPORTING_READ_MODEL, BUSINESS_CALENDAR] },
-    { provide: SalesByCustomerReport, useFactory: (r: ReportingReadModel) => new SalesByCustomerReport(r), inject: [REPORTING_READ_MODEL] },
-    { provide: InventoryValuationReport, useFactory: (r: ReportingReadModel) => new InventoryValuationReport(r), inject: [REPORTING_READ_MODEL] },
+    {
+      provide: DashboardSearcher,
+      useFactory: (r: ReportingReadModel, cal: BusinessCalendar, dr: DocumentRates) => new DashboardSearcher(r, cal, dr),
+      inject: [REPORTING_READ_MODEL, BUSINESS_CALENDAR, DOCUMENT_RATES],
+    },
+    {
+      provide: ReceivablesAgingReport,
+      useFactory: (r: ReportingReadModel, cal: BusinessCalendar, dr: DocumentRates) => new ReceivablesAgingReport(r, cal, dr),
+      inject: [REPORTING_READ_MODEL, BUSINESS_CALENDAR, DOCUMENT_RATES],
+    },
+    {
+      provide: CustomerStatementReport,
+      useFactory: (r: ReportingReadModel, cal: BusinessCalendar, dr: DocumentRates) => new CustomerStatementReport(r, cal, dr),
+      inject: [REPORTING_READ_MODEL, BUSINESS_CALENDAR, DOCUMENT_RATES],
+    },
+    { provide: SalesByCustomerReport, useFactory: (r: ReportingReadModel, dr: DocumentRates) => new SalesByCustomerReport(r, dr), inject: [REPORTING_READ_MODEL, DOCUMENT_RATES] },
+    { provide: InventoryValuationReport, useFactory: (r: ReportingReadModel, dr: DocumentRates) => new InventoryValuationReport(r, dr), inject: [REPORTING_READ_MODEL, DOCUMENT_RATES] },
     {
       provide: ReportExports,
       useFactory: (a: ReceivablesAgingReport, c: CustomerStatementReport, s: SalesByCustomerReport, v: InventoryValuationReport, r: ReportingReadModel, w: ReportRenderer) =>
