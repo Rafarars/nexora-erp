@@ -194,8 +194,13 @@ módulo añada sus códigos.
 Detalle y fuentes en [revision/temas/configuracion-empresa.md §10](revision/temas/configuracion-empresa.md#10-revalidación-17-sep-2026).
 
 - **IGTF (3 %)** sobre pagos en divisas, que perciben los contribuyentes especiales. **Por qué:** es obligatorio para
-  ellos y va en la factura. **Qué haría falta:** marcar a la empresa como agente de percepción, una forma de pago en
-  divisas y el impuesto calculado en el cobro; resolver cómo se documenta cuando se cobra después de facturar.
+  ellos. **Cómo lo haría el mercado** (investigado, ver el tema §10.5): **en el cobro**, no en la factura, como el
+  módulo venezolano de Odoo, la propuesta de la OCA, Profit Plus, SAINT y eFactory. **Qué haría falta:** una marca de
+  contribuyente especial en los parámetros de la empresa; una forma de pago en divisas; el 3 % calculado sobre lo
+  cobrado, expresado en bolívares a la tasa del día del cobro, contra un pasivo «IGTF por enterar» cuando exista
+  contabilidad; y el aviso del 3 % impreso en la factura. La norma no dice cómo documentarlo cuando el cobro llega
+  después de la factura: las opciones discutidas son factura complementaria, nota de débito o comprobante de
+  percepción.
 - **Notas de débito y crédito**, también por el diferencial cambiario (Reglamento LIVA art. 51). **Por qué:** es como
   se regulariza la variación cuando el contrato tiene cláusula de ajuste. **Qué haría falta:** documento propio con
   referencia a la factura, sus importes en bolívares y su efecto en el saldo.
@@ -211,8 +216,12 @@ Detalle y fuentes en [revision/temas/configuracion-empresa.md §10](revision/tem
 - **Decimales por moneda y tolerancia al aplicar cobros** (como *Application Rounding Precision* de Business Central).
 - **La web formatea importes con 2 a 4 decimales fijos**, no con los de la empresa. **Qué haría falta:** pasar los
   parámetros a cada tabla o un formateador por sesión.
-- **Tasa a mano en la factura.** El compañero la admite si la empresa lo permite; aquí no, porque la ley pide la tasa
-  oficial. Se reabre si una empresa factura con una convención especial.
+- **Tasa a mano en la factura.** El compañero la admite si la empresa lo permite, y Odoo 18 y ERPNext dejan editarla;
+  aquí no, porque la ley pide la tasa oficial. Se reabre si una empresa factura con una convención especial.
+- **Heredar la tasa del despacho.** La factura usa la tasa de su emisión, como el compañero y los cuatro ERP. Si
+  alguien factura días después de entregar, el hecho imponible fue la entrega: SAP Business One resuelve eso con una
+  opción para copiar la tasa del documento base. **Qué haría falta:** un parámetro de empresa y que la emisión pida la
+  tasa de la fecha del despacho.
 
 ## Infraestructura y despliegue
 

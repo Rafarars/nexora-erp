@@ -121,6 +121,9 @@ sola pantalla, «Empresa», con permisos `access.company.search` y `access.compa
 | Moneda de la orden de compra | **La elige quien captura**, con la de la empresa por defecto; sin moneda por proveedor |
 | Cobrar en otra moneda que la factura | **Sí, convirtiendo** a la tasa del día: «la factura puede ser de 100$ pero si el usuario va a cancelar en bs […] siguiendo la tasa del dia» |
 | Diferencial cambiario | **Guardarlo y mostrarlo** por aplicación, sin asientos hasta que exista la contabilidad |
+| Fecha de la tasa de la factura (17-sep-2026) | **La de su emisión**, como el compañero y como Business Central, Odoo y ERPNext (§10.5). Heredar la del despacho queda anotado en FUTURE por si algún día hace falta |
+| IGTF (17-sep-2026) | **Anotado como futuro con su diseño**: en el cobro, no en la factura, como el mercado venezolano (§10.5) |
+| Serie de tasas de la factura (17-sep-2026) | **Dejarlo como está**: la empresa elige entre la legal (BCV) y la interna para todos sus documentos, igual que el compañero. El riesgo fiscal de facturar con la serie interna queda anotado |
 
 ## 8. Multimoneda: lo investigado
 
@@ -247,10 +250,10 @@ principal fija) siguen escritas en §7 y en los módulos.
 
 | # | Tema | Qué pasa hoy | Qué dice la fuente | Opciones |
 |---|---|---|---|---|
-| 1 | Tasa de fines de semana y feriados | La del día o la última anterior (la del viernes) | LIVA art. 25 y la práctica publicada: la del día hábil siguiente, que el BCV publica el viernes con fecha valor del lunes | Mantener; o resolver hacia adelante; o cargar cada tasa con su fecha de publicación |
-| 2 | Serie de la factura | La que elija la empresa, legal o interna | La factura exige el tipo de cambio oficial | Forzar la legal en facturas y cobros; o dejarlo a la empresa |
-| 3 | Fecha de la tasa de la factura | La de emisión | Hecho imponible: emisión, entrega o pago, lo primero | Mantener (se factura el día del despacho); usar la del despacho si es anterior; o exigir facturar el mismo día |
-| 4 | IGTF 3 % | No existe | Lo perciben los contribuyentes especiales sobre pagos en divisas | Anotarlo como futuro (recomendado) o construirlo |
+| 1 | Tasa de fines de semana y feriados | La del día o la última anterior (la del viernes). **Las tasas se cargan a mano** (§9): si nadie carga la del lunes, un documento del lunes también usa la del viernes | LIVA art. 25 y la práctica publicada: la del día hábil siguiente, que el BCV publica el viernes con fecha valor del lunes | Mantener; o resolver hacia adelante; o cargar cada tasa con su fecha de publicación |
+| 2 ✅ | Serie de la factura | La que elija la empresa, legal o interna | La factura exige el tipo de cambio oficial | **Decidido (17-sep-2026): se deja como está.** Es responsabilidad de la empresa elegir la serie con que valora sus documentos |
+| 3 ✅ | Fecha de la tasa de la factura | La de emisión | Hecho imponible: emisión, entrega o pago, lo primero | **Decidido (17-sep-2026): se mantiene la de emisión**, que es lo que hacen el compañero y los cuatro ERP (§10.5) |
+| 4 ✅ | IGTF 3 % | No existe | Lo perciben los contribuyentes especiales sobre pagos en divisas | **Decidido (17-sep-2026): anotado como futuro con su diseño**, calculado en el cobro (§10.5 y FUTURE.md) |
 
 ### 10.4 Anotado como futuro
 
@@ -258,4 +261,34 @@ IGTF, notas de débito y crédito, base e IVA en bolívares por alícuota (y el 
 convertida), el documento fiscal impreso o digital, el diferencial también en la moneda de la empresa, la revaluación
 de saldos abiertos, decimales por moneda con tolerancia al aplicar cobros, y la web formateando con los decimales de la
 empresa. Detalle en [FUTURE.md](../../FUTURE.md).
+
+### 10.5 Segunda investigación: hecho imponible e IGTF (17-sep-2026)
+
+Rafael pidió comparar estas dos dudas con el compañero y con los ERP antes de decidir.
+
+**Qué fecha fija la tasa de una factura**
+
+| Sistema | Qué hace |
+|---|---|
+| Compañero | La de **su emisión**, nunca la del pedido: «la factura usa la tasa de su fecha de emisión, no la de la orden que le dio origen» (`docs/monedas.md` §5, y `SalesInvoiceCreateService`). No valida la fecha de la factura contra la de su origen, igual que Nexora. **Sí admite tasa escrita a mano** si la empresa lo permite |
+| [Business Central](https://learn.microsoft.com/en-us/dynamics365/business-central/finance-currencies) | La de la fecha contable. La *VAT Date* existe para declarar el IVA en su período, no para convertir |
+| [Odoo 17-18](https://github.com/odoo/odoo/blob/18.0/addons/account/models/account_move.py) | La de `invoice_date`; en 18 la tasa además es editable |
+| [ERPNext](https://github.com/frappe/erpnext/blob/develop/erpnext/controllers/accounts_controller.py) | La de su `posting_date`, y respeta la tasa escrita a mano |
+| [SAP Business One](https://www.sap-business-one-tips.com/en/base-document-exchange-rate-copied-to-target-document/) | La de la fecha contable, con una opción para **heredar la del documento base** (entrega o pedido) |
+
+Ninguno usa la fecha de entrega por defecto. **Decisión: se mantiene la tasa del día de emisión.** Heredar la del
+despacho queda en [FUTURE.md](../../FUTURE.md) como la opción de SAP, por si un cliente factura días después de entregar.
+
+**IGTF**
+
+El compañero **no lo tiene**: ni tabla, ni campo, ni marca de contribuyente especial; su forma de pago no distingue
+divisas y no figura en sus pendientes (solo aparece como nombre de un impuesto en tres pruebas del catálogo). El
+mercado venezolano sí, y coincide en calcularlo **en el cobro**: el [módulo venezolano de Odoo](https://github.com/binaural-dev/odoo-venezuela),
+la [propuesta de la OCA](https://github.com/OCA/l10n-venezuela/issues/63) (contra un pasivo «IGTF por enterar»),
+Profit Plus y SAINT (en la cobranza cuando la venta fue a crédito) y
+[eFactory](https://www.factorysoftve.com/software-erp-crm-en-la-nube/como-configurar-y-generar-el-igtf-al-cobrar-facturas-en-efactory-punto-de-venta-en-la-nube.html).
+[Gálac](https://galac.com/galac-blog/preguntas-frecuentes-sobre-la-reforma-del-igtf/) prefiere que quede en la factura.
+La [Providencia SNAT/2022/000013](https://tributos.ivecofi.net/informacion/legislacion/providencias/pa-2022-13)
+designa agentes de percepción a los contribuyentes especiales, pero no resuelve cómo documentarlo cuando el cobro en
+divisas llega después de la factura. **Decisión: anotado como futuro con su diseño.**
 
