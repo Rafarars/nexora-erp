@@ -1,3 +1,5 @@
+import { DocumentCurrency } from '../../../../shared/domain/document-currency.js';
+import { DocumentRateSet } from '../../../../shared/domain/ports/document-rates.js';
 import { SalesCatalog, SalesWarehouse, SellableItem } from '../catalog/sales-catalog.js';
 import { CustomerId } from '../customer/customer.entity.js';
 import { ReservableItem, StockAvailability } from '../order/posting/stock-availability.js';
@@ -86,7 +88,7 @@ export function aDraftOrder(lines: SalesOrderLine[] = [anOrderLine()], id = '5b0
     warehouseId: WarehouseRef.of(MAIN),
     orderDate: SalesDate.of(TODAY),
     notes: null,
-    currency: { currency: 'USD', exchangeRate: 1, baseCurrency: 'USD', baseExchangeRate: 1, manualRate: false, toPrimitives: () => ({ currency: 'USD', exchangeRate: 1, baseCurrency: 'USD', baseExchangeRate: 1, manualExchangeRate: false }) } as any,
+    currency: aDocumentCurrency(),
     lines,
   }, NOW, TODAY);
 }
@@ -111,6 +113,11 @@ export function anAvailability(
     reservedByOthers: (itemId) => Quantity.of(reserved[itemId.value] ?? 0),
     item: () => ({ isActive: true, type: 'inventoried', factorOf: (unitId) => (unitId.value === BOX ? 24 : 1), ...item }),
   };
+}
+
+// En dolares, la moneda de la empresa, a 36,50 Bs.
+export function aDocumentCurrency(overrides: Partial<DocumentRateSet> = {}): DocumentCurrency {
+  return DocumentCurrency.of({ currency: 'USD', exchangeRate: 36.5, baseCurrency: 'USD', baseExchangeRate: 36.5, manualRate: false, ...overrides });
 }
 
 export type { SalesCatalog };

@@ -10,7 +10,6 @@ import {
 import { SalesOrderId } from '../order/sales-order.entity.js';
 import { WarehouseRef } from '../shared/references.vo.js';
 import { SalesDate } from '../shared/sales-date.vo.js';
-import { DocumentCurrency, DocumentCurrencyPrimitives } from "../shared/document-currency.js";
 import { optionalText } from '../shared/text.js';
 import { TenantId } from '../shared/tenant-id.vo.js';
 import { DispatchLine, DispatchLinePrimitives } from './dispatch-line.js';
@@ -25,12 +24,11 @@ export type DispatchStatus = 'draft' | 'confirmed' | 'cancelled';
 
 export interface DispatchDetails {
   date: SalesDate;
-  currency: DocumentCurrency;
   notes: string | null;
   lines: DispatchLine[];
 }
 
-export interface DispatchPrimitives extends DocumentCurrencyPrimitives {
+export interface DispatchPrimitives {
   id: string;
   tenantId: string;
   code: string;
@@ -88,7 +86,6 @@ export class Dispatch {
       WarehouseRef.of(row.warehouseId),
       {
         date: SalesDate.of(row.dispatchDate),
-        currency: DocumentCurrency.fromPrimitives(row),
         notes: row.notes,
         lines: [...row.lines].sort((a, b) => a.lineNumber - b.lineNumber).map((line) => DispatchLine.fromPrimitives(line)),
       },
@@ -109,7 +106,6 @@ export class Dispatch {
       orderId: this.orderId.value,
       warehouseId: this.warehouseId.value,
       dispatchDate: this.details.date.value,
-      ...this.details.currency.toPrimitives(),
       notes: this.details.notes,
       status: this.status,
       confirmedAt: this.confirmedAt,

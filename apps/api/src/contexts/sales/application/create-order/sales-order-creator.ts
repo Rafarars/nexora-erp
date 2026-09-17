@@ -7,7 +7,7 @@ import { SalesOrderRepository } from '../../domain/order/sales-order.repository.
 import { SalesCodeSequence, salesCode } from '../../domain/shared/code-sequence.js';
 import { SalesDate } from '../../domain/shared/sales-date.vo.js';
 import { DocumentRates } from '../../../../shared/domain/ports/document-rates.js';
-import { DocumentCurrency } from '../../domain/shared/document-currency.js';
+import { DocumentCurrency } from '../../../../shared/domain/document-currency.js';
 import { TenantId } from '../../domain/shared/tenant-id.vo.js';
 
 export interface SalesOrderInput {

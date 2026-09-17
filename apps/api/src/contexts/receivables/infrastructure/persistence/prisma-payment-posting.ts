@@ -32,9 +32,18 @@ export class PrismaPaymentPosting implements PaymentPosting {
 
       work(payment, invoices.map(invoiceFromRow));
 
-      const { status, confirmedAt, cancelledAt, updatedAt } = payment.toPrimitives();
+      const { status, confirmedAt, cancelledAt, updatedAt, amount, amountVes, currency, exchangeRate, baseCurrency, baseExchangeRate, manualExchangeRate, allocations } =
+        payment.toPrimitives();
 
-      await tx.customerPayment.update({ where: { tenantId_id: { tenantId: tenant, id: paymentId.value } }, data: { status, confirmedAt, cancelledAt, updatedAt } });
+      // Confirmar congela las tasas: se escriben con el importe y el diferencial de cada factura.
+      await tx.customerPayment.update({
+        where: { tenantId_id: { tenantId: tenant, id: paymentId.value } },
+        data: { status, confirmedAt, cancelledAt, updatedAt, amount, amountVes, currency, exchangeRate, baseCurrency, baseExchangeRate, manualExchangeRate },
+      });
+
+      for (const allocation of allocations) {
+        await tx.paymentAllocation.update({ where: { id: allocation.id }, data: { exchangeRate: allocation.exchangeRate, exchangeDifference: allocation.exchangeDifference } });
+      }
     });
   }
 }

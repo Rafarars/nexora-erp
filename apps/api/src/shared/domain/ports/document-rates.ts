@@ -29,6 +29,8 @@ export interface DocumentRateRequest {
 // fecha del documento o la ultima anterior. Sin tasa rechaza: el documento no se emite.
 export interface DocumentRates {
   forDocument(tenantId: string, request: DocumentRateRequest): Promise<DocumentRateSet>;
+  // Con cuantos decimales redondea la empresa los importes de sus documentos.
+  amountDecimals(tenantId: string): Promise<number>;
 }
 
 // Los errores del lenguaje publicado: los lanza la empresa y los ven compras y ventas.

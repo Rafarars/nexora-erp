@@ -1,4 +1,3 @@
-import { DocumentCurrency } from '../shared/document-currency.js';
 import { CustomerCredit } from '../invoice/credit/customer-credit.js';
 import { CreditLimitExceededError, CustomerWithOverdueInvoicesError, InvoiceWithPaymentsError } from '../errors/sales.errors.js';
 import { describe, expect, it } from 'vitest';
@@ -19,7 +18,7 @@ import { SalesOrder } from '../order/sales-order.entity.js';
 import { Quantity } from '../shared/quantity.vo.js';
 import { SalesDate } from '../shared/sales-date.vo.js';
 import { TenantId } from '../shared/tenant-id.vo.js';
-import { CUSTOMER, NOW, SOAP, TENANT_A, TODAY, aConfirmedOrder, anOrderLine } from '../testing/sales.mother.js';
+import { aDocumentCurrency, CUSTOMER, NOW, SOAP, TENANT_A, TODAY, aConfirmedOrder, anOrderLine } from '../testing/sales.mother.js';
 import { DispatchLine, DispatchLineId } from './dispatch-line.js';
 import { Dispatch, DispatchId } from './dispatch.entity.js';
 import { DispatchCancellation } from './posting/dispatch-cancellation.js';
@@ -45,7 +44,6 @@ function dispatchLine(orderLine: SalesOrderLine, quantity: number): DispatchLine
 function aDispatch(order: SalesOrder, lines: DispatchLine[], date = TODAY): Dispatch {
   return Dispatch.draft(DispatchId.of(nextId()), TenantId.of(TENANT_A), 'DES000001', { id: order.id, warehouseId: order.warehouseId() }, {
     date: SalesDate.of(date),
-    currency: DocumentCurrency.of({ currency: "USD", exchangeRate: 1, baseCurrency: "USD", baseExchangeRate: 1, manualRate: false }),
     notes: null,
     lines,
   }, NOW, TODAY);
@@ -65,7 +63,8 @@ const issue = (dispatch: Dispatch, order: SalesOrder, overrides: { alreadyInvoic
   Invoice.issue(InvoiceId.of(nextId()), TenantId.of(TENANT_A), 'FAC000001', {
     dispatch,
     order,
-    currency: DocumentCurrency.of({ currency: "USD", exchangeRate: 1, baseCurrency: "USD", baseExchangeRate: 1, manualRate: false }),
+    currency: aDocumentCurrency(),
+    amountDecimals: 2,
     alreadyInvoiced: overrides.alreadyInvoiced ?? false,
     credit: credit(overrides.credit),
     date: SalesDate.of(TODAY),

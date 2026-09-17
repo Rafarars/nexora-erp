@@ -6,7 +6,7 @@ import { PurchaseOrderLineInput, PurchaseOrderReferences } from '../../domain/or
 import { PurchaseOrder, PurchaseOrderDetails, PurchaseOrderId } from '../../domain/order/purchase-order.entity.js';
 import { PurchaseOrderRepository } from '../../domain/order/purchase-order.repository.js';
 import { PurchasingCodeSequence, purchasingCode } from '../../domain/shared/code-sequence.js';
-import { DocumentCurrency } from '../../domain/shared/document-currency.js';
+import { DocumentCurrency } from '../../../../shared/domain/document-currency.js';
 import { PurchaseDate } from '../../domain/shared/purchase-date.vo.js';
 import { TenantId } from '../../domain/shared/tenant-id.vo.js';
 

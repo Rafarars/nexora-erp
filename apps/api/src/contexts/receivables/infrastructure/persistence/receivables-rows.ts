@@ -1,3 +1,4 @@
+import { amountUnits, unitsToNumber } from '../../../../shared/domain/amount.js';
 import { ReceivableInvoice } from '../../domain/ledger/receivable-invoice.js';
 import { ReceivableCustomer } from '../../domain/ledger/receivables-ledger.js';
 import { CustomerPayment, PaymentStatus } from '../../domain/payment/customer-payment.entity.js';
@@ -21,30 +22,37 @@ export interface PaymentRow {
   reference: string | null;
   notes: string | null;
   amount: Decimalish;
-
+  amountVes: Decimalish | null;
   currency: string;
   exchangeRate: Decimalish | null;
   baseCurrency: string;
   baseExchangeRate: Decimalish | null;
   manualExchangeRate: boolean;
-  amountVes: Decimalish | null;
   status: PaymentStatus;
   confirmedAt: Date | null;
   cancelledAt: Date | null;
   createdAt: Date;
   updatedAt: Date;
-  allocations: { id: string; invoiceId: string; amount: Decimalish; exchangeDifference: Decimalish }[];
+  allocations: { id: string; invoiceId: string; amount: Decimalish; exchangeRate: Decimalish | null; exchangeDifference: Decimalish | null }[];
 }
+
+const decimalOrNull = (value: Decimalish | null) => (value === null ? null : value.toNumber());
 
 export function paymentFromRow(row: PaymentRow): CustomerPayment {
   return CustomerPayment.fromPrimitives({
     ...row,
     paymentDate: day(row.paymentDate),
     amount: row.amount.toNumber(),
-    exchangeRate: row.exchangeRate ? row.exchangeRate.toNumber() : null,
-    baseExchangeRate: row.baseExchangeRate ? row.baseExchangeRate.toNumber() : null,
-    amountVes: row.amountVes ? row.amountVes.toNumber() : null,
-    allocations: row.allocations.map((allocation) => ({ id: allocation.id, invoiceId: allocation.invoiceId, amount: allocation.amount.toNumber(), exchangeDifference: allocation.exchangeDifference.toNumber() })),
+    amountVes: decimalOrNull(row.amountVes),
+    exchangeRate: decimalOrNull(row.exchangeRate),
+    baseExchangeRate: decimalOrNull(row.baseExchangeRate),
+    allocations: row.allocations.map((allocation) => ({
+      id: allocation.id,
+      invoiceId: allocation.invoiceId,
+      amount: allocation.amount.toNumber(),
+      exchangeRate: decimalOrNull(allocation.exchangeRate),
+      exchangeDifference: decimalOrNull(allocation.exchangeDifference),
+    })),
   });
 }
 
@@ -62,7 +70,11 @@ export function invoiceSelect(excludedPayment?: string) {
     dueDate: true,
     status: true,
     total: true,
+    currency: true,
     exchangeRate: true,
+    baseCurrency: true,
+    baseExchangeRate: true,
+    manualExchangeRate: true,
     allocations: {
       where: { payment: { status: 'confirmed' as const, ...(excludedPayment ? { id: { not: excludedPayment } } : {}) } },
       select: { amount: true },
@@ -78,10 +90,14 @@ export function invoiceFromRow(row: {
   dueDate: Date;
   status: 'issued' | 'cancelled';
   total: Decimalish;
+  currency: string;
   exchangeRate: Decimalish | null;
+  baseCurrency: string;
+  baseExchangeRate: Decimalish | null;
+  manualExchangeRate: boolean;
   allocations: { amount: Decimalish }[];
 }): ReceivableInvoice {
-  const paidBase = row.allocations.reduce((sum, allocation) => sum + Math.round(allocation.amount.toNumber() * 10000), 0);
+  const paid = row.allocations.reduce((sum, allocation) => sum + amountUnits(allocation.amount.toNumber()), 0n);
 
   return ReceivableInvoice.of({
     id: row.id,
@@ -91,7 +107,11 @@ export function invoiceFromRow(row: {
     dueDate: day(row.dueDate),
     status: row.status,
     total: row.total.toNumber(),
-    exchangeRate: row.exchangeRate ? row.exchangeRate.toNumber() : null,
-    paid: paidBase / 10000,
+    currency: row.currency,
+    exchangeRate: decimalOrNull(row.exchangeRate),
+    baseCurrency: row.baseCurrency,
+    baseExchangeRate: decimalOrNull(row.baseExchangeRate),
+    manualExchangeRate: row.manualExchangeRate,
+    paid: unitsToNumber(paid),
   });
 }

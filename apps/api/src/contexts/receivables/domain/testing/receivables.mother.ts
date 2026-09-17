@@ -1,4 +1,6 @@
-import { DocumentCurrency } from "../shared/document-currency.js";
+import { DocumentCurrency } from '../../../../shared/domain/document-currency.js';
+import { DocumentRateSet } from '../../../../shared/domain/ports/document-rates.js';
+import { PaymentRates } from '../payment/customer-payment.entity.js';
 import { PaymentDetails } from '../payment/customer-payment.entity.js';
 import { ReceivableInvoice, ReceivableInvoicePrimitives } from '../ledger/receivable-invoice.js';
 import { ReceivablesDate } from '../shared/receivables-date.vo.js';
@@ -18,6 +20,16 @@ export const OTHER_INVOICE = 'f2222222-2222-4222-8222-222222222222';
 
 export const PAYMENT = 'd1111111-1111-4111-8111-111111111111';
 
+// Una factura en dolares, la moneda de la empresa, emitida con el dolar a 36,50 Bs.
+export const DOLLARS = { currency: 'USD', exchangeRate: 36.5, baseCurrency: 'USD', baseExchangeRate: 36.5, manualExchangeRate: false };
+
+// Las tasas del dia de un cobro en dolares: el dolar a 36,50 y dos decimales.
+export function aPaymentRates(currency: Partial<DocumentRateSet> = {}, invoiceRates: Record<string, number> = {}, decimals = 2): PaymentRates {
+  const own = DocumentCurrency.of({ currency: 'USD', exchangeRate: 36.5, baseCurrency: 'USD', baseExchangeRate: 36.5, manualRate: false, ...currency });
+
+  return { currency: own, invoiceRates: { USD: 36.5, [own.currency]: own.exchangeRate!, ...invoiceRates }, decimals };
+}
+
 export function anInvoice(overrides: Partial<ReceivableInvoicePrimitives> = {}): ReceivableInvoice {
   return ReceivableInvoice.of({
     id: INVOICE,
@@ -27,7 +39,8 @@ export function anInvoice(overrides: Partial<ReceivableInvoicePrimitives> = {}):
     dueDate: '2026-01-20',
     status: 'issued',
     total: 100,
-    paid: 0, exchangeRate: null,
+    ...DOLLARS,
+    paid: 0,
     ...overrides,
   });
 }
@@ -39,8 +52,7 @@ export function paymentDetails(overrides: Partial<PaymentDetails> = {}): Payment
     method: 'transfer',
     reference: 'TRF-001',
     notes: null,
-    currency: DocumentCurrency.of({ currency: "USD", exchangeRate: 1, baseCurrency: "USD", baseExchangeRate: 1, manualRate: false }),
-    allocations: [{ id: 'a1000000-0000-4000-8000-000000000001', invoiceId: INVOICE, amount: 40, exchangeDifference: 0 }],
+    allocations: [{ id: 'a1000000-0000-4000-8000-000000000001', invoiceId: INVOICE, amount: 40 }],
     ...overrides,
   };
 }

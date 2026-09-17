@@ -6,7 +6,8 @@ export const RECEIVABLE_BALANCES = Symbol('ReceivableBalances');
 // factura son de cuentas por cobrar; ventas los necesita para emitir a credito y para anular una
 // factura, dentro de su propia transaccion.
 export interface CustomerExposure {
-  // Lo que el cliente debe de sus facturas emitidas, descontando los cobros confirmados.
+  // Lo que el cliente debe de sus facturas emitidas, descontando los cobros confirmados, en la
+  // moneda de la empresa.
   openBalance: number;
   // Si alguna factura con saldo ya paso su vencimiento.
   hasOverdue: boolean;

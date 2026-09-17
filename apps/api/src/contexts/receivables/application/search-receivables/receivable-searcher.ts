@@ -12,9 +12,13 @@ export interface ReceivableResponse {
   customer: { id: string; code: string; name: string };
   issueDate: string;
   dueDate: string;
+  // En la moneda de la factura.
+  currency: string;
   total: number;
   paid: number;
   balance: number;
+  // Lo que debe en la moneda de la empresa, con las tasas de su emision.
+  companyBalance: number;
   status: CollectionStatus;
   daysOverdue: number;
   bucket: AgingBucket | null;
@@ -49,9 +53,11 @@ export class ReceivableSearcher {
             customer: { id: row.customerId, code: customer?.code ?? '', name: customer?.name ?? '' },
             issueDate: row.issueDate,
             dueDate: row.dueDate,
+            currency: row.currency,
             total: row.total,
             paid: row.paid,
             balance: invoice.balance(),
+            companyBalance: invoice.companyBalance(),
             status: invoice.collectionStatus(),
             daysOverdue: invoice.daysOverdue(today),
             bucket: bucketOf(invoice, today),

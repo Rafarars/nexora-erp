@@ -1,4 +1,5 @@
-import { DocumentRates } from '../../../shared/domain/ports/document-rates.js';
+import { DOCUMENT_RATES } from '../../../shared/domain/ports/document-rates.js';
+import type { DocumentRates } from '../../../shared/domain/ports/document-rates.js';
 import { BUSINESS_CALENDAR } from '../../../shared/domain/ports/business-calendar.js';
 import type { BusinessCalendar } from '../../../shared/domain/ports/business-calendar.js';
 import { Module } from '@nestjs/common';
@@ -66,14 +67,18 @@ import { PrismaReceivablesLedger } from './persistence/prisma-receivables-ledger
     {
       provide: PaymentCreator,
       useFactory: (l: ReceivablesLedger, r: PaymentRepository, c: ReceivablesCodeSequence, i: IdGenerator, k: Clock, cal: BusinessCalendar, dr: DocumentRates) => new PaymentCreator(l, r, c, i, k, cal, dr),
-      inject: [RECEIVABLES_LEDGER, PAYMENT_REPOSITORY, RECEIVABLES_CODE_SEQUENCE, ID_GENERATOR, CLOCK, BUSINESS_CALENDAR],
+      inject: [RECEIVABLES_LEDGER, PAYMENT_REPOSITORY, RECEIVABLES_CODE_SEQUENCE, ID_GENERATOR, CLOCK, BUSINESS_CALENDAR, DOCUMENT_RATES],
     },
     {
       provide: PaymentUpdater,
       useFactory: (f: PaymentFinder, l: ReceivablesLedger, r: PaymentRepository, i: IdGenerator, k: Clock, cal: BusinessCalendar, dr: DocumentRates) => new PaymentUpdater(f, l, r, i, k, cal, dr),
-      inject: [PaymentFinder, RECEIVABLES_LEDGER, PAYMENT_REPOSITORY, ID_GENERATOR, CLOCK, BUSINESS_CALENDAR],
+      inject: [PaymentFinder, RECEIVABLES_LEDGER, PAYMENT_REPOSITORY, ID_GENERATOR, CLOCK, BUSINESS_CALENDAR, DOCUMENT_RATES],
     },
-    { provide: PaymentConfirmer, useFactory: (p: PaymentPosting, k: Clock, cal: BusinessCalendar) => new PaymentConfirmer(p, k, cal), inject: [PAYMENT_POSTING, CLOCK, BUSINESS_CALENDAR] },
+    {
+      provide: PaymentConfirmer,
+      useFactory: (f: PaymentFinder, l: ReceivablesLedger, p: PaymentPosting, dr: DocumentRates, k: Clock, cal: BusinessCalendar) => new PaymentConfirmer(f, l, p, dr, k, cal),
+      inject: [PaymentFinder, RECEIVABLES_LEDGER, PAYMENT_POSTING, DOCUMENT_RATES, CLOCK, BUSINESS_CALENDAR],
+    },
     { provide: PaymentCanceller, useFactory: (p: PaymentPosting, k: Clock) => new PaymentCanceller(p, k), inject: [PAYMENT_POSTING, CLOCK] },
     { provide: PaymentSearcher, useFactory: (r: PaymentRepository, l: ReceivablesLedger) => new PaymentSearcher(r, l), inject: [PAYMENT_REPOSITORY, RECEIVABLES_LEDGER] },
     { provide: ReceivableSearcher, useFactory: (l: ReceivablesLedger, cal: BusinessCalendar) => new ReceivableSearcher(l, cal), inject: [RECEIVABLES_LEDGER, BUSINESS_CALENDAR] },

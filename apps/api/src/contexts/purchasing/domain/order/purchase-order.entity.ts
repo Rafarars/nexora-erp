@@ -10,7 +10,7 @@ import {
   ReceiptExceedsPendingError,
   ReceiptLineNotInOrderError,
 } from '../errors/purchasing.errors.js';
-import { DocumentCurrency, DocumentCurrencyPrimitives } from '../shared/document-currency.js';
+import { DocumentCurrency, DocumentCurrencyPrimitives } from '../../../../shared/domain/document-currency.js';
 import { centsToNumber } from '../shared/money.js';
 import { PurchaseDate } from '../shared/purchase-date.vo.js';
 import { Quantity } from '../shared/quantity.vo.js';

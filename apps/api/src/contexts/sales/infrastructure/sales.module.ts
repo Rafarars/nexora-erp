@@ -175,8 +175,8 @@ import { PrismaSalesStock } from './persistence/prisma-sales-stock.js';
     { provide: SalesOrderCanceller, useFactory: (p: SalesOrderPosting, k: Clock) => new SalesOrderCanceller(p, k), inject: [SALES_ORDER_POSTING, CLOCK] },
     {
       provide: SalesOrderSearcher,
-      useFactory: (o: SalesOrderRepository, c: CustomerRepository, k: SalesCatalog) => new SalesOrderSearcher(o, c, k),
-      inject: [SALES_ORDER_REPOSITORY, CUSTOMER_REPOSITORY, SALES_CATALOG],
+      useFactory: (o: SalesOrderRepository, c: CustomerRepository, k: SalesCatalog, dr: DocumentRates) => new SalesOrderSearcher(o, c, k, dr),
+      inject: [SALES_ORDER_REPOSITORY, CUSTOMER_REPOSITORY, SALES_CATALOG, DOCUMENT_RATES],
     },
 
     {
@@ -209,9 +209,9 @@ import { PrismaSalesStock } from './persistence/prisma-sales-stock.js';
 
     {
       provide: InvoiceIssuer,
-      useFactory: (d: DispatchFinder, o: SalesOrderFinder, v: InvoiceRepository, p: InvoicePosting, s: SalesCodeSequence, i: IdGenerator, k: Clock, cal: BusinessCalendar) =>
-        new InvoiceIssuer(d, o, v, p, s, i, k, cal),
-      inject: [DispatchFinder, SalesOrderFinder, INVOICE_REPOSITORY, INVOICE_POSTING, SALES_CODE_SEQUENCE, ID_GENERATOR, CLOCK, BUSINESS_CALENDAR],
+      useFactory: (d: DispatchFinder, o: SalesOrderFinder, v: InvoiceRepository, p: InvoicePosting, s: SalesCodeSequence, i: IdGenerator, k: Clock, cal: BusinessCalendar, dr: DocumentRates) =>
+        new InvoiceIssuer(d, o, v, p, s, i, k, cal, dr),
+      inject: [DispatchFinder, SalesOrderFinder, INVOICE_REPOSITORY, INVOICE_POSTING, SALES_CODE_SEQUENCE, ID_GENERATOR, CLOCK, BUSINESS_CALENDAR, DOCUMENT_RATES],
     },
     { provide: InvoiceCanceller, useFactory: (p: InvoicePosting, k: Clock) => new InvoiceCanceller(p, k), inject: [INVOICE_POSTING, CLOCK] },
     {

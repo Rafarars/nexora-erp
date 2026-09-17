@@ -23,17 +23,18 @@ export function aReceivablesScenario() {
   const ids = new SequentialIdGenerator();
   const store = new InMemoryReceivablesStore();
   const codes = new InMemoryReceivablesCodeSequence();
-  const rates = new FixedDocumentRates();
   const finder = new PaymentFinder(store.payments);
+  const rates = new FixedDocumentRates();
 
   return {
     clock,
     calendar,
     store,
+    rates,
     codes,
     createPayment: new PaymentCreator(store.ledger, store.payments, codes, ids, clock, calendar, rates),
     updatePayment: new PaymentUpdater(finder, store.ledger, store.payments, ids, clock, calendar, rates),
-    confirmPayment: new PaymentConfirmer(store.posting, clock, calendar),
+    confirmPayment: new PaymentConfirmer(finder, store.ledger, store.posting, rates, clock, calendar),
     cancelPayment: new PaymentCanceller(store.posting, clock),
     searchPayments: new PaymentSearcher(store.payments, store.ledger),
     searchReceivables: new ReceivableSearcher(store.ledger, calendar),

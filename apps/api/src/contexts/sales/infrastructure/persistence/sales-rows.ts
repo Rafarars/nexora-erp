@@ -68,11 +68,6 @@ export interface DispatchRow {
   orderId: string;
   warehouseId: string;
   dispatchDate: Date;
-  currency: string;
-  exchangeRate: Decimalish | null;
-  baseCurrency: string;
-  baseExchangeRate: Decimalish | null;
-  manualExchangeRate: boolean;
   notes: string | null;
   status: 'draft' | 'confirmed' | 'cancelled';
   confirmedAt: Date | null;
@@ -86,8 +81,6 @@ export function dispatchFromRow(row: DispatchRow): Dispatch {
   return Dispatch.fromPrimitives({
     ...row,
     dispatchDate: day(row.dispatchDate),
-    exchangeRate: row.exchangeRate ? n(row.exchangeRate) : null,
-    baseExchangeRate: row.baseExchangeRate ? n(row.baseExchangeRate) : null,
     lines: row.lines.map((line) => ({
       id: line.id,
       lineNumber: line.lineNumber,

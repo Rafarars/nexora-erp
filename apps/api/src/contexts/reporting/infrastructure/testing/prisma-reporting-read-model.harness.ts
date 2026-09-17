@@ -61,11 +61,11 @@ export class PrismaReportingReadModelHarness implements ReportingReadModelHarnes
     const dispatchId = uuid();
     const date = asDate(invoice.issueDate);
 
-    await this.prisma.salesOrder.create({ data: { id: orderId, tenantId, code: this.code('PED'), customerId: invoice.customerId, warehouseId, orderDate: date, status: 'dispatched', currency: 'USD', exchangeRate: 1, baseCurrency: 'USD', baseExchangeRate: 1, manualExchangeRate: false, subtotalVes: 0, taxVes: 0, totalVes: 0, updatedAt: date } });
-    await this.prisma.dispatch.create({ data: { id: dispatchId, tenantId, code: this.code('DES'), orderId, warehouseId, dispatchDate: date, status: 'confirmed', currency: 'USD', exchangeRate: 1, baseCurrency: 'USD', baseExchangeRate: 1, manualExchangeRate: false, amountVes: 0, updatedAt: date } });
+    await this.prisma.salesOrder.create({ data: { currency: 'USD', baseCurrency: 'USD', id: orderId, tenantId, code: this.code('PED'), customerId: invoice.customerId, warehouseId, orderDate: date, status: 'dispatched', updatedAt: date } });
+    await this.prisma.dispatch.create({ data: { id: dispatchId, tenantId, code: this.code('DES'), orderId, warehouseId, dispatchDate: date, status: 'confirmed', updatedAt: date } });
     await this.prisma.invoice.create({
       data: {
-        id: invoice.id,
+        currency: 'USD', baseCurrency: 'USD', id: invoice.id,
         tenantId,
         code: invoice.code,
         dispatchId,
@@ -76,7 +76,7 @@ export class PrismaReportingReadModelHarness implements ReportingReadModelHarnes
         status: invoice.status,
         subtotal: invoice.subtotal,
         tax: invoice.tax,
-        total: invoice.total, currency: 'USD', exchangeRate: 1, baseCurrency: 'USD', baseExchangeRate: 1, manualExchangeRate: false, subtotalVes: 0, taxVes: 0, totalVes: 0,
+        total: invoice.total,
         updatedAt: date,
       },
     });
@@ -93,7 +93,7 @@ export class PrismaReportingReadModelHarness implements ReportingReadModelHarnes
     const amount = payment.allocations.reduce((sum, allocation) => sum + Math.round(allocation.amount * 100), 0) / 100;
 
     await this.prisma.customerPayment.create({
-      data: { id, tenantId, code: payment.code, customerId: payment.customerId, paymentDate: asDate(payment.date), method: 'cash', currency: "USD", exchangeRate: 1, baseCurrency: "USD", baseExchangeRate: 1, manualExchangeRate: false, amount, status: payment.status, updatedAt: new Date() },
+      data: { currency: 'USD', baseCurrency: 'USD', id, tenantId, code: payment.code, customerId: payment.customerId, paymentDate: asDate(payment.date), method: 'cash', amount, status: payment.status, updatedAt: new Date() },
     });
 
     for (const allocation of payment.allocations) {

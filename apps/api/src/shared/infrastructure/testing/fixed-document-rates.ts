@@ -19,6 +19,7 @@ interface RateSince {
 export class FixedDocumentRates implements DocumentRates {
   baseCurrency = 'USD';
   allowsOverride = true;
+  decimals = 2;
 
   private readonly series: RateSince[] = [
     { currency: 'USD', from: '1900-01-01', rate: 36.5 },
@@ -55,6 +56,10 @@ export class FixedDocumentRates implements DocumentRates {
       baseExchangeRate: this.rateOn(this.baseCurrency, request.date),
       manualRate: manual !== null,
     };
+  }
+
+  async amountDecimals(): Promise<number> {
+    return this.decimals;
   }
 
   // La de ese dia o la ultima anterior; con dos del mismo dia, la ultima que se cargo.

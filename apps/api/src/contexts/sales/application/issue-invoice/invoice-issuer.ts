@@ -1,5 +1,7 @@
 import { Clock } from '../../../../shared/domain/ports/clock.js';
 import { BusinessCalendar } from '../../../../shared/domain/ports/business-calendar.js';
+import { DocumentCurrency } from '../../../../shared/domain/document-currency.js';
+import { DocumentRates } from '../../../../shared/domain/ports/document-rates.js';
 import { IdGenerator } from '../../../../shared/domain/ports/id-generator.js';
 import { DispatchId } from '../../domain/dispatch/dispatch.entity.js';
 import { DispatchFinder } from '../../domain/dispatch/find/dispatch-finder.js';
@@ -31,6 +33,7 @@ export class InvoiceIssuer {
     private readonly ids: IdGenerator,
     private readonly clock: Clock,
     private readonly calendar: BusinessCalendar,
+    private readonly rates: DocumentRates,
   ) {}
 
   async run(request: InvoiceIssuerRequest): Promise<void> {
@@ -42,6 +45,16 @@ export class InvoiceIssuer {
     const credit = await this.posting.credit(tenantId, order.customerId(), today);
     const id = InvoiceId.of(this.ids.next());
     const date = request.date ? SalesDate.of(request.date) : today;
+
+    // La fecha antes que las tasas: una factura futura no pregunta por ellas.
+    date.ensureNotAfter(today.value);
+
+    // La moneda del pedido, con las tasas del dia de emision: la ley pide la tasa de la factura.
+    const [rates, amountDecimals] = await Promise.all([
+      this.rates.forDocument(request.tenantId, { currency: order.currency().currency, date: date.value, keepsCurrency: true }),
+      this.rates.amountDecimals(request.tenantId),
+    ]);
+    const currency = DocumentCurrency.of(rates);
     const issue = (code: string, current = dispatch, currentOrder = order, alreadyInvoiced = false, currentCredit: CustomerCredit = credit) =>
       Invoice.issue(id, tenantId, code, {
         dispatch: current,
@@ -50,7 +63,8 @@ export class InvoiceIssuer {
         // El plazo y el limite del cliente de hoy: son los que rigen desde que se emite.
         credit: currentCredit,
         date,
-        currency: currentOrder.currency(),
+        currency,
+        amountDecimals,
         notes: request.notes ?? null,
         lineIds: () => this.ids.next(),
       }, now, today.value);

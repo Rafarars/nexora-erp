@@ -1,6 +1,5 @@
-import { DocumentRateSet } from '../../../../shared/domain/ports/document-rates.js';
-import { UnitPrice } from './money.js';
-import { roundedDivision } from './quantity.vo.js';
+import { roundRatio, roundedDivision } from './amount.js';
+import { DocumentRateSet } from './ports/document-rates.js';
 
 export interface DocumentCurrencyPrimitives {
   currency: string;
@@ -11,11 +10,13 @@ export interface DocumentCurrencyPrimitives {
 }
 
 // Las tasas se guardan con ocho decimales.
-const rateUnits = (rate: number) => BigInt(Math.round(rate * 100_000_000));
+const RATE_SCALE = 100_000_000n;
+
+export const rateUnits = (rate: number): bigint => BigInt(Math.round(rate * 100_000_000));
 
 // La moneda de un documento y las dos tasas que congelo: bolivares por 1 unidad de su moneda y por 1
 // unidad de la moneda de la empresa. Un documento anterior al multimoneda no tiene tasas: se
-// escribio en la moneda de la empresa.
+// escribio en la moneda de la empresa. La comparten compras, ventas y cobranza.
 export class DocumentCurrency {
   private constructor(
     readonly currency: string,
@@ -48,11 +49,30 @@ export class DocumentCurrency {
     return this.manual ? this.exchangeRate : null;
   }
 
-  // Un costo en la moneda del documento, llevado a la moneda de la empresa por el bolivar: el
-  // inventario se valora en la moneda de la empresa.
-  toBase(cost: UnitPrice): UnitPrice {
-    if (this.currency === this.baseCurrency || this.exchangeRate === null || this.baseExchangeRate === null) return cost;
+  private convertsToBase(): boolean {
+    return this.currency !== this.baseCurrency && this.exchangeRate !== null && this.baseExchangeRate !== null;
+  }
 
-    return UnitPrice.ofMicros(roundedDivision(cost.micros * rateUnits(this.exchangeRate), rateUnits(this.baseExchangeRate)));
+  // Un valor de la moneda del documento en la moneda de la empresa, por el bolivar y con la misma
+  // escala (un costo en millonesimas sigue en millonesimas).
+  toBase(value: bigint): bigint {
+    if (!this.convertsToBase()) return value;
+
+    return roundedDivision(value * rateUnits(this.exchangeRate!), rateUnits(this.baseExchangeRate!));
+  }
+
+  // Un importe (diezmilesimas) en la moneda de la empresa, redondeado a sus decimales.
+  baseAmount(units: bigint, decimals: number): bigint {
+    if (!this.convertsToBase()) return units;
+
+    return roundRatio(units * rateUnits(this.exchangeRate!), rateUnits(this.baseExchangeRate!), decimals);
+  }
+
+  // Un importe (diezmilesimas) en bolivares, redondeado a los decimales de la empresa; null sin tasa.
+  bolivars(units: bigint, decimals: number): bigint | null {
+    if (this.currency === 'VES') return units;
+    if (this.exchangeRate === null) return null;
+
+    return roundRatio(units * rateUnits(this.exchangeRate), RATE_SCALE, decimals);
   }
 }

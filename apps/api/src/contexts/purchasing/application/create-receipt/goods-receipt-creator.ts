@@ -8,7 +8,7 @@ import { GoodsReceipt, GoodsReceiptId } from '../../domain/receipt/goods-receipt
 import { GoodsReceiptRepository } from '../../domain/receipt/goods-receipt.repository.js';
 import { GoodsReceiptLineFactory, GoodsReceiptLineInput } from '../../domain/receipt/lines/goods-receipt-line-factory.js';
 import { PurchasingCodeSequence, purchasingCode } from '../../domain/shared/code-sequence.js';
-import { DocumentCurrency } from '../../domain/shared/document-currency.js';
+import { DocumentCurrency } from '../../../../shared/domain/document-currency.js';
 import { PurchaseDate } from '../../domain/shared/purchase-date.vo.js';
 import { TenantId } from '../../domain/shared/tenant-id.vo.js';
 

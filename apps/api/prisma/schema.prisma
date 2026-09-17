@@ -153,11 +153,14 @@ model Currency {
   sortOrder Int     @default(0) @map("sort_order")
   isActive  Boolean @default(true) @map("is_active")
 
-  baseOf         CompanySettings[] @relation("BaseCurrency")
-  secondaryOf    CompanySettings[] @relation("SecondaryCurrency")
-  rates          ExchangeRate[]
-  purchaseOrders PurchaseOrder[]   @relation("PurchaseOrderCurrency")
-  goodsReceipts  GoodsReceipt[]    @relation("GoodsReceiptCurrency")
+  baseOf           CompanySettings[] @relation("BaseCurrency")
+  secondaryOf      CompanySettings[] @relation("SecondaryCurrency")
+  rates            ExchangeRate[]
+  purchaseOrders   PurchaseOrder[]   @relation("PurchaseOrderCurrency")
+  goodsReceipts    GoodsReceipt[]    @relation("GoodsReceiptCurrency")
+  salesOrders      SalesOrder[]      @relation("SalesOrderCurrency")
+  invoices         Invoice[]         @relation("InvoiceCurrency")
+  customerPayments CustomerPayment[] @relation("CustomerPaymentCurrency")
 
   @@map("currencies")
 }
@@ -750,30 +753,31 @@ enum SalesOrderStatus {
 }
 
 model SalesOrder {
-  id          String           @id @db.Uuid
-  tenantId    String           @map("tenant_id") @db.Uuid
-  code        String           @db.VarChar(12)
-  customerId  String           @map("customer_id") @db.Uuid
-  warehouseId String           @map("warehouse_id") @db.Uuid
-  orderDate   DateTime         @map("order_date") @db.Date
-  notes       String?          @db.VarChar(500)
-  status      SalesOrderStatus @default(draft)
-  confirmedAt DateTime?        @map("confirmed_at")
-  cancelledAt DateTime?        @map("cancelled_at")
-  createdAt   DateTime         @default(now()) @map("created_at")
-  updatedAt   DateTime         @updatedAt @map("updated_at")
-  currency           String    @db.Char(3)
-  exchangeRate       Decimal?  @map("exchange_rate") @db.Decimal(18, 8)
-  baseCurrency       String    @map("base_currency") @db.Char(3)
-  baseExchangeRate   Decimal?  @map("base_exchange_rate") @db.Decimal(18, 8)
-  manualExchangeRate Boolean   @default(false) @map("manual_exchange_rate")
+  id                 String           @id @db.Uuid
+  tenantId           String           @map("tenant_id") @db.Uuid
+  code               String           @db.VarChar(12)
+  customerId         String           @map("customer_id") @db.Uuid
+  warehouseId        String           @map("warehouse_id") @db.Uuid
+  orderDate          DateTime         @map("order_date") @db.Date
+  notes              String?          @db.VarChar(500)
+  status             SalesOrderStatus @default(draft)
+  confirmedAt        DateTime?        @map("confirmed_at")
+  cancelledAt        DateTime?        @map("cancelled_at")
+  createdAt          DateTime         @default(now()) @map("created_at")
+  updatedAt          DateTime         @updatedAt @map("updated_at")
+  currency           String           @db.Char(3)
+  exchangeRate       Decimal?         @map("exchange_rate") @db.Decimal(18, 8)
+  baseCurrency       String           @map("base_currency") @db.Char(3)
+  baseExchangeRate   Decimal?         @map("base_exchange_rate") @db.Decimal(18, 8)
+  manualExchangeRate Boolean          @default(false) @map("manual_exchange_rate")
 
-  tenant     Tenant           @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  customer   Customer         @relation(fields: [tenantId, customerId], references: [tenantId, id], onDelete: Restrict)
-  warehouse  Warehouse        @relation(fields: [tenantId, warehouseId], references: [tenantId, id], onDelete: Restrict)
-  lines      SalesOrderLine[]
-  dispatches Dispatch[]
-  invoices   Invoice[]
+  tenant       Tenant           @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  currencyInfo Currency         @relation("SalesOrderCurrency", fields: [currency], references: [code], onDelete: Restrict)
+  customer     Customer         @relation(fields: [tenantId, customerId], references: [tenantId, id], onDelete: Restrict)
+  warehouse    Warehouse        @relation(fields: [tenantId, warehouseId], references: [tenantId, id], onDelete: Restrict)
+  lines        SalesOrderLine[]
+  dispatches   Dispatch[]
+  invoices     Invoice[]
 
   @@unique([tenantId, id])
   @@unique([tenantId, code])
@@ -831,11 +835,6 @@ model Dispatch {
   cancelledAt  DateTime?      @map("cancelled_at")
   createdAt    DateTime       @default(now()) @map("created_at")
   updatedAt    DateTime       @updatedAt @map("updated_at")
-  currency           String    @db.Char(3)
-  exchangeRate       Decimal?  @map("exchange_rate") @db.Decimal(18, 8)
-  baseCurrency       String    @map("base_currency") @db.Char(3)
-  baseExchangeRate   Decimal?  @map("base_exchange_rate") @db.Decimal(18, 8)
-  manualExchangeRate Boolean   @default(false) @map("manual_exchange_rate")
 
   tenant    Tenant         @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   order     SalesOrder     @relation(fields: [tenantId, orderId], references: [tenantId, id], onDelete: Restrict)
@@ -883,37 +882,38 @@ enum InvoiceStatus {
 /// La factura de un despacho. Sus importes se guardan: un documento fiscal no cambia porque
 /// cambie un precio. Solo una emitida por despacho (indice parcial en la migracion).
 model Invoice {
-  id          String        @id @db.Uuid
-  tenantId    String        @map("tenant_id") @db.Uuid
-  code        String        @db.VarChar(12)
-  dispatchId  String        @map("dispatch_id") @db.Uuid
-  orderId     String        @map("order_id") @db.Uuid
-  customerId  String        @map("customer_id") @db.Uuid
-  issueDate   DateTime      @map("issue_date") @db.Date
-  dueDate     DateTime      @map("due_date") @db.Date
-  notes       String?       @db.VarChar(500)
-  status      InvoiceStatus @default(issued)
-  subtotal    Decimal       @db.Decimal(18, 4)
-  tax         Decimal       @db.Decimal(18, 4)
-  total       Decimal       @db.Decimal(18, 4)
-  cancelledAt DateTime?     @map("cancelled_at")
-  createdAt   DateTime      @default(now()) @map("created_at")
-  updatedAt   DateTime      @updatedAt @map("updated_at")
-  currency           String    @db.Char(3)
-  exchangeRate       Decimal?  @map("exchange_rate") @db.Decimal(18, 8)
-  baseCurrency       String    @map("base_currency") @db.Char(3)
-  baseExchangeRate   Decimal?  @map("base_exchange_rate") @db.Decimal(18, 8)
-  manualExchangeRate Boolean   @default(false) @map("manual_exchange_rate")
-  subtotalVes        Decimal?  @map("subtotal_ves") @db.Decimal(18, 4)
-  taxVes             Decimal?  @map("tax_ves") @db.Decimal(18, 4)
-  totalVes           Decimal?  @map("total_ves") @db.Decimal(18, 4)
+  id                 String        @id @db.Uuid
+  tenantId           String        @map("tenant_id") @db.Uuid
+  code               String        @db.VarChar(12)
+  dispatchId         String        @map("dispatch_id") @db.Uuid
+  orderId            String        @map("order_id") @db.Uuid
+  customerId         String        @map("customer_id") @db.Uuid
+  issueDate          DateTime      @map("issue_date") @db.Date
+  dueDate            DateTime      @map("due_date") @db.Date
+  notes              String?       @db.VarChar(500)
+  status             InvoiceStatus @default(issued)
+  subtotal           Decimal       @db.Decimal(18, 4)
+  tax                Decimal       @db.Decimal(18, 4)
+  total              Decimal       @db.Decimal(18, 4)
+  cancelledAt        DateTime?     @map("cancelled_at")
+  createdAt          DateTime      @default(now()) @map("created_at")
+  updatedAt          DateTime      @updatedAt @map("updated_at")
+  currency           String        @db.Char(3)
+  exchangeRate       Decimal?      @map("exchange_rate") @db.Decimal(18, 8)
+  baseCurrency       String        @map("base_currency") @db.Char(3)
+  baseExchangeRate   Decimal?      @map("base_exchange_rate") @db.Decimal(18, 8)
+  manualExchangeRate Boolean       @default(false) @map("manual_exchange_rate")
+  subtotalVes        Decimal?      @map("subtotal_ves") @db.Decimal(18, 4)
+  taxVes             Decimal?      @map("tax_ves") @db.Decimal(18, 4)
+  totalVes           Decimal?      @map("total_ves") @db.Decimal(18, 4)
 
-  tenant      Tenant              @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  dispatch    Dispatch            @relation(fields: [tenantId, dispatchId], references: [tenantId, id], onDelete: Restrict)
-  order       SalesOrder          @relation(fields: [tenantId, orderId], references: [tenantId, id], onDelete: Restrict)
-  customer    Customer            @relation(fields: [tenantId, customerId], references: [tenantId, id], onDelete: Restrict)
-  lines       InvoiceLine[]
-  allocations PaymentAllocation[]
+  tenant       Tenant              @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  currencyInfo Currency            @relation("InvoiceCurrency", fields: [currency], references: [code], onDelete: Restrict)
+  dispatch     Dispatch            @relation(fields: [tenantId, dispatchId], references: [tenantId, id], onDelete: Restrict)
+  order        SalesOrder          @relation(fields: [tenantId, orderId], references: [tenantId, id], onDelete: Restrict)
+  customer     Customer            @relation(fields: [tenantId, customerId], references: [tenantId, id], onDelete: Restrict)
+  lines        InvoiceLine[]
+  allocations  PaymentAllocation[]
 
   @@unique([tenantId, id])
   @@unique([tenantId, code])
@@ -966,30 +966,31 @@ enum PaymentMethod {
 
 /// Un cobro de un cliente, repartido entre sus facturas emitidas.
 model CustomerPayment {
-  id          String        @id @db.Uuid
-  tenantId    String        @map("tenant_id") @db.Uuid
-  code        String        @db.VarChar(12)
-  customerId  String        @map("customer_id") @db.Uuid
-  paymentDate DateTime      @map("payment_date") @db.Date
-  method      PaymentMethod
-  reference   String?       @db.VarChar(100)
-  notes       String?       @db.VarChar(500)
-  amount      Decimal       @db.Decimal(18, 4)
-  status      PaymentStatus @default(draft)
-  confirmedAt DateTime?     @map("confirmed_at")
-  cancelledAt DateTime?     @map("cancelled_at")
-  createdAt   DateTime      @default(now()) @map("created_at")
-  updatedAt   DateTime      @updatedAt @map("updated_at")
-  currency           String    @db.Char(3)
-  exchangeRate       Decimal?  @map("exchange_rate") @db.Decimal(18, 8)
-  baseCurrency       String    @map("base_currency") @db.Char(3)
-  baseExchangeRate   Decimal?  @map("base_exchange_rate") @db.Decimal(18, 8)
-  manualExchangeRate Boolean   @default(false) @map("manual_exchange_rate")
-  amountVes          Decimal?  @map("amount_ves") @db.Decimal(18, 4)
+  id                 String        @id @db.Uuid
+  tenantId           String        @map("tenant_id") @db.Uuid
+  code               String        @db.VarChar(12)
+  customerId         String        @map("customer_id") @db.Uuid
+  paymentDate        DateTime      @map("payment_date") @db.Date
+  method             PaymentMethod
+  reference          String?       @db.VarChar(100)
+  notes              String?       @db.VarChar(500)
+  amount             Decimal       @db.Decimal(18, 4)
+  status             PaymentStatus @default(draft)
+  confirmedAt        DateTime?     @map("confirmed_at")
+  cancelledAt        DateTime?     @map("cancelled_at")
+  createdAt          DateTime      @default(now()) @map("created_at")
+  updatedAt          DateTime      @updatedAt @map("updated_at")
+  currency           String        @db.Char(3)
+  exchangeRate       Decimal?      @map("exchange_rate") @db.Decimal(18, 8)
+  baseCurrency       String        @map("base_currency") @db.Char(3)
+  baseExchangeRate   Decimal?      @map("base_exchange_rate") @db.Decimal(18, 8)
+  manualExchangeRate Boolean       @default(false) @map("manual_exchange_rate")
+  amountVes          Decimal?      @map("amount_ves") @db.Decimal(18, 4)
 
-  tenant      Tenant              @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  customer    Customer            @relation(fields: [tenantId, customerId], references: [tenantId, id], onDelete: Restrict)
-  allocations PaymentAllocation[]
+  tenant       Tenant              @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  currencyInfo Currency            @relation("CustomerPaymentCurrency", fields: [currency], references: [code], onDelete: Restrict)
+  customer     Customer            @relation(fields: [tenantId, customerId], references: [tenantId, id], onDelete: Restrict)
+  allocations  PaymentAllocation[]
 
   @@unique([tenantId, id])
   @@unique([tenantId, code])
@@ -1000,12 +1001,15 @@ model CustomerPayment {
 
 /// Cuanto de un cobro va a una factura.
 model PaymentAllocation {
-  id        String  @id @db.Uuid
-  tenantId  String  @map("tenant_id") @db.Uuid
-  paymentId String  @map("payment_id") @db.Uuid
-  invoiceId String  @map("invoice_id") @db.Uuid
-    amount             Decimal @db.Decimal(18, 4)
-  exchangeDifference Decimal @default(0) @map("exchange_difference") @db.Decimal(18, 4)
+  id                 String   @id @db.Uuid
+  tenantId           String   @map("tenant_id") @db.Uuid
+  paymentId          String   @map("payment_id") @db.Uuid
+  invoiceId          String   @map("invoice_id") @db.Uuid
+  amount             Decimal  @db.Decimal(18, 4)
+  // Bolivares por 1 unidad de la moneda de la factura el dia del cobro.
+  exchangeRate       Decimal? @map("exchange_rate") @db.Decimal(18, 8)
+  // En bolivares; null en las facturas anteriores a las tasas.
+  exchangeDifference Decimal? @map("exchange_difference") @db.Decimal(18, 4)
 
   tenant  Tenant          @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   payment CustomerPayment @relation(fields: [tenantId, paymentId], references: [tenantId, id], onDelete: Cascade)

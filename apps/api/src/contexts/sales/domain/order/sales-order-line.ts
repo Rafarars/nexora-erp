@@ -1,6 +1,6 @@
 import { Uuid } from '../../../../shared/domain/uuid.vo.js';
 import { DispatchExceedsPendingError } from '../errors/sales.errors.js';
-import { TaxRate, UnitPrice, lineSubtotalBase, taxBase } from '../shared/money.js';
+import { TaxRate, UnitPrice, lineSubtotalUnits, taxUnits } from '../shared/money.js';
 import { Quantity } from '../shared/quantity.vo.js';
 import { ItemRef, UnitRef } from '../shared/references.vo.js';
 
@@ -100,12 +100,12 @@ export class SalesOrderLine {
     return this.dispatched.equals(this.quantity);
   }
 
-  subtotalBase(): bigint {
-    return lineSubtotalBase(this.quantity, this.unitPrice);
+  subtotalUnits(decimals: number): bigint {
+    return lineSubtotalUnits(this.quantity, this.unitPrice, decimals);
   }
 
-  taxBase(): bigint {
-    return taxBase(this.subtotalBase(), this.taxRate);
+  taxUnits(decimals: number): bigint {
+    return taxUnits(this.subtotalUnits(decimals), this.taxRate, decimals);
   }
 
   dispatch(quantity: Quantity): void {

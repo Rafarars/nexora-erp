@@ -1,3 +1,6 @@
+import { roundRatio, unitsToNumber } from '../../../../shared/domain/amount.js';
+import { DocumentCurrency, DocumentCurrencyPrimitives, rateUnits } from '../../../../shared/domain/document-currency.js';
+import { MissingExchangeRateError } from '../../../../shared/domain/ports/document-rates.js';
 import { Uuid } from '../../../../shared/domain/uuid.vo.js';
 import {
   DuplicatePaymentInvoiceError,
@@ -9,7 +12,7 @@ import {
   ReceivableInvoiceNotFoundError,
 } from '../errors/receivables.errors.js';
 import { ReceivableInvoice } from '../ledger/receivable-invoice.js';
-import { baseToNumber, paymentBase, toBase } from '../shared/amount.js';
+import { paymentUnits } from '../shared/amount.js';
 import { ReceivablesDate } from '../shared/receivables-date.vo.js';
 import { optionalText } from '../shared/text.js';
 import { TenantId } from '../shared/tenant-id.vo.js';
@@ -29,14 +32,16 @@ export type PaymentStatus = 'draft' | 'confirmed' | 'cancelled';
 export interface PaymentAllocationPrimitives {
   id: string;
   invoiceId: string;
+  // En la moneda de la factura: lo que rebaja de su deuda.
   amount: number;
-  exchangeDifference: number;
+  // Bolivares por 1 unidad de la moneda de la factura el dia del cobro.
+  exchangeRate: number | null;
+  // En bolivares: lo cobrado a la tasa del cobro menos lo facturado a la tasa de la factura. Null en
+  // una factura anterior a las tasas.
+  exchangeDifference: number | null;
 }
 
-import { DocumentCurrencyPrimitives, DocumentCurrency } from '../shared/document-currency.js';
-
 export interface PaymentPrimitives extends DocumentCurrencyPrimitives {
-  amountVes: number | null;
   id: string;
   tenantId: string;
   code: string;
@@ -45,7 +50,9 @@ export interface PaymentPrimitives extends DocumentCurrencyPrimitives {
   method: PaymentMethod;
   reference: string | null;
   notes: string | null;
+  // En la moneda del cobro: lo aplicado a cada factura convertido por el bolivar.
   amount: number;
+  amountVes: number | null;
   status: PaymentStatus;
   confirmedAt: Date | null;
   cancelledAt: Date | null;
@@ -60,26 +67,44 @@ export interface PaymentDetails {
   method: string;
   reference?: string | null;
   notes?: string | null;
-  allocations: PaymentAllocationPrimitives[];
-  currency: DocumentCurrency;
+  // Cada importe en la moneda de su factura.
+  allocations: { id: string; invoiceId: string; amount: number }[];
 }
 
-type Body = Pick<PaymentPrimitives, 'customerId' | 'paymentDate' | 'method' | 'reference' | 'notes' | 'amount' | 'allocations'>;
+// Las tasas del dia del cobro: la de su moneda, la de la moneda de cada factura que aplica (en
+// bolivares por unidad) y los decimales de la empresa.
+export interface PaymentRates {
+  currency: DocumentCurrency;
+  invoiceRates: Record<string, number>;
+  decimals: number;
+}
 
-// Un cobro de un cliente, repartido entre sus facturas. En borrador no toca ningun saldo;
-// confirmado, baja el de cada factura en lo que le aplica; anulado, lo devuelve. El importe del
-// cobro es la suma de lo aplicado: aqui no hay anticipos ni pagos de mas.
+type Body = Omit<PaymentPrimitives, 'id' | 'tenantId' | 'code' | 'status' | 'confirmedAt' | 'cancelledAt' | 'createdAt' | 'updatedAt'>;
+
+const RATE_SCALE = 100_000_000n;
+
+// Un cobro de un cliente, repartido entre sus facturas. Se puede cobrar en otra moneda: cada factura
+// rebaja su deuda en su moneda y el cobro recibe lo equivalente por el bolivar, con las tasas de su
+// dia. En borrador no toca ningun saldo; confirmado, congela las tasas y baja el de cada factura;
+// anulado, lo devuelve. Aqui no hay anticipos ni pagos de mas.
 export class CustomerPayment {
   private constructor(private row: PaymentPrimitives) {}
 
-  static draft(id: PaymentId, tenantId: TenantId, code: string, details: PaymentDetails, now: Date, today: string): CustomerPayment {
+  static draft(
+    id: PaymentId,
+    tenantId: TenantId,
+    code: string,
+    details: PaymentDetails,
+    invoices: ReceivableInvoice[],
+    rates: PaymentRates,
+    now: Date,
+    today: string,
+  ): CustomerPayment {
     return new CustomerPayment({
       id: id.value,
       tenantId: tenantId.value,
       code,
-      ...validated(details, today),
-      ...details.currency.toPrimitives(),
-      amountVes: null,
+      ...valued(details, invoices, rates, today),
       status: 'draft',
       confirmedAt: null,
       cancelledAt: null,
@@ -108,6 +133,14 @@ export class CustomerPayment {
     return this.row.customerId;
   }
 
+  paymentDate(): ReceivablesDate {
+    return ReceivablesDate.of(this.row.paymentDate);
+  }
+
+  currency(): DocumentCurrency {
+    return DocumentCurrency.fromPrimitives(this.row);
+  }
+
   currentStatus(): PaymentStatus {
     return this.row.status;
   }
@@ -116,10 +149,10 @@ export class CustomerPayment {
     return this.row.allocations.map((allocation) => allocation.invoiceId);
   }
 
-  update(details: PaymentDetails, now: Date, today: string): void {
+  update(details: PaymentDetails, invoices: ReceivableInvoice[], rates: PaymentRates, now: Date, today: string): void {
     if (this.row.status !== 'draft') throw new PaymentNotEditableError(this.row.id, this.row.status);
 
-    this.row = { ...this.row, ...validated(details, today), updatedAt: now };
+    this.row = { ...this.row, ...valued(details, invoices, rates, today), updatedAt: now };
   }
 
   // Cada factura, con lo que ya le cobraron OTROS cobros, tiene que aceptar lo que este le aplica.
@@ -131,30 +164,28 @@ export class CustomerPayment {
 
       if (!invoice) throw new ReceivableInvoiceNotFoundError(allocation.invoiceId);
 
-      invoice.ensureAccepts(this.row.customerId, date, toBase(allocation.amount));
+      invoice.ensureAccepts(this.row.customerId, date, paymentUnits(allocation.amount, 4));
     }
   }
 
-  confirm(invoices: ReceivableInvoice[], now: Date, today: string): void {
-    if (this.row.status !== 'draft') throw new PaymentNotConfirmableError(this.row.id, this.row.status);
+  // Con las facturas bloqueadas y las tasas del dia del cobro, que quedan congeladas. `rates` solo
+  // falta cuando el cobro ya no es un borrador.
+  confirm(invoices: ReceivableInvoice[], rates: PaymentRates | null, now: Date, today: string): void {
+    if (this.row.status !== 'draft' || rates === null) throw new PaymentNotConfirmableError(this.row.id, this.row.status);
 
-    ReceivablesDate.of(this.row.paymentDate).ensureNotAfter(today);
-    this.ensureFits(invoices);
+    const details = {
+      customerId: this.row.customerId,
+      date: ReceivablesDate.of(this.row.paymentDate),
+      method: this.row.method,
+      reference: this.row.reference,
+      notes: this.row.notes,
+      allocations: this.row.allocations.map(({ id, invoiceId, amount }) => ({ id, invoiceId, amount })),
+    };
+    const valuedRow = { ...this.row, ...valued(details, invoices, rates, today) };
 
-    const rate = this.row.exchangeRate;
-    if (rate !== null) {
-      this.row.amountVes = Math.round(this.row.amount * rate * 10000) / 10000;
-      this.row.allocations = this.row.allocations.map((a) => {
-        const inv = invoices.find(i => i.id === a.invoiceId);
-        const invRate = inv?.toPrimitives().exchangeRate;
-        if (invRate !== null && invRate !== undefined) {
-          a.exchangeDifference = Math.round(((a.amount * rate) - (a.amount * invRate)) * 10000) / 10000;
-        }
-        return a;
-      });
-    }
+    CustomerPayment.fromPrimitives(valuedRow).ensureFits(invoices);
 
-    this.row = { ...this.row, status: 'confirmed', confirmedAt: now, updatedAt: now };
+    this.row = { ...valuedRow, status: 'confirmed', confirmedAt: now, updatedAt: now };
   }
 
   // Anular un confirmado devuelve el saldo a sus facturas; anular un borrador solo lo descarta.
@@ -165,19 +196,46 @@ export class CustomerPayment {
   }
 }
 
-function validated(details: PaymentDetails, today: string): Body {
+function valued(details: PaymentDetails, invoices: ReceivableInvoice[], rates: PaymentRates, today: string): Body {
   if (!PAYMENT_METHODS.includes(details.method as PaymentMethod)) throw new InvalidPaymentMethodError(details.method);
   if (details.allocations.length === 0) throw new EmptyPaymentError();
 
   details.date.ensureNotAfter(today);
 
+  const { decimals } = rates;
+  const paymentRate = rateUnits(rates.currency.exchangeRate ?? 1);
   const seen = new Set<string>();
+  let received = 0n;
+  let bolivars = 0n;
+
   const allocations = details.allocations.map((allocation) => {
     if (seen.has(allocation.invoiceId)) throw new DuplicatePaymentInvoiceError(allocation.invoiceId);
 
     seen.add(allocation.invoiceId);
 
-    return { id: allocation.id, invoiceId: allocation.invoiceId, base: paymentBase(allocation.amount) };
+    const amount = paymentUnits(allocation.amount, decimals);
+    const invoice = invoices.find((candidate) => candidate.id === allocation.invoiceId);
+
+    if (!invoice) throw new ReceivableInvoiceNotFoundError(allocation.invoiceId);
+
+    const invoiceCurrency = invoice.currency().currency;
+    const rate = rates.invoiceRates[invoiceCurrency];
+
+    if (rate === undefined) throw new MissingExchangeRateError(invoiceCurrency, 'legal', details.date.value);
+
+    // Todo pasa por el bolivar: lo aplicado vale `amount x rate` bolivares.
+    received += roundRatio(amount * rateUnits(rate), paymentRate, decimals);
+    bolivars += roundRatio(amount * rateUnits(rate), RATE_SCALE, decimals);
+
+    const difference = invoice.exchangeDifference(amount, rate, decimals);
+
+    return {
+      id: allocation.id,
+      invoiceId: allocation.invoiceId,
+      amount: unitsToNumber(amount),
+      exchangeRate: rate,
+      exchangeDifference: difference === null ? null : unitsToNumber(difference),
+    };
   });
 
   return {
@@ -186,7 +244,9 @@ function validated(details: PaymentDetails, today: string): Body {
     method: details.method as PaymentMethod,
     reference: optionalText(details.reference, 100, 'PaymentReference'),
     notes: optionalText(details.notes, 500, 'PaymentNotes'),
-    amount: baseToNumber(allocations.reduce((sum, allocation) => sum + allocation.base, 0n)),
-    allocations: allocations.map(({ base, ...allocation }) => ({ ...allocation, amount: baseToNumber(base), exchangeDifference: 0 })),
+    ...rates.currency.toPrimitives(),
+    amount: unitsToNumber(received),
+    amountVes: unitsToNumber(bolivars),
+    allocations,
   };
 }

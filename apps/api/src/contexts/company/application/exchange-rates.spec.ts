@@ -206,6 +206,16 @@ describe('the rates of a document', () => {
     expect(await forDocument(scenario, { currency: 'USD', date: '2026-01-15' })).toMatchObject({ exchangeRate: 99, baseExchangeRate: 99 });
   });
 
+  it('tells with how many decimals the company rounds the amounts of its documents', async () => {
+    const scenario = aCompanyScenario();
+
+    expect(await scenario.documentRates.amountDecimals(TENANT_A)).toBe(2);
+
+    await configure(scenario, { amountDecimals: 3 });
+
+    expect(await scenario.documentRates.amountDecimals(TENANT_A)).toBe(3);
+  });
+
   it('needs no rate for a company that works in bolivars', async () => {
     const scenario = aCompanyScenario();
     await configure(scenario, { baseCurrency: 'VES', secondaryCurrency: 'VES' });

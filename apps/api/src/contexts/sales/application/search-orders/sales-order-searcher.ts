@@ -2,7 +2,9 @@ import { SalesCatalog } from '../../domain/catalog/sales-catalog.js';
 import { CustomerRepository } from '../../domain/customer/customer.repository.js';
 import { SalesOrderStatus } from '../../domain/order/sales-order.entity.js';
 import { SalesOrderRepository } from '../../domain/order/sales-order.repository.js';
-import { baseToNumber } from '../../domain/shared/money.js';
+import { unitsToNumber } from '../../../../shared/domain/amount.js';
+import { DocumentCurrencyPrimitives } from '../../../../shared/domain/document-currency.js';
+import { DocumentRates } from '../../../../shared/domain/ports/document-rates.js';
 import { ItemRef, WarehouseRef } from '../../domain/shared/references.vo.js';
 import { TenantId } from '../../domain/shared/tenant-id.vo.js';
 
@@ -23,7 +25,7 @@ export interface SalesOrderLineResponse {
   subtotal: number;
 }
 
-export interface SalesOrderResponse {
+export interface SalesOrderResponse extends DocumentCurrencyPrimitives {
   id: string;
   code: string;
   customer: { id: string; name: string };
@@ -40,12 +42,14 @@ export class SalesOrderSearcher {
     private readonly orders: SalesOrderRepository,
     private readonly customers: CustomerRepository,
     private readonly catalog: SalesCatalog,
+    private readonly rates: DocumentRates,
   ) {}
 
   async run(request: { tenantId: string }): Promise<{ orders: SalesOrderResponse[] }> {
     const tenantId = TenantId.of(request.tenantId);
     const orders = await this.orders.searchByTenant(tenantId);
     const rows = orders.map((order) => order.toPrimitives());
+    const decimals = await this.rates.amountDecimals(request.tenantId);
 
     const [customers, items, warehouses] = await Promise.all([
       this.customers.searchByTenant(tenantId),
@@ -67,7 +71,8 @@ export class SalesOrderSearcher {
             date: row.orderDate,
             notes: row.notes,
             status: row.status,
-            totals: order.totals(),
+            ...order.currency().toPrimitives(),
+            totals: order.totals(decimals),
             lines: order.lines().map((line) => {
               const item = items.find((candidate) => candidate.id === line.itemId.value);
               const { id, lineNumber, itemId, unitId, quantity, baseQuantity, unitPrice, taxRate, dispatchedQuantity } = line.toPrimitives();
@@ -86,7 +91,7 @@ export class SalesOrderSearcher {
                 taxRate,
                 dispatchedQuantity,
                 pendingQuantity: line.pending().toNumber(),
-                subtotal: baseToNumber(line.subtotalBase()),
+                subtotal: unitsToNumber(line.subtotalUnits(decimals)),
               };
             }),
           };

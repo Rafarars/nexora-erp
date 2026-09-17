@@ -1,7 +1,6 @@
-import { Clock } from '../../../../shared/domain/ports/clock.js';
 import { BusinessCalendar } from '../../../../shared/domain/ports/business-calendar.js';
+import { Clock } from '../../../../shared/domain/ports/clock.js';
 import { DocumentRates } from '../../../../shared/domain/ports/document-rates.js';
-import { DocumentCurrency } from '../../domain/shared/document-currency.js';
 import { IdGenerator } from '../../../../shared/domain/ports/id-generator.js';
 import { ReceivableCustomerNotFoundError } from '../../domain/errors/receivables.errors.js';
 import { ReceivablesLedger } from '../../domain/ledger/receivables-ledger.js';
@@ -10,6 +9,7 @@ import { PaymentRepository } from '../../domain/payment/payment.repository.js';
 import { ReceivablesCodeSequence, receivablesCode } from '../../domain/shared/code-sequence.js';
 import { ReceivablesDate } from '../../domain/shared/receivables-date.vo.js';
 import { TenantId } from '../../domain/shared/tenant-id.vo.js';
+import { paymentRates } from '../shared/payment-rates.js';
 
 export interface PaymentRequest {
   tenantId: string;
@@ -18,9 +18,12 @@ export interface PaymentRequest {
   method: string;
   reference?: string | null;
   notes?: string | null;
-  allocations: { invoiceId: string; amount: number }[];
+  // Sin moneda, la de la empresa.
   currency?: string | null;
-  manualExchangeRate?: number | null;
+  // Vacia, la tasa del dia del cobro.
+  exchangeRate?: number | null;
+  // Cada importe en la moneda de su factura.
+  allocations: { invoiceId: string; amount: number }[];
 }
 
 // Registra un cobro en borrador. Se comprueba contra los saldos de hoy para avisar pronto; la
@@ -44,24 +47,28 @@ export class PaymentCreator {
     // Un cliente inactivo sigue debiendo: se le puede cobrar.
     if (!(await this.ledger.customer(tenantId, request.customerId))) throw new ReceivableCustomerNotFoundError(request.customerId);
 
-    const id = PaymentId.of(this.ids.next());
-    const rates = await this.rates.forDocument(tenantId.value, { currency: request.currency, manualRate: request.manualExchangeRate, date: today });
+    const date = request.date ? ReceivablesDate.of(request.date) : ReceivablesDate.of(today);
 
+    // La fecha antes que las tasas: un cobro futuro no pregunta por ellas.
+    date.ensureNotAfter(today);
+
+    const invoices = await this.ledger.invoices(tenantId, { ids: request.allocations.map((allocation) => allocation.invoiceId) });
+    const rates = await paymentRates(this.rates, request.tenantId, { currency: request.currency, date: date.value, manualRate: request.exchangeRate, keepsCurrency: false }, invoices);
+    const id = PaymentId.of(this.ids.next());
     const details = {
       customerId: request.customerId,
-      currency: DocumentCurrency.of(rates),
-      date: request.date ? ReceivablesDate.of(request.date) : ReceivablesDate.of(today),
+      date,
       method: request.method,
       reference: request.reference,
       notes: request.notes,
-      allocations: request.allocations.map((allocation) => ({ id: this.ids.next(), ...allocation, exchangeDifference: 0 })),
+      allocations: request.allocations.map((allocation) => ({ id: this.ids.next(), ...allocation })),
     };
-    const candidate = CustomerPayment.draft(id, tenantId, receivablesCode('COB', 0), details, now, today);
+    const candidate = CustomerPayment.draft(id, tenantId, receivablesCode('COB', 0), details, invoices, rates, now, today);
 
-    candidate.ensureFits(await this.ledger.invoices(tenantId, { ids: candidate.invoiceIds() }));
+    candidate.ensureFits(invoices);
 
     const code = receivablesCode('COB', await this.codes.next(tenantId, 'COB'));
 
-    await this.payments.save(CustomerPayment.draft(id, tenantId, code, details, now, today));
+    await this.payments.save(CustomerPayment.draft(id, tenantId, code, details, invoices, rates, now, today));
   }
 }

@@ -1,7 +1,6 @@
-import { DocumentCurrency } from '../../domain/shared/document-currency.js';
-import { DocumentRates } from '../../../../shared/domain/ports/document-rates.js';
-import { Clock } from '../../../../shared/domain/ports/clock.js';
 import { BusinessCalendar } from '../../../../shared/domain/ports/business-calendar.js';
+import { Clock } from '../../../../shared/domain/ports/clock.js';
+import { DocumentRates } from '../../../../shared/domain/ports/document-rates.js';
 import { IdGenerator } from '../../../../shared/domain/ports/id-generator.js';
 import { ReceivableCustomerNotFoundError } from '../../domain/errors/receivables.errors.js';
 import { ReceivablesLedger } from '../../domain/ledger/receivables-ledger.js';
@@ -11,8 +10,10 @@ import { PaymentRepository } from '../../domain/payment/payment.repository.js';
 import { ReceivablesDate } from '../../domain/shared/receivables-date.vo.js';
 import { TenantId } from '../../domain/shared/tenant-id.vo.js';
 import { PaymentRequest } from '../create-payment/payment-creator.js';
+import { paymentRates } from '../shared/payment-rates.js';
 
-// Rehace el borrador. Lo aplicado a una factura que ya estaba conserva su identificador.
+// Rehace el borrador con las tasas de su dia. Lo aplicado a una factura que ya estaba conserva su
+// identificador.
 export class PaymentUpdater {
   constructor(
     private readonly finder: PaymentFinder,
@@ -33,33 +34,33 @@ export class PaymentUpdater {
 
     if (!(await this.ledger.customer(tenantId, request.customerId))) throw new ReceivableCustomerNotFoundError(request.customerId);
 
-    const paymentDate = request.date ? ReceivablesDate.of(request.date) : ReceivablesDate.of(today);
-    
-    const rates = await this.rates.forDocument(tenantId.value, {
-      currency: request.currency,
-      date: paymentDate.value,
-      manualRate: request.manualExchangeRate,
-      keepsCurrency: true,
-    });
+    const date = request.date ? ReceivablesDate.of(request.date) : ReceivablesDate.of(today);
+
+    date.ensureNotAfter(today);
+
+    const invoices = await this.ledger.invoices(tenantId, { ids: request.allocations.map((allocation) => allocation.invoiceId) });
+    // Conservar la moneda vale aunque se haya retirado del catalogo.
+    const keepsCurrency = (request.currency ?? '').trim().toUpperCase() === payment.currency().currency;
+    const rates = await paymentRates(this.rates, request.tenantId, { currency: request.currency, date: date.value, manualRate: request.exchangeRate, keepsCurrency }, invoices);
 
     payment.update(
       {
         customerId: request.customerId,
-        date: paymentDate,
-        currency: DocumentCurrency.of(rates),
+        date,
         method: request.method,
         reference: request.reference,
         notes: request.notes,
         allocations: request.allocations.map((allocation) => ({
           id: previous.find((kept) => kept.invoiceId === allocation.invoiceId)?.id ?? this.ids.next(),
           ...allocation,
-          exchangeDifference: 0
         })),
       },
+      invoices,
+      rates,
       now,
       today,
     );
-    payment.ensureFits(await this.ledger.invoices(tenantId, { ids: payment.invoiceIds() }));
+    payment.ensureFits(invoices);
 
     await this.payments.save(payment);
   }

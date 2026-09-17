@@ -4,7 +4,7 @@ import { ReceivableCustomer, ReceivablesLedger } from '../../domain/ledger/recei
 import { CustomerPayment, PaymentPrimitives } from '../../domain/payment/customer-payment.entity.js';
 import { PaymentRepository } from '../../domain/payment/payment.repository.js';
 import { PaymentPosting } from '../../domain/payment/posting/payment-posting.js';
-import { toBase } from '../../domain/shared/amount.js';
+import { amountUnits, unitsToNumber } from '../../../../shared/domain/amount.js';
 
 type InvoiceRow = Omit<ReceivableInvoicePrimitives, 'paid'> & { tenantId: string };
 
@@ -100,13 +100,13 @@ export class InMemoryReceivablesStore {
   }
 
   private paidOf(invoiceId: string, excludedPayment?: string): number {
-    const base = [...this.paymentRows.values()]
+    const units = [...this.paymentRows.values()]
       .filter((payment) => payment.status === 'confirmed' && payment.id !== excludedPayment)
       .flatMap((payment) => payment.allocations)
       .filter((allocation) => allocation.invoiceId === invoiceId)
-      .reduce((sum, allocation) => sum + toBase(allocation.amount), 0n);
+      .reduce((sum, allocation) => sum + amountUnits(allocation.amount), 0n);
 
-    return Number(base) / 100;
+    return unitsToNumber(units);
   }
 
   // En serie, como el bloqueo de filas de la base.

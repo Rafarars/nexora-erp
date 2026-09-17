@@ -28,7 +28,7 @@ describe('Customer', () => {
     });
   });
 
-  it('has no credit limit unless one is given, and takes one of zero or more with base', () => {
+  it('has no credit limit unless one is given, and takes one of zero or more with cents', () => {
     expect(create().creditLimit()).toBeNull();
     expect(create({ creditLimit: 0 }).creditLimit()).toBe(0);
     expect(create({ creditLimit: 1500.25 }).toPrimitives().creditLimit).toBe(1500.25);

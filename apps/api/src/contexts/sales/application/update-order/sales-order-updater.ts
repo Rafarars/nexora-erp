@@ -30,7 +30,10 @@ export class SalesOrderUpdater {
     const now = this.clock.now();
     const today = await this.calendar.today(request.tenantId);
 
-    order.update(await salesOrderDetails(this.references, this.rates, tenantId, request, today, true), now, today);
+    // Guardar el borrador refresca sus tasas. Conservar su moneda vale aunque se haya retirado.
+    const keepsCurrency = (request.currency ?? '').trim().toUpperCase() === order.currency().currency;
+
+    order.update(await salesOrderDetails(this.references, this.rates, tenantId, request, today, keepsCurrency), now, today);
     await this.orders.save(order);
   }
 }

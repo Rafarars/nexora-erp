@@ -1,4 +1,4 @@
-import { baseToNumber } from '../shared/amount.js';
+import { unitsToNumber } from '../../../../shared/domain/amount.js';
 import { ReceivablesDate } from '../shared/receivables-date.vo.js';
 import { ReceivableInvoice } from '../ledger/receivable-invoice.js';
 
@@ -10,7 +10,7 @@ export type AgingTotals = Record<AgingBucket | 'total', number>;
 
 // Por vencer, o los dias que lleva vencida. Una factura sin saldo no esta en ningun tramo.
 export function bucketOf(invoice: ReceivableInvoice, today: ReceivablesDate): AgingBucket | null {
-  if (invoice.balanceBase() <= 0n) return null;
+  if (invoice.balanceUnits() <= 0n) return null;
 
   const days = invoice.daysOverdue(today);
 
@@ -23,16 +23,17 @@ export function bucketOf(invoice: ReceivableInvoice, today: ReceivablesDate): Ag
 }
 
 export function agingOf(invoices: ReceivableInvoice[], today: ReceivablesDate): AgingTotals {
-  const base = Object.fromEntries([...AGING_BUCKETS, 'total'].map((bucket) => [bucket, 0n])) as Record<AgingBucket | 'total', bigint>;
+  const units = Object.fromEntries([...AGING_BUCKETS, 'total'].map((bucket) => [bucket, 0n])) as Record<AgingBucket | 'total', bigint>;
 
   for (const invoice of invoices) {
     const bucket = bucketOf(invoice, today);
 
     if (!bucket) continue;
 
-    base[bucket] += invoice.balanceBase();
-    base.total += invoice.balanceBase();
+    // En la moneda de la empresa: una factura en euros y otra en dolares no se suman tal cual.
+    units[bucket] += invoice.companyBalanceUnits();
+    units.total += invoice.companyBalanceUnits();
   }
 
-  return Object.fromEntries(Object.entries(base).map(([bucket, value]) => [bucket, baseToNumber(value)])) as AgingTotals;
+  return Object.fromEntries(Object.entries(units).map(([bucket, value]) => [bucket, unitsToNumber(value)])) as AgingTotals;
 }

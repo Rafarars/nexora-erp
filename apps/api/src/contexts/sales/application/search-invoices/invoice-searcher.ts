@@ -5,8 +5,9 @@ import { InvoiceStatus } from '../../domain/invoice/invoice.entity.js';
 import { InvoiceRepository } from '../../domain/invoice/invoice.repository.js';
 import { SalesOrderRepository } from '../../domain/order/sales-order.repository.js';
 import { TenantId } from '../../domain/shared/tenant-id.vo.js';
+import { DocumentCurrencyPrimitives } from '../../../../shared/domain/document-currency.js';
 
-export interface InvoiceResponse {
+export interface InvoiceResponse extends DocumentCurrencyPrimitives {
   id: string;
   code: string;
   customer: { id: string; name: string };
@@ -19,6 +20,10 @@ export interface InvoiceResponse {
   subtotal: number;
   tax: number;
   total: number;
+  // A la tasa de emision; null en las facturas anteriores a las tasas.
+  subtotalVes: number | null;
+  taxVes: number | null;
+  totalVes: number | null;
   lines: {
     lineNumber: number;
     itemId: string;
@@ -70,6 +75,14 @@ export class InvoiceSearcher {
           subtotal: row.subtotal,
           tax: row.tax,
           total: row.total,
+          currency: row.currency,
+          exchangeRate: row.exchangeRate,
+          baseCurrency: row.baseCurrency,
+          baseExchangeRate: row.baseExchangeRate,
+          manualExchangeRate: row.manualExchangeRate,
+          subtotalVes: row.subtotalVes,
+          taxVes: row.taxVes,
+          totalVes: row.totalVes,
           lines: row.lines.map((line) => {
             const item = items.find((candidate) => candidate.id === line.itemId);
 

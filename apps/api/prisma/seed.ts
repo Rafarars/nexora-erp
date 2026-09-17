@@ -261,11 +261,11 @@ async function upsertExchangeRates(prisma: PrismaClient): Promise<void> {
     { id: 'f6000000-0000-4000-8000-000000000005', tenantId: ACME, currency: 'EUR', rateDate: '2026-09-11', type: 'legal', rate: '175.05', source: 'BCV' },
     { id: 'f6000000-0000-4000-8000-000000000006', tenantId: ACME, currency: 'USD', rateDate: '2026-09-11', type: 'manual', rate: '160.00', source: 'Tasa interna de compras' },
     // Las de enero valoran cualquier documento de este ano, tambien los de las pruebas.
-    { id: 'f6000000-0000-4000-8000-000000000007', tenantId: ACME, currency: 'USD', rateDate: '2026-01-02', type: 'legal', rate: '140.00', source: 'BCV' },
-    { id: 'f6000000-0000-4000-8000-000000000008', tenantId: ACME, currency: 'EUR', rateDate: '2026-01-02', type: 'legal', rate: '155.00', source: 'BCV' },
-    { id: 'f6000000-0000-4000-8000-000000000102', tenantId: GLOBEX, currency: 'USD', rateDate: '2026-01-02', type: 'legal', rate: '141.00', source: 'BCV' },
-    { id: 'f6000000-0000-4000-8000-000000000201', tenantId: INITECH, currency: 'USD', rateDate: '2026-01-02', type: 'legal', rate: '140.00', source: 'BCV' },
-    { id: 'f6000000-0000-4000-8000-000000000301', tenantId: VOLUME, currency: 'USD', rateDate: '2026-01-02', type: 'legal', rate: '140.00', source: 'BCV' },
+    { id: 'f6000000-0000-4000-8000-000000000007', tenantId: ACME, currency: 'USD', rateDate: '2026-01-01', type: 'legal', rate: '140.00', source: 'BCV' },
+    { id: 'f6000000-0000-4000-8000-000000000008', tenantId: ACME, currency: 'EUR', rateDate: '2026-01-01', type: 'legal', rate: '155.00', source: 'BCV' },
+    { id: 'f6000000-0000-4000-8000-000000000102', tenantId: GLOBEX, currency: 'USD', rateDate: '2026-01-01', type: 'legal', rate: '141.00', source: 'BCV' },
+    { id: 'f6000000-0000-4000-8000-000000000201', tenantId: INITECH, currency: 'USD', rateDate: '2026-01-01', type: 'legal', rate: '140.00', source: 'BCV' },
+    { id: 'f6000000-0000-4000-8000-000000000301', tenantId: VOLUME, currency: 'USD', rateDate: '2026-01-01', type: 'legal', rate: '140.00', source: 'BCV' },
     { id: 'f6000000-0000-4000-8000-000000000101', tenantId: GLOBEX, currency: 'USD', rateDate: '2026-09-10', type: 'legal', rate: '152.80', source: 'BCV' },
   ] as const;
   const createdAt = new Date('2026-09-01T12:00:00.000Z');
@@ -596,6 +596,9 @@ async function seedInventory(prisma: PrismaClient): Promise<void> {
 // Una orden de Acme recibida en parte, con su entrada confirmada escrita como la escribiria el
 // sistema (4 cajas de 24 a 12 entran a 0,5 por unidad y el agua pasa de 240 a 336), y un
 // borrador. En Globex, lo que ataca la matriz de aislamiento.
+// En dolares, la moneda de la empresa, con la tasa legal del dia del documento.
+const dollarsAt = (rate: number) => ({ currency: 'USD', exchangeRate: rate, baseCurrency: 'USD', baseExchangeRate: rate, manualExchangeRate: false });
+
 async function seedPurchasing(prisma: PrismaClient): Promise<void> {
   const { acme, globex } = CATALOG;
   const at = (day: string) => new Date(`${day}T12:00:00.000Z`);
@@ -630,7 +633,7 @@ async function seedPurchasing(prisma: PrismaClient): Promise<void> {
     },
     {
       id: PURCHASING.acme.draftOrder, tenantId: ACME, code: 'OC000002', supplierId: PURCHASING.acme.valle,
-      warehouseId: acme.warehouses.main, orderDate: date('2026-09-06'), expectedDate: null, notes: null, currency: 'USD', baseCurrency: 'USD', exchangeRate: 1, baseExchangeRate: 1, manualExchangeRate: false,
+      warehouseId: acme.warehouses.main, orderDate: date('2026-09-06'), expectedDate: null, notes: null,
       status: 'draft' as const, confirmedAt: null,
       lines: [{ id: PURCHASING.acme.draftWater, itemId: acme.items.water, unitId: acme.units.piece, quantity: 48, baseQuantity: 48, unitCost: 0.45, taxRate: 16, receivedQuantity: 0 }],
     },
@@ -642,7 +645,7 @@ async function seedPurchasing(prisma: PrismaClient): Promise<void> {
     },
     {
       id: PURCHASING.globex.draftOrder, tenantId: GLOBEX, code: 'OC000002', supplierId: PURCHASING.globex.supplier,
-      warehouseId: globex.warehouses.main, orderDate: date('2026-09-04'), expectedDate: null, notes: null, currency: 'USD', baseCurrency: 'USD', exchangeRate: 1, baseExchangeRate: 1, manualExchangeRate: false,
+      warehouseId: globex.warehouses.main, orderDate: date('2026-09-04'), expectedDate: null, notes: null,
       status: 'draft' as const, confirmedAt: null,
       lines: [{ id: PURCHASING.globex.draftFilter, itemId: globex.items.filter, unitId: globex.units.piece, quantity: 5, baseQuantity: 5, unitCost: 8, taxRate: 16, receivedQuantity: 0 }],
     },
@@ -664,7 +667,7 @@ async function seedPurchasing(prisma: PrismaClient): Promise<void> {
     },
     {
       id: PURCHASING.globex.draftReceipt, tenantId: GLOBEX, code: 'ENT000001', orderId: PURCHASING.globex.confirmedOrder,
-      warehouseId: globex.warehouses.main, receiptDate: date('2026-09-06'), notes: null, currency: 'USD', baseCurrency: 'USD', exchangeRate: 1, baseExchangeRate: 1, manualExchangeRate: false, status: 'draft' as const, confirmedAt: null,
+      warehouseId: globex.warehouses.main, receiptDate: date('2026-09-06'), notes: null,status: 'draft' as const, confirmedAt: null,
       lines: [{ id: PURCHASING.globex.draftReceiptFilter, orderLineId: PURCHASING.globex.confirmedFilter, itemId: globex.items.filter, unitId: globex.units.piece, quantity: 5, baseQuantity: 5, unitCost: 8 }],
     },
   ];
@@ -722,7 +725,7 @@ async function seedSales(prisma: PrismaClient): Promise<void> {
   const orders = [
     {
       id: SALES.acme.partialOrder, tenantId: ACME, code: 'PED000001', customerId: SALES.acme.delta, warehouseId: acme.warehouses.main,
-      orderDate: date('2026-09-06'), notes: 'Pedido semanal', currency: 'USD', baseCurrency: 'USD', exchangeRate: 1, baseExchangeRate: 1, manualExchangeRate: false, status: 'partially_dispatched' as const, confirmedAt: at('2026-09-06'),
+      orderDate: date('2026-09-06'), notes: 'Pedido semanal', ...dollarsAt(150.25), status: 'partially_dispatched' as const, confirmedAt: at('2026-09-06'),
       lines: [
         { id: SALES.acme.partialWater, itemId: acme.items.water, unitId: acme.units.box, quantity: 5, baseQuantity: 120, unitPrice: 30, taxRate: 16, dispatchedQuantity: 2 },
         { id: SALES.acme.partialDetergent, itemId: acme.items.detergent, unitId: acme.units.kilo, quantity: 10, baseQuantity: 10, unitPrice: 5.5, taxRate: 16, dispatchedQuantity: 0 },
@@ -730,46 +733,46 @@ async function seedSales(prisma: PrismaClient): Promise<void> {
     },
     {
       id: SALES.acme.draftOrder, tenantId: ACME, code: 'PED000002', customerId: SALES.acme.corner, warehouseId: acme.warehouses.main,
-      orderDate: date('2026-09-08'), notes: null, currency: 'USD', baseCurrency: 'USD', exchangeRate: 1, baseExchangeRate: 1, manualExchangeRate: false, status: 'draft' as const, confirmedAt: null,
+      orderDate: date('2026-09-08'), notes: null, ...dollarsAt(152.4), status: 'draft' as const, confirmedAt: null,
       lines: [{ id: SALES.acme.draftWater, itemId: acme.items.water, unitId: acme.units.piece, quantity: 24, baseQuantity: 24, unitPrice: 1.5, taxRate: 16, dispatchedQuantity: 0 }],
     },
     {
       id: SALES.globex.partialOrder, tenantId: GLOBEX, code: 'PED000001', customerId: SALES.globex.customer, warehouseId: globex.warehouses.main,
-      orderDate: date('2026-09-05'), notes: null, currency: 'USD', baseCurrency: 'USD', exchangeRate: 1, baseExchangeRate: 1, manualExchangeRate: false, status: 'partially_dispatched' as const, confirmedAt: at('2026-09-05'),
+      orderDate: date('2026-09-05'), notes: null, ...dollarsAt(141), status: 'partially_dispatched' as const, confirmedAt: at('2026-09-05'),
       lines: [{ id: SALES.globex.partialFilter, itemId: globex.items.filter, unitId: globex.units.piece, quantity: 10, baseQuantity: 10, unitPrice: 14, taxRate: 16, dispatchedQuantity: 5 }],
     },
     {
       id: SALES.globex.draftOrder, tenantId: GLOBEX, code: 'PED000002', customerId: SALES.globex.customer, warehouseId: globex.warehouses.main,
-      orderDate: date('2026-09-07'), notes: null, currency: 'USD', baseCurrency: 'USD', exchangeRate: 1, baseExchangeRate: 1, manualExchangeRate: false, status: 'draft' as const, confirmedAt: null,
+      orderDate: date('2026-09-07'), notes: null, ...dollarsAt(141), status: 'draft' as const, confirmedAt: null,
       lines: [{ id: SALES.globex.draftFilter, itemId: globex.items.filter, unitId: globex.units.piece, quantity: 3, baseQuantity: 3, unitPrice: 14, taxRate: 16, dispatchedQuantity: 0 }],
     },
   ];
 
   for (const { lines, ...order } of orders) {
-    await prisma.salesOrder.create({ data: { ...order, currency: 'USD', baseCurrency: 'USD', exchangeRate: 1, baseExchangeRate: 1, manualExchangeRate: false, createdAt: order.orderDate, updatedAt: order.confirmedAt ?? order.orderDate } });
+    await prisma.salesOrder.create({ data: { ...order, createdAt: order.orderDate, updatedAt: order.confirmedAt ?? order.orderDate } });
     await prisma.salesOrderLine.createMany({ data: lines.map((line, index) => ({ ...line, tenantId: order.tenantId, orderId: order.id, lineNumber: index + 1 })) });
   }
 
   const dispatches = [
     {
       id: SALES.acme.dispatch, tenantId: ACME, code: 'DES000001', orderId: SALES.acme.partialOrder, warehouseId: acme.warehouses.main,
-      dispatchDate: date('2026-09-07'), notes: 'Primera entrega', currency: 'USD', baseCurrency: 'USD', exchangeRate: 1, baseExchangeRate: 1, manualExchangeRate: false, status: 'confirmed' as const, confirmedAt: at('2026-09-07'),
+      dispatchDate: date('2026-09-07'), notes: 'Primera entrega', status: 'confirmed' as const, confirmedAt: at('2026-09-07'),
       lines: [{ id: SALES.acme.dispatchWater, orderLineId: SALES.acme.partialWater, itemId: acme.items.water, unitId: acme.units.box, quantity: 2, baseQuantity: 48 }],
     },
     {
       id: SALES.globex.dispatch, tenantId: GLOBEX, code: 'DES000001', orderId: SALES.globex.partialOrder, warehouseId: globex.warehouses.main,
-      dispatchDate: date('2026-09-06'), notes: null, currency: 'USD', baseCurrency: 'USD', exchangeRate: 1, baseExchangeRate: 1, manualExchangeRate: false, status: 'confirmed' as const, confirmedAt: at('2026-09-06'),
+      dispatchDate: date('2026-09-06'), notes: null, status: 'confirmed' as const, confirmedAt: at('2026-09-06'),
       lines: [{ id: SALES.globex.dispatchFilter, orderLineId: SALES.globex.partialFilter, itemId: globex.items.filter, unitId: globex.units.piece, quantity: 5, baseQuantity: 5 }],
     },
     {
       id: SALES.globex.draftDispatch, tenantId: GLOBEX, code: 'DES000002', orderId: SALES.globex.partialOrder, warehouseId: globex.warehouses.main,
-      dispatchDate: date('2026-09-08'), notes: null, currency: 'USD', baseCurrency: 'USD', exchangeRate: 1, baseExchangeRate: 1, manualExchangeRate: false, status: 'draft' as const, confirmedAt: null,
+      dispatchDate: date('2026-09-08'), notes: null, status: 'draft' as const, confirmedAt: null,
       lines: [{ id: SALES.globex.draftDispatchFilter, orderLineId: SALES.globex.partialFilter, itemId: globex.items.filter, unitId: globex.units.piece, quantity: 2, baseQuantity: 2 }],
     },
   ];
 
   for (const { lines, ...dispatch } of dispatches) {
-    await prisma.dispatch.create({ data: { ...dispatch, currency: 'USD', baseCurrency: 'USD', exchangeRate: 1, baseExchangeRate: 1, manualExchangeRate: false, createdAt: dispatch.dispatchDate, updatedAt: dispatch.confirmedAt ?? dispatch.dispatchDate } });
+    await prisma.dispatch.create({ data: { ...dispatch, createdAt: dispatch.dispatchDate, updatedAt: dispatch.confirmedAt ?? dispatch.dispatchDate } });
     await prisma.dispatchLine.createMany({ data: lines.map((line, index) => ({ ...line, tenantId: dispatch.tenantId, dispatchId: dispatch.id, lineNumber: index + 1 })) });
   }
 
@@ -777,17 +780,19 @@ async function seedSales(prisma: PrismaClient): Promise<void> {
     {
       id: SALES.acme.invoice, tenantId: ACME, code: 'FAC000001', dispatchId: SALES.acme.dispatch, orderId: SALES.acme.partialOrder, customerId: SALES.acme.delta,
       issueDate: date('2026-09-07'), dueDate: date('2026-09-22'), subtotal: 60, tax: 9.6, total: 69.6,
+      ...dollarsAt(150.25), subtotalVes: 9015, taxVes: 1442.4, totalVes: 10457.4,
       line: { id: SALES.acme.invoiceWater, itemId: acme.items.water, unitId: acme.units.box, quantity: 2, unitPrice: 30, taxRate: 16, subtotal: 60, tax: 9.6 },
     },
     {
       id: SALES.globex.invoice, tenantId: GLOBEX, code: 'FAC000001', dispatchId: SALES.globex.dispatch, orderId: SALES.globex.partialOrder, customerId: SALES.globex.customer,
       issueDate: date('2026-09-06'), dueDate: date('2026-10-06'), subtotal: 70, tax: 11.2, total: 81.2,
+      ...dollarsAt(141), subtotalVes: 9870, taxVes: 1579.2, totalVes: 11449.2,
       line: { id: SALES.globex.invoiceFilter, itemId: globex.items.filter, unitId: globex.units.piece, quantity: 5, unitPrice: 14, taxRate: 16, subtotal: 70, tax: 11.2 },
     },
   ];
 
   for (const { line, ...invoice } of invoices) {
-    await prisma.invoice.create({ data: { ...invoice, status: 'issued', currency: 'USD', baseCurrency: 'USD', exchangeRate: 1, baseExchangeRate: 1, manualExchangeRate: false, subtotalVes: 0, taxVes: 0, totalVes: 0, createdAt: invoice.issueDate, updatedAt: invoice.issueDate } });
+    await prisma.invoice.create({ data: { ...invoice, status: 'issued', createdAt: invoice.issueDate, updatedAt: invoice.issueDate } });
     await prisma.invoiceLine.create({ data: { ...line, tenantId: invoice.tenantId, invoiceId: invoice.id, lineNumber: 1 } });
   }
 
@@ -831,24 +836,27 @@ async function seedReceivables(prisma: PrismaClient): Promise<void> {
   const payments = [
     {
       id: SALES.acme.payment, tenantId: ACME, code: 'COB000001', customerId: SALES.acme.delta, paymentDate: date('2026-09-10'), method: 'transfer' as const,
-      reference: 'TRF-88231', amount: 30, status: 'confirmed' as const, confirmedAt: at('2026-09-10'),
+      reference: 'TRF-88231', amount: 30, ...dollarsAt(152.4), amountVes: 4572, difference: 64.5, status: 'confirmed' as const, confirmedAt: at('2026-09-10'),
       allocation: { id: SALES.acme.paymentAllocation, invoiceId: SALES.acme.invoice },
     },
     {
       id: SALES.globex.confirmedPayment, tenantId: GLOBEX, code: 'COB000001', customerId: SALES.globex.customer, paymentDate: date('2026-09-08'), method: 'cash' as const,
-      reference: null, amount: 20, status: 'confirmed' as const, confirmedAt: at('2026-09-08'),
+      reference: null, amount: 20, ...dollarsAt(141), amountVes: 2820, difference: 0, status: 'confirmed' as const, confirmedAt: at('2026-09-08'),
       allocation: { id: SALES.globex.confirmedAllocation, invoiceId: SALES.globex.invoice },
     },
     {
       id: SALES.globex.draftPayment, tenantId: GLOBEX, code: 'COB000002', customerId: SALES.globex.customer, paymentDate: date('2026-09-09'), method: 'transfer' as const,
-      reference: null, amount: 10, status: 'draft' as const, confirmedAt: null,
+      reference: null, amount: 10, ...dollarsAt(141), amountVes: 1410, difference: 0, status: 'draft' as const, confirmedAt: null,
       allocation: { id: SALES.globex.draftAllocation, invoiceId: SALES.globex.invoice },
     },
   ];
 
-  for (const { allocation, ...payment } of payments) {
-    await prisma.customerPayment.create({ data: { ...payment, currency: 'USD', baseCurrency: 'USD', exchangeRate: 1, baseExchangeRate: 1, manualExchangeRate: false, amountVes: 0, createdAt: payment.paymentDate, updatedAt: payment.confirmedAt ?? payment.paymentDate } });
-    await prisma.paymentAllocation.create({ data: { ...allocation, tenantId: payment.tenantId, paymentId: payment.id, amount: payment.amount, exchangeDifference: 0 } });
+  // Lo cobrado a la tasa del cobro menos lo facturado a la de la factura: 30 USD de 150,25 a 152,40 son 64,50 Bs.
+  for (const { allocation, difference, ...payment } of payments) {
+    await prisma.customerPayment.create({ data: { ...payment, createdAt: payment.paymentDate, updatedAt: payment.confirmedAt ?? payment.paymentDate } });
+    await prisma.paymentAllocation.create({
+      data: { ...allocation, tenantId: payment.tenantId, paymentId: payment.id, amount: payment.amount, exchangeRate: payment.exchangeRate, exchangeDifference: difference },
+    });
   }
 
   for (const [tenantId, lastValue] of [
@@ -879,31 +887,31 @@ async function seedVolume(prisma: PrismaClient): Promise<void> {
   await prisma.$executeRaw`
     INSERT INTO sales_orders (id, tenant_id, code, customer_id, warehouse_id, order_date, status, confirmed_at, updated_at, currency, exchange_rate, base_currency, base_exchange_rate, manual_exchange_rate)
     SELECT md5('vol-order-' || n)::uuid, ${VOLUME}::uuid, 'PED' || lpad(n::text, 6, '0'), md5('vol-customer-' || (n % 50 + 1))::uuid, ${warehouse}::uuid,
-           date '2026-01-01' + (n % 250), 'dispatched'::sales_order_status, now(), now(), 'USD', 1, 'USD', 1, false
+           date '2026-01-01' + (n % 250), 'dispatched'::sales_order_status, now(), now(), 'USD', 140, 'USD', 140, false
     FROM generate_series(1, 5000) AS n`;
 
   await prisma.$executeRaw`
-    INSERT INTO dispatches (id, tenant_id, code, order_id, warehouse_id, dispatch_date, status, confirmed_at, updated_at, currency, exchange_rate, base_currency, base_exchange_rate, manual_exchange_rate)
+    INSERT INTO dispatches (id, tenant_id, code, order_id, warehouse_id, dispatch_date, status, confirmed_at, updated_at)
     SELECT md5('vol-dispatch-' || n)::uuid, ${VOLUME}::uuid, 'DES' || lpad(n::text, 6, '0'), md5('vol-order-' || n)::uuid, ${warehouse}::uuid,
-           date '2026-01-01' + (n % 250), 'confirmed'::dispatch_status, now(), now(), 'USD', 1, 'USD', 1, false
+           date '2026-01-01' + (n % 250), 'confirmed'::dispatch_status, now(), now()
     FROM generate_series(1, 5000) AS n`;
 
   await prisma.$executeRaw`
     INSERT INTO invoices (id, tenant_id, code, dispatch_id, order_id, customer_id, issue_date, due_date, status, subtotal, tax, total, updated_at, currency, exchange_rate, base_currency, base_exchange_rate, manual_exchange_rate, subtotal_ves, tax_ves, total_ves)
     SELECT md5('vol-invoice-' || n)::uuid, ${VOLUME}::uuid, 'FAC' || lpad(n::text, 6, '0'), md5('vol-dispatch-' || n)::uuid, md5('vol-order-' || n)::uuid,
            md5('vol-customer-' || (n % 50 + 1))::uuid, date '2026-01-01' + (n % 250), date '2026-01-31' + (n % 250), 'issued'::invoice_status,
-           10 + n % 90, 0, 10 + n % 90, now(), 'USD', 1, 'USD', 1, false, 0, 0, 0
+           10 + n % 90, 0, 10 + n % 90, now(), 'USD', 140, 'USD', 140, false, (10 + n % 90) * 140, 0, (10 + n % 90) * 140
     FROM generate_series(1, 5000) AS n`;
 
   await prisma.$executeRaw`
     INSERT INTO customer_payments (id, tenant_id, code, customer_id, payment_date, method, amount, status, confirmed_at, updated_at, currency, exchange_rate, base_currency, base_exchange_rate, manual_exchange_rate, amount_ves)
     SELECT md5('vol-payment-' || n)::uuid, ${VOLUME}::uuid, 'COB' || lpad(n::text, 6, '0'), md5('vol-customer-' || (n % 50 + 1))::uuid,
-           date '2026-01-01' + (n % 250), 'transfer'::payment_method, 5, 'confirmed'::payment_status, now(), now(), 'USD', 1, 'USD', 1, false, 0
+           date '2026-01-01' + (n % 250), 'transfer'::payment_method, 5, 'confirmed'::payment_status, now(), now(), 'USD', 140, 'USD', 140, false, 700
     FROM generate_series(1, 3000) AS n`;
 
   await prisma.$executeRaw`
-    INSERT INTO payment_allocations (id, tenant_id, payment_id, invoice_id, amount, exchange_difference)
-    SELECT md5('vol-allocation-' || n)::uuid, ${VOLUME}::uuid, md5('vol-payment-' || n)::uuid, md5('vol-invoice-' || n)::uuid, 5, 0
+    INSERT INTO payment_allocations (id, tenant_id, payment_id, invoice_id, amount, exchange_rate, exchange_difference)
+    SELECT md5('vol-allocation-' || n)::uuid, ${VOLUME}::uuid, md5('vol-payment-' || n)::uuid, md5('vol-invoice-' || n)::uuid, 5, 140, 0
     FROM generate_series(1, 3000) AS n`;
 
   for (const [prefix, lastValue] of [['CLI', 50], ['PED', 5000], ['DES', 5000], ['FAC', 5000], ['COB', 3000], ['BOD', 1]] as const) {

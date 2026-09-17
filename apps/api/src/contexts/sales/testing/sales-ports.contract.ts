@@ -1,5 +1,4 @@
 import { ConcurrentModificationError } from '../../../shared/domain/concurrent-modification.error.js';
-import { DocumentCurrency } from '../domain/shared/document-currency.js';
 import { afterAll, afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { Customer, CustomerId } from '../domain/customer/customer.entity.js';
 import { DispatchLine, DispatchLineId } from '../domain/dispatch/dispatch-line.js';
@@ -27,7 +26,7 @@ import { Quantity } from '../domain/shared/quantity.vo.js';
 import { WarehouseRef } from '../domain/shared/references.vo.js';
 import { SalesDate } from '../domain/shared/sales-date.vo.js';
 import { TenantId } from '../domain/shared/tenant-id.vo.js';
-import { BOX, CUSTOMER, MAIN, NOW, PIECE, TENANT_A, TENANT_B, TODAY, WATER, anOrderLine } from '../domain/testing/sales.mother.js';
+import { aDocumentCurrency, BOX, CUSTOMER, MAIN, NOW, PIECE, TENANT_A, TENANT_B, TODAY, WATER, anOrderLine } from '../domain/testing/sales.mother.js';
 import { SalesPorts, SalesPortsHarness } from './sales-ports.harness.js';
 
 const tenant = TenantId.of(TENANT_A);
@@ -66,7 +65,7 @@ export function describeSalesPortsContract(implementation: string, createHarness
           customerId: CustomerId.of(CUSTOMER),
           warehouseId: WarehouseRef.of(MAIN),
           orderDate: SalesDate.of(TODAY),
-          currency: DocumentCurrency.of({ currency: "USD", exchangeRate: 1, baseCurrency: "USD", baseExchangeRate: 1, manualRate: false }),
+          currency: aDocumentCurrency(),
           notes: 'contrato',
           lines,
         }, NOW, TODAY),
@@ -92,7 +91,6 @@ export function describeSalesPortsContract(implementation: string, createHarness
       await ports.dispatches.save(
         Dispatch.draft(id, tenant, `DES${next().slice(-6)}`, { id: order.id, warehouseId: order.warehouseId() }, {
           date: SalesDate.of(TODAY),
-          currency: DocumentCurrency.of({ currency: "USD", exchangeRate: 1, baseCurrency: "USD", baseExchangeRate: 1, manualRate: false }),
           notes: null,
           lines: [DispatchLine.of({ id: DispatchLineId.of(`5e000000-0000-4000-8000-${next()}`), lineNumber: 1, orderLineId: line.id, itemId: line.itemId, unitId: line.unitId, quantity: q, baseQuantity: line.baseOf(q) })],
         }, NOW, TODAY),
@@ -108,7 +106,8 @@ export function describeSalesPortsContract(implementation: string, createHarness
         Invoice.issue(InvoiceId.of(`5f000000-0000-4000-8000-${next()}`), tenant, `FAC${next().slice(-6)}`, {
           dispatch,
           order,
-          currency: DocumentCurrency.of({ currency: "USD", exchangeRate: 1, baseCurrency: "USD", baseExchangeRate: 1, manualRate: false }),
+          currency: aDocumentCurrency(),
+          amountDecimals: 2,
           alreadyInvoiced,
           credit,
           date: SalesDate.of(date),

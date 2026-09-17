@@ -10,11 +10,11 @@ import {
   SalesOrderWithDispatchesError,
 } from '../errors/sales.errors.js';
 import { CustomerId } from '../customer/customer.entity.js';
-import { baseToNumber } from '../shared/money.js';
+import { unitsToNumber } from '../../../../shared/domain/amount.js';
 import { Quantity } from '../shared/quantity.vo.js';
 import { WarehouseRef } from '../shared/references.vo.js';
 import { SalesDate } from '../shared/sales-date.vo.js';
-import { DocumentCurrency, DocumentCurrencyPrimitives } from "../shared/document-currency.js";
+import { DocumentCurrency, DocumentCurrencyPrimitives } from '../../../../shared/domain/document-currency.js';
 import { optionalText } from '../shared/text.js';
 import { TenantId } from '../shared/tenant-id.vo.js';
 import { SalesOrderLine, SalesOrderLineId, SalesOrderLinePrimitives } from './sales-order-line.js';
@@ -171,11 +171,12 @@ export class SalesOrder {
     return this.status === 'confirmed' || this.status === 'partially_dispatched';
   }
 
-  totals(): { subtotal: number; tax: number; total: number } {
-    const subtotal = this.details.lines.reduce((sum, line) => sum + line.subtotalBase(), 0n);
-    const tax = this.details.lines.reduce((sum, line) => sum + line.taxBase(), 0n);
+  // Con los decimales de la empresa: un pedido calcula sus importes al vuelo.
+  totals(decimals: number): { subtotal: number; tax: number; total: number } {
+    const subtotal = this.details.lines.reduce((sum, line) => sum + line.subtotalUnits(decimals), 0n);
+    const tax = this.details.lines.reduce((sum, line) => sum + line.taxUnits(decimals), 0n);
 
-    return { subtotal: baseToNumber(subtotal), tax: baseToNumber(tax), total: baseToNumber(subtotal + tax) };
+    return { subtotal: unitsToNumber(subtotal), tax: unitsToNumber(tax), total: unitsToNumber(subtotal + tax) };
   }
 
   // Lo que el pedido reserva por articulo, en unidad base. Un borrador aun no reserva nada, pero

@@ -1,5 +1,6 @@
 import { InvalidSalesPriceError, InvalidTaxRateSnapshotError } from '../errors/sales.errors.js';
-import { Quantity, roundedDivision } from './quantity.vo.js';
+import { roundRatio } from '../../../../shared/domain/amount.js';
+import { Quantity } from './quantity.vo.js';
 
 const MAX = 999_999_999_999_999_999n;
 
@@ -15,10 +16,6 @@ export class UnitPrice {
     }
 
     return new UnitPrice(BigInt(scaled));
-  }
-
-  static ofMicros(micros: bigint): UnitPrice {
-    return new UnitPrice(micros);
   }
 
   toNumber(): number {
@@ -46,24 +43,13 @@ export class TaxRate {
   }
 }
 
-// Importes base en diezmilesimas (4 decimales de precision interna). 
-// Cantidad (10^4) por precio (10^6) = 10^10. Para llevar a 10^4 dividimos por 10^6.
-export function lineSubtotalBase(quantity: Quantity, price: UnitPrice): bigint {
-  return roundedDivision(quantity.units * price.micros, 1_000_000n);
+// Importes en diezmilesimas, redondeados una sola vez por linea a los decimales de la empresa.
+// Cantidad (diezmilesimas) por precio (millonesimas) es el importe por 10^10.
+export function lineSubtotalUnits(quantity: Quantity, price: UnitPrice, decimals: number): bigint {
+  return roundRatio(quantity.units * price.micros, 1_000_000n, decimals);
 }
 
-export function taxBase(subtotalBase: bigint, rate: TaxRate): bigint {
-  return roundedDivision(subtotalBase * rate.units, 10_000n);
-}
-
-export function baseToNumber(base: bigint): number {
-  return Number(base) / 10_000;
-}
-
-// Redondea un importe base a los decimales de la empresa (ej. 2) 
-// devolviendo un number para la persistencia.
-export function roundedAmount(base: bigint, decimals: number): number {
-  const factor = 10 ** (4 - decimals);
-  const roundedBase = roundedDivision(base, BigInt(factor)) * BigInt(factor);
-  return Number(roundedBase) / 10_000;
+// Sobre el subtotal ya redondeado: subtotal (diezmilesimas) por porcentaje (diezmilesimas) entre 100.
+export function taxUnits(subtotal: bigint, rate: TaxRate, decimals: number): bigint {
+  return roundRatio(subtotal * rate.units, 1_000_000n, decimals);
 }

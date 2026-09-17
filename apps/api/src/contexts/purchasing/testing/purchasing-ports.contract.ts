@@ -19,7 +19,7 @@ import { GoodsReceiptLine, GoodsReceiptLineId } from '../domain/receipt/goods-re
 import { GoodsReceipt, GoodsReceiptId } from '../domain/receipt/goods-receipt.entity.js';
 import { ReceiptCancellation } from '../domain/receipt/posting/receipt-cancellation.js';
 import { ReceiptConfirmation } from '../domain/receipt/posting/receipt-confirmation.js';
-import { DocumentCurrency } from '../domain/shared/document-currency.js';
+import { DocumentCurrency } from '../../../shared/domain/document-currency.js';
 import { PurchaseDate } from '../domain/shared/purchase-date.vo.js';
 import { Quantity } from '../domain/shared/quantity.vo.js';
 import { WarehouseRef } from '../domain/shared/references.vo.js';

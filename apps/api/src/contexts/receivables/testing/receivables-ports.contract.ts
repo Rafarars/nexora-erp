@@ -1,10 +1,9 @@
-import { DocumentCurrency } from '../domain/shared/document-currency.js';
 import { afterAll, afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { InvoiceNotPayableError, PaymentExceedsBalanceError, PaymentNotEditableError, PaymentNotFoundError } from '../domain/errors/receivables.errors.js';
-import { CustomerPayment, PaymentAllocationPrimitives, PaymentId } from '../domain/payment/customer-payment.entity.js';
+import { CustomerPayment, PaymentDetails, PaymentId } from '../domain/payment/customer-payment.entity.js';
 import { ReceivablesDate } from '../domain/shared/receivables-date.vo.js';
 import { TenantId } from '../domain/shared/tenant-id.vo.js';
-import { CUSTOMER, INVOICE, NOW, OTHER_CUSTOMER, OTHER_INVOICE, TENANT_A, TENANT_B, TODAY } from '../domain/testing/receivables.mother.js';
+import { CUSTOMER, DOLLARS, INVOICE, NOW, OTHER_CUSTOMER, OTHER_INVOICE, TENANT_A, TENANT_B, TODAY, aPaymentRates } from '../domain/testing/receivables.mother.js';
 import { ReceivablesPorts, ReceivablesPortsHarness } from './receivables-ports.harness.js';
 
 const tenant = TenantId.of(TENANT_A);
@@ -25,9 +24,9 @@ export function describeReceivablesPortsContract(implementation: string, createH
       await harness.customer(TENANT_A, { id: CUSTOMER, code: 'CLI900001', name: 'Contrato Delta', paymentTermDays: 15, creditLimit: 500.5, isActive: true });
       await harness.customer(TENANT_A, { id: OTHER_CUSTOMER, code: 'CLI900002', name: 'Contrato Omega', paymentTermDays: 0, creditLimit: null, isActive: false });
       await harness.customer(TENANT_B, { id: FOREIGN_CUSTOMER, code: 'CLI900001', name: 'Contrato ajeno', paymentTermDays: 0, creditLimit: null, isActive: true });
-      await harness.invoice(TENANT_A, { id: INVOICE, code: 'FAC900002', customerId: CUSTOMER, issueDate: '2026-01-05', dueDate: '2026-01-20', status: 'issued', total: 10, exchangeRate: null });
-      await harness.invoice(TENANT_A, { id: OTHER_INVOICE, code: 'FAC900001', customerId: OTHER_CUSTOMER, issueDate: '2026-01-02', dueDate: '2026-01-02', status: 'issued', total: 30.3, exchangeRate: null });
-      await harness.invoice(TENANT_B, { id: FOREIGN_INVOICE, code: 'FAC900001', customerId: FOREIGN_CUSTOMER, issueDate: '2026-01-02', dueDate: '2026-01-02', status: 'issued', total: 10, exchangeRate: null });
+      await harness.invoice(TENANT_A, { id: INVOICE, code: 'FAC900002', customerId: CUSTOMER, issueDate: '2026-01-05', dueDate: '2026-01-20', status: 'issued', total: 100, ...DOLLARS });
+      await harness.invoice(TENANT_A, { id: OTHER_INVOICE, code: 'FAC900001', customerId: OTHER_CUSTOMER, issueDate: '2026-01-02', dueDate: '2026-01-02', status: 'issued', total: 30.3, ...DOLLARS });
+      await harness.invoice(TENANT_B, { id: FOREIGN_INVOICE, code: 'FAC900001', customerId: FOREIGN_CUSTOMER, issueDate: '2026-01-02', dueDate: '2026-01-02', status: 'issued', total: 10, ...DOLLARS });
     });
 
     afterEach(async () => {
@@ -39,19 +38,20 @@ export function describeReceivablesPortsContract(implementation: string, createH
     });
 
     const next = () => String((counter += 1)).padStart(12, '0');
-    const allocation = (invoiceId: string, amount: number): PaymentAllocationPrimitives => ({ id: `da000000-0000-4000-8000-${next()}`, invoiceId, amount, exchangeDifference: 0 });
+    const allocation = (invoiceId: string, amount: number): PaymentDetails['allocations'][number] => ({ id: `da000000-0000-4000-8000-${next()}`, invoiceId, amount });
 
-    async function draft(allocations: PaymentAllocationPrimitives[], customerId = CUSTOMER): Promise<PaymentId> {
+    async function draft(allocations: PaymentDetails['allocations'], customerId = CUSTOMER): Promise<PaymentId> {
       const id = PaymentId.of(`d0000000-0000-4000-8000-${next()}`);
+      const invoices = await ports.ledger.invoices(tenant, { ids: allocations.map((row) => row.invoiceId) });
 
       await ports.payments.save(
-        CustomerPayment.draft(id, tenant, `COB${next().slice(-6)}`, { customerId, date: ReceivablesDate.of(TODAY), method: 'transfer', currency: { currency: 'USD', exchangeRate: 1, baseCurrency: 'USD', baseExchangeRate: 1, manualRate: false, toPrimitives: () => ({ currency: 'USD', exchangeRate: 1, baseCurrency: 'USD', baseExchangeRate: 1, manualExchangeRate: false }) } as any, reference: 'TRF', notes: 'contrato', allocations }, NOW, TODAY),
+        CustomerPayment.draft(id, tenant, `COB${next().slice(-6)}`, { customerId, date: ReceivablesDate.of(TODAY), method: 'transfer', reference: 'TRF', notes: 'contrato', allocations }, invoices, aPaymentRates(), NOW, TODAY),
       );
 
       return id;
     }
 
-    const confirm = (id: PaymentId) => ports.posting.post(tenant, id, (payment, invoices) => payment.confirm(invoices, NOW, TODAY));
+    const confirm = (id: PaymentId) => ports.posting.post(tenant, id, (payment, invoices) => payment.confirm(invoices, aPaymentRates(), NOW, TODAY));
     const cancel = (id: PaymentId) => ports.posting.post(tenant, id, (payment) => payment.cancel(NOW));
     const invoice = async (id = INVOICE) => (await ports.ledger.invoices(tenant, { ids: [id] }))[0];
 
@@ -63,10 +63,10 @@ export function describeReceivablesPortsContract(implementation: string, createH
         expect(stored.toPrimitives()).toMatchObject({ status: 'draft', amount: 40.3, paymentDate: TODAY, method: 'transfer', notes: 'contrato' });
 
         const kept = stored.toPrimitives().allocations[0];
-        stored.update({ customerId: CUSTOMER, date: ReceivablesDate.of('2026-01-10'), method: 'cash', currency: { currency: 'USD', exchangeRate: 1, baseCurrency: 'USD', baseExchangeRate: 1, manualRate: false } as any, allocations: [{ ...kept, amount: 12, exchangeDifference: 0 }] }, NOW, TODAY);
+        stored.update({ customerId: CUSTOMER, date: ReceivablesDate.of('2026-01-10'), method: 'cash', allocations: [{ id: kept.id, invoiceId: kept.invoiceId, amount: 12 }] }, await ports.ledger.invoices(tenant, { ids: [kept.invoiceId] }), aPaymentRates(), NOW, TODAY);
         await ports.payments.save(stored);
 
-        expect((await ports.payments.find(tenant, id))?.toPrimitives()).toMatchObject({ method: 'cash', amount: 12, paymentDate: '2026-01-10', reference: null, allocations: [{ ...kept, amount: 12, exchangeDifference: 0 }] });
+        expect((await ports.payments.find(tenant, id))?.toPrimitives()).toMatchObject({ method: 'cash', amount: 12, paymentDate: '2026-01-10', reference: null, allocations: [{ ...kept, amount: 12 }] });
         expect(await ports.payments.find(TenantId.of(TENANT_B), id)).toBeNull();
         expect(await ports.payments.searchByTenant(TenantId.of(TENANT_B))).toEqual([]);
       });
@@ -91,6 +91,22 @@ export function describeReceivablesPortsContract(implementation: string, createH
 
         await cancel(id);
         expect((await invoice()).balance()).toBe(100);
+      });
+
+      // 40 USD cobrados en bolivares con el dolar a 38: la factura se emitio a 36,50.
+      it('keeps what a payment in another currency is worth and the exchange difference of each invoice', async () => {
+        const id = await draft([allocation(INVOICE, 40)]);
+        const bolivars = { currency: 'VES', exchangeRate: 1, baseCurrency: 'USD', baseExchangeRate: 38 };
+
+        await ports.posting.post(tenant, id, (payment, invoices) => payment.confirm(invoices, aPaymentRates(bolivars, { USD: 38 }), NOW, TODAY));
+
+        expect((await ports.payments.find(tenant, id))?.toPrimitives()).toMatchObject({
+          ...bolivars,
+          amount: 1520,
+          amountVes: 1520,
+          allocations: [{ invoiceId: INVOICE, amount: 40, exchangeRate: 38, exchangeDifference: 60 }],
+        });
+        expect((await invoice()).toPrimitives().paid).toBe(40);
       });
 
       it('shows each invoice without the payment being posted, and writes nothing when the work fails', async () => {
@@ -141,7 +157,7 @@ export function describeReceivablesPortsContract(implementation: string, createH
         expect((await ports.ledger.invoices(tenant)).map((row) => row.toPrimitives().code)).toEqual(['FAC900002', 'FAC900001']);
         expect((await ports.ledger.invoices(tenant, { customerId: OTHER_CUSTOMER })).map((row) => row.id)).toEqual([OTHER_INVOICE]);
         expect(await ports.ledger.invoices(tenant, { ids: [FOREIGN_INVOICE] })).toEqual([]);
-        expect((await invoice()).toPrimitives()).toEqual({ id: INVOICE, code: 'FAC900002', customerId: CUSTOMER, issueDate: '2026-01-05', dueDate: '2026-01-20', status: 'issued', total: 10, exchangeRate: null, paid: 0 });
+        expect((await invoice()).toPrimitives()).toEqual({ id: INVOICE, code: 'FAC900002', customerId: CUSTOMER, issueDate: '2026-01-05', dueDate: '2026-01-20', status: 'issued', total: 100, ...DOLLARS, paid: 0 });
       });
     });
 

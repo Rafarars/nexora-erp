@@ -44,7 +44,8 @@ export class SalesOrderConfirmer {
           date: row.orderDate,
           notes: row.notes,
           currency: row.currency,
-          exchangeRate: row.exchangeRate,
+          // Confirmar congela la tasa del dia del pedido, salvo la escrita a mano.
+          exchangeRate: order.currency().manualRate(),
           lines: row.lines.map(({ id, itemId, unitId, quantity, unitPrice }) => ({ id, itemId, unitId, quantity, unitPrice })),
         },
         today,

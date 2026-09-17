@@ -72,7 +72,7 @@ export class PrismaSalesPortsHarness implements SalesPortsHarness {
         paymentDate: new Date('2026-01-15T00:00:00.000Z'),
         method: 'cash',
         amount,
-        status: 'confirmed', currency: 'USD', baseCurrency: 'USD', exchangeRate: 1, baseExchangeRate: 1, manualExchangeRate: false, amountVes: 0,
+        status: 'confirmed', currency: 'USD', baseCurrency: 'USD', exchangeRate: 36.5, baseExchangeRate: 36.5, manualExchangeRate: false, amountVes: amount * 36.5,
         updatedAt: new Date(),
       },
     });

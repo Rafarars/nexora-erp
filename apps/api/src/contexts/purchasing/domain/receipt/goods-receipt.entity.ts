@@ -7,7 +7,7 @@ import {
   GoodsReceiptNotEditableError,
 } from '../errors/purchasing.errors.js';
 import { PurchaseOrderId } from '../order/purchase-order.entity.js';
-import { DocumentCurrency, DocumentCurrencyPrimitives } from '../shared/document-currency.js';
+import { DocumentCurrency, DocumentCurrencyPrimitives } from '../../../../shared/domain/document-currency.js';
 import { PurchaseDate } from '../shared/purchase-date.vo.js';
 import { WarehouseRef } from '../shared/references.vo.js';
 import { optionalText } from '../shared/text.js';

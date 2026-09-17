@@ -23,7 +23,7 @@ export class PrismaDispatchRepository implements DispatchRepository {
       } else {
         const { count } = await tx.dispatch.updateMany({
           where: { tenantId: row.tenantId, id: row.id, status: 'draft', updatedAt: dispatch.version() ?? undefined },
-          data: { dispatchDate: asDate(dispatchDate), notes: row.notes, currency: row.currency, exchangeRate: row.exchangeRate, baseCurrency: row.baseCurrency, baseExchangeRate: row.baseExchangeRate, manualExchangeRate: row.manualExchangeRate, updatedAt: row.updatedAt },
+          data: { dispatchDate: asDate(dispatchDate), notes: row.notes, updatedAt: row.updatedAt },
         });
 
         if (count === 0) {

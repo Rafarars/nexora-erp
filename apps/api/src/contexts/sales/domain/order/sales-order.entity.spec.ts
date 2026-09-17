@@ -1,4 +1,3 @@
-import { DocumentCurrency } from '../shared/document-currency.js';
 import { describe, expect, it } from 'vitest';
 import {
   DispatchExceedsPendingError,
@@ -16,7 +15,7 @@ import { CustomerId } from '../customer/customer.entity.js';
 import { Quantity } from '../shared/quantity.vo.js';
 import { WarehouseRef } from '../shared/references.vo.js';
 import { SalesDate } from '../shared/sales-date.vo.js';
-import { CUSTOMER, MAIN, NOW, SOAP, TODAY, WATER, aConfirmedOrder, aDraftOrder, anAvailability, anOrderLine } from '../testing/sales.mother.js';
+import { aDocumentCurrency, CUSTOMER, MAIN, NOW, SOAP, TODAY, WATER, aConfirmedOrder, aDraftOrder, anAvailability, anOrderLine } from '../testing/sales.mother.js';
 import { StockReservation } from './posting/stock-reservation.js';
 import { SalesOrderLineId } from './sales-order-line.js';
 import { SalesOrder } from './sales-order.entity.js';
@@ -29,7 +28,7 @@ describe('SalesOrder', () => {
       expect(() => aDraftOrder([])).toThrow(EmptySalesOrderError);
       expect(() =>
         aDraftOrder().update(
-          { customerId: CustomerId.of(CUSTOMER), warehouseId: WarehouseRef.of(MAIN), orderDate: SalesDate.of('2026-01-16'), notes: null, currency: { currency: 'USD', exchangeRate: 1, baseCurrency: 'USD', baseExchangeRate: 1, manualRate: false, toPrimitives: () => ({ currency: 'USD', exchangeRate: 1, baseCurrency: 'USD', baseExchangeRate: 1, manualExchangeRate: false }) } as any, lines: [anOrderLine()] },
+          { customerId: CustomerId.of(CUSTOMER), warehouseId: WarehouseRef.of(MAIN), orderDate: SalesDate.of('2026-01-16'), notes: null, currency: aDocumentCurrency(), lines: [anOrderLine()] },
           NOW, TODAY,
         ),
       ).toThrow(FutureSalesDateError);
@@ -38,13 +37,13 @@ describe('SalesOrder', () => {
     it('totals its lines with the tax each one carries', () => {
       const order = aDraftOrder([anOrderLine({ quantity: 10, unitPrice: 30, taxRate: 16 }), anOrderLine({ quantity: 2.5, unitPrice: 4, taxRate: 0, item: SOAP })]);
 
-      expect(order.totals()).toEqual({ subtotal: 310, tax: 48, total: 358 });
+      expect(order.totals(2)).toEqual({ subtotal: 310, tax: 48, total: 358 });
     });
 
     it('is editable until it is confirmed, and confirmed only once', () => {
       const order = aConfirmedOrder();
 
-      expect(() => order.update({ customerId: order.customerId(), warehouseId: order.warehouseId(), orderDate: order.orderDate(), currency: DocumentCurrency.of({ currency: "USD", exchangeRate: 1, baseCurrency: "USD", baseExchangeRate: 1, manualRate: false }), notes: null, lines: [anOrderLine()] }, NOW, TODAY)).toThrow(
+      expect(() => order.update({ customerId: order.customerId(), warehouseId: order.warehouseId(), orderDate: order.orderDate(), currency: aDocumentCurrency(), notes: null, lines: [anOrderLine()] }, NOW, TODAY)).toThrow(
         SalesOrderNotEditableError,
       );
       expect(() => order.confirm(NOW)).toThrow(SalesOrderNotConfirmableError);

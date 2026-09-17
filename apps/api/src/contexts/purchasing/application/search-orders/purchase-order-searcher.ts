@@ -1,7 +1,7 @@
 import { PurchasingCatalog } from '../../domain/catalog/purchasing-catalog.js';
 import { PurchaseOrderRepository } from '../../domain/order/purchase-order.repository.js';
 import { PurchaseOrderStatus } from '../../domain/order/purchase-order.entity.js';
-import { DocumentCurrencyPrimitives } from '../../domain/shared/document-currency.js';
+import { DocumentCurrencyPrimitives } from '../../../../shared/domain/document-currency.js';
 import { centsToNumber } from '../../domain/shared/money.js';
 import { ItemRef, WarehouseRef } from '../../domain/shared/references.vo.js';
 import { TenantId } from '../../domain/shared/tenant-id.vo.js';

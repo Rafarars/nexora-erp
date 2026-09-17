@@ -1,6 +1,6 @@
 import { DocumentRateSet } from '../../../../shared/domain/ports/document-rates.js';
 import { PurchaseWarehouse, PurchasableItem } from '../catalog/purchasing-catalog.js';
-import { DocumentCurrency } from '../shared/document-currency.js';
+import { DocumentCurrency } from '../../../../shared/domain/document-currency.js';
 import { TaxRate, UnitCost } from '../shared/money.js';
 import { PurchaseDate } from '../shared/purchase-date.vo.js';
 import { Quantity } from '../shared/quantity.vo.js';

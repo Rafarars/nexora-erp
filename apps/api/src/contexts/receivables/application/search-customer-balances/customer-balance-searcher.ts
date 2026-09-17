@@ -2,10 +2,11 @@ import { BusinessCalendar } from '../../../../shared/domain/ports/business-calen
 import { AgingTotals, agingOf } from '../../domain/aging/aging.js';
 import { ReceivableInvoice } from '../../domain/ledger/receivable-invoice.js';
 import { ReceivablesLedger } from '../../domain/ledger/receivables-ledger.js';
-import { baseToNumber, toBase } from '../../domain/shared/amount.js';
+import { amountUnits, unitsToNumber } from '../../../../shared/domain/amount.js';
 import { ReceivablesDate } from '../../domain/shared/receivables-date.vo.js';
 import { TenantId } from '../../domain/shared/tenant-id.vo.js';
 
+// Todo en la moneda de la empresa.
 export interface CustomerBalanceResponse {
   customer: { id: string; code: string; name: string; isActive: boolean };
   paymentTermDays: number;
@@ -47,15 +48,15 @@ export function customerBalance(
   today: ReceivablesDate,
 ): CustomerBalanceResponse {
   const aging = agingOf(invoices, today);
-  const overdue = invoices.filter((invoice) => invoice.isOverdue(today)).reduce((sum, invoice) => sum + invoice.balanceBase(), 0n);
+  const overdue = invoices.filter((invoice) => invoice.isOverdue(today)).reduce((sum, invoice) => sum + invoice.companyBalanceUnits(), 0n);
 
   return {
     customer: { id: customer.id, code: customer.code, name: customer.name, isActive: customer.isActive },
     paymentTermDays: customer.paymentTermDays,
     creditLimit: customer.creditLimit,
     balance: aging.total,
-    overdue: baseToNumber(overdue),
-    availableCredit: customer.creditLimit === null ? null : baseToNumber(toBase(customer.creditLimit) - toBase(aging.total)),
+    overdue: unitsToNumber(overdue),
+    availableCredit: customer.creditLimit === null ? null : unitsToNumber(amountUnits(customer.creditLimit) - amountUnits(aging.total)),
     creditBlocked: overdue > 0n,
     aging,
   };

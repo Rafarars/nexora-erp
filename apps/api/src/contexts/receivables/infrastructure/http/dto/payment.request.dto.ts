@@ -8,7 +8,7 @@ export const paymentRequestSchema = z.object({
   reference: z.string().nullable().optional(),
   notes: z.string().nullable().optional(),
   currency: z.string().nullable().optional(),
-  manualExchangeRate: z.number().nullable().optional(),
+  exchangeRate: z.number().nullable().optional(),
   allocations: z.array(z.object({ invoiceId: z.string(), amount: z.number() })),
 });
 

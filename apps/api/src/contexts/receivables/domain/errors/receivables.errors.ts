@@ -25,7 +25,7 @@ export class ReceivableInvoiceNotFoundError extends NotFoundError {
 
 export class InvalidPaymentAmountError extends InvalidArgumentError {
   constructor(value: number) {
-    super(`Payment amount must be more than zero with up to two decimals, received <${value}>.`, 'Each amount must be more than zero, with up to two decimals.');
+    super(`Payment amount must be more than zero with no more decimals than the company uses, received <${value}>.`, 'Each amount must be more than zero, with no more decimals than the company uses.');
   }
 }
 

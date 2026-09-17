@@ -4,8 +4,9 @@ import { CustomerId } from '../customer/customer.entity.js';
 import { CustomerCredit, ensureCreditAllows } from './credit/customer-credit.js';
 import { Dispatch, DispatchId } from '../dispatch/dispatch.entity.js';
 import { SalesOrder, SalesOrderId } from '../order/sales-order.entity.js';
-import { baseToNumber, lineSubtotalBase, taxBase } from '../shared/money.js';
-import { DocumentCurrency, DocumentCurrencyPrimitives } from '../shared/document-currency.js';
+import { unitsToNumber } from '../../../../shared/domain/amount.js';
+import { lineSubtotalUnits, taxUnits } from '../shared/money.js';
+import { DocumentCurrency, DocumentCurrencyPrimitives } from '../../../../shared/domain/document-currency.js';
 import { ItemRef, UnitRef } from '../shared/references.vo.js';
 import { SalesDate } from '../shared/sales-date.vo.js';
 import { optionalText } from '../shared/text.js';
@@ -62,13 +63,15 @@ export interface InvoiceIssue {
   // El plazo, el limite y la deuda del cliente de hoy, leidos con el cliente bloqueado.
   credit: CustomerCredit;
   date: SalesDate;
+  // La moneda del pedido con las tasas del dia de emision.
   currency: DocumentCurrency;
+  amountDecimals: number;
   notes: string | null;
   lineIds: () => string;
 }
 
-// La factura cobra lo que salio en un despacho, al precio y con el impuesto del pedido. Nace
-// emitida y sus importes quedan escritos: un documento fiscal no cambia porque luego cambie un
+// La factura cobra lo que salio en un despacho, al precio y con el impuesto del pedido, en su
+// moneda y con las tasas del dia en que se emite. Nace emitida y sus importes quedan escritos: un documento fiscal no cambia porque luego cambie un
 // precio. No toca la existencia. Solo se anula.
 export class Invoice {
   private constructor(private row: InvoicePrimitives) {}
@@ -81,10 +84,10 @@ export class Invoice {
 
     issue.date.ensureNotAfter(today);
 
+    const decimals = issue.amountDecimals;
     const lines = dispatch.lines().map((line, index) => {
       const orderLine = order.line(line.orderLineId);
-      const subtotal = lineSubtotalBase(line.quantity, orderLine.unitPrice);
-      const tax = taxBase(subtotal, orderLine.taxRate);
+      const subtotal = lineSubtotalUnits(line.quantity, orderLine.unitPrice, decimals);
 
       return {
         id: issue.lineIds(),
@@ -94,20 +97,21 @@ export class Invoice {
         quantity: line.quantity.toNumber(),
         unitPrice: orderLine.unitPrice.toNumber(),
         taxRate: orderLine.taxRate.toNumber(),
-        subtotalBase: subtotal,
-        taxBase: tax,
+        subtotalUnits: subtotal,
+        taxUnits: taxUnits(subtotal, orderLine.taxRate, decimals),
       };
     });
-    const subtotal = lines.reduce((sum, line) => sum + line.subtotalBase, 0n);
-    const tax = lines.reduce((sum, line) => sum + line.taxBase, 0n);
+    const subtotal = lines.reduce((sum, line) => sum + line.subtotalUnits, 0n);
+    const tax = lines.reduce((sum, line) => sum + line.taxUnits, 0n);
+    const { currency } = issue;
 
-    ensureCreditAllows(issue.credit, subtotal + tax);
+    ensureCreditAllows(issue.credit, currency.baseAmount(subtotal + tax, decimals));
 
-    const currency = issue.currency;
-    const isVes = currency.baseCurrency === 'VES' || currency.currency === 'VES';
-    const subtotalVes = currency.exchangeRate ? baseToNumber(subtotal) * currency.exchangeRate : null;
-    const taxVes = currency.exchangeRate ? baseToNumber(tax) * currency.exchangeRate : null;
-    
+    // Lo que exige la ley venezolana: base imponible e impuesto en bolivares, a la tasa de emision.
+    const subtotalVes = currency.bolivars(subtotal, decimals);
+    const taxVes = currency.bolivars(tax, decimals);
+    const inBolivars = (units: bigint | null) => (units === null ? null : unitsToNumber(units));
+
     return new Invoice({
       id: id.value,
       tenantId: tenantId.value,
@@ -120,19 +124,19 @@ export class Invoice {
       ...currency.toPrimitives(),
       notes: optionalText(issue.notes, 500, 'InvoiceNotes'),
       status: 'issued',
-      subtotal: baseToNumber(subtotal),
-      tax: baseToNumber(tax),
-      total: baseToNumber(subtotal + tax),
-      subtotalVes,
-      taxVes,
-      totalVes: subtotalVes !== null && taxVes !== null ? subtotalVes + taxVes : null,
+      subtotal: unitsToNumber(subtotal),
+      tax: unitsToNumber(tax),
+      total: unitsToNumber(subtotal + tax),
+      subtotalVes: inBolivars(subtotalVes),
+      taxVes: inBolivars(taxVes),
+      totalVes: subtotalVes === null || taxVes === null ? null : unitsToNumber(subtotalVes + taxVes),
       cancelledAt: null,
       createdAt: now,
       updatedAt: now,
-      lines: lines.map(({ subtotalBase, taxBase: lineTax, ...line }) => ({
+      lines: lines.map(({ subtotalUnits, taxUnits: lineTax, ...line }) => ({
         ...line,
-        subtotal: baseToNumber(subtotalBase),
-        tax: baseToNumber(lineTax),
+        subtotal: unitsToNumber(subtotalUnits),
+        tax: unitsToNumber(lineTax),
       })),
     });
   }

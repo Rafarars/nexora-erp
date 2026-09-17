@@ -1,17 +1,21 @@
 import { describe, expect, it } from 'vitest';
 import { InvalidSalesPriceError, InvalidSalesQuantityError, InvalidTaxRateSnapshotError } from '../errors/sales.errors.js';
-import { TaxRate, UnitPrice, baseToNumber, lineSubtotalBase, taxBase } from './money.js';
+import { unitsToNumber } from '../../../../shared/domain/amount.js';
+import { TaxRate, UnitPrice, lineSubtotalUnits, taxUnits } from './money.js';
 import { Quantity } from './quantity.vo.js';
 
 describe('sales amounts', () => {
-  it('multiplies quantity by price and rounds to base once per line', () => {
-    expect(baseToNumber(lineSubtotalBase(Quantity.of(3), UnitPrice.of(0.335)))).toBe(1.01);
-    expect(baseToNumber(lineSubtotalBase(Quantity.of(2.5), UnitPrice.of(12.123456)))).toBe(30.31);
+  it('multiplies quantity by price and rounds once per line to the decimals of the company', () => {
+    expect(unitsToNumber(lineSubtotalUnits(Quantity.of(3), UnitPrice.of(0.335), 2))).toBe(1.01);
+    expect(unitsToNumber(lineSubtotalUnits(Quantity.of(3), UnitPrice.of(0.335), 4))).toBe(1.005);
+    expect(unitsToNumber(lineSubtotalUnits(Quantity.of(2.5), UnitPrice.of(12.123456), 2))).toBe(30.31);
+    expect(unitsToNumber(lineSubtotalUnits(Quantity.of(2.5), UnitPrice.of(12.123456), 0))).toBe(30);
   });
 
   it('computes the tax on the rounded subtotal, half up', () => {
-    expect(baseToNumber(taxBase(10_05n, TaxRate.of(16)))).toBe(1.61);
-    expect(baseToNumber(taxBase(10_00n, TaxRate.of(0)))).toBe(0);
+    expect(unitsToNumber(taxUnits(100_500n, TaxRate.of(16), 2))).toBe(1.61);
+    expect(unitsToNumber(taxUnits(100_500n, TaxRate.of(16), 4))).toBe(1.608);
+    expect(unitsToNumber(taxUnits(100_000n, TaxRate.of(0), 2))).toBe(0);
   });
 
   it('takes the proportional part of a base quantity', () => {

@@ -1,3 +1,5 @@
+import { amountUnits, unitsToNumber } from '../../../../shared/domain/amount.js';
+import { DocumentCurrency } from '../../../../shared/domain/document-currency.js';
 import { ConcurrentModificationError } from '../../../../shared/domain/concurrent-modification.error.js';
 import { CustomerId } from '../../domain/customer/customer.entity.js';
 import { CustomerRepository } from '../../domain/customer/customer.repository.js';
@@ -252,14 +254,14 @@ export class InMemorySalesStore {
 
     const open = [...this.invoiceRows.values()]
       .filter((row) => row.tenantId === tenantId.value && row.customerId === customerId && row.status === 'issued')
-      .map((row) => ({ dueDate: row.dueDate, balance: Math.round((row.total - (this.paid.get(row.id) ?? 0)) * 100) }))
-      .filter((row) => row.balance > 0);
+      .map((row) => ({ dueDate: row.dueDate, balance: DocumentCurrency.fromPrimitives(row).toBase(amountUnits(row.total) - amountUnits(this.paid.get(row.id) ?? 0)) }))
+      .filter((row) => row.balance > 0n);
 
     return {
       customerId,
       paymentTermDays: customer.paymentTermDays(),
       creditLimit: customer.creditLimit(),
-      openBalance: open.reduce((sum, row) => sum + row.balance, 0) / 100,
+      openBalance: unitsToNumber(open.reduce((sum, row) => sum + row.balance, 0n)),
       hasOverdue: open.some((row) => row.dueDate < today),
     };
   }
