@@ -16,9 +16,15 @@ test('the panel shows the dashboard and the aging report downloads as Excel with
     await expect(page.getByTestId('dashboard-debtors-1')).toContainText('Talleres Omega');
   });
 
+  await test.step('Y cada indicador dice en qué moneda está', async () => {
+    await expect(page.getByTestId('dashboard-receivable').locator('xpath=../dt')).toContainText('USD');
+  });
+
   await test.step('Cuando abre la antigüedad de saldos y la descarga en Excel', async () => {
     await reports.open('antiguedad');
     await expect(page.getByTestId('report-aging-CLI000001')).toContainText('61,20');
+    await expect(page.getByTestId('report-aging')).toBeVisible();
+    await expect(page.getByText('Importes en USD')).toBeVisible();
   });
 
   await test.step('Entonces el archivo trae a Talleres Omega con 61,20', async () => {

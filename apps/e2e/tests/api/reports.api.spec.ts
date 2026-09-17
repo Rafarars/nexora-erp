@@ -1,6 +1,8 @@
 import { expect, test } from '@playwright/test';
 import { auth, tokenFor } from '../../support/inventory-fixtures.js';
 import { aCreditCustomer, anInvoice } from '../../support/receivables-fixtures.js';
+import { ACME_INVENTORY } from '../../support/inventory-fixtures.js';
+import { DISPATCHES, INVOICES, SALES_ORDERS, aDraftDispatch, aDraftSalesOrder, aFreshCustomer, aStockedItem } from '../../support/sales-fixtures.js';
 import { excelRows, pdfText } from '../../support/report-files.js';
 
 const REPORTS = '/api/v1/reports';
@@ -68,6 +70,34 @@ test.describe('exports', () => {
     const rows = await excelRows(await (await request.get(`${REPORTS}/sales-by-customer/export?format=xlsx&from=${today}&to=${today}`, { headers: auth(token) })).body());
 
     expect(rows.find((row) => row[1] === customer.name)).toEqual([customer.code, customer.name, 1, 123.45, 0, 123.45]);
+  });
+
+  // Euro a 175,05 y dolar a 153,10: lo facturado en euros suma en dolares, que es como lleva Acme
+  // sus cifras. Sin convertir, el reporte sumaria euros con dolares.
+  test('the sales report counts an invoice in euros in the company currency', async ({ request }) => {
+    const token = await tokenFor(request, 'ana@acme.com');
+    const [customer, item] = await Promise.all([aFreshCustomer(request, token), aStockedItem(request, token, 4)]);
+    const order = await aDraftSalesOrder(request, token, {
+      customerId: customer.id,
+      currency: 'EUR',
+      lines: [{ itemId: item.id, unitId: ACME_INVENTORY.piece, quantity: 4, unitPrice: 25 }],
+    });
+
+    expect((await request.put(`${SALES_ORDERS}/${order.id}/confirm`, { headers: auth(token) })).status()).toBe(200);
+
+    const dispatch = await aDraftDispatch(request, token, order.id, [{ orderLineId: order.lines[0].id, quantity: 4 }]);
+    expect((await request.put(`${DISPATCHES}/${dispatch.id}/confirm`, { headers: auth(token) })).status()).toBe(200);
+    expect((await request.post(INVOICES, { headers: auth(token), data: { dispatchId: dispatch.id } })).status()).toBe(201);
+
+    const { invoices } = await (await request.get(INVOICES, { headers: auth(token) })).json();
+    const invoice = invoices.find((row: { dispatch: { id: string } }) => row.dispatch.id === dispatch.id);
+    const today = new Date().toISOString().slice(0, 10);
+    const report = await (await request.get(`${REPORTS}/sales-by-customer?from=${today}&to=${today}`, { headers: auth(token) })).json();
+    const row = report.customers.find((candidate: { customer: { name: string } }) => candidate.customer.name === customer.name);
+
+    expect(report.currency).toBe('USD');
+    expect(invoice).toMatchObject({ currency: 'EUR', exchangeRate: 175.05, baseExchangeRate: 153.1 });
+    expect(row.total).toBe(Math.round((invoice.total * 175.05 * 100) / 153.1) / 100);
   });
 
   test('the valuation PDF values the stock at average cost', async ({ request }) => {
