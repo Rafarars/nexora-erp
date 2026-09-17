@@ -2,6 +2,7 @@ import type { AgingTotals } from '../../receivables/domain/receivables';
 
 export interface Dashboard {
   period: { from: string; to: string };
+  currency: string;
   salesThisMonth: number;
   purchasesThisMonth: number;
   collectedThisMonth: number;
@@ -14,12 +15,14 @@ export interface Dashboard {
 
 export interface AgingReport {
   asOf: string;
+  currency: string;
   customers: { customer: { id: string; code: string; name: string }; aging: AgingTotals }[];
   totals: AgingTotals;
 }
 
 export interface StatementReport {
   asOf: string;
+  currency: string;
   customer: { id: string; code: string; name: string; fiscalId: string | null; paymentTermDays: number; creditLimit: number | null };
   balance: number;
   overdue: number;
@@ -28,12 +31,14 @@ export interface StatementReport {
 
 export interface SalesByCustomerReport {
   period: { from: string; to: string };
+  currency: string;
   customers: { customer: { id: string; code: string; name: string }; invoices: number; subtotal: number; tax: number; total: number }[];
   totals: { invoices: number; subtotal: number; tax: number; total: number };
 }
 
 export interface ValuationReport {
   warehouse: string | null;
+  currency: string;
   rows: { warehouse: { id: string; name: string }; item: { id: string; sku: string; name: string }; baseUnit: string; quantity: number; averageCost: number; value: number }[];
   totalValue: number;
 }

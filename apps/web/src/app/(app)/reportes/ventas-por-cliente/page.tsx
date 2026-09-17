@@ -42,7 +42,7 @@ export default async function SalesByCustomerPage({ searchParams }: { searchPara
       <div className="flex flex-wrap items-end justify-between gap-4">
         <div>
           <h2 className="text-base font-semibold">Ventas por cliente</h2>
-          <p className="text-muted mt-1 text-sm">Lo facturado en el periodo, sin facturas anuladas. Hasta un año.</p>
+          <p className="text-muted mt-1 text-sm">Lo facturado en el periodo, sin facturas anuladas. Hasta un año.{report ? ` Importes en ${report.currency}.` : ''}</p>
         </div>
         {report ? <DownloadLinks report="ventas-por-cliente" params={{ desde, hasta }} /> : null}
       </div>

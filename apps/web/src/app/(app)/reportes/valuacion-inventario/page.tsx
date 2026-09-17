@@ -28,7 +28,7 @@ export default async function ValuationReportPage({ searchParams }: { searchPara
       <div className="flex flex-wrap items-end justify-between gap-4">
         <div>
           <h2 className="text-base font-semibold">Valuación del inventario</h2>
-          <p className="text-muted mt-1 text-sm">Existencia de hoy al costo promedio de cada artículo en cada bodega.</p>
+          <p className="text-muted mt-1 text-sm">Existencia de hoy al costo promedio de cada artículo en cada bodega. Importes en {report.currency}.</p>
         </div>
         <DownloadLinks report="valuacion-inventario" params={{ bodega }} />
       </div>

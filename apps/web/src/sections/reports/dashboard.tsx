@@ -24,7 +24,9 @@ export function DashboardView({ dashboard }: { dashboard: Dashboard }) {
       <dl className="grid gap-3 sm:grid-cols-3">
         {indicators.map((indicator) => (
           <div key={indicator.testId} className="border-line rounded-lg border p-4">
-            <dt className="text-muted text-xs uppercase tracking-wide">{indicator.label}</dt>
+            <dt className="text-muted text-xs uppercase tracking-wide">
+              {indicator.label} · {dashboard.currency}
+            </dt>
             <dd className="mt-1 text-lg font-semibold" data-testid={indicator.testId}>
               {formatAmount(indicator.value)}
             </dd>

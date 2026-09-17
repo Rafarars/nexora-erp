@@ -74,7 +74,7 @@ export default async function StatementReportPage({ searchParams }: { searchPara
         <>
           <div className="flex flex-wrap items-end justify-between gap-4">
             <p className="text-sm" data-testid="report-statement-summary">
-              Al {statement.asOf}: saldo <strong>{formatAmount(statement.balance)}</strong>, vencido <strong>{formatAmount(statement.overdue)}</strong>
+              Al {statement.asOf}: saldo <strong>{formatAmount(statement.balance)}</strong>, vencido <strong>{formatAmount(statement.overdue)}</strong>, en {statement.currency}
             </p>
             <DownloadLinks report="estado-de-cuenta" formats={['pdf']} params={{ cliente: statement.customer.id }} />
           </div>

@@ -26,7 +26,9 @@ export default async function AgingReportPage() {
       <div className="flex flex-wrap items-end justify-between gap-4">
         <div>
           <h2 className="text-base font-semibold">Antigüedad de saldos por cobrar</h2>
-          <p className="text-muted mt-1 text-sm">Al {report.asOf}. Solo los clientes que deben algo.</p>
+          <p className="text-muted mt-1 text-sm">
+            Al {report.asOf}. Solo los clientes que deben algo. Importes en {report.currency}.
+          </p>
         </div>
         <DownloadLinks report="antiguedad" />
       </div>
