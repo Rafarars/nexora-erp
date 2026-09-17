@@ -25,7 +25,10 @@ export class AppShell {
   async goToAdministration(section: 'usuarios' | 'roles' | 'empresa' | 'tasas'): Promise<void> {
     await this.accountButton.click();
     await this.page.getByTestId('account-administration').click();
+    // Desde otra pantalla de administracion el menu ya esta: sin esperar, el clic cae en la pagina vieja.
+    await expect(this.page).toHaveURL(/\/administracion\/usuarios$/);
     await this.page.getByTestId(`admin-${section}`).click();
+    await expect(this.page).toHaveURL(new RegExp(`/administracion/${section}$`));
   }
 
   async goToProfile(): Promise<void> {
