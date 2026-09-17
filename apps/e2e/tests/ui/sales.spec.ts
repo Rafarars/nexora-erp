@@ -12,6 +12,9 @@ const API = process.env.API_URL ?? 'http://localhost:3001';
 // El ciclo completo del ERP escrito como escenario: cada paso es un Dado, Cuando o Entonces. Con
 // articulo, proveedor y cliente propios, para que ninguna prueba en paralelo mueva lo suyo.
 test('the whole cycle from the screen: buy, receive, sell, dispatch and invoice', async ({ page, request }) => {
+  // Son seis pantallas seguidas: con la suite entera en marcha no entra en el minuto de las demas.
+  test.slow();
+
   const token = await tokenFor(request, ACME_ADMIN.email, API);
   const [item, supplier, customer] = await Promise.all([aFreshItem(request, token, API), aFreshSupplier(request, token, API), aFreshCustomer(request, token, 15, API)]);
   const label = `${item.sku} — ${item.name}`;
@@ -101,6 +104,34 @@ test('explains in Spanish that an order does not fit in what is available', asyn
 
   await expect(page.getByTestId('sales-order-action-error')).toHaveText('No hay existencia disponible suficiente para reservar este pedido.');
   await expect(sales.orderOf(customer.name).getByTestId(/sales-order-status-/)).toHaveText('Borrador');
+});
+
+// React reinicia un formulario al terminar su accion: sin cuidarlo, un rechazo borraba cliente y
+// articulo, y la moneda volvia a USD en pantalla mientras el formulario seguia creyendo que era EUR.
+test('a refused order keeps what was written, and saves in the chosen currency once corrected', async ({ page, request }) => {
+  const token = await tokenFor(request, ACME_ADMIN.email, API);
+  const customer = await aFreshCustomer(request, token, 15, API);
+  const sales = new SalesPage(page);
+
+  await new LoginPage(page).signIn(ACME_ADMIN);
+  await sales.open('pedidos');
+  await page.getByTestId('new-sales-order').click();
+  await page.getByTestId('sales-order-customer').selectOption({ label: customer.name });
+  await page.getByTestId('sales-order-currency').selectOption('EUR');
+  await page.getByTestId('sales-order-line-item-0').selectOption({ label: 'AGUA-500 — Agua mineral 500 ml' });
+  await page.getByTestId('sales-order-line-quantity-0').fill('2');
+  await page.getByTestId('sales-order-line-price-0').fill('30,1234567');
+  await page.getByTestId('sales-order-submit').click();
+
+  await expect(page.getByTestId('sales-order-error')).toBeVisible();
+  await expect(page.getByTestId('sales-order-customer')).toHaveValue(customer.id);
+  await expect(page.getByTestId('sales-order-currency')).toHaveValue('EUR');
+  await expect(page.getByTestId('sales-order-line-item-0')).not.toHaveValue('');
+
+  await page.getByTestId('sales-order-line-price-0').fill('30,12');
+  await page.getByTestId('sales-order-submit').click();
+
+  await expect(sales.orderOf(customer.name).getByTestId(/sales-order-total-/)).toContainText('EUR');
 });
 
 test('a read-only role sees orders, invoices and availability but gets no way to sell', async ({ page }) => {
