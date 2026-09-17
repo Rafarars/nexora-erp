@@ -8,16 +8,17 @@ import { RowOptions } from '@/sections/shared/row-options';
 import { SlideOver } from '@/sections/shared/slide-over';
 import { emptyState } from '@/shared/forms/form-state';
 import type { FormState } from '@/shared/forms/form-state';
-import { formatAmount } from '@/modules/sales/domain/sales';
-import { AmountDual } from '@/shared/components/amount-dual';
+import { formatAmount } from '@/modules/purchasing/domain/purchasing';
+import { currencyOptions, formatRate, offersManualRate } from '@/modules/company/domain/company';
+import { DocumentRate } from '@/sections/shared/document-rate';
 import { PAYMENT_METHOD_LABELS, PAYMENT_STATUS_LABELS, customersWithDebt, overdueLabel, payableInvoices, paymentActions } from '@/modules/receivables/domain/receivables';
 import type { Payment, PaymentMethod, Receivable } from '@/modules/receivables/domain/receivables';
-import type { CompanySettings } from '@/modules/company/domain/company';
-import { ExchangeRateField } from '@/shared/forms/exchange-rate-field';
+import type { CompanySettings, Currency } from '@/modules/company/domain/company';
 
 export function PaymentsBoard({
   payments,
   receivables,
+  currencies,
   settings,
   canCreate,
   canUpdate,
@@ -26,6 +27,7 @@ export function PaymentsBoard({
 }: {
   payments: Payment[];
   receivables: Receivable[];
+  currencies: Currency[];
   settings: CompanySettings;
   canCreate: boolean;
   canUpdate: boolean;
@@ -104,13 +106,23 @@ export function PaymentsBoard({
                   </td>
                   <td className="px-4 py-3 text-xs">
                     {payment.allocations.map((allocation) => (
-                      <p key={allocation.invoiceId}>
-                        <span className="font-mono">{allocation.invoiceCode}</span> {formatAmount(allocation.amount)}
-                      </p>
+                      <div key={allocation.invoiceId}>
+                        <p>
+                          <span className="font-mono">{allocation.invoiceCode}</span> {allocation.currency} {formatAmount(allocation.amount)}
+                        </p>
+                        {allocation.exchangeDifference !== null && allocation.exchangeDifference !== 0 ? (
+                          <p className="text-muted" data-testid={`payment-difference-${payment.code}-${allocation.invoiceCode}`}>
+                            Diferencial Bs. {formatAmount(allocation.exchangeDifference)}
+                          </p>
+                        ) : null}
+                      </div>
                     ))}
                   </td>
-                  <td className="px-4 py-3 text-right" data-testid={`payment-amount-${payment.code}`}>
-                    {formatAmount(payment.amount)}
+                  <td className="px-4 py-3 text-right">
+                    <p data-testid={`payment-amount-${payment.code}`}>
+                      {payment.currency} {formatAmount(payment.amount)}
+                    </p>
+                    <DocumentRate document={payment} bolivars={payment.amountVes} testId={`payment-rate-${payment.code}`} />
                   </td>
                   <td className="px-4 py-3" data-testid={`payment-status-${payment.code}`}>
                     {PAYMENT_STATUS_LABELS[payment.status]}
@@ -182,7 +194,7 @@ export function PaymentsBoard({
       >
         <form action={save} className="space-y-4" key={editing?.id ?? 'new'}>
           <input type="hidden" name="id" value={editing?.id ?? ''} />
-          <PaymentFields payment={editing} receivables={receivables} settings={settings} />
+          <PaymentFields payment={editing} receivables={receivables} currencies={currencies} settings={settings} />
           <FormError message={saveState.error} testId="payment-error" />
           <SubmitButton pending={saving} testId="payment-submit">
             Guardar borrador
@@ -193,8 +205,20 @@ export function PaymentsBoard({
   );
 }
 
-function PaymentFields({ payment, receivables, settings }: { payment: Payment | null; receivables: Receivable[]; settings: CompanySettings }) {
+function PaymentFields({
+  payment,
+  receivables,
+  currencies,
+  settings,
+}: {
+  payment: Payment | null;
+  receivables: Receivable[];
+  currencies: Currency[];
+  settings: CompanySettings;
+}) {
+  const baseCurrency = settings.baseCurrency.code;
   const [customerId, setCustomerId] = useState(payment?.customer.id ?? '');
+  const [currency, setCurrency] = useState(payment?.currency ?? baseCurrency);
   const invoices = payableInvoices(receivables, customerId, payment);
 
   return (
@@ -269,11 +293,52 @@ function PaymentFields({ payment, receivables, settings }: { payment: Payment | 
         />
       </div>
 
+      <div className="flex gap-2">
+        <div className="flex-1 space-y-1.5">
+          <label htmlFor="payment-currency" className="text-sm font-medium">
+            Moneda en que paga
+          </label>
+          <select
+            id="payment-currency"
+            name="currency"
+            value={currency}
+            onChange={(event) => setCurrency(event.target.value)}
+            data-testid="payment-currency"
+            className="border-line bg-background w-full rounded-md border px-3 py-2 text-sm"
+          >
+            {currencyOptions(currencies, payment?.currency, baseCurrency).map((option) => (
+              <option key={option.code} value={option.code}>
+                {option.code} — {option.name}
+              </option>
+            ))}
+          </select>
+        </div>
+        {offersManualRate(currency, baseCurrency, settings.allowsRateOverride) ? (
+          <div className="flex-1 space-y-1.5">
+            <label htmlFor="payment-exchange-rate" className="text-sm font-medium">
+              Tasa en Bs. <span className="text-muted font-normal">(vacía: la del día)</span>
+            </label>
+            <input
+              id="payment-exchange-rate"
+              name="exchangeRate"
+              inputMode="decimal"
+              placeholder="Automática"
+              defaultValue={payment?.manualExchangeRate && payment.exchangeRate !== null ? formatRate(payment.exchangeRate) : ''}
+              data-testid="payment-exchange-rate"
+              className="border-line w-full rounded-md border bg-transparent px-3 py-2 text-sm"
+            />
+          </div>
+        ) : null}
+      </div>
+
       <TextArea label="Notas" name="notes" testId="payment-notes" defaultValue={payment?.notes ?? ''} />
 
       <fieldset className="space-y-2" data-testid="payment-invoices">
         <legend className="text-sm font-medium">Facturas</legend>
-        <p className="text-muted text-xs">Escribe cuánto se cobra de cada factura. Las que dejes vacías no son parte del cobro.</p>
+        <p className="text-muted text-xs">
+          Escribe cuánto se cobra de cada factura, en la moneda de la factura. Si paga en otra moneda, el cobro se convierte con la
+          tasa del día. Las que dejes vacías no son parte del cobro.
+        </p>
 
         {customerId === '' ? <p className="text-muted text-sm">Elige primero el cliente.</p> : null}
         {customerId !== '' && invoices.length === 0 ? <p className="text-muted text-sm">Este cliente no debe nada.</p> : null}
@@ -284,7 +349,7 @@ function PaymentFields({ payment, receivables, settings }: { payment: Payment | 
             <div className="min-w-0 flex-1 text-xs">
               <p className="font-mono">{invoice.code}</p>
               <p className="text-muted">
-                Debe {formatAmount(invoice.balance)} · vence {invoice.dueDate} · {overdueLabel(invoice.daysOverdue)}
+                Debe {invoice.currency} {formatAmount(invoice.balance)} · vence {invoice.dueDate} · {overdueLabel(invoice.daysOverdue)}
               </p>
             </div>
             <input

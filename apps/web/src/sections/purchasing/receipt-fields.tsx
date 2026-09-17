@@ -2,8 +2,8 @@
 
 import { TextArea } from '@/sections/shared/field';
 import { formatQuantity } from '@/modules/inventory/domain/inventory';
-import { formatRate } from '@/modules/company/domain/company';
-import { offersManualRate, receivableLines } from '@/modules/purchasing/domain/purchasing';
+import { formatRate, offersManualRate } from '@/modules/company/domain/company';
+import { receivableLines } from '@/modules/purchasing/domain/purchasing';
 import type { GoodsReceipt, PurchaseOrder } from '@/modules/purchasing/domain/purchasing';
 
 // Cuanto llego de cada linea de la orden. Se propone lo pendiente al crear; al editar, lo que

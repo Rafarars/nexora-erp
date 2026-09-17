@@ -7,9 +7,9 @@ import { FormError } from '@/sections/shared/field';
 import { RowOptions } from '@/sections/shared/row-options';
 import { emptyState } from '@/shared/forms/form-state';
 import { formatQuantity } from '@/modules/inventory/domain/inventory';
-import { AmountDual } from '@/shared/components/amount-dual';
 import { formatAmount } from '@/modules/purchasing/domain/purchasing';
 import { INVOICE_STATUS_LABELS } from '@/modules/sales/domain/sales';
+import { DocumentRate } from '@/sections/shared/document-rate';
 import type { Invoice } from '@/modules/sales/domain/sales';
 
 // Las facturas se emiten desde su despacho ("Facturar"). Aqui se consultan y se anulan.
@@ -59,8 +59,12 @@ export function InvoicesBoard({ invoices, canCancel }: { invoices: Invoice[]; ca
                   ))}
                 </td>
                 <td className="px-4 py-3 text-right" data-testid={`invoice-total-${invoice.code}`}>
-                  <p>{formatAmount(invoice.total)}</p>
+                  <p>
+                    {invoice.currency} {formatAmount(invoice.total)}
+                  </p>
                   <p className="text-muted text-xs">IVA {formatAmount(invoice.tax)}</p>
+                  {/* Los bolivares de la factura son los que escribio al emitirse: son los que valen ante la ley. */}
+                  <DocumentRate document={invoice} bolivars={invoice.totalVes} testId={`invoice-rate-${invoice.code}`} />
                 </td>
                 <td className="px-4 py-3" data-testid={`invoice-due-${invoice.code}`}>
                   {invoice.dueDate}

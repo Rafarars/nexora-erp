@@ -1,10 +1,12 @@
+import type { DocumentCurrency } from '../../company/domain/company';
+
 export type PaymentStatus = 'draft' | 'confirmed' | 'cancelled';
 export type PaymentMethod = 'cash' | 'transfer' | 'card' | 'check';
 export type CollectionStatus = 'pending' | 'partially_paid' | 'paid' | 'cancelled';
 export type AgingBucket = 'current' | 'days1To30' | 'days31To60' | 'days61To90' | 'over90';
 export type AgingTotals = Record<AgingBucket | 'total', number>;
 
-export interface Payment {
+export interface Payment extends DocumentCurrency {
   id: string;
   code: string;
   customer: { id: string; code: string; name: string };
@@ -12,15 +14,12 @@ export interface Payment {
   method: PaymentMethod;
   reference: string | null;
   notes: string | null;
+  // En la moneda del cobro.
   amount: number;
   amountVes: number | null;
-  currency: string;
-  exchangeRate: number | null;
-  baseCurrency: string;
-  baseExchangeRate: number | null;
-  manualExchangeRate: boolean;
   status: PaymentStatus;
-  allocations: { invoiceId: string; invoiceCode: string; dueDate: string; amount: number }[];
+  // Cada importe en la moneda de su factura; el diferencial cambiario, en bolivares.
+  allocations: { invoiceId: string; invoiceCode: string; dueDate: string; currency: string; amount: number; exchangeRate: number | null; exchangeDifference: number | null }[];
 }
 
 export interface Receivable {
@@ -29,9 +28,13 @@ export interface Receivable {
   customer: { id: string; code: string; name: string };
   issueDate: string;
   dueDate: string;
+  // En la moneda de la factura.
+  currency: string;
   total: number;
   paid: number;
   balance: number;
+  // En la moneda de la empresa.
+  companyBalance: number;
   status: CollectionStatus;
   daysOverdue: number;
   bucket: AgingBucket | null;
@@ -55,6 +58,8 @@ export interface StatementMovement {
   debit: number;
   credit: number;
   balance: number;
+  // De un cobro, en bolivares.
+  exchangeDifference: number | null;
 }
 
 export interface Statement {
@@ -113,26 +118,4 @@ export function payableInvoices(receivables: Receivable[], customerId: string, p
 
 export function creditLabel(creditLimit: number | null, format: (value: number) => string): string {
   return creditLimit === null ? 'Sin límite' : format(creditLimit);
-}
-
-export interface DocumentCurrency {
-  currency: string;
-  exchangeRate: number | null;
-  baseCurrency: string;
-  baseExchangeRate: number | null;
-  manualExchangeRate: boolean;
-}
-
-export function formatAmount(value: number): string {
-  return value.toLocaleString('es', { minimumFractionDigits: 4, maximumFractionDigits: 4, useGrouping: false });
-}
-
-export function inBolivars(amount: number, document: DocumentCurrency): number | null {
-  if (document.currency === 'VES') return amount;
-  if (document.exchangeRate === null) return null;
-  return Math.round(amount * document.exchangeRate * 10000) / 10000;
-}
-
-export function offersManualRate(currency: string, baseCurrency: string, allowsRateOverride: boolean): boolean {
-  return allowsRateOverride && currency !== baseCurrency && currency !== 'VES';
 }

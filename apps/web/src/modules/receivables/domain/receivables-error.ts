@@ -5,7 +5,7 @@ const BY_CODE: Record<string, string> = {
   PaymentNotFoundError: 'Ese cobro ya no existe en esta empresa.',
   ReceivableCustomerNotFoundError: 'Ese cliente ya no existe en esta empresa.',
   ReceivableInvoiceNotFoundError: 'Una de las facturas ya no existe en esta empresa.',
-  InvalidPaymentAmountError: 'Cada monto debe ser mayor que cero, con hasta dos decimales.',
+  InvalidPaymentAmountError: 'Cada monto debe ser mayor que cero, sin más decimales de los que usa la empresa.',
   EmptyPaymentError: 'Indica cuánto se cobra de al menos una factura.',
   DuplicatePaymentInvoiceError: 'Cada factura puede aparecer una sola vez en el cobro.',
   InvalidPaymentMethodError: 'Elige cómo se cobró.',

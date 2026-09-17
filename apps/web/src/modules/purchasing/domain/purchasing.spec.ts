@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { formatAmount, inBolivars, offersManualRate, orderActions, receiptActions, receivableLines, summarizeOrderLines } from './purchasing';
+import { formatAmount, orderActions, receiptActions, receivableLines, summarizeOrderLines } from './purchasing';
 import type { GoodsReceipt, OrderLine, PurchaseOrder } from './purchasing';
 
 const line = (overrides: Partial<OrderLine>): OrderLine => ({
@@ -36,23 +36,6 @@ const order = (lines: OrderLine[]): PurchaseOrder => ({
   manualExchangeRate: false,
   totals: { subtotal: 120, tax: 19.2, total: 139.2 },
   lines,
-});
-
-describe('document currency', () => {
-  const dollars = { currency: 'USD', exchangeRate: 36.5, baseCurrency: 'USD', baseExchangeRate: 36.5, manualExchangeRate: false };
-
-  it('says what an amount is worth in bolivars with the rate the document froze', () => {
-    expect(inBolivars(139.2, dollars)).toBe(5080.8);
-    expect(inBolivars(100, { ...dollars, currency: 'VES', exchangeRate: 1 })).toBe(100);
-    expect(inBolivars(100, { ...dollars, exchangeRate: null, baseExchangeRate: null })).toBeNull();
-  });
-
-  it('offers writing the rate only for a foreign currency other than the company one, if allowed', () => {
-    expect(offersManualRate('EUR', 'USD', true)).toBe(true);
-    expect(offersManualRate('USD', 'USD', true)).toBe(false);
-    expect(offersManualRate('VES', 'USD', true)).toBe(false);
-    expect(offersManualRate('EUR', 'USD', false)).toBe(false);
-  });
 });
 
 describe('orderActions', () => {

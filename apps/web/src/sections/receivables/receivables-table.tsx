@@ -40,7 +40,9 @@ export function ReceivablesTable({ receivables }: { receivables: Receivable[] })
                     {row.balance > 0 ? overdueLabel(row.daysOverdue) : '—'}
                   </p>
                 </td>
-                <td className="px-4 py-3 text-right">{formatAmount(row.total)}</td>
+                <td className="px-4 py-3 text-right">
+                  {row.currency} {formatAmount(row.total)}
+                </td>
                 <td className="px-4 py-3 text-right" data-testid={`receivable-paid-${row.code}`}>
                   {formatAmount(row.paid)}
                 </td>

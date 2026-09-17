@@ -16,7 +16,11 @@ export class HttpReceivablesApi implements ReceivablesApi {
   }
 
   async savePayment(token: string, id: string | null, input: PaymentInput): Promise<void> {
-    const body = { ...input, allocations: input.allocations.map((allocation) => ({ ...allocation, amount: numeric(allocation.amount) })) };
+    const body = {
+      ...input,
+      exchangeRate: input.exchangeRate === null ? null : numeric(input.exchangeRate),
+      allocations: input.allocations.map((allocation) => ({ ...allocation, amount: numeric(allocation.amount) })),
+    };
 
     await this.request(id ? 'PUT' : 'POST', id ? `${BASE}/payments/${id}` : `${BASE}/payments`, token, body);
   }

@@ -11,7 +11,10 @@ import { selectableOptions } from '@/modules/catalog/domain/catalog';
 import type { Warehouse } from '@/modules/catalog/domain/catalog';
 import type { Item } from '@/modules/inventory/domain/item';
 import { formatCost, formatQuantity } from '@/modules/inventory/domain/inventory';
+import { currencyOptions, formatRate, offersManualRate } from '@/modules/company/domain/company';
+import type { Currency } from '@/modules/company/domain/company';
 import { formatAmount } from '@/modules/purchasing/domain/purchasing';
+import { DocumentRate } from '@/sections/shared/document-rate';
 import { ORDER_STATUS_LABELS, orderActions, summarizeOrderLines } from '@/modules/sales/domain/sales';
 import type { Customer, SalesOrder } from '@/modules/sales/domain/sales';
 import { MenuButton } from '@/sections/purchasing/menu-button';
@@ -22,6 +25,9 @@ export function SalesOrdersBoard({
   customers,
   items,
   warehouses,
+  currencies,
+  baseCurrency,
+  allowsRateOverride,
   today,
   canCreate,
   canUpdate,
@@ -33,6 +39,9 @@ export function SalesOrdersBoard({
   customers: Customer[];
   items: Item[];
   warehouses: Warehouse[];
+  currencies: Currency[];
+  baseCurrency: string;
+  allowsRateOverride: boolean;
   today: string;
   canCreate: boolean;
   canUpdate: boolean;
@@ -128,8 +137,11 @@ export function SalesOrdersBoard({
                     {order.notes ? <p className="text-muted text-xs">{order.notes}</p> : null}
                   </td>
                   <td className="px-4 py-3 text-right" data-testid={`sales-order-total-${order.code}`}>
-                    <p>{formatAmount(order.totals.total)}</p>
+                    <p>
+                      {order.currency} {formatAmount(order.totals.total)}
+                    </p>
                     <p className="text-muted text-xs">IVA {formatAmount(order.totals.tax)}</p>
+                    <DocumentRate document={order} amount={order.totals.total} testId={`sales-order-rate-${order.code}`} />
                   </td>
                   <td className="px-4 py-3" data-testid={`sales-order-status-${order.code}`}>
                     {ORDER_STATUS_LABELS[order.status]}
@@ -212,7 +224,16 @@ export function SalesOrdersBoard({
       >
         <form action={save} className="space-y-4" key={editing?.id ?? 'new'}>
           <input type="hidden" name="id" value={editing?.id ?? ''} />
-          <OrderFields order={editing} customers={customers} items={items} warehouses={warehouses} today={today} />
+          <OrderFields
+            order={editing}
+            customers={customers}
+            items={items}
+            warehouses={warehouses}
+            currencies={currencies}
+            baseCurrency={baseCurrency}
+            allowsRateOverride={allowsRateOverride}
+            today={today}
+          />
           <FormError message={saveState.error} testId="sales-order-error" />
           <SubmitButton pending={saving} testId="sales-order-submit">
             Guardar borrador
@@ -251,14 +272,21 @@ function OrderFields({
   customers,
   items,
   warehouses,
+  currencies,
+  baseCurrency,
+  allowsRateOverride,
   today,
 }: {
   order: SalesOrder | null;
   customers: Customer[];
   items: Item[];
   warehouses: Warehouse[];
+  currencies: Currency[];
+  baseCurrency: string;
+  allowsRateOverride: boolean;
   today: string;
 }) {
+  const [currency, setCurrency] = useState(order?.currency ?? baseCurrency);
   // Solo se vende lo que sale de una bodega.
   const sellable = items.filter((item) => item.type === 'inventoried');
   const initial: LineRow[] = order
@@ -332,6 +360,44 @@ function OrderFields({
             className="border-line w-full rounded-md border bg-transparent px-3 py-2 text-sm"
           />
         </div>
+      </div>
+
+      <div className="flex gap-2">
+        <div className="flex-1 space-y-1.5">
+          <label htmlFor="sales-order-currency" className="text-sm font-medium">
+            Moneda
+          </label>
+          <select
+            id="sales-order-currency"
+            name="currency"
+            value={currency}
+            onChange={(event) => setCurrency(event.target.value)}
+            data-testid="sales-order-currency"
+            className="border-line bg-background w-full rounded-md border px-3 py-2 text-sm"
+          >
+            {currencyOptions(currencies, order?.currency, baseCurrency).map((option) => (
+              <option key={option.code} value={option.code}>
+                {option.code} — {option.name}
+              </option>
+            ))}
+          </select>
+        </div>
+        {offersManualRate(currency, baseCurrency, allowsRateOverride) ? (
+          <div className="flex-1 space-y-1.5">
+            <label htmlFor="sales-order-exchange-rate" className="text-sm font-medium">
+              Tasa en Bs. <span className="text-muted font-normal">(vacía: la del día)</span>
+            </label>
+            <input
+              id="sales-order-exchange-rate"
+              name="exchangeRate"
+              inputMode="decimal"
+              placeholder="Automática"
+              defaultValue={order?.manualExchangeRate && order.exchangeRate !== null ? formatRate(order.exchangeRate) : ''}
+              data-testid="sales-order-exchange-rate"
+              className="border-line w-full rounded-md border bg-transparent px-3 py-2 text-sm"
+            />
+          </div>
+        ) : null}
       </div>
 
       <TextArea label="Notas" name="notes" testId="sales-order-notes" defaultValue={order?.notes ?? ''} />

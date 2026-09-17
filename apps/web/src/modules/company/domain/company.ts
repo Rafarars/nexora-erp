@@ -106,3 +106,27 @@ export function rateFilterQuery(filter: RateFilter): string {
 
   return query ? `?${query}` : '';
 }
+
+// La moneda de un documento y las tasas que congelo (bolivares por 1 unidad). Sin tasas, es anterior
+// al multimoneda y esta en la moneda de la empresa. La comparten compras, ventas y cobranza.
+export interface DocumentCurrency {
+  currency: string;
+  exchangeRate: number | null;
+  baseCurrency: string;
+  baseExchangeRate: number | null;
+  manualExchangeRate: boolean;
+}
+
+// Lo que vale un importe en bolivares con la tasa que congelo su documento; null si no tiene tasa.
+export function inBolivars(amount: number, document: DocumentCurrency): number | null {
+  if (document.currency === 'VES') return amount;
+  if (document.exchangeRate === null) return null;
+
+  return Math.round(amount * document.exchangeRate * 100) / 100;
+}
+
+// El formulario ofrece escribir la tasa solo si la empresa lo permite y la moneda no es la suya ni el
+// bolivar: esas tienen la tasa del catalogo, o 1.
+export function offersManualRate(currency: string, baseCurrency: string, allowsRateOverride: boolean): boolean {
+  return allowsRateOverride && currency !== baseCurrency && currency !== 'VES';
+}

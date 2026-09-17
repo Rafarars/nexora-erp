@@ -1,3 +1,4 @@
+import type { DocumentCurrency } from '../../company/domain/company';
 import { formatQuantity } from '../../inventory/domain/inventory';
 
 export type OrderStatus = 'draft' | 'confirmed' | 'partially_dispatched' | 'dispatched' | 'cancelled';
@@ -34,7 +35,7 @@ export interface OrderLine {
   subtotal: number;
 }
 
-export interface SalesOrder {
+export interface SalesOrder extends DocumentCurrency {
   id: string;
   code: string;
   customer: { id: string; name: string };
@@ -67,18 +68,12 @@ export interface Dispatch {
   warehouse: { id: string; name: string };
   date: string;
   notes: string | null;
-
-  currency: string;
-  exchangeRate: number | null;
-  baseCurrency: string;
-  baseExchangeRate: number | null;
-  manualExchangeRate: boolean;
   status: DispatchStatus;
   invoice: { id: string; code: string } | null;
   lines: DispatchLine[];
 }
 
-export interface Invoice {
+export interface Invoice extends DocumentCurrency {
   id: string;
   code: string;
   customer: { id: string; name: string };
@@ -88,18 +83,13 @@ export interface Invoice {
   dueDate: string;
   notes: string | null;
   status: InvoiceStatus;
-
-  currency: string;
-  exchangeRate: number | null;
-  baseCurrency: string;
-  baseExchangeRate: number | null;
-  manualExchangeRate: boolean;
   subtotal: number;
   tax: number;
   total: number;
-  totalVes: number | null;
+  // A la tasa de emision; null en las facturas anteriores a las tasas.
   subtotalVes: number | null;
   taxVes: number | null;
+  totalVes: number | null;
   lines: { lineNumber: number; itemId: string; sku: string; itemName: string; unitAbbreviation: string; quantity: number; unitPrice: number; taxRate: number; subtotal: number; tax: number }[];
 }
 
@@ -168,26 +158,4 @@ export function dispatchableLines(order: SalesOrder, dispatch: Dispatch | null):
 
 export function paymentTermLabel(days: number): string {
   return days === 0 ? 'Contado' : `${days} días`;
-}
-
-export interface DocumentCurrency {
-  currency: string;
-  exchangeRate: number | null;
-  baseCurrency: string;
-  baseExchangeRate: number | null;
-  manualExchangeRate: boolean;
-}
-
-export function formatAmount(value: number): string {
-  return value.toLocaleString('es', { minimumFractionDigits: 4, maximumFractionDigits: 4, useGrouping: false });
-}
-
-export function inBolivars(amount: number, document: DocumentCurrency): number | null {
-  if (document.currency === 'VES') return amount;
-  if (document.exchangeRate === null) return null;
-  return Math.round(amount * document.exchangeRate * 10000) / 10000;
-}
-
-export function offersManualRate(currency: string, baseCurrency: string, allowsRateOverride: boolean): boolean {
-  return allowsRateOverride && currency !== baseCurrency && currency !== 'VES';
 }

@@ -6,9 +6,10 @@ export interface PaymentInput {
   method: string;
   reference: string | null;
   notes: string | null;
+  currency: string | null;
+  exchangeRate: number | null;
+  // Cada importe en la moneda de su factura.
   allocations: { invoiceId: string; amount: number }[];
-  currency?: string;
-  manualExchangeRate?: number | null;
 }
 
 export interface ReceivablesApi {

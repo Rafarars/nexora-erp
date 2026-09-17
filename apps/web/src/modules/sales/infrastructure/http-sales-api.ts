@@ -28,7 +28,11 @@ export class HttpSalesApi implements SalesApi {
   }
 
   async saveOrder(token: string, id: string | null, input: OrderInput): Promise<void> {
-    const body = { ...input, lines: input.lines.map((line) => ({ ...line, quantity: numeric(line.quantity), unitPrice: numeric(line.unitPrice) })) };
+    const body = {
+      ...input,
+      exchangeRate: input.exchangeRate === null ? null : numeric(input.exchangeRate),
+      lines: input.lines.map((line) => ({ ...line, quantity: numeric(line.quantity), unitPrice: numeric(line.unitPrice) })),
+    };
 
     await this.request(id ? 'PUT' : 'POST', id ? `${BASE}/orders/${id}` : `${BASE}/orders`, token, body);
   }

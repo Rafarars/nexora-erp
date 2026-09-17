@@ -71,6 +71,7 @@ export function StatementView({
                   <th className="px-4 py-2 text-right font-medium">Cargo</th>
                   <th className="px-4 py-2 text-right font-medium">Abono</th>
                   <th className="px-4 py-2 text-right font-medium">Saldo</th>
+                  <th className="px-4 py-2 text-right font-medium">Dif. cambiaria (Bs.)</th>
                 </tr>
               </thead>
               <tbody>
@@ -85,12 +86,15 @@ export function StatementView({
                     <td className="px-4 py-3 text-right font-medium" data-testid={`statement-balance-${index + 1}`}>
                       {formatAmount(movement.balance)}
                     </td>
+                    <td className="text-muted px-4 py-3 text-right" data-testid={`statement-difference-${index + 1}`}>
+                      {movement.exchangeDifference === null ? '—' : formatAmount(movement.exchangeDifference)}
+                    </td>
                   </tr>
                 ))}
 
                 {statement.movements.length === 0 ? (
                   <tr>
-                    <td colSpan={5} className="text-muted px-4 py-6 text-center" data-testid="statement-empty">
+                    <td colSpan={6} className="text-muted px-4 py-6 text-center" data-testid="statement-empty">
                       Este cliente no tiene facturas ni cobros.
                     </td>
                   </tr>

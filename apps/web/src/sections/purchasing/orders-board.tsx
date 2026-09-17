@@ -11,11 +11,11 @@ import { selectableOptions } from '@/modules/catalog/domain/catalog';
 import type { Warehouse } from '@/modules/catalog/domain/catalog';
 import type { Item } from '@/modules/inventory/domain/item';
 import { formatCost, formatQuantity } from '@/modules/inventory/domain/inventory';
-import { currencyOptions, formatRate } from '@/modules/company/domain/company';
+import { currencyOptions, formatRate, offersManualRate } from '@/modules/company/domain/company';
 import type { Currency } from '@/modules/company/domain/company';
-import { ORDER_STATUS_LABELS, formatAmount, offersManualRate, orderActions, summarizeOrderLines } from '@/modules/purchasing/domain/purchasing';
+import { ORDER_STATUS_LABELS, formatAmount, orderActions, summarizeOrderLines } from '@/modules/purchasing/domain/purchasing';
 import type { PurchaseOrder, Supplier } from '@/modules/purchasing/domain/purchasing';
-import { DocumentRate } from './document-rate';
+import { DocumentRate } from '@/sections/shared/document-rate';
 import { MenuButton } from './menu-button';
 import { ReceiptFields } from './receipt-fields';
 

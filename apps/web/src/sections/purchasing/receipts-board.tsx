@@ -9,7 +9,7 @@ import { emptyState } from '@/shared/forms/form-state';
 import type { FormState } from '@/shared/forms/form-state';
 import { RECEIPT_STATUS_LABELS, receiptActions, summarizeReceiptLines } from '@/modules/purchasing/domain/purchasing';
 import type { GoodsReceipt, PurchaseOrder } from '@/modules/purchasing/domain/purchasing';
-import { DocumentRate } from './document-rate';
+import { DocumentRate } from '@/sections/shared/document-rate';
 import { MenuButton } from './menu-button';
 import { ReceiptFields } from './receipt-fields';
 

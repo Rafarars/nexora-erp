@@ -22,16 +22,19 @@ export default async function PaymentsPage() {
   const canCreate = can(session, 'receivables.payments.create') && canPick;
   const canUpdate = can(session, 'receivables.payments.update') && canPick;
 
-  const [payments, receivables] = await Promise.all([
+  const [payments, receivables, currencies, settings] = await Promise.all([
     receivablesApi().searchPayments(token),
     canCreate || canUpdate ? receivablesApi().searchReceivables(token) : [],
+    canCreate || canUpdate ? companyApi().currencies(token) : [],
+    companyApi().settings(token),
   ]);
 
   return (
     <PaymentsBoard
       payments={payments}
       receivables={receivables}
-      settings={await companyApi().settings(token)}
+      currencies={currencies}
+      settings={settings}
       canCreate={canCreate}
       canUpdate={canUpdate}
       canConfirm={can(session, 'receivables.payments.confirm')}

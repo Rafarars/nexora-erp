@@ -15,6 +15,8 @@ export interface OrderInput {
   warehouseId: string;
   date: string | null;
   notes: string | null;
+  currency: string | null;
+  exchangeRate: number | null;
   lines: { itemId: string; unitId: string; quantity: number; unitPrice: number }[];
 }
 

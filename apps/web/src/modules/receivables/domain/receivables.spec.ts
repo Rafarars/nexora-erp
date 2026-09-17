@@ -8,12 +8,12 @@ import { visibleReceivablesSections } from './receivables-sections';
 
 const receivable = (overrides: Partial<Receivable>): Receivable => ({
   id: 'i1', code: 'FAC000001', customer: { id: 'delta', code: 'CLI000001', name: 'Delta' }, issueDate: '2026-09-01', dueDate: '2026-09-20',
-  total: 100, paid: 0, balance: 100, status: 'pending', daysOverdue: 0, bucket: 'current', ...overrides,
+  currency: 'USD', total: 100, paid: 0, balance: 100, companyBalance: 100, status: 'pending', daysOverdue: 0, bucket: 'current', ...overrides,
 });
 
 const payment = (overrides: Partial<Payment>): Payment => ({
   id: 'p1', code: 'COB000001', customer: { id: 'delta', code: 'CLI000001', name: 'Delta' }, paymentDate: '2026-09-10', method: 'cash',
-  reference: null, notes: null, amount: 100, amountVes: null, currency: 'USD', exchangeRate: null, baseCurrency: 'USD', baseExchangeRate: null, manualExchangeRate: false, status: 'draft', allocations: [], ...overrides,
+  reference: null, notes: null, amount: 100, amountVes: 3650, currency: 'USD', exchangeRate: 36.5, baseCurrency: 'USD', baseExchangeRate: 36.5, manualExchangeRate: false, status: 'draft', allocations: [], ...overrides,
 });
 
 describe('paymentActions', () => {
@@ -44,7 +44,7 @@ describe('payment form', () => {
   });
 
   it('keeps on a draft the invoices it already pays, with their amounts, even if they owe nothing now', () => {
-    const draft = payment({ allocations: [{ invoiceId: 'paid', invoiceCode: 'FAC000003', dueDate: '2026-09-20', amount: 40 }] });
+    const draft = payment({ allocations: [{ invoiceId: 'paid', invoiceCode: 'FAC000003', dueDate: '2026-09-20', currency: 'USD', amount: 40, exchangeRate: 36.5, exchangeDifference: 0 }] });
 
     expect(payableInvoices(rows, 'delta', draft).map(({ invoice, amount }) => [invoice.code, amount])).toEqual([
       ['FAC000001', null],

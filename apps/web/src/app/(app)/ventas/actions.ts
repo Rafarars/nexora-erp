@@ -9,6 +9,8 @@ import type { FormState } from '@/shared/forms/form-state';
 
 const text = (form: FormData, name: string) => String(form.get(name) ?? '');
 const optional = (form: FormData, name: string) => text(form, name).trim() || null;
+// Vacia es la tasa del dia; lo que no es un numero viaja como NaN y la API senala el campo.
+const rate = (form: FormData) => (text(form, 'exchangeRate').trim() === '' ? null : parseDecimal(text(form, 'exchangeRate')));
 
 async function attempt(fallback: string, work: (token: string) => Promise<void>): Promise<FormState> {
   const { token } = await requireSession();
@@ -60,6 +62,8 @@ export async function saveOrder(_state: FormState, form: FormData): Promise<Form
       warehouseId: text(form, 'warehouseId'),
       date: optional(form, 'date'),
       notes: optional(form, 'notes'),
+      currency: optional(form, 'currency'),
+      exchangeRate: rate(form),
       lines: items
         .map((itemId, index) => ({ itemId, unitId: units[index] ?? '', quantity: parseDecimal(quantities[index] ?? ''), unitPrice: parseDecimal(prices[index] ?? '') }))
         .filter((line) => line.itemId !== ''),
