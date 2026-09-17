@@ -76,8 +76,8 @@ test.describe('credit', () => {
   test('a customer with an overdue invoice cannot be invoiced on credit until it pays', async ({ request }) => {
     const token = await tokenFor(request, 'ana@acme.com');
     const customer = await aCreditCustomer(request, token, { paymentTermDays: 15 });
-    // Emitida hace un ano: vencio hace mucho.
-    const overdue = await anInvoice(request, token, customer.id, 20, '2025-09-01');
+    // Emitida en enero: vencio hace mas de 90 dias.
+    const overdue = await anInvoice(request, token, customer.id, 20, '2026-01-15');
     const dispatch = await aConfirmedDispatch(request, token, customer.id);
 
     expect(await error(await issue(request, token, dispatch.id))).toEqual([409, 'CustomerWithOverdueInvoicesError']);
@@ -136,5 +136,48 @@ test.describe('statement', () => {
       ['payment', 0, 85.75],
     ]);
     expect([movements.at(-1).balance, summary.balance, owed]).toEqual([69.75, 69.75, 69.75]);
+  });
+});
+
+// Lo normal en Venezuela: una factura en dolares que el cliente paga en bolivares a la tasa del dia.
+// Tasas legales sembradas de Acme: el dolar a 152,40 desde el 8 de septiembre y a 153,10 desde el 11.
+test.describe('currency and exchange rates of collections', () => {
+  test('a dollar invoice collected in bolivars lowers the debt in dollars and keeps the exchange difference', async ({ request }) => {
+    const token = await tokenFor(request, 'ana@acme.com');
+    const customer = await aCreditCustomer(request, token);
+    const invoice = await anInvoice(request, token, customer.id, 100, '2026-09-10');
+    const { invoices } = await (await request.get(INVOICES, { headers: auth(token) })).json();
+
+    expect(invoices.find((row: { id: string }) => row.id === invoice.id)).toMatchObject({ currency: 'USD', exchangeRate: 152.4, total: 100, totalVes: 15240 });
+
+    const reference = `e2e bolivares ${Date.now()}`;
+    const created = await request.post(PAYMENTS, {
+      headers: auth(token),
+      data: { customerId: customer.id, method: 'transfer', reference, currency: 'VES', allocations: [{ invoiceId: invoice.id, amount: 40 }] },
+    });
+    expect(created.status(), await created.text()).toBe(201);
+
+    const paymentOf = async () => (await (await request.get(PAYMENTS, { headers: auth(token) })).json()).payments.find((row: { reference: string }) => row.reference === reference);
+    expect((await put(request, token, `${PAYMENTS}/${(await paymentOf()).id}/confirm`)).status()).toBe(200);
+
+    // 40 USD a 153,10 son 6124 Bs; facturados a 152,40 valian 6096: el diferencial es 28 Bs.
+    expect(await paymentOf()).toMatchObject({
+      status: 'confirmed',
+      currency: 'VES',
+      amount: 6124,
+      amountVes: 6124,
+      allocations: [{ invoiceId: invoice.id, currency: 'USD', amount: 40, exchangeRate: 153.1, exchangeDifference: 28 }],
+    });
+    expect(await receivable(request, token, invoice.id)).toMatchObject({ currency: 'USD', paid: 40, balance: 60 });
+  });
+
+  test('refuses a written rate for the company currency', async ({ request }) => {
+    const token = await tokenFor(request, 'ana@acme.com');
+    const customer = await aCreditCustomer(request, token);
+    const invoice = await anInvoice(request, token, customer.id, 50);
+
+    expect(
+      await error(await request.post(PAYMENTS, { headers: auth(token), data: { customerId: customer.id, method: 'cash', currency: 'USD', exchangeRate: 150, allocations: [{ invoiceId: invoice.id, amount: 10 }] } })),
+    ).toEqual([400, 'FixedExchangeRateError']);
   });
 });

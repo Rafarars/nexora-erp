@@ -156,3 +156,48 @@ test.describe('sales: who can do what', () => {
     }
   });
 });
+
+// Acme lleva sus cifras en dolares. Tasas legales sembradas: el euro a 171,30 desde el 1 de septiembre
+// y a 175,05 desde el 11; el dolar a 153,10 desde el 11.
+test.describe('currency and exchange rates of sales', () => {
+  // La ley pide la tasa del dia de la factura, no la del pedido que le dio origen.
+  test('an invoice takes the currency of its order with the rates of the day it is issued, and its amounts in bolivars', async ({ request }) => {
+    const token = await tokenFor(request, 'ana@acme.com');
+    const [customer, item] = await Promise.all([aFreshCustomer(request, token), aStockedItem(request, token, 10)]);
+    const order = await aDraftSalesOrder(request, token, {
+      customerId: customer.id,
+      date: '2026-09-10',
+      currency: 'EUR',
+      lines: [{ itemId: item.id, unitId: ACME_INVENTORY.piece, quantity: 10, unitPrice: 10 }],
+    });
+
+    expect(order).toMatchObject({ currency: 'EUR', exchangeRate: 171.3, baseCurrency: 'USD', manualExchangeRate: false });
+    expect((await request.put(`${SALES_ORDERS}/${order.id}/confirm`, { headers: auth(token) })).status()).toBe(200);
+
+    const dispatch = await aDraftDispatch(request, token, order.id, [{ orderLineId: order.lines[0].id, quantity: 10 }]);
+    expect((await request.put(`${DISPATCHES}/${dispatch.id}/confirm`, { headers: auth(token) })).status()).toBe(200);
+    expect((await request.post(INVOICES, { headers: auth(token), data: { dispatchId: dispatch.id } })).status()).toBe(201);
+
+    const { invoices } = await (await request.get(INVOICES, { headers: auth(token) })).json();
+    const invoice = invoices.find((row: { dispatch: { id: string } }) => row.dispatch.id === dispatch.id);
+
+    expect(invoice).toMatchObject({ currency: 'EUR', exchangeRate: 175.05, baseCurrency: 'USD', baseExchangeRate: 153.1 });
+    expect(invoice.totalVes).toBe(Math.round(invoice.total * 175.05 * 100) / 100);
+  });
+
+  test('a sales order keeps a rate written by hand when it is confirmed', async ({ request }) => {
+    const token = await tokenFor(request, 'ana@acme.com');
+    const [customer, item] = await Promise.all([aFreshCustomer(request, token), aStockedItem(request, token, 5)]);
+    const order = await aDraftSalesOrder(request, token, {
+      customerId: customer.id,
+      currency: 'EUR',
+      exchangeRate: 180.5,
+      lines: [{ itemId: item.id, unitId: ACME_INVENTORY.piece, quantity: 5, unitPrice: 2 }],
+    });
+
+    expect((await request.put(`${SALES_ORDERS}/${order.id}/confirm`, { headers: auth(token) })).status()).toBe(200);
+
+    const { orders } = await (await request.get(SALES_ORDERS, { headers: auth(token) })).json();
+    expect(orders.find((row: { id: string }) => row.id === order.id)).toMatchObject({ status: 'confirmed', exchangeRate: 180.5, manualExchangeRate: true });
+  });
+});

@@ -57,6 +57,36 @@ test('collects part of an invoice from the screen and cancelling the payment giv
   });
 });
 
+// Cobrar en bolivares una factura en dolares: el cobro dice cuanto entro en bolivares y el diferencial
+// cambiario queda a la vista en el cobro y en el estado de cuenta.
+test('collects a dollar invoice in bolivars from the screen and shows the exchange difference', async ({ page, request }) => {
+  const token = await tokenFor(request, ACME_ADMIN.email, API);
+  const customer = await aCreditCustomer(request, token, { paymentTermDays: 15, creditLimit: null }, API);
+  const invoice = await anInvoice(request, token, customer.id, 100, '2026-09-10', API);
+  const receivables = new ReceivablesPage(page);
+
+  await new LoginPage(page).signIn(ACME_ADMIN);
+  await receivables.open('cobros');
+  await page.getByTestId('new-payment').click();
+  await page.getByTestId('payment-customer').selectOption({ label: customer.name });
+  await page.getByTestId('payment-currency').selectOption('VES');
+  await page.getByTestId('payment-reference').fill('TRF-BS');
+  await page.getByTestId(`payment-allocation-${invoice.code}`).fill('40');
+  await page.getByTestId('payment-submit').click();
+  await expect(page.getByTestId('payment-panel')).toBeHidden();
+
+  const row = receivables.paymentOf(customer.name);
+  await receivables.act(row, 'Confirmar');
+  await expect(row.getByTestId(/payment-status-/)).toHaveText('Confirmado');
+  await expect(row.getByTestId(/payment-amount-/)).toHaveText('VES 6124,00');
+  await expect(row.getByTestId(/payment-difference-/)).toHaveText('Diferencial Bs. 28,00');
+
+  await receivables.open('estado-de-cuenta');
+  await receivables.showStatementOf(customer.name);
+  await expect(page.getByTestId('statement-difference-2')).toHaveText('28,00');
+  await expect(page.getByTestId('statement-balance')).toHaveText('60,00');
+});
+
 test('explains in Spanish that a payment cannot take more than the invoice owes', async ({ page, request }) => {
   const token = await tokenFor(request, ACME_ADMIN.email, API);
   const customer = await aCreditCustomer(request, token, {}, API);
@@ -73,7 +103,7 @@ test('explains in Spanish that a payment cannot take more than the invoice owes'
 test('refuses from the screen to invoice on credit a customer with an overdue invoice', async ({ page, request }) => {
   const token = await tokenFor(request, ACME_ADMIN.email, API);
   const customer = await aCreditCustomer(request, token, { paymentTermDays: 15 }, API);
-  await anInvoice(request, token, customer.id, 20, '2025-09-01', API);
+  await anInvoice(request, token, customer.id, 20, '2026-01-15', API);
   const dispatch = await aConfirmedDispatch(request, token, customer.id, 10, 10, API);
   const sales = new SalesPage(page);
 

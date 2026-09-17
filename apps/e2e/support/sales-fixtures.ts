@@ -43,7 +43,7 @@ export async function aStockedItem(request: APIRequestContext, token: string, qu
 export async function aDraftSalesOrder(
   request: APIRequestContext,
   token: string,
-  data: { customerId: string; lines: { itemId: string; unitId: string; quantity: number; unitPrice: number }[] },
+  data: { customerId: string; lines: { itemId: string; unitId: string; quantity: number; unitPrice: number }[]; date?: string; currency?: string; exchangeRate?: number },
   baseUrl = '',
 ) {
   const notes = `e2e ${unique()}`;
