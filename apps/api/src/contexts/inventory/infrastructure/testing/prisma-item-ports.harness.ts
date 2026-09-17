@@ -117,7 +117,7 @@ export class PrismaItemPortsHarness implements ItemPortsHarness {
         const orderId = randomUUID();
 
         await prisma.salesOrder.create({
-          data: { id: orderId, tenantId: TENANT_A, code: `PED${String(next()).padStart(6, '0')}`, customerId: CUSTOMER, warehouseId: WAREHOUSE_A, orderDate: NOW, status },
+          data: { id: orderId, tenantId: TENANT_A, code: `PED${String(next()).padStart(6, '0')}`, customerId: CUSTOMER, warehouseId: WAREHOUSE_A, orderDate: NOW, status, currency: "USD", exchangeRate: 1, baseCurrency: "USD", baseExchangeRate: 1, manualExchangeRate: false, subtotalVes: 0, taxVes: 0, totalVes: 0 },
         });
         await prisma.salesOrderLine.create({
           data: { id: randomUUID(), tenantId: TENANT_A, orderId, lineNumber: 1, itemId, unitId, quantity, baseQuantity: quantity, unitPrice: 1, dispatchedQuantity: dispatched },

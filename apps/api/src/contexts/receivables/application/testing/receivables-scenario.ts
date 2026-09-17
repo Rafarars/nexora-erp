@@ -1,3 +1,4 @@
+import { FixedDocumentRates } from '../../../../shared/infrastructure/testing/fixed-document-rates.js';
 import { ClockBusinessCalendar } from '../../../../shared/infrastructure/testing/clock-business-calendar.js';
 import { FixedClock } from '../../../../shared/infrastructure/testing/fixed-clock.js';
 import { SequentialIdGenerator } from '../../../../shared/infrastructure/testing/sequential-id-generator.js';
@@ -22,6 +23,7 @@ export function aReceivablesScenario() {
   const ids = new SequentialIdGenerator();
   const store = new InMemoryReceivablesStore();
   const codes = new InMemoryReceivablesCodeSequence();
+  const rates = new FixedDocumentRates();
   const finder = new PaymentFinder(store.payments);
 
   return {
@@ -30,7 +32,7 @@ export function aReceivablesScenario() {
     store,
     codes,
     createPayment: new PaymentCreator(store.ledger, store.payments, codes, ids, clock, calendar, rates),
-    updatePayment: new PaymentUpdater(finder, store.ledger, store.payments, ids, clock, calendar),
+    updatePayment: new PaymentUpdater(finder, store.ledger, store.payments, ids, clock, calendar, rates),
     confirmPayment: new PaymentConfirmer(store.posting, clock, calendar),
     cancelPayment: new PaymentCanceller(store.posting, clock),
     searchPayments: new PaymentSearcher(store.payments, store.ledger),

@@ -1,3 +1,4 @@
+import { DocumentCurrency } from '../shared/document-currency.js';
 import { describe, expect, it } from 'vitest';
 import {
   DispatchExceedsPendingError,
@@ -43,7 +44,7 @@ describe('SalesOrder', () => {
     it('is editable until it is confirmed, and confirmed only once', () => {
       const order = aConfirmedOrder();
 
-      expect(() => order.update({ customerId: order.customerId(), warehouseId: order.warehouseId(), orderDate: order.orderDate(), notes: null, lines: [anOrderLine()] }, NOW, TODAY)).toThrow(
+      expect(() => order.update({ customerId: order.customerId(), warehouseId: order.warehouseId(), orderDate: order.orderDate(), currency: DocumentCurrency.of({ currency: "USD", exchangeRate: 1, baseCurrency: "USD", baseExchangeRate: 1, manualRate: false }), notes: null, lines: [anOrderLine()] }, NOW, TODAY)).toThrow(
         SalesOrderNotEditableError,
       );
       expect(() => order.confirm(NOW)).toThrow(SalesOrderNotConfirmableError);

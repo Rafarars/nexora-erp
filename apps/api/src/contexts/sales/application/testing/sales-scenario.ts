@@ -1,3 +1,4 @@
+import { FixedDocumentRates } from '../../../../shared/infrastructure/testing/fixed-document-rates.js';
 import { ClockBusinessCalendar } from '../../../../shared/infrastructure/testing/clock-business-calendar.js';
 import { FixedClock } from '../../../../shared/infrastructure/testing/fixed-clock.js';
 import { SequentialIdGenerator } from '../../../../shared/infrastructure/testing/sequential-id-generator.js';
@@ -47,6 +48,7 @@ export function aSalesScenario() {
   const customerFinder = new CustomerFinder(customers);
   const uniqueness = new CustomerUniqueness(customers);
   const references = new SalesOrderReferences(customerFinder, catalog, ids);
+  const rates = new FixedDocumentRates();
   const orderFinder = new SalesOrderFinder(store.orders);
   const dispatchFinder = new DispatchFinder(store.dispatches);
   const dispatchLines = new DispatchLineFactory(catalog, ids);
@@ -63,7 +65,7 @@ export function aSalesScenario() {
     searchCustomers: new CustomerSearcher(customers),
     createOrder: new SalesOrderCreator(references, store.orders, codes, ids, clock, calendar, rates),
     updateOrder: new SalesOrderUpdater(orderFinder, references, store.orders, clock, calendar, rates),
-    confirmOrder: new SalesOrderConfirmer(orderFinder, references, store.orders, store.orderPosting, new StockReservation(), clock, calendar),
+    confirmOrder: new SalesOrderConfirmer(orderFinder, references, store.orders, store.orderPosting, new StockReservation(), clock, calendar, rates),
     cancelOrder: new SalesOrderCanceller(store.orderPosting, clock),
     searchOrders: new SalesOrderSearcher(store.orders, customers, catalog),
     createDispatch: new DispatchCreator(orderFinder, dispatchLines, store.dispatches, codes, ids, clock, calendar),

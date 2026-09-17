@@ -1,3 +1,4 @@
+import { DocumentCurrency } from '../domain/shared/document-currency.js';
 import { afterAll, afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { InvoiceNotPayableError, PaymentExceedsBalanceError, PaymentNotEditableError, PaymentNotFoundError } from '../domain/errors/receivables.errors.js';
 import { CustomerPayment, PaymentAllocationPrimitives, PaymentId } from '../domain/payment/customer-payment.entity.js';
@@ -44,7 +45,7 @@ export function describeReceivablesPortsContract(implementation: string, createH
       const id = PaymentId.of(`d0000000-0000-4000-8000-${next()}`);
 
       await ports.payments.save(
-        CustomerPayment.draft(id, tenant, `COB${next().slice(-6)}`, { customerId, date: ReceivablesDate.of(TODAY), method: 'transfer', currency: { currency: 'USD', exchangeRate: 1, baseCurrency: 'USD', baseExchangeRate: 1, manualRate: false, toPrimitives: () => ({ currency: 'USD', exchangeRate: 1, baseCurrency: 'USD', baseExchangeRate: 1, manualExchangeRate: false }) } as any, reference: 'TRF', notes: 'contrato', allocations, currency: { currency: 'USD', exchangeRate: 1, baseCurrency: 'USD', baseExchangeRate: 1, manualRate: false } as any }, NOW, TODAY),
+        CustomerPayment.draft(id, tenant, `COB${next().slice(-6)}`, { customerId, date: ReceivablesDate.of(TODAY), method: 'transfer', currency: { currency: 'USD', exchangeRate: 1, baseCurrency: 'USD', baseExchangeRate: 1, manualRate: false, toPrimitives: () => ({ currency: 'USD', exchangeRate: 1, baseCurrency: 'USD', baseExchangeRate: 1, manualExchangeRate: false }) } as any, reference: 'TRF', notes: 'contrato', allocations }, NOW, TODAY),
       );
 
       return id;
@@ -62,10 +63,10 @@ export function describeReceivablesPortsContract(implementation: string, createH
         expect(stored.toPrimitives()).toMatchObject({ status: 'draft', amount: 40.3, paymentDate: TODAY, method: 'transfer', notes: 'contrato' });
 
         const kept = stored.toPrimitives().allocations[0];
-        stored.update({ customerId: CUSTOMER, date: ReceivablesDate.of('2026-01-10'), method: 'cash', allocations: [{ ...kept, amount: 12 }] }, NOW, TODAY);
+        stored.update({ customerId: CUSTOMER, date: ReceivablesDate.of('2026-01-10'), method: 'cash', currency: { currency: 'USD', exchangeRate: 1, baseCurrency: 'USD', baseExchangeRate: 1, manualRate: false } as any, allocations: [{ ...kept, amount: 12, exchangeDifference: 0 }] }, NOW, TODAY);
         await ports.payments.save(stored);
 
-        expect((await ports.payments.find(tenant, id))?.toPrimitives()).toMatchObject({ method: 'cash', amount: 12, paymentDate: '2026-01-10', reference: null, allocations: [{ ...kept, amount: 12 }] });
+        expect((await ports.payments.find(tenant, id))?.toPrimitives()).toMatchObject({ method: 'cash', amount: 12, paymentDate: '2026-01-10', reference: null, allocations: [{ ...kept, amount: 12, exchangeDifference: 0 }] });
         expect(await ports.payments.find(TenantId.of(TENANT_B), id)).toBeNull();
         expect(await ports.payments.searchByTenant(TenantId.of(TENANT_B))).toEqual([]);
       });
