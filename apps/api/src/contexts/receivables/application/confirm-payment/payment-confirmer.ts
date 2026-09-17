@@ -36,6 +36,9 @@ export class PaymentConfirmer {
           )
         : null;
 
-    await this.posting.post(tenantId, payment.id, (locked, invoices) => locked.confirm(invoices, rates, now, today));
+    await this.posting.post(tenantId, payment.id, (locked, invoices) => {
+      locked.ensureUnchangedSince(payment.version());
+      locked.confirm(invoices, rates, now, today);
+    });
   }
 }

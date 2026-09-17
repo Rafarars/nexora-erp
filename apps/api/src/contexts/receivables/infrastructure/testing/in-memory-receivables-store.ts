@@ -1,3 +1,4 @@
+import { ConcurrentModificationError } from '../../../../shared/domain/concurrent-modification.error.js';
 import { PaymentNotEditableError, PaymentNotFoundError } from '../../domain/errors/receivables.errors.js';
 import { ReceivableInvoice, ReceivableInvoicePrimitives } from '../../domain/ledger/receivable-invoice.js';
 import { ReceivableCustomer, ReceivablesLedger } from '../../domain/ledger/receivables-ledger.js';
@@ -59,6 +60,7 @@ export class InMemoryReceivablesStore {
         const stored = this.paymentRows.get(row.id);
 
         if (stored && stored.status !== 'draft') throw new PaymentNotEditableError(stored.id, stored.status);
+        if (stored && stored.updatedAt.getTime() !== payment.version()?.getTime()) throw new ConcurrentModificationError(stored.id);
 
         this.paymentRows.set(row.id, row);
       },

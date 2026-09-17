@@ -1,4 +1,5 @@
 import { roundRatio, unitsToNumber } from '../../../../shared/domain/amount.js';
+import { ConcurrentModificationError } from '../../../../shared/domain/concurrent-modification.error.js';
 import { DocumentCurrency, DocumentCurrencyPrimitives, rateUnits } from '../../../../shared/domain/document-currency.js';
 import { MissingExchangeRateError } from '../../../../shared/domain/ports/document-rates.js';
 import { Uuid } from '../../../../shared/domain/uuid.vo.js';
@@ -88,7 +89,10 @@ const RATE_SCALE = 100_000_000n;
 // dia. En borrador no toca ningun saldo; confirmado, congela las tasas y baja el de cada factura;
 // anulado, lo devuelve. Aqui no hay anticipos ni pagos de mas.
 export class CustomerPayment {
-  private constructor(private row: PaymentPrimitives) {}
+  private constructor(
+    private row: PaymentPrimitives,
+    private readonly loadedVersion: Date | null = null,
+  ) {}
 
   static draft(
     id: PaymentId,
@@ -114,7 +118,7 @@ export class CustomerPayment {
   }
 
   static fromPrimitives(row: PaymentPrimitives): CustomerPayment {
-    return new CustomerPayment(structuredClone(row));
+    return new CustomerPayment(structuredClone(row), row.updatedAt);
   }
 
   toPrimitives(): PaymentPrimitives {
@@ -139,6 +143,16 @@ export class CustomerPayment {
 
   currency(): DocumentCurrency {
     return DocumentCurrency.fromPrimitives(this.row);
+  }
+
+  // El `updatedAt` con que se leyo: guardar o confirmar sobre otra version perderia lo que alguien guardo.
+  version(): Date | null {
+    return this.loadedVersion;
+  }
+
+  // Las tasas se calcularon con el borrador leido antes del bloqueo; si cambio, ya no le corresponden.
+  ensureUnchangedSince(version: Date | null): void {
+    if (this.row.status === 'draft' && this.row.updatedAt.getTime() !== version?.getTime()) throw new ConcurrentModificationError(this.row.id);
   }
 
   currentStatus(): PaymentStatus {

@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { ConcurrentModificationError } from '../../../../shared/domain/concurrent-modification.error.js';
 import {
   DuplicatePaymentInvoiceError,
   EmptyPaymentError,
@@ -86,6 +87,17 @@ describe('CustomerPayment', () => {
 
     payment.confirm([anInvoice()], aPaymentRates(), NOW, TODAY);
     expect(() => payment.update(paymentDetails(), INVOICES, aPaymentRates(), NOW, TODAY)).toThrow(PaymentNotEditableError);
+  });
+
+  // Las tasas del confirmador salen de la version leida: sobre otra, el cobro se rechaza.
+  it('refuses to be confirmed over a version other than the one that was read', () => {
+    const read = CustomerPayment.fromPrimitives(draft().toPrimitives());
+    const locked = CustomerPayment.fromPrimitives(read.toPrimitives());
+
+    locked.update(paymentDetails({ method: 'cash' }), INVOICES, aPaymentRates(), new Date(NOW.getTime() + 1000), TODAY);
+
+    expect(() => locked.ensureUnchangedSince(read.version())).toThrow(ConcurrentModificationError);
+    expect(() => CustomerPayment.fromPrimitives(read.toPrimitives()).ensureUnchangedSince(read.version())).not.toThrow();
   });
 
   it('confirms when every invoice accepts what it applies, up to the last cent', () => {

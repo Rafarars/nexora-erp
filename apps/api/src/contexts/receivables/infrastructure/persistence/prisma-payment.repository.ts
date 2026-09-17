@@ -1,4 +1,5 @@
 import { Injectable } from '@nestjs/common';
+import { ConcurrentModificationError } from '../../../../shared/domain/concurrent-modification.error.js';
 import { PrismaService } from '../../../../shared/prisma/prisma.service.js';
 import { PaymentNotEditableError } from '../../domain/errors/receivables.errors.js';
 import { CustomerPayment, PaymentId } from '../../domain/payment/customer-payment.entity.js';
@@ -10,15 +11,17 @@ import { PAYMENT_INCLUDE, asDate, paymentFromRow } from './receivables-rows.js';
 export class PrismaPaymentRepository implements PaymentRepository {
   constructor(private readonly prisma: PrismaService) {}
 
-  // Solo borradores: si mientras se editaba alguien lo confirmo, el cobro bloqueado lo dice.
+  // Solo borradores, y en la version en que se leyeron: si mientras se editaba alguien lo confirmo o
+  // lo guardo, el cobro bloqueado lo dice.
   async save(payment: CustomerPayment): Promise<void> {
     const { allocations, paymentDate, tenantId, id, ...row } = payment.toPrimitives();
 
     await this.prisma.$transaction(async (tx) => {
-      const [stored] = await tx.$queryRaw<{ status: string }[]>`
-        SELECT status::text FROM customer_payments WHERE tenant_id = ${tenantId}::uuid AND id = ${id}::uuid FOR UPDATE`;
+      const [stored] = await tx.$queryRaw<{ status: string; updated_at: Date }[]>`
+        SELECT status::text, updated_at FROM customer_payments WHERE tenant_id = ${tenantId}::uuid AND id = ${id}::uuid FOR UPDATE`;
 
       if (stored && stored.status !== 'draft') throw new PaymentNotEditableError(id, stored.status);
+      if (stored && stored.updated_at.getTime() !== payment.version()?.getTime()) throw new ConcurrentModificationError(id);
 
       const data = { ...row, paymentDate: asDate(paymentDate) };
 

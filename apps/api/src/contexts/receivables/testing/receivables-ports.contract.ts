@@ -1,4 +1,5 @@
 import { afterAll, afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { ConcurrentModificationError } from '../../../shared/domain/concurrent-modification.error.js';
 import { InvoiceNotPayableError, PaymentExceedsBalanceError, PaymentNotEditableError, PaymentNotFoundError } from '../domain/errors/receivables.errors.js';
 import { CustomerPayment, PaymentDetails, PaymentId } from '../domain/payment/customer-payment.entity.js';
 import { ReceivablesDate } from '../domain/shared/receivables-date.vo.js';
@@ -77,6 +78,24 @@ export function describeReceivablesPortsContract(implementation: string, createH
         await confirm(id);
 
         await expect(ports.payments.save(stale)).rejects.toThrow(PaymentNotEditableError);
+      });
+
+      // Dos personas con el mismo borrador: la segunda que guarda no borra lo que guardo la primera.
+      it('refuses to overwrite a draft that someone else saved in the meantime', async () => {
+        const id = await draft([allocation(INVOICE, 10)]);
+        const first = (await ports.payments.find(tenant, id))!;
+        const second = (await ports.payments.find(tenant, id))!;
+        const kept = first.toPrimitives().allocations[0];
+        const edited = async (payment: CustomerPayment, method: 'cash' | 'card', at: number) => {
+          payment.update({ customerId: CUSTOMER, date: ReceivablesDate.of(TODAY), method, allocations: [kept] }, [await invoice()], aPaymentRates(), new Date(NOW.getTime() + at), TODAY);
+        };
+
+        await edited(first, 'cash', 1000);
+        await ports.payments.save(first);
+        await edited(second, 'card', 2000);
+
+        await expect(ports.payments.save(second)).rejects.toThrow(ConcurrentModificationError);
+        expect((await ports.payments.find(tenant, id))?.toPrimitives().method).toBe('cash');
       });
     });
 
