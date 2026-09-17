@@ -153,14 +153,19 @@ model Currency {
   sortOrder Int     @default(0) @map("sort_order")
   isActive  Boolean @default(true) @map("is_active")
 
-  baseOf           CompanySettings[] @relation("BaseCurrency")
-  secondaryOf      CompanySettings[] @relation("SecondaryCurrency")
-  rates            ExchangeRate[]
-  purchaseOrders   PurchaseOrder[]   @relation("PurchaseOrderCurrency")
-  goodsReceipts    GoodsReceipt[]    @relation("GoodsReceiptCurrency")
-  salesOrders      SalesOrder[]      @relation("SalesOrderCurrency")
-  invoices         Invoice[]         @relation("InvoiceCurrency")
-  customerPayments CustomerPayment[] @relation("CustomerPaymentCurrency")
+  baseOf                 CompanySettings[] @relation("BaseCurrency")
+  secondaryOf            CompanySettings[] @relation("SecondaryCurrency")
+  rates                  ExchangeRate[]
+  purchaseOrders         PurchaseOrder[]   @relation("PurchaseOrderCurrency")
+  goodsReceipts          GoodsReceipt[]    @relation("GoodsReceiptCurrency")
+  salesOrders            SalesOrder[]      @relation("SalesOrderCurrency")
+  invoices               Invoice[]         @relation("InvoiceCurrency")
+  customerPayments       CustomerPayment[] @relation("CustomerPaymentCurrency")
+  purchaseOrdersAsBase   PurchaseOrder[]   @relation("PurchaseOrderBaseCurrency")
+  goodsReceiptsAsBase    GoodsReceipt[]    @relation("GoodsReceiptBaseCurrency")
+  salesOrdersAsBase      SalesOrder[]      @relation("SalesOrderBaseCurrency")
+  invoicesAsBase         Invoice[]         @relation("InvoiceBaseCurrency")
+  customerPaymentsAsBase CustomerPayment[] @relation("CustomerPaymentBaseCurrency")
 
   @@map("currencies")
 }
@@ -599,12 +604,13 @@ model PurchaseOrder {
   createdAt          DateTime            @default(now()) @map("created_at")
   updatedAt          DateTime            @updatedAt @map("updated_at")
 
-  tenant       Tenant              @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  currencyInfo Currency            @relation("PurchaseOrderCurrency", fields: [currency], references: [code], onDelete: Restrict)
-  supplier     Supplier            @relation(fields: [tenantId, supplierId], references: [tenantId, id], onDelete: Restrict)
-  warehouse    Warehouse           @relation(fields: [tenantId, warehouseId], references: [tenantId, id], onDelete: Restrict)
-  lines        PurchaseOrderLine[]
-  receipts     GoodsReceipt[]
+  tenant           Tenant              @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  currencyInfo     Currency            @relation("PurchaseOrderCurrency", fields: [currency], references: [code], onDelete: Restrict)
+  baseCurrencyInfo Currency            @relation("PurchaseOrderBaseCurrency", fields: [baseCurrency], references: [code], onDelete: Restrict)
+  supplier         Supplier            @relation(fields: [tenantId, supplierId], references: [tenantId, id], onDelete: Restrict)
+  warehouse        Warehouse           @relation(fields: [tenantId, warehouseId], references: [tenantId, id], onDelete: Restrict)
+  lines            PurchaseOrderLine[]
+  receipts         GoodsReceipt[]
 
   @@unique([tenantId, id])
   @@unique([tenantId, code])
@@ -669,11 +675,12 @@ model GoodsReceipt {
   createdAt          DateTime           @default(now()) @map("created_at")
   updatedAt          DateTime           @updatedAt @map("updated_at")
 
-  tenant       Tenant             @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  currencyInfo Currency           @relation("GoodsReceiptCurrency", fields: [currency], references: [code], onDelete: Restrict)
-  order        PurchaseOrder      @relation(fields: [tenantId, orderId], references: [tenantId, id], onDelete: Restrict)
-  warehouse    Warehouse          @relation(fields: [tenantId, warehouseId], references: [tenantId, id], onDelete: Restrict)
-  lines        GoodsReceiptLine[]
+  tenant           Tenant             @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  currencyInfo     Currency           @relation("GoodsReceiptCurrency", fields: [currency], references: [code], onDelete: Restrict)
+  baseCurrencyInfo Currency           @relation("GoodsReceiptBaseCurrency", fields: [baseCurrency], references: [code], onDelete: Restrict)
+  order            PurchaseOrder      @relation(fields: [tenantId, orderId], references: [tenantId, id], onDelete: Restrict)
+  warehouse        Warehouse          @relation(fields: [tenantId, warehouseId], references: [tenantId, id], onDelete: Restrict)
+  lines            GoodsReceiptLine[]
 
   @@unique([tenantId, id])
   @@unique([tenantId, code])
@@ -771,13 +778,14 @@ model SalesOrder {
   baseExchangeRate   Decimal?         @map("base_exchange_rate") @db.Decimal(18, 8)
   manualExchangeRate Boolean          @default(false) @map("manual_exchange_rate")
 
-  tenant       Tenant           @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  currencyInfo Currency         @relation("SalesOrderCurrency", fields: [currency], references: [code], onDelete: Restrict)
-  customer     Customer         @relation(fields: [tenantId, customerId], references: [tenantId, id], onDelete: Restrict)
-  warehouse    Warehouse        @relation(fields: [tenantId, warehouseId], references: [tenantId, id], onDelete: Restrict)
-  lines        SalesOrderLine[]
-  dispatches   Dispatch[]
-  invoices     Invoice[]
+  tenant           Tenant           @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  currencyInfo     Currency         @relation("SalesOrderCurrency", fields: [currency], references: [code], onDelete: Restrict)
+  baseCurrencyInfo Currency         @relation("SalesOrderBaseCurrency", fields: [baseCurrency], references: [code], onDelete: Restrict)
+  customer         Customer         @relation(fields: [tenantId, customerId], references: [tenantId, id], onDelete: Restrict)
+  warehouse        Warehouse        @relation(fields: [tenantId, warehouseId], references: [tenantId, id], onDelete: Restrict)
+  lines            SalesOrderLine[]
+  dispatches       Dispatch[]
+  invoices         Invoice[]
 
   @@unique([tenantId, id])
   @@unique([tenantId, code])
@@ -907,13 +915,14 @@ model Invoice {
   taxVes             Decimal?      @map("tax_ves") @db.Decimal(18, 4)
   totalVes           Decimal?      @map("total_ves") @db.Decimal(18, 4)
 
-  tenant       Tenant              @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  currencyInfo Currency            @relation("InvoiceCurrency", fields: [currency], references: [code], onDelete: Restrict)
-  dispatch     Dispatch            @relation(fields: [tenantId, dispatchId], references: [tenantId, id], onDelete: Restrict)
-  order        SalesOrder          @relation(fields: [tenantId, orderId], references: [tenantId, id], onDelete: Restrict)
-  customer     Customer            @relation(fields: [tenantId, customerId], references: [tenantId, id], onDelete: Restrict)
-  lines        InvoiceLine[]
-  allocations  PaymentAllocation[]
+  tenant           Tenant              @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  currencyInfo     Currency            @relation("InvoiceCurrency", fields: [currency], references: [code], onDelete: Restrict)
+  baseCurrencyInfo Currency            @relation("InvoiceBaseCurrency", fields: [baseCurrency], references: [code], onDelete: Restrict)
+  dispatch         Dispatch            @relation(fields: [tenantId, dispatchId], references: [tenantId, id], onDelete: Restrict)
+  order            SalesOrder          @relation(fields: [tenantId, orderId], references: [tenantId, id], onDelete: Restrict)
+  customer         Customer            @relation(fields: [tenantId, customerId], references: [tenantId, id], onDelete: Restrict)
+  lines            InvoiceLine[]
+  allocations      PaymentAllocation[]
 
   @@unique([tenantId, id])
   @@unique([tenantId, code])
@@ -987,10 +996,11 @@ model CustomerPayment {
   manualExchangeRate Boolean       @default(false) @map("manual_exchange_rate")
   amountVes          Decimal?      @map("amount_ves") @db.Decimal(18, 4)
 
-  tenant       Tenant              @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  currencyInfo Currency            @relation("CustomerPaymentCurrency", fields: [currency], references: [code], onDelete: Restrict)
-  customer     Customer            @relation(fields: [tenantId, customerId], references: [tenantId, id], onDelete: Restrict)
-  allocations  PaymentAllocation[]
+  tenant           Tenant              @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  currencyInfo     Currency            @relation("CustomerPaymentCurrency", fields: [currency], references: [code], onDelete: Restrict)
+  baseCurrencyInfo Currency            @relation("CustomerPaymentBaseCurrency", fields: [baseCurrency], references: [code], onDelete: Restrict)
+  customer         Customer            @relation(fields: [tenantId, customerId], references: [tenantId, id], onDelete: Restrict)
+  allocations      PaymentAllocation[]
 
   @@unique([tenantId, id])
   @@unique([tenantId, code])
