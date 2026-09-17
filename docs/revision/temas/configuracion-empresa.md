@@ -122,6 +122,7 @@ sola pantalla, «Empresa», con permisos `access.company.search` y `access.compa
 | Cobrar en otra moneda que la factura | **Sí, convirtiendo** a la tasa del día: «la factura puede ser de 100$ pero si el usuario va a cancelar en bs […] siguiendo la tasa del dia» |
 | Diferencial cambiario | **Guardarlo y mostrarlo** por aplicación, sin asientos hasta que exista la contabilidad |
 | Fecha de la tasa de la factura (17-sep-2026) | **La de su emisión**, como el compañero y como Business Central, Odoo y ERPNext (§10.5). Heredar la del despacho queda anotado en FUTURE por si algún día hace falta |
+| Equivalente en bolívares en los reportes (17-sep-2026) | **No**: los reportes van solo en la moneda de la empresa, como el compañero («ese número es el que suma en los reportes»). Un saldo en bolívares a la tasa vieja de cada factura confundiría más que ayudar |
 | IGTF (17-sep-2026) | **Anotado como futuro con su diseño**: en el cobro, no en la factura, como el mercado venezolano (§10.5) |
 | Serie de tasas de la factura (17-sep-2026) | **Dejarlo como está**: la empresa elige entre la legal (BCV) y la interna para todos sus documentos, igual que el compañero. El riesgo fiscal de facturar con la serie interna queda anotado |
 
@@ -187,7 +188,8 @@ sola pantalla, «Empresa», con permisos `access.company.search` y `access.compa
    moneda con la tasa de su fecha y el diferencial cambiario de cada aplicación. Documentado en
    [modulos/ventas.md §2.4](../../modulos/ventas.md#24-moneda-y-tasas) y
    [modulos/cuentas-por-cobrar.md §1.5](../../modulos/cuentas-por-cobrar.md#15-cobrar-en-otra-moneda-y-el-diferencial-cambiario).
-5. Reportes en la moneda de la empresa, con el equivalente en la secundaria.
+5. ✅ Reportes en la moneda de la empresa: cada documento convertido con las tasas que congeló, con la moneda a la
+   vista en la pantalla y en los archivos. Documentado en [modulos/reportes.md §0](../../modulos/reportes.md#0-la-moneda-de-los-reportes).
 
 ## 9. Ubicación: la buena práctica
 

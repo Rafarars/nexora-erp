@@ -461,9 +461,16 @@ decimales de compras y de precio, los decimales que ya no bajan con documentos y
 **cuatro decisiones legales de Rafael** (tasa de fines de semana, serie legal en facturas, fecha del hecho imponible,
 IGTF): [`revision/temas/configuracion-empresa.md`](revision/temas/configuracion-empresa.md) §10.3.
 
-**Sigue el paso 5, reportes:** tablero, antigüedad, estado de cuenta, ventas por cliente y valuación en la moneda de la
-empresa, con el equivalente en la secundaria. Detalle en
-[`revision/temas/configuracion-empresa.md`](revision/temas/configuracion-empresa.md) §8.
+- **Paso 5:** reportes en la moneda de la empresa. El modelo de lectura convierte cada documento en SQL con las dos
+  tasas que congeló, antes de agrupar, y redondea a los decimales de la empresa; el costo promedio del inventario ya
+  venía convertido. Cada reporte dice su moneda, y la pantalla, el PDF y el Excel la muestran. Detalle en
+  [`modulos/reportes.md`](modulos/reportes.md) §0.
+
+**La fase 3 (configuración de la empresa y multimoneda) está cerrada.** Sigue el tema 5 del checklist de la revisión,
+**listas de precio**: investigar dónde vive el maestro, el precio por artículo, la lista del cliente, el precio mínimo
+y el precio sugerido en el pedido ([`revision/README.md`](revision/README.md)). Queda abierta una sola decisión de la
+fase 3: la tasa de fines de semana y feriados
+([`revision/temas/configuracion-empresa.md`](revision/temas/configuracion-empresa.md) §10.3, punto 1).
 
 **Decisiones de Rafael que no hay que volver a discutir:**
 

@@ -29,8 +29,36 @@ hay reportes configurables por el usuario ni envíos programados ([FUTURE.md](..
    como PDF o Excel. Por eso lo que se ve y lo que se descarga no pueden diferir.
 3. **En Excel los números son números.** Se pueden sumar, ordenar y filtrar; el formato (dos
    decimales, miles) es solo de presentación.
-4. **Todo en céntimos enteros.** Sumar miles de facturas en coma flotante deja restos de céntimo.
-5. **Cada reporte tiene su permiso.** El que muestra costos (valuación) no lo ve cualquiera.
+4. **Todo en enteros.** Sumar miles de facturas en coma flotante deja restos; los importes se llevan en
+   diezmilésimas y se redondean a los decimales de importe de la empresa (`amount_decimals`).
+5. **Todo en la moneda de la empresa** (§0): un reporte nunca suma euros con dólares.
+6. **Cada reporte tiene su permiso.** El que muestra costos (valuación) no lo ve cualquiera.
+
+---
+
+## 0. La moneda de los reportes
+
+Cada documento guarda su moneda y **las dos tasas que congeló**: la suya y la de la moneda de la empresa
+([empresa.md §4](empresa.md#4-tasas-de-cambio--exchange_rates)). Los reportes convierten cada documento
+con **sus** tasas y suman el resultado, redondeado a los decimales de la empresa:
+
+```
+importe en la moneda de la empresa = importe × tasa del documento ÷ tasa de la empresa
+```
+
+- Una factura de 100 € emitida con el euro a 40 y el dólar a 36,50 vale **109,59 USD**, hoy y dentro de
+  diez años: no se consulta ninguna tasa nueva.
+- **Lo anterior al multimoneda** no tiene tasas y ya estaba en la moneda de la empresa: se suma tal cual.
+- **El cobro** se convierte con las tasas del cobro; **lo que rebaja de cada factura**, con las de esa
+  factura.
+- **El costo promedio del inventario ya está en la moneda de la empresa**: el inventario lo convierte al
+  recibir la mercancía ([compras.md §3.3](compras.md#33-la-entrada-y-el-costo)), así que la valuación no
+  convierte nada.
+- Cada respuesta dice su `currency`; la pantalla lo muestra junto a los importes y el PDF y el Excel lo
+  escriben bajo el título («Importes en USD»).
+
+**Dónde se convierte:** en el SQL del modelo de lectura, antes de agrupar. Sumar y convertir después
+daría otra cifra.
 
 ---
 
@@ -105,8 +133,9 @@ una bodega de otra empresa responde **404**.
 
 **Ejemplo (Acme, Principal):** agua 288 un × 0,50 = 144,00.
 
-**Consecuencia que hay que saber explicar:** si el costo promedio tiene seis decimales, el valor de cada
-fila se redondea y **el total es la suma de las filas redondeadas**, no el redondeo de la suma. Puede
+**Consecuencia que hay que saber explicar:** si el costo promedio tiene más decimales que los importes de
+la empresa, el valor de cada fila se redondea y **el total es la suma de las filas redondeadas**, no el
+redondeo de la suma. Puede
 diferir en un céntimo de multiplicar la existencia total por un costo. Así el total coincide con lo que
 se ve renglón por renglón.
 
@@ -167,10 +196,10 @@ valuación**, que muestra costos.
 | Nivel | Dónde | Qué cubre |
 |---|---|---|
 | Dominio | `contexts/reporting/domain/**/*.spec.ts` | Periodo (extremos, año bisiesto, tope), tramos, formatos, errores |
-| Aplicación | `reporting.spec.ts` | Cada reporte y su documento con las mismas cifras; valor por fila en céntimos; aislamiento |
-| Contrato | `reporting-read-model.contract.ts` | Contra doble y PostgreSQL: solo emitido y confirmado, extremos del periodo incluidos, compras redondeadas por línea, agrupaciones, existencia con unidad base y por empresa |
+| Aplicación | `reporting.spec.ts` | Cada reporte y su documento con las mismas cifras; valor por fila con los decimales de la empresa; **una factura en euros convertida en todos los reportes**; aislamiento |
+| Contrato | `reporting-read-model.contract.ts` | Contra doble y PostgreSQL: solo emitido y confirmado, extremos del periodo incluidos, compras redondeadas por línea, agrupaciones, existencia con unidad base y por empresa, **cada documento convertido con las tasas que congeló** |
 | Generador | `report-renderer.spec.ts` | El Excel se reabre y trae números con formato; el PDF es PDF; coma decimal |
-| API | `tests/api/reports.api.spec.ts` | **Contenido de los archivos**: celdas del Excel y texto del PDF contra los datos sembrados; errores; permisos |
-| Interfaz | `tests/ui/reports.spec.ts` | Tablero en el Panel, **descarga real** desde la pantalla leída como Excel y como PDF, rol de consulta |
+| API | `tests/api/reports.api.spec.ts` | **Contenido de los archivos**: celdas del Excel y texto del PDF contra los datos sembrados; **una factura en euros que suma en dólares**; errores; permisos |
+| Interfaz | `tests/ui/reports.spec.ts` | Tablero en el Panel con su moneda, **descarga real** desde la pantalla leída como Excel y como PDF, rol de consulta |
 | Rendimiento | `tests/performance/volume.perf.spec.ts` | Umbrales sobre la empresa Volumen: listado de 5.000 facturas, tablero y exportación de la antigüedad |
 | Aislamiento | `tests/isolation/*` | 4 ataques a estados de cuenta y valuación de otra empresa |
