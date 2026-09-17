@@ -2,8 +2,12 @@
 
 import { useEffect, useRef, useState } from 'react';
 
+// Alto aproximado del menu mas largo, para decidir si abre hacia abajo.
+const MENU_ROOM = 200;
+
 // El menu "Opciones" de cada fila: las acciones sobre
-// un registro viven juntas y no reparten columnas por la tabla.
+// un registro viven juntas y no reparten columnas por la tabla. Se posiciona fijo junto al boton: dentro
+// del contenedor con desplazamiento de la tabla, una tabla de pocas filas lo recortaba.
 export function RowOptions({
   testId,
   children,
@@ -11,19 +15,40 @@ export function RowOptions({
   testId: string;
   children: (close: () => void) => React.ReactNode;
 }) {
-  const [open, setOpen] = useState(false);
+  const [position, setPosition] = useState<React.CSSProperties | null>(null);
   const container = useRef<HTMLDivElement>(null);
+  const button = useRef<HTMLButtonElement>(null);
+  const open = position !== null;
+  const close = () => setPosition(null);
+
+  // Junto a su boton, y hacia arriba cuando no cabe debajo.
+  const place = () => {
+    const rect = button.current?.getBoundingClientRect();
+
+    if (!rect) return;
+
+    const right = window.innerWidth - rect.right;
+
+    setPosition(rect.bottom + MENU_ROOM > window.innerHeight ? { bottom: window.innerHeight - rect.top + 4, right } : { top: rect.bottom + 4, right });
+  };
 
   useEffect(() => {
     if (!open) return;
 
     const closeOnOutsideClick = (event: MouseEvent) => {
-      if (!container.current?.contains(event.target as Node)) setOpen(false);
+      if (!container.current?.contains(event.target as Node)) close();
     };
 
     document.addEventListener('mousedown', closeOnOutsideClick);
+    // Esta fijo en la pantalla: si algo se desplaza, se recoloca en vez de quedarse atras.
+    window.addEventListener('scroll', place, true);
+    window.addEventListener('resize', place);
 
-    return () => document.removeEventListener('mousedown', closeOnOutsideClick);
+    return () => {
+      document.removeEventListener('mousedown', closeOnOutsideClick);
+      window.removeEventListener('scroll', place, true);
+      window.removeEventListener('resize', place);
+    };
   }, [open]);
 
   return (
@@ -32,7 +57,8 @@ export function RowOptions({
         type="button"
         aria-label="Opciones"
         aria-expanded={open}
-        onClick={() => setOpen((current) => !current)}
+        ref={button}
+        onClick={() => (open ? close() : place())}
         data-testid={testId}
         className="border-line hover:bg-surface rounded-md border px-2 py-1 text-sm"
       >
@@ -42,9 +68,10 @@ export function RowOptions({
       {open ? (
         <div
           role="menu"
-          className="border-line bg-background absolute right-0 z-20 mt-1 w-56 rounded-md border p-1 shadow-lg"
+          style={position}
+          className="border-line bg-background fixed z-50 w-56 rounded-md border p-1 shadow-lg"
         >
-          {children(() => setOpen(false))}
+          {children(close)}
         </div>
       ) : null}
     </div>

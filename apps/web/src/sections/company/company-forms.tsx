@@ -7,6 +7,7 @@ import { AMOUNT_DECIMALS_MAX, PRICE_DECIMALS_MAX, RATE_TYPE_LABELS, currencyOpti
 import type { CompanyProfile, CompanySettings, Currency } from '@/modules/company/domain/company';
 import { emptyState } from '@/shared/forms/form-state';
 import { Select } from './select';
+import { submitKeepingValues } from '@/shared/forms/submit-keeping-values';
 
 export function CompanyForms({
   profile,
@@ -37,7 +38,7 @@ export function CompanyForms({
           </div>
 
           {canEditProfile ? (
-            <form action={submitProfile} className="space-y-4">
+            <form onSubmit={submitKeepingValues(submitProfile)} className="space-y-4">
               <Field label="Razón social" name="legalName" testId="company-legal-name" defaultValue={profile.legalName} autoComplete="organization" />
               <Field label="Nombre comercial" name="tradeName" required={false} testId="company-trade-name" defaultValue={profile.tradeName ?? ''} autoComplete="off" />
               <Field label="RIF" name="fiscalId" required={false} testId="company-fiscal-id" defaultValue={profile.fiscalId ?? ''} autoComplete="off" />
@@ -80,7 +81,7 @@ export function CompanyForms({
         </div>
 
         {canEditSettings ? (
-          <form action={submitSettings} className="space-y-4">
+          <form onSubmit={submitKeepingValues(submitSettings)} className="space-y-4">
             <Select label="Moneda principal" name="baseCurrency" testId="company-base-currency" defaultValue={settings.baseCurrency.code}>
               {offered.map((currency) => (
                 <option key={currency.code} value={currency.code}>

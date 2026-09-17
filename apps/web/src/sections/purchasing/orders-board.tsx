@@ -18,6 +18,7 @@ import type { PurchaseOrder, Supplier } from '@/modules/purchasing/domain/purcha
 import { DocumentRate } from '@/sections/shared/document-rate';
 import { MenuButton } from './menu-button';
 import { ReceiptFields } from './receipt-fields';
+import { submitKeepingValues } from '@/shared/forms/submit-keeping-values';
 
 export function OrdersBoard({
   orders,
@@ -221,7 +222,7 @@ export function OrdersBoard({
         }}
         testId="order-panel"
       >
-        <form action={save} className="space-y-4" key={editing?.id ?? 'new'}>
+        <form onSubmit={submitKeepingValues(save)} className="space-y-4" key={editing?.id ?? 'new'}>
           <input type="hidden" name="id" value={editing?.id ?? ''} />
           <OrderFields
             order={editing}
@@ -242,7 +243,7 @@ export function OrdersBoard({
 
       <SlideOver title={receiving ? `Recibir ${receiving.code}` : ''} open={receiving !== null} onClose={() => setReceiving(null)} testId="receive-panel">
         {receiving ? (
-          <form action={receive} className="space-y-4" key={receiving.id}>
+          <form onSubmit={submitKeepingValues(receive)} className="space-y-4" key={receiving.id}>
             <p className="text-muted text-sm">
               Se guarda como borrador en Entradas: la existencia sube cuando se confirma.
             </p>

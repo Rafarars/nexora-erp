@@ -11,6 +11,7 @@ import type { FormState } from '@/shared/forms/form-state';
 import { DISPATCH_STATUS_LABELS, dispatchActions, summarizeDispatchLines } from '@/modules/sales/domain/sales';
 import type { Dispatch, SalesOrder } from '@/modules/sales/domain/sales';
 import { DispatchFields } from './dispatch-fields';
+import { submitKeepingValues } from '@/shared/forms/submit-keeping-values';
 
 // Los despachos se crean desde su pedido ("Despachar"); aqui se revisan, se confirman, se
 // facturan y se anulan.
@@ -143,7 +144,7 @@ export function DispatchesBoard({
 
       <SlideOver title={editing ? `Editar ${editing.code}` : ''} open={editing !== null} onClose={() => setEditing(null)} testId="dispatch-edit-panel">
         {editing && editingOrder ? (
-          <form action={save} className="space-y-4" key={editing.id}>
+          <form onSubmit={submitKeepingValues(save)} className="space-y-4" key={editing.id}>
             <input type="hidden" name="id" value={editing.id} />
             <DispatchFields order={editingOrder} dispatch={editing} today={today} />
             <FormError message={saveState.error} testId="dispatch-edit-error" />

@@ -14,6 +14,7 @@ import { DocumentRate } from '@/sections/shared/document-rate';
 import { PAYMENT_METHOD_LABELS, PAYMENT_STATUS_LABELS, customersWithDebt, overdueLabel, payableInvoices, paymentActions } from '@/modules/receivables/domain/receivables';
 import type { Payment, PaymentMethod, Receivable } from '@/modules/receivables/domain/receivables';
 import type { CompanySettings, Currency } from '@/modules/company/domain/company';
+import { submitKeepingValues } from '@/shared/forms/submit-keeping-values';
 
 export function PaymentsBoard({
   payments,
@@ -192,7 +193,7 @@ export function PaymentsBoard({
         }}
         testId="payment-panel"
       >
-        <form action={save} className="space-y-4" key={editing?.id ?? 'new'}>
+        <form onSubmit={submitKeepingValues(save)} className="space-y-4" key={editing?.id ?? 'new'}>
           <input type="hidden" name="id" value={editing?.id ?? ''} />
           <PaymentFields payment={editing} receivables={receivables} currencies={currencies} settings={settings} />
           <FormError message={saveState.error} testId="payment-error" />

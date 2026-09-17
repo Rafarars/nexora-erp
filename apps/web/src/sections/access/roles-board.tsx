@@ -8,6 +8,7 @@ import { Field, FormError, SubmitButton } from '@/sections/shared/field';
 import { SlideOver } from '@/sections/shared/slide-over';
 import { groupByModule, moduleLabel } from '@/modules/access/domain/role';
 import type { Permission, Role } from '@/modules/access/domain/role';
+import { submitKeepingValues } from '@/shared/forms/submit-keeping-values';
 
 export function RolesBoard({
   roles,
@@ -96,7 +97,7 @@ export function RolesBoard({
         }}
         testId="role-panel"
       >
-        <form action={save} className="space-y-5">
+        <form onSubmit={submitKeepingValues(save)} className="space-y-5">
           <input type="hidden" name="roleId" value={editing?.id ?? ''} />
           <Field label="Nombre" name="name" testId="role-name" defaultValue={editing?.name} />
 

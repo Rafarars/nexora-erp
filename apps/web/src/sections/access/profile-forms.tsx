@@ -4,6 +4,7 @@ import { useActionState } from 'react';
 import { changeEmail, changePassword, updateProfile } from '@/app/(app)/perfil/actions';
 import { Field, FormError, SubmitButton } from '@/sections/shared/field';
 import { emptyState } from '@/shared/forms/form-state';
+import { submitKeepingValues } from '@/shared/forms/submit-keeping-values';
 
 export function ProfileForms({ name, email }: { name: string; email: string }) {
   const [profileState, saveProfile, savingProfile] = useActionState(updateProfile, emptyState);
@@ -18,7 +19,7 @@ export function ProfileForms({ name, email }: { name: string; email: string }) {
           <p className="text-muted mt-1 text-sm">Tu nombre, tal como lo ve el resto.</p>
         </div>
 
-        <form action={saveProfile} className="space-y-4">
+        <form onSubmit={submitKeepingValues(saveProfile)} className="space-y-4">
           <Field
             label="Nombre"
             name="name"
@@ -66,7 +67,7 @@ export function ProfileForms({ name, email }: { name: string; email: string }) {
 
         {/* Nombres propios y no `current`: el formulario de contrasena ya usa ese id, y
             dos iguales harian que cada etiqueta apuntara al campo equivocado. */}
-        <form action={saveEmail} className="space-y-4">
+        <form onSubmit={submitKeepingValues(saveEmail)} className="space-y-4">
           <Field
             label="Nuevo correo"
             name="newEmail"

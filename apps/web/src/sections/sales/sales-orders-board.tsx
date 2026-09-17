@@ -19,6 +19,7 @@ import { ORDER_STATUS_LABELS, orderActions, summarizeOrderLines } from '@/module
 import type { Customer, SalesOrder } from '@/modules/sales/domain/sales';
 import { MenuButton } from '@/sections/purchasing/menu-button';
 import { DispatchFields } from './dispatch-fields';
+import { submitKeepingValues } from '@/shared/forms/submit-keeping-values';
 
 export function SalesOrdersBoard({
   orders,
@@ -214,7 +215,7 @@ export function SalesOrdersBoard({
       </div>
 
       <SlideOver
-        title={editing ? `Editar ${editing.code}` : 'Nuevo pedido de compra'}
+        title={editing ? `Editar ${editing.code}` : 'Nuevo pedido de venta'}
         open={creating || editing !== null}
         onClose={() => {
           setCreating(false);
@@ -222,7 +223,7 @@ export function SalesOrdersBoard({
         }}
         testId="sales-order-panel"
       >
-        <form action={save} className="space-y-4" key={editing?.id ?? 'new'}>
+        <form onSubmit={submitKeepingValues(save)} className="space-y-4" key={editing?.id ?? 'new'}>
           <input type="hidden" name="id" value={editing?.id ?? ''} />
           <OrderFields
             order={editing}
@@ -243,7 +244,7 @@ export function SalesOrdersBoard({
 
       <SlideOver title={dispatching ? `Despachar ${dispatching.code}` : ''} open={dispatching !== null} onClose={() => setDispatching(null)} testId="dispatch-panel">
         {dispatching ? (
-          <form action={dispatchOrder} className="space-y-4" key={dispatching.id}>
+          <form onSubmit={submitKeepingValues(dispatchOrder)} className="space-y-4" key={dispatching.id}>
             <p className="text-muted text-sm">
               Se guarda como borrador en Despachos: la existencia baja cuando se confirma.
             </p>

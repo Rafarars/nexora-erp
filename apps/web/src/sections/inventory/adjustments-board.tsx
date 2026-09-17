@@ -12,6 +12,7 @@ import type { Warehouse } from '@/modules/catalog/domain/catalog';
 import type { Item } from '@/modules/inventory/domain/item';
 import { STATUS_LABELS, availableActions, formatCost, formatQuantity, summarizeLines } from '@/modules/inventory/domain/inventory';
 import type { Adjustment } from '@/modules/inventory/domain/inventory';
+import { submitKeepingValues } from '@/shared/forms/submit-keeping-values';
 
 export function AdjustmentsBoard({
   adjustments,
@@ -173,7 +174,7 @@ export function AdjustmentsBoard({
         }}
         testId="adjustment-panel"
       >
-        <form action={save} className="space-y-4" key={editing?.id ?? 'new'}>
+        <form onSubmit={submitKeepingValues(save)} className="space-y-4" key={editing?.id ?? 'new'}>
           <input type="hidden" name="id" value={editing?.id ?? ''} />
           <AdjustmentFields adjustment={editing} items={items} warehouses={warehouses} today={today} />
           <FormError message={saveState.error} testId="adjustment-error" />

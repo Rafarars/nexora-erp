@@ -13,6 +13,7 @@ import { emptyState } from '@/shared/forms/form-state';
 import type { FormState } from '@/shared/forms/form-state';
 import type { Person } from '@/modules/access/domain/person';
 import type { Role } from '@/modules/access/domain/role';
+import { submitKeepingValues } from '@/shared/forms/submit-keeping-values';
 
 export function UsersTable({
   people,
@@ -172,7 +173,7 @@ export function UsersTable({
       </div>
 
       <SlideOver title="Nueva persona" open={creating} onClose={() => setCreating(false)} testId="user-panel">
-        <form action={create} className="space-y-4">
+        <form onSubmit={submitKeepingValues(create)} className="space-y-4">
           <Field label="Nombre" name="name" testId="user-name" autoComplete="off" />
           <Field label="Correo" name="email" type="email" testId="user-email" autoComplete="off" />
           <Field
@@ -197,7 +198,7 @@ export function UsersTable({
         testId="user-edit-panel"
       >
         {editing ? (
-          <form action={update} className="space-y-4" key={editing.userId}>
+          <form onSubmit={submitKeepingValues(update)} className="space-y-4" key={editing.userId}>
             <input type="hidden" name="userId" value={editing.userId} />
             <Field label="Nombre" name="name" testId="edit-name" defaultValue={editing.name} />
 

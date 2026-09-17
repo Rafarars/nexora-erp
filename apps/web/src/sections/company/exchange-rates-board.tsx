@@ -10,6 +10,7 @@ import type { Currency, ExchangeRate, ExchangeRateBoard, RateFilter } from '@/mo
 import { emptyState } from '@/shared/forms/form-state';
 import type { FormState } from '@/shared/forms/form-state';
 import { Select } from './select';
+import { submitKeepingValues } from '@/shared/forms/submit-keeping-values';
 
 const keyOf = (rate: ExchangeRate) => `${rate.currency}-${rate.type}-${rate.rateDate}`;
 
@@ -206,7 +207,7 @@ export function ExchangeRatesBoard({
         testId="rate-panel"
       >
         {/* La `key` rehace el formulario al cambiar de tasa: sin ella quedarian los valores de la anterior. */}
-        <form action={saveAction} className="space-y-4" key={editing?.id ?? 'new'}>
+        <form onSubmit={submitKeepingValues(saveAction)} className="space-y-4" key={editing?.id ?? 'new'}>
           {editing ? (
             <>
               <input type="hidden" name="currency" value={editing.currency} />

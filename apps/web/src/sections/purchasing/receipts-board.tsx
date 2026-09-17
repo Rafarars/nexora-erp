@@ -12,6 +12,7 @@ import type { GoodsReceipt, PurchaseOrder } from '@/modules/purchasing/domain/pu
 import { DocumentRate } from '@/sections/shared/document-rate';
 import { MenuButton } from './menu-button';
 import { ReceiptFields } from './receipt-fields';
+import { submitKeepingValues } from '@/shared/forms/submit-keeping-values';
 
 // Las entradas se crean desde su orden ("Recibir mercancia"); aqui se revisan, se confirman
 // y se anulan.
@@ -158,7 +159,7 @@ export function ReceiptsBoard({
 
       <SlideOver title={editing ? `Editar ${editing.code}` : ''} open={editing !== null} onClose={() => setEditing(null)} testId="receipt-panel">
         {editing && editingOrder ? (
-          <form action={save} className="space-y-4" key={editing.id}>
+          <form onSubmit={submitKeepingValues(save)} className="space-y-4" key={editing.id}>
             <input type="hidden" name="id" value={editing.id} />
             <ReceiptFields order={editingOrder} receipt={editing} today={today} baseCurrency={baseCurrency} allowsRateOverride={allowsRateOverride} />
             <FormError message={saveState.error} testId="receipt-error" />

@@ -7,6 +7,7 @@ import { SlideOver } from '@/sections/shared/slide-over';
 import { emptyState } from '@/shared/forms/form-state';
 import type { FormState } from '@/shared/forms/form-state';
 import type { CatalogRecord } from '@/modules/catalog/domain/catalog';
+import { submitKeepingValues } from '@/shared/forms/submit-keeping-values';
 
 type Action = (state: FormState, form: FormData) => Promise<FormState>;
 
@@ -206,7 +207,7 @@ export function CatalogTable<T extends CatalogRecord>({
       >
         {/* La `key` rehace el formulario al cambiar de registro: sin ella quedarian los
             valores del anterior en los campos no controlados. */}
-        <form action={saveAction} className="space-y-4" key={editing?.id ?? 'new'}>
+        <form onSubmit={submitKeepingValues(saveAction)} className="space-y-4" key={editing?.id ?? 'new'}>
           <input type="hidden" name="id" value={editing?.id ?? ''} />
           {renderFields(editing)}
           <FormError message={saveState.error} testId={`${resource}-error`} />
