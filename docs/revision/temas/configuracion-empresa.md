@@ -230,6 +230,9 @@ documentación) y la suite de interfaz. Cada hallazgo se verificó en el código
 | La tabla de facturas por cobrar no decía cuánto vale un saldo en la moneda de la empresa | Código | Segunda línea con la moneda de la empresa |
 | Documentación desactualizada: «fecha UTC», «céntimos», crédito «del pedido», errores de moneda | Código | Corregida en `empresa.md`, `compras.md`, `ventas.md`, `cuentas-por-cobrar.md` y `ARCHITECTURE.md` |
 | Resumen de la ley impreciso | Web | §8.2 reescrito con el texto primario |
+| Un pedido rechazado perdía cliente y artículo, y la moneda volvía a USD en pantalla mientras el formulario seguía en EUR | Interfaz | Los 17 formularios de edición se envían sin el reinicio automático de React; prueba de interfaz |
+| El panel de Ventas decía «Nuevo pedido de compra» | Interfaz | «Nuevo pedido de venta» |
+| El menú de Opciones quedaba recortado dentro de la tabla | Interfaz | Posición fija junto al botón, que se recoloca al desplazar |
 
 ### 10.2 Coincide
 

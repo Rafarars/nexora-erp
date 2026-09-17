@@ -352,6 +352,13 @@ La barra lateral es **solo para los módulos del negocio**. La administración d
 empresa y el perfil viven en el menú del nombre, al pie. Los listados llevan un menú
 **Opciones** por fila; Editar abre el mismo panel lateral del alta ya relleno.
 
+**Un formulario con acción se envía a mano** (`shared/forms/submit-keeping-values.ts`): React reinicia
+el formulario al terminar la acción, también cuando el servidor la rechazó, y se perdía lo escrito;
+peor con un `select` controlado, que se quedaba mostrando una opción distinta de su estado.
+
+**El menú de Opciones se posiciona fijo** junto a su botón y se recoloca al desplazar: dentro del
+contenedor con desplazamiento de una tabla, quedaba recortado.
+
 **`modules/` no sabe que existe React.** Son clases y funciones puras, probables con
 Vitest sin montar un componente.
 
