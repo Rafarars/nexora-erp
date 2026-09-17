@@ -1,3 +1,4 @@
+import { ConcurrentModificationError } from '../../../shared/domain/concurrent-modification.error.js';
 import { afterAll, afterEach, beforeEach, describe, expect, it } from 'vitest';
 import {
   DuplicateSupplierNameError,
@@ -149,6 +150,30 @@ export function describePurchasingPortsContract(implementation: string, createHa
           baseExchangeRate: 37,
           manualExchangeRate: false,
         });
+      });
+
+      // Dos personas con el mismo borrador: la segunda que guarda no borra lo que guardo la primera.
+      it('refuses to overwrite a draft that someone else saved in the meantime', async () => {
+        const id = PurchaseOrderId.of(`0d000000-0000-4000-8000-${next()}`);
+        const details = (notes: string) => ({
+          supplierId: SupplierId.of(SUPPLIER),
+          warehouseId: WarehouseRef.of(MAIN),
+          orderDate: PurchaseDate.of(TODAY),
+          expectedDate: null,
+          notes,
+          lines: [anOrderLine()],
+          currency: aDocumentCurrency(),
+        });
+        await ports.orders.save(PurchaseOrder.draft(id, tenant, `OC${next().slice(-6)}`, details('original'), NOW, TODAY));
+        const first = (await ports.orders.find(tenant, id))!;
+        const second = (await ports.orders.find(tenant, id))!;
+
+        first.update(details('primero'), new Date(NOW.getTime() + 1000), TODAY);
+        await ports.orders.save(first);
+        second.update(details('segundo'), new Date(NOW.getTime() + 2000), TODAY);
+
+        await expect(ports.orders.save(second)).rejects.toThrow(ConcurrentModificationError);
+        expect((await ports.orders.find(tenant, id))?.notes()).toBe('primero');
       });
 
       it('refuses to overwrite an order that was confirmed in the meantime', async () => {

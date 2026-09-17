@@ -1,3 +1,4 @@
+import { ConcurrentModificationError } from '../../../../shared/domain/concurrent-modification.error.js';
 import { Adjustment, AdjustmentId, AdjustmentPrimitives } from '../../domain/adjustment/adjustment.entity.js';
 import { AdjustmentRepository } from '../../domain/adjustment/adjustment.repository.js';
 import { AdjustmentPosting, Ledger, Posting } from '../../domain/adjustment/posting/adjustment-posting.js';
@@ -40,6 +41,10 @@ export class InMemoryInventoryStore implements AdjustmentRepository, StockReposi
 
     if (stored && stored.status !== 'draft') {
       throw new AdjustmentNotEditableError(row.id, stored.status);
+    }
+
+    if (stored && stored.updatedAt.getTime() !== adjustment.version()?.getTime()) {
+      throw new ConcurrentModificationError(row.id);
     }
 
     this.write(adjustment);

@@ -1,3 +1,4 @@
+import { ConcurrentModificationError } from '../../../../shared/domain/concurrent-modification.error.js';
 import { CustomerId } from '../../domain/customer/customer.entity.js';
 import { CustomerRepository } from '../../domain/customer/customer.repository.js';
 import { Dispatch, DispatchPrimitives } from '../../domain/dispatch/dispatch.entity.js';
@@ -87,6 +88,7 @@ export class InMemorySalesStore {
         const stored = this.orderRows.get(order.id.value);
 
         if (stored && stored.status !== 'draft') throw new SalesOrderNotEditableError(stored.id, stored.status);
+        if (stored && stored.updatedAt.getTime() !== order.version()?.getTime()) throw new ConcurrentModificationError(stored.id);
 
         this.orderRows.set(order.id.value, structuredClone(order.toPrimitives()));
       },
@@ -105,6 +107,7 @@ export class InMemorySalesStore {
         const stored = this.dispatchRows.get(dispatch.id.value);
 
         if (stored && stored.status !== 'draft') throw new DispatchNotEditableError(stored.id, stored.status);
+        if (stored && stored.updatedAt.getTime() !== dispatch.version()?.getTime()) throw new ConcurrentModificationError(stored.id);
 
         this.dispatchRows.set(dispatch.id.value, structuredClone(dispatch.toPrimitives()));
       },

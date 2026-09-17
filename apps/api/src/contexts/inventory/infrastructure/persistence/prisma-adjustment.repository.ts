@@ -19,13 +19,13 @@ export class PrismaAdjustmentRepository implements AdjustmentRepository {
     const date = new Date(`${adjustmentDate}T00:00:00.000Z`);
 
     await this.prisma.$transaction(async (tx) => {
-      const exists = await tx.adjustment.findFirst({ where: { tenantId: row.tenantId, id: row.id }, select: { status: true, updatedAt: true } });
+      const exists = await tx.adjustment.findFirst({ where: { tenantId: row.tenantId, id: row.id }, select: { status: true } });
 
       if (!exists) {
         await tx.adjustment.create({ data: { ...row, adjustmentDate: date } });
       } else {
         const { count } = await tx.adjustment.updateMany({
-          where: { tenantId: row.tenantId, id: row.id, status: 'draft', updatedAt: row.updatedAt },
+          where: { tenantId: row.tenantId, id: row.id, status: 'draft', updatedAt: adjustment.version() ?? undefined },
           data: { warehouseId: row.warehouseId, adjustmentDate: date, notes: row.notes, updatedAt: row.updatedAt },
         });
 

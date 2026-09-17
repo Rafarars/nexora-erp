@@ -1,3 +1,4 @@
+import { ConcurrentModificationError } from '../../../../shared/domain/concurrent-modification.error.js';
 import {
   GoodsReceiptNotEditableError,
   GoodsReceiptNotFoundError,
@@ -61,6 +62,7 @@ export class InMemoryPurchasingStore {
       const stored = this.orderRows.get(document.id.value);
 
       if (stored && stored.status !== 'draft') throw new PurchaseOrderNotEditableError(stored.id, stored.status);
+      if (stored && stored.updatedAt.getTime() !== document.version()?.getTime()) throw new ConcurrentModificationError(stored.id);
 
       this.orderRows.set(document.id.value, structuredClone(document.toPrimitives()));
       return;
@@ -69,6 +71,7 @@ export class InMemoryPurchasingStore {
     const stored = this.receiptRows.get(document.id.value);
 
     if (stored && stored.status !== 'draft') throw new GoodsReceiptNotEditableError(stored.id, stored.status);
+    if (stored && stored.updatedAt.getTime() !== document.version()?.getTime()) throw new ConcurrentModificationError(stored.id);
 
     this.receiptRows.set(document.id.value, structuredClone(document.toPrimitives()));
   }

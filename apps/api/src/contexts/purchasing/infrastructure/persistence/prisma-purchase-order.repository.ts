@@ -18,13 +18,13 @@ export class PrismaPurchaseOrderRepository implements PurchaseOrderRepository {
     const dates = { orderDate: asDate(orderDate), expectedDate: expectedDate ? asDate(expectedDate) : null };
 
     await this.prisma.$transaction(async (tx) => {
-      const exists = await tx.purchaseOrder.findFirst({ where: { tenantId: row.tenantId, id: row.id }, select: { status: true, updatedAt: true } });
+      const exists = await tx.purchaseOrder.findFirst({ where: { tenantId: row.tenantId, id: row.id }, select: { status: true } });
 
       if (!exists) {
         await tx.purchaseOrder.create({ data: { ...row, ...dates } });
       } else {
         const { count } = await tx.purchaseOrder.updateMany({
-          where: { tenantId: row.tenantId, id: row.id, status: 'draft', updatedAt: row.updatedAt },
+          where: { tenantId: row.tenantId, id: row.id, status: 'draft', updatedAt: order.version() ?? undefined },
           data: {
             supplierId: row.supplierId,
             warehouseId: row.warehouseId,

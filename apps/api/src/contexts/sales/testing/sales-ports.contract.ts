@@ -1,3 +1,4 @@
+import { ConcurrentModificationError } from '../../../shared/domain/concurrent-modification.error.js';
 import { DocumentCurrency } from '../domain/shared/document-currency.js';
 import { afterAll, afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { Customer, CustomerId } from '../domain/customer/customer.entity.js';
@@ -161,6 +162,28 @@ export function describeSalesPortsContract(implementation: string, createHarness
         await ports.orderPosting.post(tenant, fits, (order) => order.cancel(NOW));
 
         await expect(confirmOrder(await draftOrder([pieces(4)]))).resolves.toBeUndefined();
+      });
+
+      // Dos personas con el mismo borrador: la segunda que guarda no borra lo que guardo la primera.
+      it('refuses to overwrite a draft that someone else saved in the meantime', async () => {
+        const id = await draftOrder([pieces(1)]);
+        const first = (await ports.orders.find(tenant, id))!;
+        const second = (await ports.orders.find(tenant, id))!;
+        const details = (notes: string) => ({
+          customerId: CustomerId.of(CUSTOMER),
+          warehouseId: WarehouseRef.of(MAIN),
+          orderDate: SalesDate.of(TODAY),
+          currency: first.currency(),
+          notes,
+          lines: [pieces(1)],
+        });
+
+        first.update(details('primero'), new Date(NOW.getTime() + 1000), TODAY);
+        await ports.orders.save(first);
+        second.update(details('segundo'), new Date(NOW.getTime() + 2000), TODAY);
+
+        await expect(ports.orders.save(second)).rejects.toThrow(ConcurrentModificationError);
+        expect((await ports.orders.find(tenant, id))?.toPrimitives().notes).toBe('primero');
       });
 
       it('refuses to overwrite an order confirmed in the meantime', async () => {

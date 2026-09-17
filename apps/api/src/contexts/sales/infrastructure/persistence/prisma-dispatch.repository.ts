@@ -16,13 +16,13 @@ export class PrismaDispatchRepository implements DispatchRepository {
     const { lines, dispatchDate, ...row } = dispatch.toPrimitives();
 
     await this.prisma.$transaction(async (tx) => {
-      const exists = await tx.dispatch.findFirst({ where: { tenantId: row.tenantId, id: row.id }, select: { status: true, updatedAt: true } });
+      const exists = await tx.dispatch.findFirst({ where: { tenantId: row.tenantId, id: row.id }, select: { status: true } });
 
       if (!exists) {
         await tx.dispatch.create({ data: { ...row, dispatchDate: asDate(dispatchDate) } });
       } else {
         const { count } = await tx.dispatch.updateMany({
-          where: { tenantId: row.tenantId, id: row.id, status: 'draft', updatedAt: row.updatedAt },
+          where: { tenantId: row.tenantId, id: row.id, status: 'draft', updatedAt: dispatch.version() ?? undefined },
           data: { dispatchDate: asDate(dispatchDate), notes: row.notes, currency: row.currency, exchangeRate: row.exchangeRate, baseCurrency: row.baseCurrency, baseExchangeRate: row.baseExchangeRate, manualExchangeRate: row.manualExchangeRate, updatedAt: row.updatedAt },
         });
 

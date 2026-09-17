@@ -17,13 +17,13 @@ export class PrismaGoodsReceiptRepository implements GoodsReceiptRepository {
     const { lines, receiptDate, ...row } = receipt.toPrimitives();
 
     await this.prisma.$transaction(async (tx) => {
-      const exists = await tx.goodsReceipt.findFirst({ where: { tenantId: row.tenantId, id: row.id }, select: { status: true, updatedAt: true } });
+      const exists = await tx.goodsReceipt.findFirst({ where: { tenantId: row.tenantId, id: row.id }, select: { status: true } });
 
       if (!exists) {
         await tx.goodsReceipt.create({ data: { ...row, receiptDate: asDate(receiptDate) } });
       } else {
         const { count } = await tx.goodsReceipt.updateMany({
-          where: { tenantId: row.tenantId, id: row.id, status: 'draft', updatedAt: row.updatedAt },
+          where: { tenantId: row.tenantId, id: row.id, status: 'draft', updatedAt: receipt.version() ?? undefined },
           data: {
             receiptDate: asDate(receiptDate),
             notes: row.notes,

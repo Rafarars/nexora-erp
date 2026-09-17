@@ -57,6 +57,8 @@ export class Adjustment {
     private cancelledAt: Date | null,
     private readonly createdAt: Date,
     private updatedAt: Date,
+    // El updatedAt con que se leyo; null si nunca se guardo.
+    private readonly loadedVersion: Date | null = null,
   ) {}
 
   static draft(id: AdjustmentId, tenantId: TenantId, code: string, details: AdjustmentDetails, now: Date, today: string): Adjustment {
@@ -79,6 +81,7 @@ export class Adjustment {
       row.cancelledAt,
       row.createdAt,
       row.updatedAt,
+      row.updatedAt,
     );
   }
 
@@ -97,6 +100,11 @@ export class Adjustment {
       updatedAt: this.updatedAt,
       lines: this.details.lines.map((line) => line.toPrimitives()),
     };
+  }
+
+  // Guardar el borrador solo pisa esta version: si otra persona lo guardo entretanto, se rechaza.
+  version(): Date | null {
+    return this.loadedVersion;
   }
 
   currentStatus(): AdjustmentStatus {

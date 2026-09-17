@@ -16,14 +16,13 @@ export class PrismaSalesOrderRepository implements SalesOrderRepository {
     const { lines, orderDate, ...row } = order.toPrimitives();
 
     await this.prisma.$transaction(async (tx) => {
-      const exists = await tx.salesOrder.findFirst({ where: { tenantId: row.tenantId, id: row.id }, select: { status: true, updatedAt: true } });
+      const exists = await tx.salesOrder.findFirst({ where: { tenantId: row.tenantId, id: row.id }, select: { status: true } });
 
       if (!exists) {
-        console.log("SAVING ORDER:", JSON.stringify(row));
         await tx.salesOrder.create({ data: { ...row, orderDate: asDate(orderDate) } });
       } else {
         const { count } = await tx.salesOrder.updateMany({
-          where: { tenantId: row.tenantId, id: row.id, status: 'draft', updatedAt: row.updatedAt },
+          where: { tenantId: row.tenantId, id: row.id, status: 'draft', updatedAt: order.version() ?? undefined },
           data: { customerId: row.customerId, warehouseId: row.warehouseId, orderDate: asDate(orderDate), notes: row.notes, currency: row.currency, exchangeRate: row.exchangeRate, baseCurrency: row.baseCurrency, baseExchangeRate: row.baseExchangeRate, manualExchangeRate: row.manualExchangeRate, updatedAt: row.updatedAt },
         });
 

@@ -43,6 +43,7 @@ function kindOf(status: number): AccessErrorKind {
 }
 
 const BY_CODE: Record<string, string> = {
+  ConcurrentModificationError: 'Alguien más guardó este documento mientras lo tenías abierto: recarga la página y vuelve a intentarlo.',
   InvalidCredentialsError: 'Correo o contraseña incorrectos.',
   TooManyLoginAttemptsError: 'Demasiados intentos fallidos. Espera unos minutos y vuelve a probar.',
   NoActiveMembershipError:

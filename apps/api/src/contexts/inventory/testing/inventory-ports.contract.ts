@@ -1,3 +1,4 @@
+import { ConcurrentModificationError } from '../../../shared/domain/concurrent-modification.error.js';
 import { afterAll, afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { SequentialIdGenerator } from '../../../shared/infrastructure/testing/sequential-id-generator.js';
 import { AdjustmentDate } from '../domain/adjustment/adjustment-date.vo.js';
@@ -137,6 +138,21 @@ export function describeInventoryPortsContract(implementation: string, createHar
           notes: null,
           lines: [{ quantity: 7 }],
         });
+      });
+
+      // Dos personas con el mismo borrador: la segunda que guarda no borra lo que guardo la primera.
+      it('refuses to overwrite a draft that someone else saved in the meantime', async () => {
+        const id = await draft([line('in', 5, 1)]);
+        const first = (await ports.adjustments.find(tenant, id))!;
+        const second = (await ports.adjustments.find(tenant, id))!;
+        const details = (notes: string) => ({ warehouseId: WarehouseRef.of(MAIN), date: AdjustmentDate.of(TODAY), notes, lines: [line('in', 1)] });
+
+        first.update(details('primero'), new Date(NOW.getTime() + 1000), TODAY);
+        await ports.adjustments.save(first);
+        second.update(details('segundo'), new Date(NOW.getTime() + 2000), TODAY);
+
+        await expect(ports.adjustments.save(second)).rejects.toThrow(ConcurrentModificationError);
+        expect((await ports.adjustments.find(tenant, id))?.toPrimitives().notes).toBe('primero');
       });
 
       // Un borrador leido antes de que otro lo confirmara no puede devolverlo a borrador.
