@@ -23,7 +23,7 @@ de ninguna conversación anterior**.
 |---|---|
 | Repositorio | github.com/Rafarars/nexora-erp |
 | Reporte de pruebas | https://rafarars.github.io/nexora-erp/ |
-| Pruebas | 2424 + 170 unitarias · 155 de contrato · 341 end-to-end |
+| Pruebas | 2456 + 170 unitarias · 159 de contrato · 346 end-to-end |
 | **H0 — Fundación** | **Completado** |
 | **H1 — Multiempresa y acceso** | **Completado** y revisado |
 | **H2 — Catálogo** | **Completado** ([`H2-CATALOGO.md`](H2-CATALOGO.md)) |
@@ -437,8 +437,8 @@ Informe completo en [`revision/inventario/articulos.md`](revision/inventario/art
 | 6 · Servicios (H3) | Corregir documentación y pantalla. Comprar y vender servicios se hace en Compras y Facturas con la regla del compañero: la línea de servicio no cuenta para recibido o despachado | ⬜ |
 | 7 · Cierre | Informe, checklist en ✅, `make verify` | ⬜ |
 
-**Dónde quedamos (15-sep-2026).** Fases 1 y 2 de Artículos cerradas. Fase 3, configuración de la empresa y monedas:
-investigada, decidida y con los **pasos 1 a 3 hechos**:
+**Dónde quedamos (17-sep-2026).** Fases 1 y 2 de Artículos cerradas. Fase 3, configuración de la empresa y monedas:
+investigada, decidida y con los **pasos 1 a 4 hechos**:
 
 - **Paso 1:** contexto `company` con datos, parámetros y monedas, «hoy» por zona horaria, RIF en reportes.
 - **Paso 2:** tasas de cambio por empresa, moneda, fecha y tipo cargadas a mano (Administración › Tasas de cambio);
@@ -448,11 +448,16 @@ investigada, decidida y con los **pasos 1 a 3 hechos**:
   borrador y se congelan al confirmar; la entrada usa las de su día; el costo entra al inventario en la moneda de la
   empresa. Tasa a mano según el parámetro `allowsRateOverride` (decisión de Rafael). Detalle en
   [`modulos/compras.md`](modulos/compras.md) §2.4 y §3.3.
+- **Paso 4:** pedidos con moneda y tasas como las compras; el despacho sin moneda; la factura con la moneda del pedido,
+  **la tasa del día de su emisión** y sus importes en bolívares; cobros en cualquier moneda con la tasa de su fecha,
+  lo aplicado en la moneda de la factura y el **diferencial cambiario** guardado y mostrado (decisiones de Rafael);
+  saldos, antigüedad, crédito y estado de cuenta en la moneda de la empresa. Núcleo compartido
+  `shared/domain/amount.ts` y `document-currency.ts`. Bloqueo optimista de los borradores corregido. Detalle en
+  [`modulos/ventas.md`](modulos/ventas.md) §2.4 y [`modulos/cuentas-por-cobrar.md`](modulos/cuentas-por-cobrar.md) §1.5.
 
-**Sigue el paso 4, ventas y cobranza:** pedidos, facturas y cobros con moneda y tasas por `DocumentRates`; facturas y
-cobros con importes en bolívares en la cabecera (`subtotal_ves`, `tax_amount_ves`, `total_ves`); el cobro con la tasa de
-su fecha y el diferencial cambiario de cada aplicación; redondeo según los decimales de la empresa y columnas de importes
-a 4 decimales; límite de crédito en la moneda de la empresa. Después, paso 5 reportes. Detalle en
+**Sigue el paso 5, reportes:** tablero, antigüedad, estado de cuenta, ventas por cliente y valuación en la moneda de la
+empresa, con el equivalente en la secundaria; los totales de las órdenes de compra todavía redondean a 2 decimales en
+vez de a los de la empresa. Detalle en
 [`revision/temas/configuracion-empresa.md`](revision/temas/configuracion-empresa.md) §8.
 
 **Decisiones de Rafael que no hay que volver a discutir:**

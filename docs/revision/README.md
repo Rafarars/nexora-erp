@@ -107,7 +107,7 @@ decidir **en qué módulo viven** y **qué reglas llevan**. Cada una se resuelve
 | Tema | Pregunta | Se resuelve en | Estado |
 |---|---|---|---|
 | Artículos en Inventario | Mover código, pantalla y permisos de Catálogo a Inventario (decidido) | Artículos | ✅ Fase 2 |
-| Configuración de la empresa y monedas | Qué valores lleva y dónde vive; multimoneda con tasas (decidido: en esta fase) | Artículos (antes de listas de precio) | 🔍 Pasos 1 a 3 de 5 hechos · [temas/configuracion-empresa.md](temas/configuracion-empresa.md) |
+| Configuración de la empresa y monedas | Qué valores lleva y dónde vive; multimoneda con tasas (decidido: en esta fase) | Artículos (antes de listas de precio) | 🔍 Pasos 1 a 4 de 5 hechos · [temas/configuracion-empresa.md](temas/configuracion-empresa.md) |
 | Listas de precio | En qué módulo vive el maestro y cómo se resuelve el precio | Artículos | ⬜ |
 | Adjuntos e imágenes | Módulo genérico de archivos: tabla, relación con cada registro y almacenamiento en el despliegue | Artículos (imagen del artículo) | ⬜ |
 | Tipo no inventariado | Si se agrega y qué documentos lo aceptan | Inventario › Existencias | ⬜ |

@@ -62,7 +62,7 @@ fiar; se explica con ejemplos en [cuentas-por-cobrar.md §3](cuentas-por-cobrar.
 | Línea: `tax_rate` | **Copiado del impuesto del artículo** |
 | Línea: `dispatched_quantity` | Lo que sumaron los despachos confirmados |
 
-Montos por línea redondeados a céntimos, como en compras.
+Montos por línea redondeados a los **decimales de importe de la empresa** (`amount_decimals`), como en compras.
 
 ### 2.2 Ciclo de vida
 
@@ -104,6 +104,18 @@ las cantidades base. Si cambiaron entre la revalidación y el bloqueo, el pedido
 (`SalesItemChangedError`, 409) y se vuelve a intentar. Mientras el pedido esté abierto, el maestro
 de artículos no deja desactivar el artículo ni cambiar la unidad que usa.
 
+### 2.4 Moneda y tasas
+
+El pedido lleva `currency`, `exchange_rate`, `base_currency`, `base_exchange_rate` y
+`manual_exchange_rate` con las **mismas reglas que la orden de compra**
+([compras.md §2.4](compras.md#24-moneda-y-tasas)): la moneda la elige quien captura (por defecto, la
+de la empresa); el borrador refresca las tasas del día del pedido o la última anterior; confirmar las
+congela; una tasa escrita a mano se conserva si la empresa lo permite. Sin tasa, no se guarda
+(`MissingExchangeRateError`, 409).
+
+**El límite de crédito se compara en la moneda de la empresa**: el total del pedido o de la factura
+se pasa a ella con sus tasas antes de sumarlo a lo que el cliente debe.
+
 ---
 
 ## 3. Despachos
@@ -116,7 +128,8 @@ de artículos no deja desactivar el artículo ni cambiar la unidad que usa.
 | Línea: `quantity` | Mayor que cero y **no más de lo pendiente** |
 | Línea: `base_quantity` | **La proporción de la línea del pedido**, que es lo que el pedido reservó |
 
-**No lleva costo.** El inventario valora la salida al **costo promedio vigente**.
+**No lleva costo ni moneda.** El inventario valora la salida al **costo promedio vigente**, y el
+despacho no cobra nada: la moneda está en el pedido y la tasa, en la factura.
 
 | Paso | En el pedido | En el inventario |
 |---|---|---|
@@ -146,7 +159,10 @@ Se emiten **desde un despacho confirmado**. No tienen borrador: nacen emitidas.
 | `issue_date` | Por defecto hoy; **no futura** |
 | `due_date` | `issue_date + plazo del cliente` (contado: el mismo día) |
 | Líneas | Una por línea del despacho: cantidad × **precio del pedido**, con su impuesto |
-| `subtotal`, `tax`, `total` | **Guardados**, en céntimos por línea |
+| `currency` | **La del pedido.** Aunque la moneda se haya retirado del catálogo después |
+| `exchange_rate`, `base_exchange_rate` | **Del día de emisión** (o la última anterior), no las del pedido: la factura es el documento fiscal |
+| `subtotal`, `tax`, `total` | **Guardados**, en su moneda, redondeados por línea a los decimales de la empresa |
+| `subtotal_ves`, `tax_ves`, `total_ves` | Los mismos importes **en bolívares** a la tasa de emisión, como pide la ley venezolana |
 | `status` | `issued` o `cancelled` |
 
 **Reglas**
@@ -162,6 +178,9 @@ Se emiten **desde un despacho confirmado**. No tienen borrador: nacen emitidas.
 
 Ejemplo: 4 cajas a 30 con 16 % → subtotal 120,00, IVA 19,20, total 139,20. Con plazo de 15 días,
 emitida el 15 de enero vence el 30.
+
+Ejemplo de moneda: un pedido en euros confirmado el 10 de septiembre (171,30) se factura el 17
+(175,05). La factura toma **175,05**: un total de 100 € vale 17 505,00 Bs.
 
 ---
 
@@ -245,6 +264,7 @@ El rol **Consulta** ve clientes, pedidos, despachos, facturas y disponibilidad, 
 | Dominio | `contexts/sales/domain/**/*.spec.ts` | Reserva (sumar líneas, reservado de otros, pendiente), ciclo del pedido, despacho proporcional, factura con vencimiento e importes, errores |
 | Aplicación | `customer-lifecycle.spec.ts`, `sales-cycle.spec.ts` | Reservar y liberar, no reservar de más, despachar en partes, existencia que ya no está, facturar una vez, despacho facturado no se anula |
 | Contrato | `sales-ports.contract.ts` | 12 casos contra doble y PostgreSQL con el inventario real: **dos pedidos simultáneos que no caben**, **dos despachos simultáneos**, **dos facturas simultáneas del mismo despacho** |
-| API | `tests/api/sales.api.spec.ts` | Recorrido por HTTP, reserva, concurrencia, costo promedio en el kardex, vencimiento, permisos |
+| Aplicación | `sales-currency.spec.ts` | Moneda del pedido, tasa manual, factura con la tasa de su emisión e importes en bolívares, crédito en la moneda de la empresa |
+| API | `tests/api/sales.api.spec.ts` | Recorrido por HTTP, reserva, concurrencia, costo promedio en el kardex, vencimiento, permisos, **factura en euros con la tasa de emisión y tasa manual del pedido** |
 | Interfaz | `tests/ui/sales.spec.ts` | **El ciclo completo** comprar → recibir → vender → despachar → facturar en pasos Dado/Cuando/Entonces; error de disponibilidad en español; solo lectura |
 | Aislamiento | `tests/isolation/*` | 13 ataques a clientes, pedidos, despachos, facturas y disponibilidad de Globex |

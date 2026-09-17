@@ -216,7 +216,12 @@ sirve a un endpoint. Tienen el mismo nombre y trabajos distintos.
   implementa y exporta el contexto de empresa: `forDocument` devuelve la tasa de la moneda del documento y la de la
   moneda de la empresa, de la serie que eligió, con la del día o la última anterior, o la escrita a mano si la
   empresa lo permite. Sus errores viven en el mismo archivo y las pruebas usan `FixedDocumentRates`. Ningún módulo
-  lee `exchange_rates` por su cuenta: compras lo usa en órdenes y entradas
+  lee `exchange_rates` por su cuenta: lo usan compras, ventas y cuentas por cobrar. También da los decimales de
+  importe de la empresa (`amountDecimals`)
+- **Un núcleo compartido de importes y monedas**: `shared/domain/amount.ts` (unidades de 4 decimales y redondeo) y
+  `shared/domain/document-currency.ts` (el objeto de valor con la moneda y las dos tasas de un documento, y su paso a
+  bolívares y a la moneda de la empresa). Es dominio puro, sin puertos: una sola regla de conversión para todos los
+  contextos, en vez de una copia en cada uno
 - **Un segundo contrato publicado, solo de lectura**: `shared/prisma/receivable-balances.ts`
   (`RECEIVABLE_BALANCES`). Lo implementa cuentas por cobrar, dueña de los cobros, y lo usa ventas al
   emitir a crédito (bloquea el cliente y lee su deuda) y al anular una factura (lee lo cobrado). El

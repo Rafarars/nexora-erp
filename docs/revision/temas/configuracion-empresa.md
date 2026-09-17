@@ -118,6 +118,8 @@ sola pantalla, «Empresa», con permisos `access.company.search` y `access.compa
 | Ubicación | Pidió la buena práctica antes de decidir (§9) |
 | Tasa escrita a mano en un documento | **Configurable por empresa** (parámetro `allows_rate_override`) |
 | Moneda de la orden de compra | **La elige quien captura**, con la de la empresa por defecto; sin moneda por proveedor |
+| Cobrar en otra moneda que la factura | **Sí, convirtiendo** a la tasa del día: «la factura puede ser de 100$ pero si el usuario va a cancelar en bs […] siguiendo la tasa del dia» |
+| Diferencial cambiario | **Guardarlo y mostrarlo** por aplicación, sin asientos hasta que exista la contabilidad |
 
 ## 8. Multimoneda: lo investigado
 
@@ -172,8 +174,10 @@ sola pantalla, «Empresa», con permisos `access.company.search` y `access.compa
    resolución de la tasa de un documento. Documentado en [modulos/empresa.md §4](../../modulos/empresa.md#4-tasas-de-cambio--exchange_rates).
 3. ✅ Compras: moneda y tasas congeladas en órdenes y entradas, tasa a mano según la empresa y el costo del inventario
    en la moneda de la empresa. Documentado en [modulos/compras.md §2.4](../../modulos/compras.md#24-moneda-y-tasas).
-4. Ventas y cobranza: pedidos, facturas con importes en bolívares, cobros con la tasa de su fecha y el diferencial
-   cambiario de cada aplicación.
+4. ✅ Ventas y cobranza: pedidos, facturas con la tasa de su emisión e importes en bolívares, cobros en cualquier
+   moneda con la tasa de su fecha y el diferencial cambiario de cada aplicación. Documentado en
+   [modulos/ventas.md §2.4](../../modulos/ventas.md#24-moneda-y-tasas) y
+   [modulos/cuentas-por-cobrar.md §1.5](../../modulos/cuentas-por-cobrar.md#15-cobrar-en-otra-moneda-y-el-diferencial-cambiario).
 5. Reportes en la moneda de la empresa, con el equivalente en la secundaria.
 
 ## 9. Ubicación: la buena práctica

@@ -108,8 +108,10 @@ empresa si no dice) y la de la moneda de la empresa, de la serie que eligió en 
   (`FixedExchangeRateError`); la de la empresa siempre sale del catálogo.
 - Los errores que cruzan contextos (`MissingExchangeRateError` y los dos anteriores) viven en el contrato. Las pruebas
   de los demás contextos usan el doble `FixedDocumentRates`.
-- Lo usan las órdenes y entradas de compra ([compras.md §2.4](compras.md#24-moneda-y-tasas)); ventas y cobranza, en el
-  paso 4.
+- `amountDecimals(empresa)` devuelve los decimales de importe (`amount_decimals`) con que se redondean los montos.
+- Lo usan las órdenes y entradas de compra ([compras.md §2.4](compras.md#24-moneda-y-tasas)), los pedidos y facturas de
+  venta ([ventas.md §2.4](ventas.md#24-moneda-y-tasas)) y los cobros
+  ([cuentas-por-cobrar.md §1.5](cuentas-por-cobrar.md#15-cobrar-en-otra-moneda-y-el-diferencial-cambiario)).
 
 ## 5. API y permisos
 
