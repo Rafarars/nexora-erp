@@ -9,6 +9,11 @@ import type { Category, MeasurementUnit, Tax } from '@/modules/catalog/domain/ca
 import { ITEM_TYPE_LABELS, describeUnits } from '@/modules/inventory/domain/item';
 import type { Item } from '@/modules/inventory/domain/item';
 
+// Cada impuesto con su porcentaje; sin impuesto, la linea no lleva ninguno.
+function describeTax(tax: Item['salesTax']): string {
+  return tax ? `${tax.name} (${formatNumber(tax.rate)} %)` : '—';
+}
+
 export function ItemsBoard({
   items,
   categories,
@@ -48,8 +53,12 @@ export function ItemsBoard({
           cell: (item) => <span data-testid={`item-category-${item.sku}`}>{item.category?.name ?? '—'}</span>,
         },
         {
-          header: 'Impuesto',
-          cell: (item) => (item.tax ? `${item.tax.name} (${formatNumber(item.tax.rate)} %)` : '—'),
+          header: 'Impuestos',
+          cell: (item) => (
+            <span data-testid={`item-taxes-${item.sku}`}>
+              Venta: {describeTax(item.salesTax)} · Compra: {describeTax(item.purchaseTax)}
+            </span>
+          ),
         },
         {
           header: 'Unidades',
@@ -125,9 +134,19 @@ function ItemFields({
         ))}
       </Select>
 
-      <Select label="Impuesto" name="taxId" testId="item-tax" defaultValue={item?.tax?.id ?? ''}>
+      <Select label="Impuesto al vender" name="salesTaxId" testId="item-sales-tax" defaultValue={item?.salesTax?.id ?? ''}>
         <option value="">Sin impuesto</option>
-        {selectableOptions(taxes, item?.tax?.id).map((tax) => (
+        {selectableOptions(taxes, item?.salesTax?.id).map((tax) => (
+          <option key={tax.id} value={tax.id}>
+            {tax.name} ({formatNumber(tax.rate)} %)
+          </option>
+        ))}
+      </Select>
+
+      {/* Un articulo puede comprarse exento y venderse con IVA. */}
+      <Select label="Impuesto al comprar" name="purchaseTaxId" testId="item-purchase-tax" defaultValue={item?.purchaseTax?.id ?? ''}>
+        <option value="">Sin impuesto</option>
+        {selectableOptions(taxes, item?.purchaseTax?.id).map((tax) => (
           <option key={tax.id} value={tax.id}>
             {tax.name} ({formatNumber(tax.rate)} %)
           </option>

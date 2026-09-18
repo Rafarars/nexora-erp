@@ -11,7 +11,8 @@ export interface ItemDetailsInput {
   description?: string | null;
   type: string;
   categoryId?: string | null;
-  taxId?: string | null;
+  salesTaxId?: string | null;
+  purchaseTaxId?: string | null;
   units: ItemUnitPrimitives[];
 }
 
@@ -24,7 +25,8 @@ export function itemDetailsOf(input: ItemDetailsInput): ItemDetails {
     description: input.description ?? null,
     type: itemTypeOf(input.type),
     categoryId: input.categoryId ? CategoryRef.of(input.categoryId) : null,
-    taxId: input.taxId ? TaxRef.of(input.taxId) : null,
+    salesTaxId: input.salesTaxId ? TaxRef.of(input.salesTaxId) : null,
+    purchaseTaxId: input.purchaseTaxId ? TaxRef.of(input.purchaseTaxId) : null,
     units: ItemUnits.fromPrimitives(input.units),
   };
 }

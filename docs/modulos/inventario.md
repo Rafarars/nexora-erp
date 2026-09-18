@@ -50,18 +50,27 @@ La categoría, el impuesto y las unidades siguen en el [catálogo](catalogo.md) 
 | `description` | texto(1000) | Opcional |
 | `type` | `inventoried` \| `service` | Inventariado tiene existencia; servicio se compra y vende pero nunca tiene stock |
 | `category_id` | categoría | Opcional |
-| `tax_id` | impuesto | Opcional |
+| `sales_tax_id` | impuesto | Opcional. **El que se copia a la línea al venderlo** |
+| `purchase_tax_id` | impuesto | Opcional. El que se copia a la línea al comprarlo |
 
 ### 1.1 Unidades del artículo — `item_units`
 
 | Campo | Tipo | Regla |
 |---|---|---|
 | `unit_id` | unidad | De la misma empresa |
-| `conversion_factor` | decimal(18,4) | Mayor que cero. Cuántas unidades base contiene 1 de esta unidad |
+| `conversion_factor` | decimal(18,8) | Mayor que cero. Cuántas unidades base contiene 1 de esta unidad |
 | `is_base` | sí/no | **Exactamente una** base, con factor 1 |
 
 Ejemplo: agua con base «un» y «cja» con factor 24 → 1 cja = 24 un. Todo el stock se guarda en la
 unidad base.
+
+**Por qué ocho decimales:** con cuatro, una base «docena» daba 0,0833 por pieza y doce piezas sumaban
+0,9996 docenas, no una. Con ocho, 0,08333333 × 12 = 0,99999996, que redondeado a las cuatro
+diezmilésimas de las cantidades es exactamente 1.
+
+**Por qué dos impuestos:** un artículo puede comprarse exento y venderse con IVA. La orden de compra
+copia el de compra y el pedido de venta copia el de venta; si falta, la línea va sin impuesto. Es lo
+que hacen el compañero y SAP Business One.
 
 **Reglas**
 
@@ -350,7 +359,7 @@ Las del artículo se explican en [§1](#1-artículos); la de la bodega vive en e
 | Ruta | Qué hace |
 |---|---|
 | `/inventario` | Redirige a la primera sección que el rol puede ver |
-| `/inventario/articulos` | Tabla con SKU, tipo, categoría, impuesto y unidades («un · 1 cja = 24 un»); panel con editor de unidades |
+| `/inventario/articulos` | Tabla con SKU, tipo, categoría, **impuestos de venta y de compra** y unidades («un · 1 cja = 24 un»); panel con editor de unidades |
 | `/inventario/existencias` | Artículo, bodega, existencia en unidad base, costo promedio, valor y total; filtro por bodega en la dirección |
 | `/inventario/ajustes` | Código, fecha, bodega, resumen de líneas («+2 cja (48 un) AGUA-500»), estado y Opciones según el estado |
 | `/inventario/kardex` | Elige artículo y bodega; cada movimiento con documento, cantidad, costo, saldo y promedio, y las anulaciones marcadas |
@@ -368,7 +377,8 @@ Las del artículo se explican en [§1](#1-artículos); la de la bodega vive en e
 
 ## 9. Datos de demostración
 
-**Artículos**: Acme — Agua mineral 500 ml (caja de 24), Detergente 1 kg, Servicio de entrega; Globex — Filtro de aceite.
+**Artículos**: Acme — Agua mineral 500 ml (caja de 24, IVA al vender y al comprar), Detergente 1 kg (**IVA al vender,
+exento al comprar**), Servicio de entrega (exento); Globex — Filtro de aceite.
 
 | Empresa | Ajuste | Estado | Contenido | Existencia resultante |
 |---|---|---|---|---|

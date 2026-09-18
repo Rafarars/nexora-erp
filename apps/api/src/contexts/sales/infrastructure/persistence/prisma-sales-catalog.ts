@@ -14,7 +14,7 @@ export class PrismaSalesCatalog implements SalesCatalog {
 
     const rows = await this.prisma.item.findMany({
       where: { tenantId: tenantId.value, id: { in: ids.map((id) => id.value) } },
-      include: { units: { include: { unit: true } }, tax: true },
+      include: { units: { include: { unit: true } }, salesTax: true },
     });
 
     return rows.map((row) => ({
@@ -23,7 +23,7 @@ export class PrismaSalesCatalog implements SalesCatalog {
       name: row.name,
       type: row.type,
       isActive: row.isActive,
-      taxRate: row.tax ? row.tax.rate.toNumber() : 0,
+      taxRate: row.salesTax ? row.salesTax.rate.toNumber() : 0,
       units: row.units.map((unit) => ({
         unitId: unit.unitId,
         abbreviation: unit.unit.abbreviation,

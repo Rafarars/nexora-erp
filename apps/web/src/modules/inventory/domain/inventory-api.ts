@@ -7,7 +7,8 @@ export interface ItemInput {
   description: string | null;
   type: ItemType | string;
   categoryId: string | null;
-  taxId: string | null;
+  salesTaxId: string | null;
+  purchaseTaxId: string | null;
   units: { unitId: string; conversionFactor: number; isBase: boolean }[];
 }
 

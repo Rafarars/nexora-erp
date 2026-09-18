@@ -76,7 +76,7 @@ una caja depende del artículo, y se define en cada uno.
 - Un porcentaje de **0** es válido y sirve para los artículos exentos.
 - **Cambiar el porcentaje es legítimo**: los documentos copiarán el vigente al confirmarse, así
   que lo ya emitido no se recalcula.
-- **No se desactiva un impuesto que usa algún artículo activo** (`TaxInUseError`).
+- **No se desactiva un impuesto que usa algún artículo activo** (`TaxInUseError`), lo use para vender o para comprar.
 - La base también exige el rango (`CHECK`).
 
 ---

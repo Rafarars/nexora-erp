@@ -10,7 +10,8 @@ export interface UsingItem {
   tenantId?: string;
   isActive?: boolean;
   categoryId?: string | null;
-  taxId?: string | null;
+  salesTaxId?: string | null;
+  purchaseTaxId?: string | null;
   unitIds?: string[];
 }
 
@@ -23,7 +24,7 @@ export class InMemoryItemUsage implements ItemUsage {
   }
 
   add(item: UsingItem): void {
-    this.items.push({ tenantId: TENANT_A, isActive: true, categoryId: null, taxId: null, unitIds: [], ...item });
+    this.items.push({ tenantId: TENANT_A, isActive: true, categoryId: null, salesTaxId: null, purchaseTaxId: null, unitIds: [], ...item });
   }
 
   async activeItemUsesCategory(tenantId: TenantId, categoryId: CategoryId): Promise<boolean> {
@@ -31,7 +32,7 @@ export class InMemoryItemUsage implements ItemUsage {
   }
 
   async activeItemUsesTax(tenantId: TenantId, taxId: TaxId): Promise<boolean> {
-    return this.active(tenantId).some((item) => item.taxId === taxId.value);
+    return this.active(tenantId).some((item) => item.salesTaxId === taxId.value || item.purchaseTaxId === taxId.value);
   }
 
   async activeItemUsesUnit(tenantId: TenantId, unitId: MeasurementUnitId): Promise<boolean> {

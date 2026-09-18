@@ -40,7 +40,8 @@ function request(overrides: Partial<ItemUpdaterRequest> = {}): ItemUpdaterReques
     description: 'Botella de plástico',
     type: 'inventoried',
     categoryId: CATEGORY_A,
-    taxId: TAX_A,
+    salesTaxId: TAX_A,
+    purchaseTaxId: TAX_A,
     units: [{ unitId: UNIT_PIECE, conversionFactor: 1, isBase: true }],
     ...overrides,
   };

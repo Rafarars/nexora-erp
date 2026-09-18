@@ -413,7 +413,7 @@ async function seedCatalog(prisma: PrismaClient): Promise<void> {
   const items = [
     {
       id: acme.items.water, tenantId: ACME, code: 'ART000001', sku: 'AGUA-500', name: 'Agua mineral 500 ml',
-      description: null, type: 'inventoried' as const, categoryId: acme.categories.drinks, taxId: acme.taxes.vat,
+      description: null, type: 'inventoried' as const, categoryId: acme.categories.drinks, salesTaxId: acme.taxes.vat, purchaseTaxId: acme.taxes.vat,
       units: [
         { unitId: acme.units.piece, conversionFactor: 1, isBase: true },
         { unitId: acme.units.box, conversionFactor: 24, isBase: false },
@@ -421,17 +421,17 @@ async function seedCatalog(prisma: PrismaClient): Promise<void> {
     },
     {
       id: acme.items.detergent, tenantId: ACME, code: 'ART000002', sku: 'DETERGENTE-1KG', name: 'Detergente en polvo 1 kg',
-      description: null, type: 'inventoried' as const, categoryId: acme.categories.cleaning, taxId: acme.taxes.vat,
+      description: null, type: 'inventoried' as const, categoryId: acme.categories.cleaning, salesTaxId: acme.taxes.vat, purchaseTaxId: acme.taxes.exempt,
       units: [{ unitId: acme.units.kilo, conversionFactor: 1, isBase: true }],
     },
     {
       id: acme.items.delivery, tenantId: ACME, code: 'ART000003', sku: 'SERV-ENTREGA', name: 'Servicio de entrega',
       description: 'Entrega a domicilio dentro de la ciudad', type: 'service' as const, categoryId: null,
-      taxId: acme.taxes.exempt, units: [{ unitId: acme.units.piece, conversionFactor: 1, isBase: true }],
+      salesTaxId: acme.taxes.exempt, purchaseTaxId: acme.taxes.exempt, units: [{ unitId: acme.units.piece, conversionFactor: 1, isBase: true }],
     },
     {
       id: globex.items.filter, tenantId: GLOBEX, code: 'ART000001', sku: 'FILTRO-ACEITE', name: 'Filtro de aceite',
-      description: null, type: 'inventoried' as const, categoryId: globex.categories.parts, taxId: globex.taxes.vat,
+      description: null, type: 'inventoried' as const, categoryId: globex.categories.parts, salesTaxId: globex.taxes.vat, purchaseTaxId: globex.taxes.vat,
       units: [{ unitId: globex.units.piece, conversionFactor: 1, isBase: true }],
     },
   ];

@@ -14,7 +14,7 @@ export class PrismaPurchasingCatalog implements PurchasingCatalog {
 
     const rows = await this.prisma.item.findMany({
       where: { tenantId: tenantId.value, id: { in: ids.map((id) => id.value) } },
-      include: { units: { include: { unit: true } }, tax: true },
+      include: { units: { include: { unit: true } }, purchaseTax: true },
     });
 
     return rows.map((row) => ({
@@ -23,7 +23,8 @@ export class PrismaPurchasingCatalog implements PurchasingCatalog {
       name: row.name,
       type: row.type,
       isActive: row.isActive,
-      taxRate: row.tax ? row.tax.rate.toNumber() : 0,
+      // El de compra: un articulo puede comprarse exento y venderse con IVA.
+      taxRate: row.purchaseTax ? row.purchaseTax.rate.toNumber() : 0,
       units: row.units.map((unit) => ({
         unitId: unit.unitId,
         abbreviation: unit.unit.abbreviation,

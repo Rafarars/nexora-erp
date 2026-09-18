@@ -17,7 +17,7 @@ const nothing: ItemCommitments = { hasStock: false, hasMovements: false, openDoc
 const openBox: ItemCommitments = { ...nothing, openDocumentUnits: [UnitRef.of(UNIT_BOX)] };
 
 const details = (units: ItemUnits, type: ItemType = 'inventoried') =>
-  itemDetailsOf({ sku: 'AGUA-500', name: 'Agua mineral 500 ml', type, categoryId: CATEGORY_A, taxId: TAX_A, units: units.toPrimitives() });
+  itemDetailsOf({ sku: 'AGUA-500', name: 'Agua mineral 500 ml', type, categoryId: CATEGORY_A, salesTaxId: TAX_A, purchaseTaxId: TAX_A, units: units.toPrimitives() });
 
 describe('ensureCanChange', () => {
   it('lets an item with nothing committed change anything', () => {

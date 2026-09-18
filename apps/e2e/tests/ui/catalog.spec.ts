@@ -34,7 +34,8 @@ test.describe('The catalog, from the screen', () => {
     await page.getByTestId('item-sku').fill(sku.toLowerCase());
     await page.getByTestId('item-name').fill('Helado de vainilla 1 l');
     await page.getByTestId('item-category').selectOption({ label: categoryName });
-    await page.getByTestId('item-tax').selectOption({ label: 'IVA 16% (16 %)' });
+    await page.getByTestId('item-sales-tax').selectOption({ label: 'IVA 16% (16 %)' });
+    await page.getByTestId('item-purchase-tax').selectOption({ label: 'Exento (0 %)' });
     await page.getByTestId('item-unit-0').selectOption({ label: 'Unidad (un)' });
     await page.getByTestId('item-unit-base-0').check();
     await page.getByTestId('item-unit-add').click();

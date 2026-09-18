@@ -43,7 +43,8 @@ function request(overrides: Partial<ItemCreatorRequest> = {}): ItemCreatorReques
     description: null,
     type: 'inventoried',
     categoryId: CATEGORY_A,
-    taxId: TAX_A,
+    salesTaxId: TAX_A,
+    purchaseTaxId: TAX_A,
     units: [
       { unitId: UNIT_PIECE, conversionFactor: 1, isBase: true },
       { unitId: UNIT_BOX, conversionFactor: 24, isBase: false },
@@ -66,7 +67,8 @@ describe('ItemCreator', () => {
         sku: 'AGUA-500',
         type: 'inventoried',
         categoryId: CATEGORY_A,
-        taxId: TAX_A,
+        salesTaxId: TAX_A,
+        purchaseTaxId: TAX_A,
         isActive: true,
         units: [
           { unitId: UNIT_PIECE, conversionFactor: 1, isBase: true },
@@ -80,10 +82,10 @@ describe('ItemCreator', () => {
     const scenario = aStockedScenario();
 
     await creatorFor(scenario).run(
-      request({ sku: 'INST-01', type: 'service', categoryId: null, taxId: null, units: [{ unitId: UNIT_PIECE, conversionFactor: 1, isBase: true }] }),
+      request({ sku: 'INST-01', type: 'service', categoryId: null, salesTaxId: null, purchaseTaxId: null, units: [{ unitId: UNIT_PIECE, conversionFactor: 1, isBase: true }] }),
     );
 
-    expect(await itemsOf(scenario)).toMatchObject([{ type: 'service', categoryId: null, taxId: null }]);
+    expect(await itemsOf(scenario)).toMatchObject([{ type: 'service', categoryId: null, salesTaxId: null, purchaseTaxId: null }]);
   });
 
   it('rejects a SKU already used, whatever its case', async () => {

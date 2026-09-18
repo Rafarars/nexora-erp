@@ -14,6 +14,7 @@ import {
   ITEM_B,
   LATER,
   TAX_A,
+  TAX_B,
   TENANT_A,
   TENANT_B,
   UNIT_BOX,
@@ -67,7 +68,7 @@ export function describeItemPortsContract(implementation: string, createHarness:
       it('returns what it saved, units and fractional factors included', async () => {
         await seedReferences();
         const item = anItem({
-          units: ItemUnits.of([ItemUnit.of(UNIT_PIECE, 1, true), ItemUnit.of(UNIT_BOX, 0.5, false)]),
+          units: ItemUnits.of([ItemUnit.of(UNIT_PIECE, 1, true), ItemUnit.of(UNIT_BOX, 0.08333333, false)]),
         });
 
         await ports.items.save(item);
@@ -76,14 +77,24 @@ export function describeItemPortsContract(implementation: string, createHarness:
         expect(found?.toPrimitives()).toEqual(item.toPrimitives());
       });
 
-      it('saves an item with no category and no tax', async () => {
+      it('saves an item with no category and no taxes', async () => {
         await seedReferences();
-        await ports.items.save(anItem({ categoryId: null, taxId: null }));
+        await ports.items.save(anItem({ categoryId: null, salesTaxId: null, purchaseTaxId: null }));
 
         expect((await ports.items.find(tenantA, ItemId.of(ITEM_A)))?.toPrimitives()).toMatchObject({
           categoryId: null,
-          taxId: null,
+          salesTaxId: null,
+          purchaseTaxId: null,
         });
+      });
+
+      // Vender con IVA lo que se compra exento: son dos impuestos distintos.
+      it('saves a different tax for selling and for buying', async () => {
+        await seedReferences();
+        await catalog.tax(aTax({ id: TAX_B, name: 'Exento', rate: 0 }));
+        await ports.items.save(anItem({ salesTaxId: TAX_A, purchaseTaxId: TAX_B }));
+
+        expect((await ports.items.find(tenantA, ItemId.of(ITEM_A)))?.toPrimitives()).toMatchObject({ salesTaxId: TAX_A, purchaseTaxId: TAX_B });
       });
 
       // Las unidades se reemplazan enteras: la caja retirada no puede quedar colgando.
@@ -266,7 +277,8 @@ function detailsOf(item: ReturnType<typeof anItem>) {
     description: row.description,
     type: row.type,
     categoryId: row.categoryId ? CategoryRef.of(row.categoryId) : null,
-    taxId: row.taxId ? TaxRef.of(row.taxId) : null,
+    salesTaxId: row.salesTaxId ? TaxRef.of(row.salesTaxId) : null,
+    purchaseTaxId: row.purchaseTaxId ? TaxRef.of(row.purchaseTaxId) : null,
     units: ItemUnits.fromPrimitives(row.units),
   };
 }

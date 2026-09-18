@@ -431,7 +431,7 @@ Informe completo en [`revision/inventario/articulos.md`](revision/inventario/art
 |---|---|---|
 | 1 · Integridad | H8 una sola base en la base de datos; H1 unidades protegidas con órdenes o pedidos abiertos y entrada con la base de la orden; H2 no desactivar con documentos abiertos; H9 bloqueos `FOR UPDATE`/`FOR SHARE` contra carreras; borradores con caja cambiada piden revisión | ✅ Commits `539659b..ff3360e`, CI en verde, segunda pasada del método hecha |
 | 2 · Artículos en Inventario | Mover **código, pantalla y permisos**: contexto `catalog` → `inventory`, ruta `/inventario/articulos`, menú, `catalog.items.*` → `inventory.items.*` (semillas, roles, aislamiento, documentación). Añadir la prueba de interfaz de los mensajes del artículo | ✅ Código en `contexts/inventory`, puertos `CatalogReferences` e `ItemUsage`, migración de permisos, prueba de interfaz de los mensajes |
-| 3 · Configuración de la empresa y monedas | Investigada y decidida ([informe](revision/temas/configuracion-empresa.md)): contexto propio `company`, todo de una vez, multimoneda con tasas cargadas a mano, zona horaria. Cinco pasos: 1 Empresa y hoy por zona · 2 Monedas y tasas · 3 Compras · 4 Ventas y cobranza · 5 Reportes | 🔨 **En curso**: pasos 1 a 3 hechos ([módulo](modulos/empresa.md)); sigue el paso 4 |
+| 3 · Configuración de la empresa y monedas | Investigada y decidida ([informe](revision/temas/configuracion-empresa.md)): contexto propio `company`, todo de una vez, multimoneda con tasas cargadas a mano, zona horaria. Cinco pasos: 1 Empresa y hoy por zona · 2 Monedas y tasas · 3 Compras · 4 Ventas y cobranza · 5 Reportes | ✅ Los 5 pasos hechos y revalidados ([módulo](modulos/empresa.md)); queda abierta la tasa de fines de semana |
 | 4 · Artículo completo | H5 impuesto de venta y de compra; H4 factor con 8 decimales; H6 código de barras, comprable/vendible, mínimo/máximo/reorden; H7 copiar SKU y nombre en las líneas; paginación y búsqueda | ⬜ |
 | 5 · Listas de precio | Investigar su ubicación; maestro, precio por artículo, lista en el cliente, precio mínimo, precio sugerido en el pedido | ⬜ |
 | 6 · Servicios (H3) | Corregir documentación y pantalla. Comprar y vender servicios se hace en Compras y Facturas con la regla del compañero: la línea de servicio no cuenta para recibido o despachado | ⬜ |
@@ -466,11 +466,13 @@ IGTF): [`revision/temas/configuracion-empresa.md`](revision/temas/configuracion-
   venía convertido. Cada reporte dice su moneda, y la pantalla, el PDF y el Excel la muestran. Detalle en
   [`modulos/reportes.md`](modulos/reportes.md) §0.
 
-**La fase 3 (configuración de la empresa y multimoneda) está cerrada.** Sigue el tema 5 del checklist de la revisión,
-**listas de precio**: investigar dónde vive el maestro, el precio por artículo, la lista del cliente, el precio mínimo
-y el precio sugerido en el pedido ([`revision/README.md`](revision/README.md)). Queda abierta una sola decisión de la
-fase 3: la tasa de fines de semana y feriados
-([`revision/temas/configuracion-empresa.md`](revision/temas/configuracion-empresa.md) §10.3, punto 1).
+**La fase 3 (configuración de la empresa y multimoneda) está cerrada**, con una decisión abierta: la tasa de fines de
+semana y feriados ([`revision/temas/configuracion-empresa.md`](revision/temas/configuracion-empresa.md) §10.3, punto 1).
+
+**Sigue la fase 4 de Artículos, «artículo completo»**, que es lo que falta para dejar el submódulo al 100 %: impuesto
+de compra y de venta separados (H5), factor de conversión con 8 decimales (H4), código de barras, «se compra» / «se
+vende» y mínimo, máximo y reorden (H6), copiar SKU y nombre en las líneas de los documentos (H7), y listado con
+paginación y búsqueda. Después quedan la fase 5 (listas de precio), la 6 (servicios) y el cierre.
 
 **Decisiones de Rafael que no hay que volver a discutir:**
 

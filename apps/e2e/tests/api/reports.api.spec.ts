@@ -1,5 +1,5 @@
 import { expect, test } from '@playwright/test';
-import { auth, tokenFor } from '../../support/inventory-fixtures.js';
+import { auth, companyToday, tokenFor } from '../../support/inventory-fixtures.js';
 import { aCreditCustomer, anInvoice } from '../../support/receivables-fixtures.js';
 import { ACME_INVENTORY } from '../../support/inventory-fixtures.js';
 import { DISPATCHES, INVOICES, SALES_ORDERS, aDraftDispatch, aDraftSalesOrder, aFreshCustomer, aStockedItem } from '../../support/sales-fixtures.js';
@@ -65,7 +65,7 @@ test.describe('exports', () => {
     const token = await tokenFor(request, 'ana@acme.com');
     const customer = await aCreditCustomer(request, token, { paymentTermDays: 0 });
     await anInvoice(request, token, customer.id, 123.45);
-    const today = new Date().toISOString().slice(0, 10);
+    const today = companyToday();
 
     const rows = await excelRows(await (await request.get(`${REPORTS}/sales-by-customer/export?format=xlsx&from=${today}&to=${today}`, { headers: auth(token) })).body());
 
@@ -91,7 +91,7 @@ test.describe('exports', () => {
 
     const { invoices } = await (await request.get(INVOICES, { headers: auth(token) })).json();
     const invoice = invoices.find((row: { dispatch: { id: string } }) => row.dispatch.id === dispatch.id);
-    const today = new Date().toISOString().slice(0, 10);
+    const today = companyToday();
     const report = await (await request.get(`${REPORTS}/sales-by-customer?from=${today}&to=${today}`, { headers: auth(token) })).json();
     const row = report.customers.find((candidate: { customer: { name: string } }) => candidate.customer.name === customer.name);
 

@@ -314,7 +314,7 @@ export function describeCatalogRepositoriesContract(
     describe('ItemUsage', () => {
       it('answers whether an active item uses a category, a tax or a unit, secondary units included', async () => {
         await seedReferences();
-        await items.add({ categoryId: CATEGORY_A, taxId: TAX_A, unitIds: [UNIT_PIECE, UNIT_BOX] });
+        await items.add({ categoryId: CATEGORY_A, salesTaxId: TAX_A, unitIds: [UNIT_PIECE, UNIT_BOX] });
 
         expect(await repos.itemUsage.activeItemUsesCategory(tenantA, CategoryId.of(CATEGORY_A))).toBe(true);
         expect(await repos.itemUsage.activeItemUsesTax(tenantA, TaxId.of(TAX_A))).toBe(true);
@@ -324,11 +324,19 @@ export function describeCatalogRepositoriesContract(
 
       it('does not count inactive items as using anything', async () => {
         await seedReferences();
-        await items.add({ categoryId: CATEGORY_A, taxId: TAX_A, unitIds: [UNIT_PIECE], isActive: false });
+        await items.add({ categoryId: CATEGORY_A, salesTaxId: TAX_A, unitIds: [UNIT_PIECE], isActive: false });
 
         expect(await repos.itemUsage.activeItemUsesCategory(tenantA, CategoryId.of(CATEGORY_A))).toBe(false);
         expect(await repos.itemUsage.activeItemUsesTax(tenantA, TaxId.of(TAX_A))).toBe(false);
         expect(await repos.itemUsage.activeItemUsesUnit(tenantA, MeasurementUnitId.of(UNIT_PIECE))).toBe(false);
+      });
+
+      // Da igual para que lo use: un impuesto solo de compra tambien esta en uso.
+      it('counts a tax that an item only uses to buy', async () => {
+        await seedReferences();
+        await items.add({ purchaseTaxId: TAX_A, unitIds: [UNIT_PIECE] });
+
+        expect(await repos.itemUsage.activeItemUsesTax(tenantA, TaxId.of(TAX_A))).toBe(true);
       });
 
       it('does not count what an item does not use', async () => {

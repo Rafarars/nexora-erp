@@ -18,7 +18,9 @@ export interface Item extends CatalogRecord {
   description: string | null;
   type: ItemType;
   category: { id: string; name: string } | null;
-  tax: { id: string; name: string; rate: number } | null;
+  // El que se copia al vender y el que se copia al comprar.
+  salesTax: { id: string; name: string; rate: number } | null;
+  purchaseTax: { id: string; name: string; rate: number } | null;
   units: ItemUnit[];
 }
 

@@ -17,7 +17,7 @@ export interface CatalogRepositories {
 // Un articulo activo o no, con lo que usa del catalogo, sembrado en la empresa A. Los articulos
 // viven en el inventario: la base los escribe en sus tablas y el doble solo los declara.
 export interface ItemSeeder {
-  add(item: { categoryId?: string | null; taxId?: string | null; unitIds?: string[]; isActive?: boolean }): Promise<void>;
+  add(item: { categoryId?: string | null; salesTaxId?: string | null; purchaseTaxId?: string | null; unitIds?: string[]; isActive?: boolean }): Promise<void>;
 }
 
 // Lo unico que cada implementacion hace distinto: entregar los repositorios, sembrar articulos y

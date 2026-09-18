@@ -6,7 +6,8 @@ export const itemRequestSchema = z.object({
   description: z.string().nullable().optional(),
   type: z.string(),
   categoryId: z.string().nullable().optional(),
-  taxId: z.string().nullable().optional(),
+  salesTaxId: z.string().nullable().optional(),
+  purchaseTaxId: z.string().nullable().optional(),
   units: z
     .array(
       z.object({

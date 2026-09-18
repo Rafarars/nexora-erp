@@ -13,7 +13,7 @@ describe('TaxUpdater', () => {
   // usan es legitimo.
   it('changes the rate even when items use the tax', async () => {
     const scenario = aCatalogScenario({ taxes: [aTax({ rate: 16 })] });
-    scenario.itemUsage.add({ taxId: TAX_A });
+    scenario.itemUsage.add({ salesTaxId: TAX_A });
 
     await updaterFor(scenario).run({ tenantId: TENANT_A, taxId: TAX_A, name: 'IVA 15%', rate: 15 });
 

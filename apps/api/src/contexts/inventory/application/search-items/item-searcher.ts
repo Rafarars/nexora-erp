@@ -20,7 +20,7 @@ export class ItemSearcher {
 
     const [categories, taxes, units] = await Promise.all([
       this.catalog.findCategories(tenantId, distinct(rows.map((row) => row.categoryId)).map((id) => CategoryRef.of(id))),
-      this.catalog.findTaxes(tenantId, distinct(rows.map((row) => row.taxId)).map((id) => TaxRef.of(id))),
+      this.catalog.findTaxes(tenantId, distinct(rows.flatMap((row) => [row.salesTaxId, row.purchaseTaxId])).map((id) => TaxRef.of(id))),
       this.catalog.findUnits(tenantId, distinct(rows.flatMap((row) => row.units.map((unit) => unit.unitId))).map((id) => UnitRef.of(id))),
     ]);
 
@@ -32,7 +32,11 @@ export class ItemSearcher {
       items: rows
         .map((row) => {
           const category = row.categoryId ? categoryById.get(row.categoryId) : undefined;
-          const tax = row.taxId ? taxById.get(row.taxId) : undefined;
+          const taxOf = (id: string | null) => {
+            const tax = id ? taxById.get(id) : undefined;
+
+            return tax ? { id: tax.id, name: tax.name, rate: tax.rate } : null;
+          };
 
           return {
             id: row.id,
@@ -42,7 +46,8 @@ export class ItemSearcher {
             description: row.description,
             type: row.type,
             category: category ? { id: category.id, name: category.name } : null,
-            tax: tax ? { id: tax.id, name: tax.name, rate: tax.rate } : null,
+            salesTax: taxOf(row.salesTaxId),
+            purchaseTax: taxOf(row.purchaseTaxId),
             // Ya vienen en orden canonico: la base primero.
             units: row.units.map((unit) => {
               const found = unitById.get(unit.unitId);

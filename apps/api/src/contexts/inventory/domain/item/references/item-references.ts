@@ -24,10 +24,12 @@ export class ItemReferences {
       }
     }
 
-    if (details.taxId) {
-      const tax = await this.tax(tenantId, details.taxId);
+    for (const taxId of [details.salesTaxId, details.purchaseTaxId]) {
+      if (!taxId) continue;
 
-      if (!tax.isActive && !(current?.usesTax(details.taxId) ?? false)) {
+      const tax = await this.tax(tenantId, taxId);
+
+      if (!tax.isActive && !(current?.usesTax(taxId) ?? false)) {
         throw new InactiveReferenceError('Tax', tax.id);
       }
     }
@@ -43,14 +45,15 @@ export class ItemReferences {
   // con una referencia que ya no se ofrece.
   async ensureActive(tenantId: TenantId, item: Item): Promise<void> {
     const categoryId = item.categoryId();
-    const taxId = item.taxId();
 
     if (categoryId && !(await this.category(tenantId, categoryId)).isActive) {
       throw new InactiveReferenceError('Category', categoryId.value);
     }
 
-    if (taxId && !(await this.tax(tenantId, taxId)).isActive) {
-      throw new InactiveReferenceError('Tax', taxId.value);
+    for (const taxId of item.taxIds()) {
+      if (!(await this.tax(tenantId, taxId)).isActive) {
+        throw new InactiveReferenceError('Tax', taxId.value);
+      }
     }
 
     for (const unit of await this.units(tenantId, item.unitIds())) {

@@ -11,6 +11,12 @@ export const ACME_INVENTORY = {
 
 export const auth = (token: string) => ({ authorization: `Bearer ${token}` });
 
+// Hoy para las empresas del seed, que trabajan en Caracas: desde las 20:00 el dia UTC ya es otro y
+// las fechas que propone la API no coincidirian.
+export function companyToday(): string {
+  return new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Caracas' }).format(new Date());
+}
+
 export async function tokenFor(request: APIRequestContext, email: string, baseUrl = ''): Promise<string> {
   const response = await request.post(`${baseUrl}/api/v1/auth/login`, { data: { email, password: PASSWORD } });
 

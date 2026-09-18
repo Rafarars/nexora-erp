@@ -39,7 +39,8 @@ describe('ItemSearcher', () => {
         description: null,
         type: 'inventoried',
         category: { id: CATEGORY_A, name: 'Bebidas' },
-        tax: { id: TAX_A, name: 'IVA 16%', rate: 16 },
+        salesTax: { id: TAX_A, name: 'IVA 16%', rate: 16 },
+        purchaseTax: { id: TAX_A, name: 'IVA 16%', rate: 16 },
         units: [
           { unitId: UNIT_PIECE, name: 'Unidad', abbreviation: 'un', conversionFactor: 1, isBase: true },
           { unitId: UNIT_BOX, name: 'Caja', abbreviation: 'cja', conversionFactor: 24, isBase: false },

@@ -12,6 +12,7 @@ const ACME = {
   box: 'e0000000-0000-4000-8000-000000000002',
   drinks: 'e1000000-0000-4000-8000-000000000001',
   vat: 'e2000000-0000-4000-8000-000000000001',
+  exempt: 'e2000000-0000-4000-8000-000000000002',
 };
 
 const auth = (token: string) => ({ authorization: `Bearer ${token}` });
@@ -32,7 +33,8 @@ test.describe('inventory: items', () => {
         name: 'Jugo de naranja 1 l',
         type: 'inventoried',
         categoryId: ACME.drinks,
-        taxId: ACME.vat,
+        salesTaxId: ACME.vat,
+        purchaseTaxId: ACME.exempt,
         units: [
           { unitId: ACME.box, conversionFactor: 24, isBase: false },
           { unitId: ACME.piece, conversionFactor: 1, isBase: true },
@@ -49,7 +51,8 @@ test.describe('inventory: items', () => {
       sku,
       code: expect.stringMatching(/^ART\d{6}$/),
       category: { id: ACME.drinks, name: 'Bebidas' },
-      tax: { id: ACME.vat, name: 'IVA 16%', rate: 16 },
+      salesTax: { id: ACME.vat, name: 'IVA 16%', rate: 16 },
+      purchaseTax: { id: ACME.exempt, name: 'Exento', rate: 0 },
       units: [
         { unitId: ACME.piece, abbreviation: 'un', conversionFactor: 1, isBase: true },
         { unitId: ACME.box, abbreviation: 'cja', conversionFactor: 24, isBase: false },

@@ -78,7 +78,8 @@ export function anItem(
     name?: string;
     type?: ItemType;
     categoryId?: string | null;
-    taxId?: string | null;
+    salesTaxId?: string | null;
+    purchaseTaxId?: string | null;
     units?: ItemUnits;
     active?: boolean;
   } = {},
@@ -93,7 +94,8 @@ export function anItem(
       description: null,
       type: overrides.type ?? 'inventoried',
       categoryId: overrides.categoryId === null ? null : CategoryRef.of(overrides.categoryId ?? CATEGORY_A),
-      taxId: overrides.taxId === null ? null : TaxRef.of(overrides.taxId ?? TAX_A),
+      salesTaxId: overrides.salesTaxId === null ? null : TaxRef.of(overrides.salesTaxId ?? TAX_A),
+      purchaseTaxId: overrides.purchaseTaxId === null ? null : TaxRef.of(overrides.purchaseTaxId ?? TAX_A),
       units: overrides.units ?? baseUnitOnly(),
     },
     NOW,

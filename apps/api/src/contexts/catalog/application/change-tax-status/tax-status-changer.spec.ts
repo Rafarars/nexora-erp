@@ -11,14 +11,14 @@ const changerFor = (s: CatalogScenario) => new TaxStatusChanger(s.taxFinder, s.u
 describe('TaxStatusChanger', () => {
   it('refuses to deactivate a tax an active item uses', async () => {
     const scenario = aCatalogScenario({ taxes: [aTax()] });
-    scenario.itemUsage.add({ taxId: TAX_A });
+    scenario.itemUsage.add({ salesTaxId: TAX_A });
 
     await expect(changerFor(scenario).run({ tenantId: TENANT_A, taxId: TAX_A, active: false })).rejects.toThrow(TaxInUseError);
   });
 
   it('deactivates a tax nobody uses', async () => {
     const scenario = aCatalogScenario({ taxes: [aTax()] });
-    scenario.itemUsage.add({ taxId: null });
+    scenario.itemUsage.add({});
 
     await changerFor(scenario).run({ tenantId: TENANT_A, taxId: TAX_A, active: false });
 

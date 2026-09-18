@@ -9,7 +9,7 @@ import { CATEGORY_A, CATEGORY_B, TAX_A, TAX_B, TENANT_A, TENANT_B, UNIT_BOX, UNI
 import { CatalogUsage } from './catalog-usage.js';
 
 const tenantA = TenantId.of(TENANT_A);
-const water = { categoryId: CATEGORY_A, taxId: TAX_A, unitIds: [UNIT_PIECE] };
+const water = { categoryId: CATEGORY_A, salesTaxId: TAX_A, unitIds: [UNIT_PIECE] };
 
 describe('CatalogUsage', () => {
   it('refuses to free what an active item uses', async () => {
@@ -18,6 +18,13 @@ describe('CatalogUsage', () => {
     await expect(usage.ensureCategoryIsUnused(tenantA, CategoryId.of(CATEGORY_A))).rejects.toThrow(CategoryInUseError);
     await expect(usage.ensureTaxIsUnused(tenantA, TaxId.of(TAX_A))).rejects.toThrow(TaxInUseError);
     await expect(usage.ensureUnitIsUnused(tenantA, MeasurementUnitId.of(UNIT_PIECE))).rejects.toThrow(MeasurementUnitInUseError);
+  });
+
+  // Da igual si el impuesto es el de vender o el de comprar: sigue en uso.
+  it('refuses to free a tax that an item only uses to buy', async () => {
+    const usage = new CatalogUsage(new InMemoryItemUsage([{ ...water, salesTaxId: null, purchaseTaxId: TAX_A }]));
+
+    await expect(usage.ensureTaxIsUnused(tenantA, TaxId.of(TAX_A))).rejects.toThrow(TaxInUseError);
   });
 
   // Un articulo inactivo no bloquea: ya no se ofrece en ningun documento.

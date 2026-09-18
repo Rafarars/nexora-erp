@@ -20,7 +20,9 @@ export interface ItemPrimitives {
   description: string | null;
   type: ItemType;
   categoryId: string | null;
-  taxId: string | null;
+  // Un articulo puede comprarse exento y venderse con IVA: son dos impuestos distintos.
+  salesTaxId: string | null;
+  purchaseTaxId: string | null;
   units: ItemUnitPrimitives[];
 }
 
@@ -31,7 +33,8 @@ export interface ItemDetails {
   description: string | null;
   type: ItemType;
   categoryId: CategoryRef | null;
-  taxId: TaxRef | null;
+  salesTaxId: TaxRef | null;
+  purchaseTaxId: TaxRef | null;
   units: ItemUnits;
 }
 
@@ -64,7 +67,8 @@ export class Item {
         description: row.description,
         type: row.type,
         categoryId: row.categoryId ? CategoryRef.of(row.categoryId) : null,
-        taxId: row.taxId ? TaxRef.of(row.taxId) : null,
+        salesTaxId: row.salesTaxId ? TaxRef.of(row.salesTaxId) : null,
+        purchaseTaxId: row.purchaseTaxId ? TaxRef.of(row.purchaseTaxId) : null,
         units: ItemUnits.fromPrimitives(row.units),
       },
       row.isActive,
@@ -74,7 +78,7 @@ export class Item {
   }
 
   toPrimitives(): ItemPrimitives {
-    const { sku, name, description, type, categoryId, taxId, units } = this.details;
+    const { sku, name, description, type, categoryId, salesTaxId, purchaseTaxId, units } = this.details;
 
     return {
       id: this.id.value,
@@ -88,7 +92,8 @@ export class Item {
       description,
       type,
       categoryId: categoryId?.value ?? null,
-      taxId: taxId?.value ?? null,
+      salesTaxId: salesTaxId?.value ?? null,
+      purchaseTaxId: purchaseTaxId?.value ?? null,
       units: units.toPrimitives(),
     };
   }
@@ -135,8 +140,19 @@ export class Item {
     return this.details.categoryId;
   }
 
-  taxId(): TaxRef | null {
-    return this.details.taxId;
+  salesTaxId(): TaxRef | null {
+    return this.details.salesTaxId;
+  }
+
+  purchaseTaxId(): TaxRef | null {
+    return this.details.purchaseTaxId;
+  }
+
+  // Los impuestos que referencia, sin repetir: el de venta, el de compra, o el mismo en los dos.
+  taxIds(): TaxRef[] {
+    const ids = [this.details.salesTaxId, this.details.purchaseTaxId].filter((id): id is TaxRef => id !== null);
+
+    return ids.filter((id, index) => ids.findIndex((candidate) => candidate.equals(id)) === index);
   }
 
   unitIds(): UnitRef[] {
@@ -148,7 +164,7 @@ export class Item {
   }
 
   usesTax(id: TaxRef): boolean {
-    return this.details.taxId?.equals(id) ?? false;
+    return this.taxIds().some((taxId) => taxId.equals(id));
   }
 
   usesUnit(id: UnitRef): boolean {

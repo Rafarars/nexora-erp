@@ -15,8 +15,9 @@ export class PrismaItemUsage implements ItemUsage {
     return this.exists({ tenantId: tenantId.value, isActive: true, categoryId: categoryId.value });
   }
 
+  // Da igual si lo usa para vender o para comprar: sigue en uso.
   async activeItemUsesTax(tenantId: TenantId, taxId: TaxId): Promise<boolean> {
-    return this.exists({ tenantId: tenantId.value, isActive: true, taxId: taxId.value });
+    return this.exists({ tenantId: tenantId.value, isActive: true, OR: [{ salesTaxId: taxId.value }, { purchaseTaxId: taxId.value }] });
   }
 
   async activeItemUsesUnit(tenantId: TenantId, unitId: MeasurementUnitId): Promise<boolean> {

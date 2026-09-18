@@ -1,6 +1,6 @@
 import { expect, test } from '@playwright/test';
 import type { APIRequestContext } from '@playwright/test';
-import { ACME_INVENTORY, auth, tokenFor } from '../../support/inventory-fixtures.js';
+import { ACME_INVENTORY, auth, companyToday, tokenFor } from '../../support/inventory-fixtures.js';
 import { AVAILABILITY, CUSTOMERS, DISPATCHES, INVOICES, SALES_ORDERS, aDraftDispatch, aDraftSalesOrder, aFreshCustomer, aStockedItem } from '../../support/sales-fixtures.js';
 
 const put = (request: APIRequestContext, token: string, path: string) => request.put(path, { headers: auth(token) });
@@ -103,7 +103,7 @@ test.describe('dispatches and invoices', () => {
 
     const { invoices } = await (await request.get(INVOICES, { headers: auth(token) })).json();
     const invoice = invoices.find((candidate: { dispatch: { id: string } }) => candidate.dispatch.id === dispatch.id);
-    const today = new Date().toISOString().slice(0, 10);
+    const today = companyToday();
     const due = new Date(`${today}T00:00:00Z`);
     due.setUTCDate(due.getUTCDate() + 15);
 

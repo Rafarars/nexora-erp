@@ -51,7 +51,8 @@ function details(overrides: Partial<ItemDetails> = {}): ItemDetails {
     description: null,
     type: 'inventoried',
     categoryId: CategoryRef.of(current.categoryId!),
-    taxId: TaxRef.of(current.taxId!),
+    salesTaxId: TaxRef.of(current.salesTaxId!),
+    purchaseTaxId: TaxRef.of(current.salesTaxId!),
     units: baseUnitOnly(),
     ...overrides,
   };
@@ -63,12 +64,12 @@ describe('ItemReferences', () => {
   });
 
   it('accepts an item with no category and no tax', async () => {
-    await expect(references().ensureAssignable(tenantA, details({ categoryId: null, taxId: null }))).resolves.toBeUndefined();
+    await expect(references().ensureAssignable(tenantA, details({ categoryId: null, salesTaxId: null, purchaseTaxId: null }))).resolves.toBeUndefined();
   });
 
   // Aislamiento: un identificador de otra empresa no existe para esta.
   it('treats a tax of another tenant as missing', async () => {
-    await expect(references().ensureAssignable(tenantA, details({ taxId: TaxRef.of(TAX_B) }))).rejects.toThrow(TaxNotFoundError);
+    await expect(references().ensureAssignable(tenantA, details({ salesTaxId: TaxRef.of(TAX_B) }))).rejects.toThrow(TaxNotFoundError);
   });
 
   it('treats a unit of another tenant as missing', async () => {

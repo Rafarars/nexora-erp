@@ -42,12 +42,12 @@ export class PrismaCatalogRepositoriesHarness implements CatalogRepositoriesHarn
     const prisma = this.prisma;
 
     return {
-      add: async ({ categoryId = null, taxId = null, unitIds = [], isActive = true }) => {
+      add: async ({ categoryId = null, salesTaxId = null, purchaseTaxId = null, unitIds = [], isActive = true }) => {
         const id = randomUUID();
         const number = ++this.sequence;
 
         await prisma.item.create({
-          data: { id, tenantId: TENANT_A, code: `ART${900000 + number}`, sku: `CONTRATO-${number}`, name: `Contrato ${number}`, type: 'inventoried', categoryId, taxId, isActive },
+          data: { id, tenantId: TENANT_A, code: `ART${900000 + number}`, sku: `CONTRATO-${number}`, name: `Contrato ${number}`, type: 'inventoried', categoryId, salesTaxId, purchaseTaxId, isActive },
         });
         await prisma.itemUnit.createMany({
           data: unitIds.map((unitId, index) => ({ tenantId: TENANT_A, itemId: id, unitId, conversionFactor: index === 0 ? 1 : 24, isBase: index === 0 })),

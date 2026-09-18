@@ -25,9 +25,10 @@ describe('Item', () => {
   });
 
   it('can have no category and no tax', () => {
-    expect(anItem({ categoryId: null, taxId: null }).toPrimitives()).toMatchObject({
+    expect(anItem({ categoryId: null, salesTaxId: null, purchaseTaxId: null }).toPrimitives()).toMatchObject({
       categoryId: null,
-      taxId: null,
+      salesTaxId: null,
+      purchaseTaxId: null,
     });
   });
 
@@ -55,7 +56,8 @@ describe('Item', () => {
         description: '  Botella  ',
         type: 'inventoried',
         categoryId: CategoryRef.of(CATEGORY_B),
-        taxId: null,
+        salesTaxId: null,
+        purchaseTaxId: null,
         units: baseUnitOnly(UNIT_BOX),
       },
       LATER,
@@ -67,7 +69,8 @@ describe('Item', () => {
       name: 'Agua mineral 1 l',
       description: 'Botella',
       categoryId: CATEGORY_B,
-      taxId: null,
+      salesTaxId: null,
+      purchaseTaxId: null,
       units: [{ unitId: UNIT_BOX, conversionFactor: 1, isBase: true }],
       updatedAt: LATER,
     });
@@ -82,7 +85,8 @@ describe('Item', () => {
           description: 'x'.repeat(1001),
           type: 'service',
           categoryId: null,
-          taxId: null,
+          salesTaxId: null,
+          purchaseTaxId: null,
           units: baseUnitOnly(),
         },
         LATER,

@@ -29,14 +29,14 @@ export function itemFromRow(row: ItemRow): Item {
 // El articulo y sus unidades dentro de la transaccion de quien llama. Las unidades se reemplazan
 // enteras, porque la persona manda el conjunto completo y no una lista de cambios.
 export async function writeItem(tx: TransactionClient, item: Item): Promise<void> {
-  const { id, tenantId, code, sku, name, description, type, categoryId, taxId, isActive, units, createdAt, updatedAt } =
+  const { id, tenantId, code, sku, name, description, type, categoryId, salesTaxId, purchaseTaxId, isActive, units, createdAt, updatedAt } =
     item.toPrimitives();
 
   try {
     await tx.item.upsert({
       where: { tenantId_id: { tenantId, id } },
-      create: { id, tenantId, code, sku, name, description, type, categoryId, taxId, isActive, createdAt, updatedAt },
-      update: { sku, name, description, type, categoryId, taxId, isActive, updatedAt },
+      create: { id, tenantId, code, sku, name, description, type, categoryId, salesTaxId, purchaseTaxId, isActive, createdAt, updatedAt },
+      update: { sku, name, description, type, categoryId, salesTaxId, purchaseTaxId, isActive, updatedAt },
     });
     await tx.itemUnit.deleteMany({ where: { tenantId, itemId: id } });
     await tx.itemUnit.createMany({ data: units.map((unit) => ({ tenantId, itemId: id, ...unit })) });
