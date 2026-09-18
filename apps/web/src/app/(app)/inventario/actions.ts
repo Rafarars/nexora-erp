@@ -30,6 +30,10 @@ export async function saveItem(_state: FormState, form: FormData): Promise<FormS
   const unitIds = form.getAll('unitId').map(String);
   const factors = form.getAll('conversionFactor').map(String);
   const base = text(form, 'baseUnit');
+  const ruleWarehouses = form.getAll('ruleWarehouse').map(String);
+  const ruleMinimums = form.getAll('ruleMin').map(String);
+  const ruleMaximums = form.getAll('ruleMax').map(String);
+  const ruleQuantities = form.getAll('ruleQuantity').map(String);
 
   return attempt('No se pudo guardar el artículo.', (token) =>
     inventoryApi().saveItem(token, text(form, 'id') || null, {
@@ -52,6 +56,15 @@ export async function saveItem(_state: FormState, form: FormData): Promise<FormS
           conversionFactor: unitId === base ? 1 : parseDecimal(factors[index] ?? ''),
         }))
         .filter((unit) => unit.unitId !== ''),
+      // Igual que las unidades: la fila sin bodega elegida no cuenta.
+      reorderRules: ruleWarehouses
+        .map((warehouseId, index) => ({
+          warehouseId,
+          minQuantity: parseDecimal(ruleMinimums[index] ?? ''),
+          maxQuantity: (ruleMaximums[index] ?? '').trim() === '' ? null : parseDecimal(ruleMaximums[index] ?? ''),
+          reorderQuantity: (ruleQuantities[index] ?? '').trim() === '' ? 0 : parseDecimal(ruleQuantities[index] ?? ''),
+        }))
+        .filter((rule) => rule.warehouseId !== ''),
     }),
   );
 }

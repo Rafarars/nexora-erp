@@ -1,11 +1,12 @@
-import { CatalogReferences, ReferencedCategory, ReferencedTax, ReferencedUnit } from '../../catalog/catalog-references.js';
+import { CatalogReferences, ReferencedCategory, ReferencedTax, ReferencedUnit, ReferencedWarehouse } from '../../catalog/catalog-references.js';
+import { StockWarehouseNotFoundError } from '../../errors/inventory.errors.js';
 import {
   CategoryNotFoundError,
   InactiveReferenceError,
   MeasurementUnitNotFoundError,
   TaxNotFoundError,
 } from '../../errors/item.errors.js';
-import { CategoryRef, TaxRef, UnitRef } from '../../shared/references.vo.js';
+import { CategoryRef, TaxRef, UnitRef, WarehouseRef } from '../../shared/references.vo.js';
 import { TenantId } from '../../shared/tenant-id.vo.js';
 import { Item, ItemDetails } from '../item.entity.js';
 
@@ -38,6 +39,11 @@ export class ItemReferences {
       if (!unit.isActive && !(current?.usesUnit(UnitRef.of(unit.id)) ?? false)) {
         throw new InactiveReferenceError('MeasurementUnit', unit.id);
       }
+    }
+
+    // Una regla de reposicion apunta a una bodega de la empresa que siga abierta.
+    for (const warehouse of await this.warehouses(tenantId, details.reorderRules.warehouseIds())) {
+      if (!warehouse.isActive) throw new InactiveReferenceError('Warehouse', warehouse.id);
     }
   }
 
@@ -80,6 +86,15 @@ export class ItemReferences {
   }
 
   // Todas o ninguna: si falta una, el articulo no se guarda con las unidades a medias.
+  private async warehouses(tenantId: TenantId, ids: WarehouseRef[]): Promise<ReferencedWarehouse[]> {
+    const found = await this.catalog.findWarehouses(tenantId, ids);
+    const missing = ids.find((id) => !found.some((warehouse) => warehouse.id === id.value));
+
+    if (missing) throw new StockWarehouseNotFoundError(missing.value);
+
+    return found;
+  }
+
   private async units(tenantId: TenantId, ids: UnitRef[]): Promise<ReferencedUnit[]> {
     const found = await this.catalog.findUnits(tenantId, ids);
 

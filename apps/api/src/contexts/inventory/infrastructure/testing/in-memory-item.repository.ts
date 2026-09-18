@@ -48,6 +48,12 @@ export class InMemoryItemRepository implements ItemRepository {
 
   // Filtra y pagina como la base: por codigo, SKU, nombre o codigo de barras, sin distinguir
   // mayusculas, y en orden de nombre.
+  async withReorderRules(tenantId: TenantId): Promise<Item[]> {
+    return this.ofTenant(tenantId)
+      .filter((row) => row.reorderRules.length > 0)
+      .map((row) => Item.fromPrimitives(row));
+  }
+
   async search(tenantId: TenantId, criteria: ItemCriteria): Promise<{ items: Item[]; total: number }> {
     const text = criteria.text?.toLowerCase();
     const matches = this.ofTenant(tenantId).filter(

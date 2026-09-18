@@ -341,6 +341,7 @@ model Warehouse {
   adjustments    Adjustment[]
   movements      InventoryMovement[]
   stocks         ItemStock[]
+  reorderRules   ItemReorderRule[]
   purchaseOrders PurchaseOrder[]
   goodsReceipts  GoodsReceipt[]
   salesOrders    SalesOrder[]
@@ -382,6 +383,7 @@ model Item {
   salesTax        Tax?                @relation("SalesTax", fields: [tenantId, salesTaxId], references: [tenantId, id], onDelete: Restrict)
   purchaseTax     Tax?                @relation("PurchaseTax", fields: [tenantId, purchaseTaxId], references: [tenantId, id], onDelete: Restrict)
   units           ItemUnit[]
+  reorderRules    ItemReorderRule[]
   adjustmentLines AdjustmentLine[]
   movements       InventoryMovement[]
   stocks          ItemStock[]
@@ -399,6 +401,24 @@ model Item {
   @@index([tenantId, salesTaxId])
   @@index([tenantId, purchaseTaxId])
   @@map("items")
+}
+
+/// Cuanto se quiere tener de un articulo en una bodega: por debajo del minimo hay que reponer, y
+/// `reorder_quantity` es lo que se sugiere pedir. Sin fila, el articulo no se vigila en esa bodega.
+model ItemReorderRule {
+  tenantId        String  @map("tenant_id") @db.Uuid
+  itemId          String  @map("item_id") @db.Uuid
+  warehouseId     String  @map("warehouse_id") @db.Uuid
+  minQuantity     Decimal @map("min_quantity") @db.Decimal(18, 4)
+  maxQuantity     Decimal? @map("max_quantity") @db.Decimal(18, 4)
+  reorderQuantity Decimal @map("reorder_quantity") @db.Decimal(18, 4)
+
+  item      Item      @relation(fields: [tenantId, itemId], references: [tenantId, id], onDelete: Cascade)
+  warehouse Warehouse @relation(fields: [tenantId, warehouseId], references: [tenantId, id], onDelete: Restrict)
+
+  @@id([tenantId, itemId, warehouseId])
+  @@index([tenantId, warehouseId])
+  @@map("item_reorder_rules")
 }
 
 /// `inventoried` mueve existencia; `service` se compra y se vende pero nunca tiene stock.

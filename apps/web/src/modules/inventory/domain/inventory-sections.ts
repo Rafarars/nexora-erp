@@ -5,6 +5,7 @@ import type { Session } from '../../access/domain/session';
 export const INVENTORY_SECTIONS = [
   { href: '/inventario/articulos', label: 'Artículos', testId: 'inventory-articulos', permission: 'inventory.items.search' },
   { href: '/inventario/existencias', label: 'Existencias', testId: 'inventory-existencias', permission: 'inventory.stock.search' },
+  { href: '/inventario/bajo-minimo', label: 'Bajo mínimo', testId: 'inventory-bajo-minimo', permission: 'inventory.stock.search' },
   { href: '/inventario/ajustes', label: 'Ajustes', testId: 'inventory-ajustes', permission: 'inventory.adjustments.search' },
   { href: '/inventario/kardex', label: 'Kardex', testId: 'inventory-kardex', permission: 'inventory.movements.search' },
 ];

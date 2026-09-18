@@ -56,7 +56,24 @@ La categoría, el impuesto y las unidades siguen en el [catálogo](catalogo.md) 
 | `sales_tax_id` | impuesto | Opcional. **El que se copia a la línea al venderlo** |
 | `purchase_tax_id` | impuesto | Opcional. El que se copia a la línea al comprarlo |
 
-### 1.1 Unidades del artículo — `item_units`
+### 1.1 Mínimos por bodega — `item_reorder_rules`
+
+Cuánto se quiere tener del artículo **en cada bodega**, en su unidad base. Sin regla, el artículo no se
+vigila en esa bodega.
+
+| Campo | Tipo | Regla |
+|---|---|---|
+| `warehouse_id` | bodega | De la empresa y **activa**. Una sola regla por bodega |
+| `min_quantity` | decimal(18,4) | Cero o más. Por debajo, el artículo aparece en **Bajo mínimo** |
+| `max_quantity` | decimal(18,4) | Opcional. No puede ser menor que el mínimo |
+| `reorder_quantity` | decimal(18,4) | Lo que se sugiere pedir. En cero, se sugiere lo que falta para el máximo |
+
+**Por qué por bodega y no en el artículo:** lo que falta en la Principal no se cubre con lo que sobra en
+la Norte. Así lo llevan Odoo (`stock.warehouse.orderpoint`), ERPNext (`Item Reorder`) y Business Central
+(en el SKU, artículo + ubicación). El compañero los tiene planos en el artículo y **nadie los lee**; aquí
+los consume el listado de bajo mínimo.
+
+### 1.2 Unidades del artículo — `item_units`
 
 | Campo | Tipo | Regla |
 |---|---|---|
@@ -337,6 +354,7 @@ Las del artículo se explican en [§1](#1-artículos); la de la bodega vive en e
 | No se desactiva ni cambia de tipo un artículo que usan órdenes o pedidos abiertos | `ItemInOpenDocumentsError` |
 | No se quita ni cambia de factor una unidad que usan órdenes o pedidos abiertos | `ItemUnitInOpenDocumentsError` |
 | Dos artículos de una empresa no comparten código de barras | `DuplicateBarcodeError` |
+| Una regla de reposición apunta a una bodega de la empresa, activa y sin repetir | `StockWarehouseNotFoundError`, `InactiveReferenceError`, `InvalidReorderRuleError` |
 | No se compra un artículo marcado como «no se compra» | `ItemNotPurchasableError` |
 | No se vende un artículo marcado como «no se vende» | `ItemNotSellableError` |
 
@@ -347,6 +365,7 @@ Las del artículo se explican en [§1](#1-artículos); la de la bodega vive en e
 | Acción | Ruta | Permiso |
 |---|---|---|
 | Listar artículos | `GET /api/v1/inventory/items?q=&limit=&offset=` | `inventory.items.search` |
+| Lo que está bajo mínimo | `GET /api/v1/inventory/low-stock?warehouseId=` | `inventory.stock.search` |
 | Crear artículo | `POST /api/v1/inventory/items` | `inventory.items.create` |
 | Editar artículo y sus unidades | `PUT /api/v1/inventory/items/:itemId` | `inventory.items.update` |
 | Desactivar o reactivar artículo | `PUT /api/v1/inventory/items/:itemId/status` | `inventory.items.deactivate` |
@@ -382,7 +401,8 @@ Las del artículo se explican en [§1](#1-artículos); la de la bodega vive en e
 | Ruta | Qué hace |
 |---|---|
 | `/inventario` | Redirige a la primera sección que el rol puede ver |
-| `/inventario/articulos` | Tabla con SKU, tipo, categoría, **para qué se usa** (comprar, vender), **impuestos de venta y de compra** y unidades («un · 1 cja = 24 un»); panel con código de barras y editor de unidades |
+| `/inventario/articulos` | Tabla con SKU, tipo, categoría, **para qué se usa** (comprar, vender), **impuestos de venta y de compra** y unidades («un · 1 cja = 24 un»); **buscador y paginación**; panel con código de barras, editor de unidades y **mínimos por bodega** |
+| `/inventario/bajo-minimo` | Lo que hay que reponer: existencia, mínimo, cuánto falta y cuánto pedir, con filtro por bodega |
 | `/inventario/existencias` | Artículo, bodega, existencia en unidad base, costo promedio, valor y total; filtro por bodega en la dirección |
 | `/inventario/ajustes` | Código, fecha, bodega, resumen de líneas («+2 cja (48 un) AGUA-500»), estado y Opciones según el estado |
 | `/inventario/kardex` | Elige artículo y bodega; cada movimiento con documento, cantidad, costo, saldo y promedio, y las anulaciones marcadas |
@@ -401,7 +421,10 @@ Las del artículo se explican en [§1](#1-artículos); la de la bodega vive en e
 ## 9. Datos de demostración
 
 **Artículos**: Acme — Agua mineral 500 ml (caja de 24, IVA al vender y al comprar), Detergente 1 kg (**IVA al vender,
-exento al comprar**), Servicio de entrega (exento); Globex — Filtro de aceite.
+exento al comprar**), Servicio de entrega (exento, solo se vende); Globex — Filtro de aceite.
+
+**Mínimos**: el agua se vigila en Principal (mínimo 300, máximo 960, pedir 480) y hay 288, así que aparece
+en **Bajo mínimo** con 12 de falta; el detergente tiene mínimo 20 y hay 50.
 
 | Empresa | Ajuste | Estado | Contenido | Existencia resultante |
 |---|---|---|---|---|

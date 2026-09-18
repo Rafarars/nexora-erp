@@ -1,3 +1,4 @@
+import { ItemReorderRules } from '../item/item-reorder-rules.js';
 import { Barcode } from '../item/barcode.vo.js';
 import { ReferencedCategory, ReferencedTax, ReferencedUnit } from '../catalog/catalog-references.js';
 import { ItemCode } from '../item/item-code.vo.js';
@@ -26,6 +27,7 @@ export const UNIT_KILO = 'e3333333-3333-4333-8333-333333333333';
 export const TAX_A = 'f1111111-1111-4111-8111-111111111111';
 export const TAX_B = 'f2222222-2222-4222-8222-222222222222';
 export const WAREHOUSE_A = 'b1111111-1111-4111-8111-111111111111';
+export const WAREHOUSE_B = 'b2222222-2222-4222-8222-222222222222';
 export const ITEM_A = 'a1111111-1111-4111-8111-111111111111';
 export const ITEM_B = 'a2222222-2222-4222-8222-222222222222';
 
@@ -85,6 +87,7 @@ export function anItem(
     salesTaxId?: string | null;
     purchaseTaxId?: string | null;
     units?: ItemUnits;
+    reorderRules?: ItemReorderRules;
     active?: boolean;
   } = {},
 ): Item {
@@ -104,6 +107,7 @@ export function anItem(
       salesTaxId: overrides.salesTaxId === null ? null : TaxRef.of(overrides.salesTaxId ?? TAX_A),
       purchaseTaxId: overrides.purchaseTaxId === null ? null : TaxRef.of(overrides.purchaseTaxId ?? TAX_A),
       units: overrides.units ?? baseUnitOnly(),
+      reorderRules: overrides.reorderRules ?? ItemReorderRules.none(),
     },
     NOW,
   );

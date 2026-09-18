@@ -63,6 +63,17 @@ test.describe('The inventory, from the screen', () => {
   });
 });
 
+// El agua tiene 288 y su minimo en Principal es 300: aparece con lo que falta y lo que pedir.
+test('shows what is below its minimum, with what to order', async ({ page }) => {
+  await new LoginPage(page).signIn(ACME_ADMIN);
+  const inventory = new InventoryPage(page);
+
+  await inventory.open('bajo-minimo');
+
+  await expect(page.getByTestId('low-stock-missing-AGUA-500')).toHaveText('12');
+  await expect(page.getByTestId('low-stock-suggested-AGUA-500')).toHaveText('480');
+});
+
 test('a read-only role sees stock and adjustments but gets no way to change them', async ({ page }) => {
   await new LoginPage(page).signIn(ACCOUNTANT);
   const inventory = new InventoryPage(page);

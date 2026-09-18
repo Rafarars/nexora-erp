@@ -208,6 +208,39 @@ test.describe('inventory: items', () => {
   });
 });
 
+// Lo que hay que reponer sale de las reglas del articulo: el agua tiene 288 y su minimo es 300.
+test.describe('inventory: what is below its minimum', () => {
+  test('lists what is missing in each warehouse, with what to order', async ({ request }) => {
+    const token = await tokenFor(request, 'ana@acme.com');
+    const { rows } = await (await request.get('/api/v1/inventory/low-stock', { headers: auth(token) })).json();
+
+    expect(rows.find((row: { item: { sku: string } }) => row.item.sku === 'AGUA-500')).toMatchObject({
+      warehouse: { name: 'Principal' },
+      quantity: 288,
+      minQuantity: 300,
+      missing: 12,
+      suggested: 480,
+    });
+  });
+
+  test('a rule for a warehouse of another company is refused', async ({ request }) => {
+    const token = await tokenFor(request, 'ana@acme.com');
+    const response = await request.post(`${ITEMS}`, {
+      headers: auth(token),
+      data: {
+        sku: `REGLA-${Date.now()}`,
+        name: 'Con bodega ajena',
+        type: 'inventoried',
+        units: [{ unitId: ACME.piece, conversionFactor: 1, isBase: true }],
+        reorderRules: [{ warehouseId: 'e3000000-0000-4000-8000-000000000101', minQuantity: 5, reorderQuantity: 5 }],
+      },
+    });
+
+    expect(response.status()).toBe(404);
+    expect((await response.json()).error).toBe('StockWarehouseNotFoundError');
+  });
+});
+
 test.describe('inventory: who can do what with items', () => {
   test('a read-only role lists the items but cannot create one', async ({ request }) => {
     const token = await tokenFor(request, 'contador@externo.com');

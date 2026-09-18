@@ -21,6 +21,8 @@ export interface Item extends CatalogRecord {
   barcode: string | null;
   isPurchasable: boolean;
   isSellable: boolean;
+  // Cuanto se quiere tener en cada bodega; vacio, no se vigila.
+  reorderRules: { warehouse: { id: string; name: string }; minQuantity: number; maxQuantity: number | null; reorderQuantity: number }[];
   // El que se copia al vender y el que se copia al comprar.
   salesTax: { id: string; name: string; rate: number } | null;
   purchaseTax: { id: string; name: string; rate: number } | null;

@@ -21,6 +21,8 @@ export interface ItemResponse {
   salesTax: { id: string; name: string; rate: number } | null;
   purchaseTax: { id: string; name: string; rate: number } | null;
   units: ItemUnitResponse[];
+  // Cuanto se quiere tener en cada bodega; vacio, no se vigila.
+  reorderRules: { warehouse: { id: string; name: string }; minQuantity: number; maxQuantity: number | null; reorderQuantity: number }[];
   isActive: boolean;
 }
 

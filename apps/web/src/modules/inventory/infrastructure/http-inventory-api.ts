@@ -1,6 +1,6 @@
 import { AccessError } from '../../access/domain/access-error';
 import type { AccessErrorBody } from '../../access/domain/access-error';
-import type { Adjustment, Movement, Stock } from '../domain/inventory';
+import type { Adjustment, LowStockRow, Movement, Stock } from '../domain/inventory';
 import type { AdjustmentInput, InventoryApi, ItemInput, ItemPage } from '../domain/inventory-api';
 import type { Item } from '../domain/item';
 
@@ -38,6 +38,12 @@ export class HttpInventoryApi implements InventoryApi {
     }
 
     return items;
+  }
+
+  async searchLowStock(token: string, warehouseId?: string): Promise<LowStockRow[]> {
+    const suffix = warehouseId ? `?warehouseId=${warehouseId}` : '';
+
+    return (await this.request<{ rows: LowStockRow[] }>('GET', `${BASE}/low-stock${suffix}`, token)).rows;
   }
 
   async saveItem(token: string, id: string | null, input: ItemInput): Promise<void> {

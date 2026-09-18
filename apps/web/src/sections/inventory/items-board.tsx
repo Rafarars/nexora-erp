@@ -7,7 +7,7 @@ import { changeItemStatus, saveItem } from '@/app/(app)/inventario/actions';
 import { Field, TextArea } from '@/sections/shared/field';
 import { CatalogTable } from '@/sections/catalog/catalog-table';
 import { formatNumber, selectableOptions } from '@/modules/catalog/domain/catalog';
-import type { Category, MeasurementUnit, Tax } from '@/modules/catalog/domain/catalog';
+import type { Category, MeasurementUnit, Tax, Warehouse } from '@/modules/catalog/domain/catalog';
 import { ITEM_TYPE_LABELS, describeUnits } from '@/modules/inventory/domain/item';
 import type { Item } from '@/modules/inventory/domain/item';
 
@@ -21,10 +21,12 @@ export function ItemsBoard({
   categories,
   taxes,
   units,
+  warehouses,
   search,
   ...permissions
 }: {
   items: Item[];
+  warehouses: Warehouse[];
   search: { q: string; page: number; pageSize: number; total: number; hasMore: boolean };
   categories: Category[];
   taxes: Tax[];
@@ -80,7 +82,7 @@ export function ItemsBoard({
           cell: (item) => <span data-testid={`item-units-${item.sku}`}>{describeUnits(item.units)}</span>,
         },
       ]}
-      renderFields={(item) => <ItemFields item={item} categories={categories} taxes={taxes} units={units} />}
+      renderFields={(item) => <ItemFields item={item} categories={categories} taxes={taxes} units={units} warehouses={warehouses} />}
       save={saveItem}
         changeStatus={changeItemStatus}
         {...permissions}
@@ -146,11 +148,13 @@ function ItemFields({
   categories,
   taxes,
   units,
+  warehouses,
 }: {
   item: Item | null;
   categories: Category[];
   taxes: Tax[];
   units: MeasurementUnit[];
+  warehouses: Warehouse[];
 }) {
   const initial: UnitRow[] = item
     ? item.units.map((unit, index) => ({ key: index, unitId: unit.unitId, factor: formatNumber(unit.conversionFactor) }))
@@ -228,6 +232,8 @@ function ItemFields({
           </option>
         ))}
       </Select>
+
+      <ReorderRulesEditor item={item} warehouses={warehouses} />
 
       <fieldset className="space-y-2" data-testid="item-units-editor">
         <legend className="text-sm font-medium">Unidades</legend>
@@ -337,5 +343,107 @@ function Select({
         {children}
       </select>
     </div>
+  );
+}
+
+interface RuleRow {
+  key: number;
+  warehouseId: string;
+  min: string;
+  max: string;
+  quantity: string;
+}
+
+// Cuanto se quiere tener del articulo en cada bodega. Sin filas, el articulo no se vigila.
+function ReorderRulesEditor({ item, warehouses }: { item: Item | null; warehouses: Warehouse[] }) {
+  const initial: RuleRow[] = (item?.reorderRules ?? []).map((rule, index) => ({
+    key: index,
+    warehouseId: rule.warehouse.id,
+    min: formatNumber(rule.minQuantity),
+    max: rule.maxQuantity === null ? '' : formatNumber(rule.maxQuantity),
+    quantity: rule.reorderQuantity === 0 ? '' : formatNumber(rule.reorderQuantity),
+  }));
+
+  const [rows, setRows] = useState<RuleRow[]>(initial);
+  const [nextKey, setNextKey] = useState(initial.length);
+
+  const update = (key: number, change: Partial<RuleRow>) =>
+    setRows((current) => current.map((row) => (row.key === key ? { ...row, ...change } : row)));
+
+  return (
+    <fieldset className="space-y-2" data-testid="item-rules-editor">
+      <legend className="text-sm font-medium">Mínimos por bodega</legend>
+      <p className="text-muted text-xs">
+        Por debajo del mínimo, el artículo aparece en «Bajo mínimo». «Pedir» es lo que se sugiere reponer; vacío,
+        se sugiere llegar al máximo.
+      </p>
+
+      {rows.map((row, index) => (
+        <div key={row.key} className="flex items-center gap-2" data-testid={`item-rule-row-${index}`}>
+          <select
+            name="ruleWarehouse"
+            value={row.warehouseId}
+            onChange={(event) => update(row.key, { warehouseId: event.target.value })}
+            aria-label="Bodega"
+            data-testid={`item-rule-warehouse-${index}`}
+            className="border-line bg-background min-w-0 flex-1 rounded-md border px-2 py-2 text-sm"
+          >
+            <option value="">Elige una bodega</option>
+            {warehouses.map((warehouse) => (
+              <option key={warehouse.id} value={warehouse.id}>
+                {warehouse.name}
+              </option>
+            ))}
+          </select>
+          <input
+            name="ruleMin"
+            value={row.min}
+            onChange={(event) => update(row.key, { min: event.target.value })}
+            aria-label="Mínimo"
+            placeholder="Mínimo"
+            data-testid={`item-rule-min-${index}`}
+            className="border-line bg-background w-24 rounded-md border px-2 py-2 text-sm"
+          />
+          <input
+            name="ruleMax"
+            value={row.max}
+            onChange={(event) => update(row.key, { max: event.target.value })}
+            aria-label="Máximo"
+            placeholder="Máximo"
+            data-testid={`item-rule-max-${index}`}
+            className="border-line bg-background w-24 rounded-md border px-2 py-2 text-sm"
+          />
+          <input
+            name="ruleQuantity"
+            value={row.quantity}
+            onChange={(event) => update(row.key, { quantity: event.target.value })}
+            aria-label="Pedir"
+            placeholder="Pedir"
+            data-testid={`item-rule-quantity-${index}`}
+            className="border-line bg-background w-24 rounded-md border px-2 py-2 text-sm"
+          />
+          <button
+            type="button"
+            onClick={() => setRows((current) => current.filter((candidate) => candidate.key !== row.key))}
+            data-testid={`item-rule-remove-${index}`}
+            className="border-line hover:bg-surface rounded-md border px-2 py-2 text-sm"
+          >
+            Quitar
+          </button>
+        </div>
+      ))}
+
+      <button
+        type="button"
+        onClick={() => {
+          setRows((current) => [...current, { key: nextKey, warehouseId: '', min: '', max: '', quantity: '' }]);
+          setNextKey((key) => key + 1);
+        }}
+        data-testid="item-rule-add"
+        className="border-line hover:bg-surface rounded-md border px-3 py-2 text-sm"
+      >
+        Agregar bodega
+      </button>
+    </fieldset>
   );
 }

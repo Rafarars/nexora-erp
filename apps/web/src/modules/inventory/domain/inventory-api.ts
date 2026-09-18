@@ -1,5 +1,6 @@
 import type { Adjustment, Movement, Stock } from './inventory';
 import type { Item, ItemType } from './item';
+import type { LowStockRow } from './inventory';
 
 export interface ItemInput {
   sku: string;
@@ -13,6 +14,7 @@ export interface ItemInput {
   salesTaxId: string | null;
   purchaseTaxId: string | null;
   units: { unitId: string; conversionFactor: number; isBase: boolean }[];
+  reorderRules: { warehouseId: string; minQuantity: number; maxQuantity: number | null; reorderQuantity: number }[];
 }
 
 export interface AdjustmentInput {
@@ -35,6 +37,7 @@ export interface InventoryApi {
   searchItems(token: string, page?: { q?: string; limit?: number; offset?: number }): Promise<ItemPage>;
   // Todos los articulos, para llenar un selector: recorre las paginas que haga falta.
   allItems(token: string): Promise<Item[]>;
+  searchLowStock(token: string, warehouseId?: string): Promise<LowStockRow[]>;
   saveItem(token: string, id: string | null, input: ItemInput): Promise<void>;
   changeItemStatus(token: string, id: string, active: boolean): Promise<void>;
 

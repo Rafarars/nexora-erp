@@ -5,6 +5,7 @@ import { ItemCode } from './item-code.vo.js';
 import { ItemId } from './item-id.vo.js';
 import { Barcode } from './barcode.vo.js';
 import { ItemName } from './item-name.vo.js';
+import { ItemReorderRulePrimitives, ItemReorderRules } from './item-reorder-rules.js';
 import { ItemUnitPrimitives, ItemUnits } from './item-units.js';
 import { ItemType } from './item-type.js';
 import { Sku } from './sku.vo.js';
@@ -29,6 +30,7 @@ export interface ItemPrimitives {
   salesTaxId: string | null;
   purchaseTaxId: string | null;
   units: ItemUnitPrimitives[];
+  reorderRules: ItemReorderRulePrimitives[];
 }
 
 // Lo que una persona decide de un articulo, igual al crearlo y al editarlo.
@@ -44,6 +46,7 @@ export interface ItemDetails {
   salesTaxId: TaxRef | null;
   purchaseTaxId: TaxRef | null;
   units: ItemUnits;
+  reorderRules: ItemReorderRules;
 }
 
 const DESCRIPTION_MAX = 1000;
@@ -81,6 +84,7 @@ export class Item {
         salesTaxId: row.salesTaxId ? TaxRef.of(row.salesTaxId) : null,
         purchaseTaxId: row.purchaseTaxId ? TaxRef.of(row.purchaseTaxId) : null,
         units: ItemUnits.fromPrimitives(row.units),
+        reorderRules: ItemReorderRules.fromPrimitives(row.reorderRules),
       },
       row.isActive,
       row.createdAt,
@@ -89,7 +93,7 @@ export class Item {
   }
 
   toPrimitives(): ItemPrimitives {
-    const { sku, barcode, name, description, type, isPurchasable, isSellable, categoryId, salesTaxId, purchaseTaxId, units } = this.details;
+    const { sku, barcode, name, description, type, isPurchasable, isSellable, categoryId, salesTaxId, purchaseTaxId, units, reorderRules } = this.details;
 
     return {
       id: this.id.value,
@@ -109,6 +113,7 @@ export class Item {
       salesTaxId: salesTaxId?.value ?? null,
       purchaseTaxId: purchaseTaxId?.value ?? null,
       units: units.toPrimitives(),
+      reorderRules: reorderRules.toPrimitives(),
     };
   }
 
@@ -148,6 +153,10 @@ export class Item {
 
   sku(): Sku {
     return this.details.sku;
+  }
+
+  reorderRules(): ItemReorderRules {
+    return this.details.reorderRules;
   }
 
   barcode(): Barcode | null {

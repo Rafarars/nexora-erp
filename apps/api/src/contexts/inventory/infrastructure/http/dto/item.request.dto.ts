@@ -7,6 +7,17 @@ export const itemRequestSchema = z.object({
   type: z.string(),
   categoryId: z.string().nullable().optional(),
   barcode: z.string().nullable().optional(),
+  // Una regla por bodega: minimo, maximo opcional y cuanto pedir.
+  reorderRules: z
+    .array(
+      z.object({
+        warehouseId: z.string(),
+        minQuantity: z.number(),
+        maxQuantity: z.number().nullable().optional(),
+        reorderQuantity: z.number(),
+      }),
+    )
+    .optional(),
   isPurchasable: z.boolean().optional(),
   isSellable: z.boolean().optional(),
   salesTaxId: z.string().nullable().optional(),

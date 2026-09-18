@@ -1,7 +1,7 @@
 import { expect } from '@playwright/test';
 import type { Locator, Page } from '@playwright/test';
 
-type Section = 'articulos' | 'existencias' | 'ajustes' | 'kardex';
+type Section = 'articulos' | 'existencias' | 'bajo-minimo' | 'ajustes' | 'kardex';
 
 export interface LineInput {
   item: string;

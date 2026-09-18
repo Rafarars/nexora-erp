@@ -94,6 +94,13 @@ export class InvalidConversionFactorError extends InvalidArgumentError {
   }
 }
 
+// Las reglas de reposicion de un articulo: una por bodega, con cantidades sin signo.
+export class InvalidReorderRuleError extends InvalidArgumentError {
+  constructor(reason: string) {
+    super(`Invalid reorder rule: ${reason}`, 'The minimum, maximum and reorder quantities are not valid.');
+  }
+}
+
 export class InvalidBarcodeError extends InvalidArgumentError {
   constructor(value: string) {
     super(

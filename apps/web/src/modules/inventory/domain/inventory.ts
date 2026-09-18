@@ -10,6 +10,17 @@ export interface Stock {
   totalValue: number;
 }
 
+// Lo que hay que reponer en una bodega: cuanto hay, cuanto se quiere y cuanto pedir.
+export interface LowStockRow {
+  item: { id: string; sku: string; name: string; baseUnit: string };
+  warehouse: { id: string; name: string };
+  quantity: number;
+  minQuantity: number;
+  maxQuantity: number | null;
+  missing: number;
+  suggested: number;
+}
+
 export interface Movement {
   id: string;
   warehouse: { id: string; name: string };

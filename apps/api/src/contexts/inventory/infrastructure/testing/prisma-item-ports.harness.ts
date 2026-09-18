@@ -47,6 +47,9 @@ export class PrismaItemPortsHarness implements ItemPortsHarness {
       unit: async ({ tenantId, id, name, abbreviation, isActive }) => {
         await prisma.measurementUnit.create({ data: { id, tenantId, code: code('UOM'), name, abbreviation, isActive } });
       },
+      warehouse: async ({ tenantId, id, name, isActive }) => {
+        await prisma.warehouse.upsert({ where: { id }, create: { id, tenantId, code: code('BOD'), name, isActive }, update: { name, isActive } });
+      },
     };
   }
 

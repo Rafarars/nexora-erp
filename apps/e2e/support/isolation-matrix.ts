@@ -237,6 +237,12 @@ export const ISOLATION_CASES: IsolationCase[] = [
     path: `/api/v1/inventory/stock?warehouseId=${GLOBEX.warehouseId}`,
   },
   {
+    route: 'GET /api/v1/inventory/low-stock',
+    title: 'ask what is below the minimum in a warehouse of another tenant',
+    method: 'get',
+    path: `/api/v1/inventory/low-stock?warehouseId=${GLOBEX.warehouseId}`,
+  },
+  {
     route: 'PUT /api/v1/purchasing/suppliers/:supplierId',
     title: 'rename a supplier of another tenant',
     method: 'put',

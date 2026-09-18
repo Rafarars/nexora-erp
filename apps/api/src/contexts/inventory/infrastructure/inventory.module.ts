@@ -14,6 +14,7 @@ import { AdjustmentConfirmer } from '../application/confirm-adjustment/adjustmen
 import { AdjustmentCreator } from '../application/create-adjustment/adjustment-creator.js';
 import { AdjustmentSearcher } from '../application/search-adjustments/adjustment-searcher.js';
 import { MovementSearcher } from '../application/search-movements/movement-searcher.js';
+import { LowStockSearcher } from '../application/search-low-stock/low-stock-searcher.js';
 import { StockSearcher } from '../application/search-stock/stock-searcher.js';
 import { AdjustmentUpdater } from '../application/update-adjustment/adjustment-updater.js';
 import { ItemStatusChanger } from '../application/change-item-status/item-status-changer.js';
@@ -56,6 +57,7 @@ import { ConfirmAdjustmentPutController } from './http/confirm-adjustment-put.co
 import { CreateAdjustmentPostController } from './http/create-adjustment-post.controller.js';
 import { SearchAdjustmentsGetController } from './http/search-adjustments-get.controller.js';
 import { SearchMovementsGetController } from './http/search-movements-get.controller.js';
+import { SearchLowStockGetController } from './http/search-low-stock-get.controller.js';
 import { SearchStockGetController } from './http/search-stock-get.controller.js';
 import { UpdateAdjustmentPutController } from './http/update-adjustment-put.controller.js';
 import { PrismaDocumentStockPosting } from './persistence/prisma-document-stock-posting.js';
@@ -85,6 +87,7 @@ import { PrismaStockRepository } from './persistence/prisma-stock.repository.js'
     ConfirmAdjustmentPutController,
     CancelAdjustmentPutController,
     SearchStockGetController,
+    SearchLowStockGetController,
     SearchMovementsGetController,
   ],
   providers: [
@@ -175,6 +178,11 @@ import { PrismaStockRepository } from './persistence/prisma-stock.repository.js'
       provide: StockSearcher,
       useFactory: (s: StockRepository, c: InventoryCatalog) => new StockSearcher(s, c),
       inject: [STOCK_REPOSITORY, INVENTORY_CATALOG],
+    },
+    {
+      provide: LowStockSearcher,
+      useFactory: (i: ItemRepository, s: StockRepository, c: InventoryCatalog) => new LowStockSearcher(i, s, c),
+      inject: [ITEM_REPOSITORY, STOCK_REPOSITORY, INVENTORY_CATALOG],
     },
     {
       provide: MovementSearcher,

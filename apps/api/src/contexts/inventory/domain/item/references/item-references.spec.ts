@@ -1,3 +1,4 @@
+import { ItemReorderRules } from '../item-reorder-rules.js';
 import { describe, expect, it } from 'vitest';
 import {
   CategoryNotFoundError,
@@ -57,6 +58,7 @@ function details(overrides: Partial<ItemDetails> = {}): ItemDetails {
     salesTaxId: TaxRef.of(current.salesTaxId!),
     purchaseTaxId: TaxRef.of(current.salesTaxId!),
     units: baseUnitOnly(),
+    reorderRules: ItemReorderRules.none(),
     ...overrides,
   };
 }

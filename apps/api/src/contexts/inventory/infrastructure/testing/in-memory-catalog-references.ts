@@ -3,8 +3,9 @@ import {
   ReferencedCategory,
   ReferencedTax,
   ReferencedUnit,
+  ReferencedWarehouse,
 } from '../../domain/catalog/catalog-references.js';
-import { CategoryRef, TaxRef, UnitRef } from '../../domain/shared/references.vo.js';
+import { CategoryRef, TaxRef, UnitRef, WarehouseRef } from '../../domain/shared/references.vo.js';
 import { TenantId } from '../../domain/shared/tenant-id.vo.js';
 
 type OfTenant<T> = T & { tenantId: string };
@@ -15,6 +16,7 @@ export class InMemoryCatalogReferences implements CatalogReferences {
     readonly categories: OfTenant<ReferencedCategory>[] = [],
     readonly taxes: OfTenant<ReferencedTax>[] = [],
     readonly units: OfTenant<ReferencedUnit>[] = [],
+    readonly warehouses: OfTenant<ReferencedWarehouse>[] = [],
   ) {}
 
   async findCategories(tenantId: TenantId, ids: CategoryRef[]): Promise<ReferencedCategory[]> {
@@ -27,6 +29,10 @@ export class InMemoryCatalogReferences implements CatalogReferences {
 
   async findUnits(tenantId: TenantId, ids: UnitRef[]): Promise<ReferencedUnit[]> {
     return pick(this.units, tenantId, ids);
+  }
+
+  async findWarehouses(tenantId: TenantId, ids: WarehouseRef[]): Promise<ReferencedWarehouse[]> {
+    return pick(this.warehouses, tenantId, ids);
   }
 }
 

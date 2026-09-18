@@ -1,3 +1,4 @@
+import { ItemReorderRules } from '../domain/item/item-reorder-rules.js';
 import { afterAll, afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { ItemCommitments } from '../domain/item/commitments/item-commitments.js';
 import { DuplicateSkuError, ItemNotFoundError } from '../domain/errors/item.errors.js';
@@ -15,6 +16,7 @@ import {
   ITEM_B,
   LATER,
   TAX_A,
+  WAREHOUSE_A,
   TAX_B,
   TENANT_A,
   TENANT_B,
@@ -73,6 +75,7 @@ export function describeItemPortsContract(implementation: string, createHarness:
         await seedReferences();
         const item = anItem({
           units: ItemUnits.of([ItemUnit.of(UNIT_PIECE, 1, true), ItemUnit.of(UNIT_BOX, 0.08333333, false)]),
+          reorderRules: ItemReorderRules.none(),
         });
 
         await ports.items.save(item);
@@ -92,7 +95,24 @@ export function describeItemPortsContract(implementation: string, createHarness:
         });
       });
 
-      // El lector de la caja busca por el codigo impreso, y nunca encuentra el de otra empresa.
+// Las reglas de reposicion se guardan y se reemplazan enteras, como las unidades.
+      it('saves the reorder rules of an item and lists only the items that have some', async () => {
+        await seedReferences();
+        await catalog.warehouse({ tenantId: TENANT_A, id: WAREHOUSE_A, name: 'Principal', isActive: true });
+        await ports.items.save(anItem({ reorderRules: ItemReorderRules.fromPrimitives([{ warehouseId: WAREHOUSE_A, minQuantity: 300, maxQuantity: 900, reorderQuantity: 480 }]) }));
+
+        expect((await ports.items.find(tenantA, ItemId.of(ITEM_A)))?.toPrimitives().reorderRules).toEqual([
+          { warehouseId: WAREHOUSE_A, minQuantity: 300, maxQuantity: 900, reorderQuantity: 480 },
+        ]);
+        expect((await ports.items.withReorderRules(tenantA)).map((item) => item.id.value)).toEqual([ITEM_A]);
+
+        await ports.items.save(anItem({ reorderRules: ItemReorderRules.none() }));
+
+        expect((await ports.items.find(tenantA, ItemId.of(ITEM_A)))?.toPrimitives().reorderRules).toEqual([]);
+        expect(await ports.items.withReorderRules(tenantA)).toEqual([]);
+      });
+
+            // El lector de la caja busca por el codigo impreso, y nunca encuentra el de otra empresa.
       it('finds an item by its barcode, only within its tenant', async () => {
         await seedReferences();
         await ports.items.save(anItem({ barcode: '7591234567890' }));
@@ -116,6 +136,7 @@ export function describeItemPortsContract(implementation: string, createHarness:
         await seedReferences();
         const item = anItem({
           units: ItemUnits.of([ItemUnit.of(UNIT_PIECE, 1, true), ItemUnit.of(UNIT_BOX, 24, false)]),
+          reorderRules: ItemReorderRules.none(),
         });
         await ports.items.save(item);
 
@@ -313,5 +334,6 @@ function detailsOf(item: ReturnType<typeof anItem>) {
     salesTaxId: row.salesTaxId ? TaxRef.of(row.salesTaxId) : null,
     purchaseTaxId: row.purchaseTaxId ? TaxRef.of(row.purchaseTaxId) : null,
     units: ItemUnits.fromPrimitives(row.units),
+    reorderRules: ItemReorderRules.none(),
   };
 }

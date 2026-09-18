@@ -29,6 +29,9 @@ export class PrismaInventoryPortsHarness implements InventoryPortsHarness {
   }
 
   async reset(): Promise<void> {
+    // Los cobros aplican a facturas: primero ellos, o la clave ajena lo impide.
+    await this.prisma.paymentAllocation.deleteMany();
+    await this.prisma.customerPayment.deleteMany();
     await this.prisma.invoice.deleteMany();
     await this.prisma.dispatch.deleteMany();
     await this.prisma.salesOrder.deleteMany();

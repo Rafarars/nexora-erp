@@ -48,6 +48,7 @@ describe('ItemSearcher', () => {
           { unitId: UNIT_PIECE, name: 'Unidad', abbreviation: 'un', conversionFactor: 1, isBase: true },
           { unitId: UNIT_BOX, name: 'Caja', abbreviation: 'cja', conversionFactor: 24, isBase: false },
         ],
+        reorderRules: [],
         isActive: true,
       },
     ]);

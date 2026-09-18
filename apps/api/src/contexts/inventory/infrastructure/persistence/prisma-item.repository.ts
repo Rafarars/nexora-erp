@@ -10,10 +10,13 @@ import { ItemCriteria, ItemRepository } from '../../domain/item/item.repository.
 import { Sku } from '../../domain/item/sku.vo.js';
 import { TenantId } from '../../domain/shared/tenant-id.vo.js';
 
-const WITH_UNITS = { units: true } as const;
+const WITH_UNITS = { units: true, reorderRules: true } as const;
+
+type Decimalish = { toNumber(): number };
 
 type ItemRow = Awaited<ReturnType<PrismaService['item']['findFirstOrThrow']>> & {
-  units: { unitId: string; conversionFactor: { toNumber(): number }; isBase: boolean }[];
+  units: { unitId: string; conversionFactor: Decimalish; isBase: boolean }[];
+  reorderRules: { warehouseId: string; minQuantity: Decimalish; maxQuantity: Decimalish | null; reorderQuantity: Decimalish }[];
 };
 
 export function itemFromRow(row: ItemRow): Item {
@@ -24,13 +27,19 @@ export function itemFromRow(row: ItemRow): Item {
       conversionFactor: unit.conversionFactor.toNumber(),
       isBase: unit.isBase,
     })),
+    reorderRules: row.reorderRules.map((rule) => ({
+      warehouseId: rule.warehouseId,
+      minQuantity: rule.minQuantity.toNumber(),
+      maxQuantity: rule.maxQuantity === null ? null : rule.maxQuantity.toNumber(),
+      reorderQuantity: rule.reorderQuantity.toNumber(),
+    })),
   });
 }
 
 // El articulo y sus unidades dentro de la transaccion de quien llama. Las unidades se reemplazan
 // enteras, porque la persona manda el conjunto completo y no una lista de cambios.
 export async function writeItem(tx: TransactionClient, item: Item): Promise<void> {
-  const { id, tenantId, code, sku, barcode, name, description, type, isPurchasable, isSellable, categoryId, salesTaxId, purchaseTaxId, isActive, units, createdAt, updatedAt } =
+  const { id, tenantId, code, sku, barcode, name, description, type, isPurchasable, isSellable, categoryId, salesTaxId, purchaseTaxId, isActive, units, reorderRules, createdAt, updatedAt } =
     item.toPrimitives();
 
   try {
@@ -41,6 +50,9 @@ export async function writeItem(tx: TransactionClient, item: Item): Promise<void
     });
     await tx.itemUnit.deleteMany({ where: { tenantId, itemId: id } });
     await tx.itemUnit.createMany({ data: units.map((unit) => ({ tenantId, itemId: id, ...unit })) });
+    // Las reglas se reemplazan enteras, como las unidades: la persona manda el conjunto.
+    await tx.itemReorderRule.deleteMany({ where: { tenantId, itemId: id } });
+    await tx.itemReorderRule.createMany({ data: reorderRules.map((rule) => ({ tenantId, itemId: id, ...rule })) });
   } catch (error) {
     if (violates(error, 'sku')) throw new DuplicateSkuError(sku, tenantId);
     throw error;
@@ -80,6 +92,16 @@ export class PrismaItemRepository implements ItemRepository {
     });
 
     return row ? itemFromRow(row) : null;
+  }
+
+  async withReorderRules(tenantId: TenantId): Promise<Item[]> {
+    const rows = await this.prisma.item.findMany({
+      where: { tenantId: tenantId.value, reorderRules: { some: {} } },
+      include: WITH_UNITS,
+      orderBy: { name: 'asc' },
+    });
+
+    return rows.map(itemFromRow);
   }
 
   async search(tenantId: TenantId, criteria: ItemCriteria): Promise<{ items: Item[]; total: number }> {

@@ -1,4 +1,4 @@
-import { CategoryRef, TaxRef, UnitRef } from '../shared/references.vo.js';
+import { CategoryRef, TaxRef, UnitRef, WarehouseRef } from '../shared/references.vo.js';
 import { TenantId } from '../shared/tenant-id.vo.js';
 
 export const CATALOG_REFERENCES = Symbol('CatalogReferences');
@@ -26,8 +26,16 @@ export interface ReferencedUnit {
   isActive: boolean;
 }
 
+export interface ReferencedWarehouse {
+  id: string;
+  name: string;
+  isActive: boolean;
+}
+
 export interface CatalogReferences {
   findCategories(tenantId: TenantId, ids: CategoryRef[]): Promise<ReferencedCategory[]>;
   findTaxes(tenantId: TenantId, ids: TaxRef[]): Promise<ReferencedTax[]>;
   findUnits(tenantId: TenantId, ids: UnitRef[]): Promise<ReferencedUnit[]>;
+  // Para las reglas de reposicion, que van por bodega.
+  findWarehouses(tenantId: TenantId, ids: WarehouseRef[]): Promise<ReferencedWarehouse[]>;
 }

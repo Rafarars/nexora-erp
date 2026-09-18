@@ -59,6 +59,7 @@ const itemCases: Array<[DomainError, typeof DomainError]> = [
   [new itemErrors.InvalidConversionFactorError(-1), InvalidArgumentError],
   [new itemErrors.InvalidSkuError('A B'), InvalidArgumentError],
   [new itemErrors.InvalidBarcodeError('A B'), InvalidArgumentError],
+  [new itemErrors.InvalidReorderRuleError('a warehouse appears more than once.'), InvalidArgumentError],
   [new itemErrors.InvalidItemTypeError('serialized'), InvalidArgumentError],
   [new itemErrors.InvalidItemUnitsError('no base'), InvalidArgumentError],
   [new itemErrors.InvalidItemCodeError('nope'), InvalidArgumentError],

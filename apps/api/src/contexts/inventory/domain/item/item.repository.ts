@@ -21,4 +21,6 @@ export interface ItemRepository {
   findByBarcode(tenantId: TenantId, barcode: Barcode): Promise<Item | null>;
   // Una pagina del maestro, filtrada por texto: `total` es cuantos cumplen el filtro.
   search(tenantId: TenantId, criteria: ItemCriteria): Promise<{ items: Item[]; total: number }>;
+  // Los que tienen alguna regla de reposicion: es lo que mira el listado de bajo minimo.
+  withReorderRules(tenantId: TenantId): Promise<Item[]>;
 }

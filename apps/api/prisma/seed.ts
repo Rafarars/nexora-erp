@@ -469,6 +469,17 @@ async function seedCatalog(prisma: PrismaClient): Promise<void> {
     });
   }
 
+  // Reglas de reposicion: el agua se vigila en la Principal (hay 288 y el minimo es 300).
+  await prisma.itemReorderRule.deleteMany({ where: { tenantId: { in: [ACME, GLOBEX] } } });
+  await prisma.itemReorderRule.createMany({
+    data: [
+      { tenantId: ACME, itemId: acme.items.water, warehouseId: acme.warehouses.main, minQuantity: 300, maxQuantity: 960, reorderQuantity: 480 },
+      { tenantId: ACME, itemId: acme.items.detergent, warehouseId: acme.warehouses.main, minQuantity: 20, maxQuantity: null, reorderQuantity: 0 },
+      { tenantId: GLOBEX, itemId: globex.items.filter, warehouseId: globex.warehouses.main, minQuantity: 10, maxQuantity: null, reorderQuantity: 20 },
+    ],
+  });
+
+
   // El contador nunca retrocede: si las pruebas ya numeraron mas alla de lo sembrado, se
   // queda donde esta; si no existia, arranca despues del ultimo codigo sembrado.
   const rows = [...units, ...categories, ...taxes, ...warehouses, ...items];
