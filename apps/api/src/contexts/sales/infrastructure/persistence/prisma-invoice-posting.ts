@@ -67,7 +67,7 @@ export class PrismaInvoicePosting implements InvoicePosting {
     }
   }
 
-  async cancel(tenantId: TenantId, invoiceId: InvoiceId, work: (invoice: Invoice, paid: number) => void): Promise<void> {
+  async cancel(tenantId: TenantId, invoiceId: InvoiceId, work: (invoice: Invoice, order: SalesOrder, paid: number) => void): Promise<void> {
     const tenant = tenantId.value;
 
     await this.prisma.$transaction(async (tx) => {
@@ -77,13 +77,22 @@ export class PrismaInvoicePosting implements InvoicePosting {
       if (locked.length === 0) throw new InvoiceNotFoundError(invoiceId.value);
 
       const invoice = invoiceFromRow(await tx.invoice.findFirstOrThrow({ where: { tenantId: tenant, id: invoiceId.value }, include: { lines: true } }));
+      // Devolver lo facturado exige el pedido bloqueado, detras de la factura.
+      const order = await lockOrder(tx, tenant, invoice.orderId().value);
 
       // Un cobro que se confirma bloquea sus facturas: con esta bloqueada, lo cobrado no cambia.
-      work(invoice, await this.balances.paidOf(tx, tenant, invoiceId.value));
+      work(invoice, order, await this.balances.paidOf(tx, tenant, invoiceId.value));
 
       const { status, cancelledAt, updatedAt } = invoice.toPrimitives();
 
       await tx.invoice.update({ where: { tenantId_id: { tenantId: tenant, id: invoiceId.value } }, data: { status, cancelledAt, updatedAt } });
+
+      for (const line of order.toPrimitives().lines) {
+        await tx.salesOrderLine.update({
+          where: { tenantId_id: { tenantId: tenant, id: line.id } },
+          data: { invoicedQuantity: line.invoicedQuantity },
+        });
+      }
     });
   }
 

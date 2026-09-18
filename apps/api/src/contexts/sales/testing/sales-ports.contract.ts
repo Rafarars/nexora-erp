@@ -287,7 +287,7 @@ export function describeSalesPortsContract(implementation: string, createHarness
         expect(await ports.invoices.issuedForDispatch(tenant, id)).toBe(true);
         await expect(cancelDispatch(id)).rejects.toThrow(DispatchInvoicedError);
 
-        await ports.invoicePosting.cancel(tenant, invoice.id, (found, paid) => found.cancel(NOW, paid));
+        await ports.invoicePosting.cancel(tenant, invoice.id, (found, _order, paid) => found.cancel(NOW, paid));
         expect(await ports.invoices.issuedForDispatch(tenant, id)).toBe(false);
         await expect(cancelDispatch(id)).resolves.toBeUndefined();
       });
@@ -354,7 +354,7 @@ export function describeSalesPortsContract(implementation: string, createHarness
 
         await harness.pay(invoice.id.value, CUSTOMER, 1);
 
-        await expect(ports.invoicePosting.cancel(tenant, invoice.id, (found, paid) => found.cancel(NOW, paid))).rejects.toThrow(InvoiceWithPaymentsError);
+        await expect(ports.invoicePosting.cancel(tenant, invoice.id, (found, _order, paid) => found.cancel(NOW, paid))).rejects.toThrow(InvoiceWithPaymentsError);
         expect((await ports.invoices.find(tenant, invoice.id))?.currentStatus()).toBe('issued');
       });
     });

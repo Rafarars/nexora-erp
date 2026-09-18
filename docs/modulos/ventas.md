@@ -189,7 +189,10 @@ nace de un despacho, y un servicio no se despacha):
 | Nada pendiente de facturar | Se rechaza (`NothingToInvoiceError`) |
 
 Emitir **consume saldo del pedido**: sube `invoiced_quantity` en cada línea que entró. Sin esa
-cuenta, un servicio se cobraría una vez por cada despacho del pedido.
+cuenta, un servicio se cobraría una vez por cada despacho del pedido. **Anular la factura lo
+devuelve**, para lo cual cada línea de factura guarda de qué línea de pedido salió
+(`invoice_lines.order_line_id`); si no, un servicio de una factura anulada no se podría volver a
+cobrar nunca.
 
 ### 2.6 Moneda y tasas
 

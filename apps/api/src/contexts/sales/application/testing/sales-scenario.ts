@@ -78,7 +78,7 @@ export function aSalesScenario() {
     cancelDispatch: new DispatchCanceller(store.dispatchPosting, new DispatchCancellation(), clock),
     searchDispatches: new DispatchSearcher(store.dispatches, store.orders, store.invoices, customers, catalog),
     issueInvoice: new InvoiceIssuer(dispatchFinder, orderFinder, store.invoices, store.invoicePosting, new InvoiceIssuance(), codes, ids, clock, calendar, rates),
-    cancelInvoice: new InvoiceCanceller(store.invoicePosting, clock),
+    cancelInvoice: new InvoiceCanceller(store.invoicePosting, new InvoiceIssuance(), clock),
     searchInvoices: new InvoiceSearcher(store.invoices, store.dispatches, store.orders, customers, catalog),
     searchAvailability: new AvailabilitySearcher(store.salesStock, store.orders, catalog),
   };

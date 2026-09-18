@@ -1046,6 +1046,8 @@ model InvoiceLine {
   id         String  @id @db.Uuid
   tenantId   String  @map("tenant_id") @db.Uuid
   invoiceId  String  @map("invoice_id") @db.Uuid
+  /// De que linea del pedido sale. Anular devuelve lo facturado a esa linea.
+  orderLineId String? @map("order_line_id") @db.Uuid
   lineNumber Int     @map("line_number")
   itemId     String  @map("item_id") @db.Uuid
   itemSku  String   @map("item_sku") @db.VarChar(60)

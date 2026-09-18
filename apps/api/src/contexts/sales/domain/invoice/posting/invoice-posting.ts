@@ -25,5 +25,6 @@ export interface InvoicePosting {
     decimals: number,
     work: (dispatch: Dispatch | null, order: SalesOrder, alreadyInvoiced: boolean, credit: CustomerCredit) => Invoice,
   ): Promise<void>;
-  cancel(tenantId: TenantId, invoiceId: InvoiceId, work: (invoice: Invoice, paid: number) => void): Promise<void>;
+  // Anular bloquea la factura y su pedido: devolver lo facturado exige el pedido bloqueado.
+  cancel(tenantId: TenantId, invoiceId: InvoiceId, work: (invoice: Invoice, order: SalesOrder, paid: number) => void): Promise<void>;
 }

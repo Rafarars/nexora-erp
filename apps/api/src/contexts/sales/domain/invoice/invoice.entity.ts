@@ -11,6 +11,8 @@ import { CustomerId } from '../customer/customer.entity.js';
 import { CustomerCredit, ensureCreditAllows } from './credit/customer-credit.js';
 import { Dispatch, DispatchId } from '../dispatch/dispatch.entity.js';
 import { SalesOrder, SalesOrderId } from '../order/sales-order.entity.js';
+import { SalesOrderLineId } from '../order/sales-order-line.js';
+import { Quantity } from '../shared/quantity.vo.js';
 import { unitsToNumber } from '../../../../shared/domain/amount.js';
 import { lineSubtotalUnits, taxUnits } from '../shared/money.js';
 import { DocumentCurrency, DocumentCurrencyPrimitives } from '../../../../shared/domain/document-currency.js';
@@ -30,6 +32,8 @@ export type InvoiceStatus = 'issued' | 'cancelled';
 export interface InvoiceLinePrimitives {
   id: string;
   lineNumber: number;
+  // De que linea del pedido sale. Anular devuelve lo facturado a esa linea.
+  orderLineId: string;
   itemId: string;
   // La factura se reimprime como se emitio, aunque el articulo cambie de nombre despues.
   itemSku: string;
@@ -113,6 +117,7 @@ export class Invoice {
       return {
         id: issue.lineIds(),
         lineNumber: index + 1,
+        orderLineId: orderLine.id.value,
         itemId: orderLine.itemId.value,
         // El SKU y el nombre con que se escribio la linea del pedido.
         itemSku: orderLine.itemSku,
@@ -191,6 +196,11 @@ export class Invoice {
 
   currentStatus(): InvoiceStatus {
     return this.row.status;
+  }
+
+  // Lo que cada linea cobro, para devolverlo al pedido si la factura se anula.
+  invoicedLines(): { orderLineId: SalesOrderLineId; quantity: Quantity }[] {
+    return this.row.lines.map((line) => ({ orderLineId: SalesOrderLineId.of(line.orderLineId), quantity: Quantity.of(line.quantity) }));
   }
 
   lineItems(): { itemId: ItemRef; unitId: UnitRef }[] {

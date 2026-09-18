@@ -135,6 +135,7 @@ export interface InvoiceRow {
   lines: {
     id: string;
     lineNumber: number;
+    orderLineId: string | null;
     itemId: string;
     itemSku: string;
     itemName: string;
@@ -165,6 +166,8 @@ export function invoiceFromRow(row: InvoiceRow): Invoice {
       .map((line) => ({
         id: line.id,
         lineNumber: line.lineNumber,
+        // Las facturas anteriores al enlace se quedaron sin el: no devuelven nada al anularse.
+        orderLineId: line.orderLineId ?? '',
         itemId: line.itemId,
         itemSku: line.itemSku,
         itemName: line.itemName,

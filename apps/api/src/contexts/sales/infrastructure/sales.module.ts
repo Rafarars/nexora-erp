@@ -219,7 +219,7 @@ import { PrismaSalesStock } from './persistence/prisma-sales-stock.js';
         new InvoiceIssuer(d, o, v, p, u, s, i, k, cal, dr),
       inject: [DispatchFinder, SalesOrderFinder, INVOICE_REPOSITORY, INVOICE_POSTING, InvoiceIssuance, SALES_CODE_SEQUENCE, ID_GENERATOR, CLOCK, BUSINESS_CALENDAR, DOCUMENT_RATES],
     },
-    { provide: InvoiceCanceller, useFactory: (p: InvoicePosting, k: Clock) => new InvoiceCanceller(p, k), inject: [INVOICE_POSTING, CLOCK] },
+    { provide: InvoiceCanceller, useFactory: (p: InvoicePosting, u: InvoiceIssuance, k: Clock) => new InvoiceCanceller(p, u, k), inject: [INVOICE_POSTING, InvoiceIssuance, CLOCK] },
     {
       provide: InvoiceSearcher,
       useFactory: (v: InvoiceRepository, d: DispatchRepository, o: SalesOrderRepository, c: CustomerRepository, k: SalesCatalog) => new InvoiceSearcher(v, d, o, c, k),

@@ -245,8 +245,11 @@ export class InMemorySalesStore {
 
           if (!invoice) throw new InvoiceNotFoundError(invoiceId.value);
 
-          work(invoice, this.paid.get(invoice.id.value) ?? 0);
+          const order = this.loadOrder(tenantId, invoice.orderId().value) as SalesOrder;
+
+          work(invoice, order, this.paid.get(invoice.id.value) ?? 0);
           this.invoiceRows.set(invoice.id.value, invoice.toPrimitives());
+          this.orderRows.set(order.id.value, order.toPrimitives());
         }),
     };
   }

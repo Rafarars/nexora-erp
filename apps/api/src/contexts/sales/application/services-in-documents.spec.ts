@@ -72,6 +72,26 @@ describe('a service in a sales order', () => {
     await expect(s.issueInvoice.run({ tenantId: TENANT_A, orderId: order.id })).rejects.toThrow();
   });
 
+  // Anular devuelve lo facturado: si no, el servicio quedaria cobrado para siempre sin factura.
+  it('can be invoiced again after its invoice is cancelled', async () => {
+    const { s, customerId } = await world();
+
+    await s.createOrder.run({
+      tenantId: TENANT_A,
+      customerId,
+      warehouseId: MAIN,
+      lines: [{ itemId: SERVICE, unitId: PIECE, quantity: 1, unitPrice: 25 }],
+    });
+    const order = await latestOrder(s);
+    await s.confirmOrder.run({ tenantId: TENANT_A, orderId: order.id });
+    await s.issueInvoice.run({ tenantId: TENANT_A, orderId: order.id });
+
+    const invoice = await latestInvoice(s);
+    await s.cancelInvoice.run({ tenantId: TENANT_A, invoiceId: invoice.id });
+
+    await expect(s.issueInvoice.run({ tenantId: TENANT_A, orderId: order.id })).resolves.toBeUndefined();
+  });
+
   // Un pedido con mercancia se factura desde su despacho: es lo que dice que salio de verdad.
   it('refuses to invoice an order with goods without its dispatch', async () => {
     const { s, customerId } = await world();

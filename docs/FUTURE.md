@@ -265,9 +265,6 @@ Detalle y fuentes en [revision/temas/listas-de-precio.md](revision/temas/listas-
 - **Cerrar el pedido cuando todo está despachado *y* facturado.** El compañero tiene un estado `completed` que exige
   las dos cuentas al 100 %; aquí el pedido queda en «despachado» aunque falte facturar. **Qué haría falta:** un estado
   más y recalcularlo también al emitir y al anular una factura.
-- **Anular una factura devuelve lo facturado al pedido.** Hoy anular deja la cuenta `invoiced_quantity` como estaba, así
-  que un servicio ya facturado no se vuelve a ofrecer aunque su factura se anule. **Qué haría falta:** descontar al
-  anular, con el pedido bloqueado.
 
 ### Selectores que buscan contra el servidor
 
