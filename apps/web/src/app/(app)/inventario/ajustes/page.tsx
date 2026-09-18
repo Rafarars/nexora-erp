@@ -25,7 +25,7 @@ export default async function AdjustmentsPage() {
 
   const [adjustments, items, warehouses] = await Promise.all([
     inventoryApi().searchAdjustments(token),
-    canCreate || canUpdate ? inventoryApi().searchItems(token) : [],
+    canCreate || canUpdate ? inventoryApi().allItems(token) : [],
     canCreate || canUpdate ? catalogApi().searchWarehouses(token) : [],
   ]);
 

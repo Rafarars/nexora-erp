@@ -43,7 +43,8 @@ test.describe('The catalog, from the screen', () => {
     await page.getByTestId('item-unit-factor-1').fill('24');
     await catalog.submitAndClose('item');
 
-    // El SKU se guarda en mayusculas: la fila se busca como quedo.
+    // El SKU se guarda en mayusculas: la fila se busca como quedo, y el maestro se lista de a 20.
+    await inventory.findItem(sku);
     await expect(catalog.row('item', sku)).toBeVisible();
     await expect(page.getByTestId(`item-category-${sku}`)).toHaveText(categoryName);
     await expect(page.getByTestId(`item-units-${sku}`)).toHaveText('un · 1 cja = 24 un');
@@ -56,6 +57,7 @@ test.describe('The catalog, from the screen', () => {
     await expect(catalog.status('category', categoryName)).toHaveText('Activo');
 
     await inventory.open('articulos');
+    await inventory.findItem(sku);
     await catalog.toggleStatus('item', sku);
     await expect(catalog.status('item', sku)).toHaveText('Inactivo');
 

@@ -7,15 +7,22 @@ import { ItemSearcherResponse } from './item-searcher.response.js';
 // Devuelve los nombres de lo que cada articulo referencia: la interfaz no tiene que
 // cruzar cuatro listados, ni pedir permiso para ver categorias o impuestos solo para
 // pintar la tabla de articulos.
+// Lo que devuelve una pagina sin pedir nada: lo mismo que ofrece la pantalla.
+const DEFAULT_PAGE = 20;
+
 export class ItemSearcher {
   constructor(
     private readonly items: ItemRepository,
     private readonly catalog: CatalogReferences,
   ) {}
 
-  async run(request: { tenantId: string }): Promise<ItemSearcherResponse> {
+  async run(request: { tenantId: string; q?: string; limit?: number; offset?: number }): Promise<ItemSearcherResponse> {
     const tenantId = TenantId.of(request.tenantId);
-    const rows = (await this.items.searchByTenant(tenantId)).map((item) => item.toPrimitives());
+    const limit = request.limit ?? DEFAULT_PAGE;
+    const offset = request.offset ?? 0;
+    const text = request.q?.trim() ? request.q.trim() : null;
+    const page = await this.items.search(tenantId, { text, limit, offset });
+    const rows = page.items.map((item) => item.toPrimitives());
     const distinct = (ids: (string | null)[]) => [...new Set(ids.filter((id): id is string => id !== null))];
 
     const [categories, taxes, units] = await Promise.all([
@@ -29,6 +36,10 @@ export class ItemSearcher {
     const unitById = new Map(units.map((unit) => [unit.id, unit]));
 
     return {
+      total: page.total,
+      limit,
+      offset,
+      hasMore: offset + rows.length < page.total,
       items: rows
         .map((row) => {
           const category = row.categoryId ? categoryById.get(row.categoryId) : undefined;

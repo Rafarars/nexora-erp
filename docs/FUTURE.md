@@ -223,6 +223,15 @@ Detalle y fuentes en [revision/temas/configuracion-empresa.md §10](revision/tem
   opción para copiar la tasa del documento base. **Qué haría falta:** un parámetro de empresa y que la emisión pida la
   tasa de la fecha del despacho.
 
+### Selectores que buscan contra el servidor
+
+**Por qué:** los formularios de ajustes, órdenes y pedidos cargan hasta 50 artículos para su selector. El maestro ya
+se lista paginado y filtrado, pero un catálogo de miles necesita un selector que consulte mientras se escribe, como
+el `lookup` del ERP del compañero (`docs/selects-remotos.md`).
+
+**Qué haría falta:** un endpoint de búsqueda que devuelva `{value, label}` con un tope pequeño, hidratación de lo ya
+elegido por id, y un componente de selector con búsqueda.
+
 ## Infraestructura y despliegue
 
 ### Comandos de despliegue en el Makefile

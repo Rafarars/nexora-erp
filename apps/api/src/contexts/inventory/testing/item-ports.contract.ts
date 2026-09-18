@@ -34,6 +34,9 @@ const tenantB = TenantId.of(TENANT_B);
 
 // UNA suite ejecutada dos veces: contra los dobles en memoria y contra PostgreSQL. Si las dos
 // pasan, los dobles de las pruebas de aplicacion no mienten sobre la base.
+// Todo el maestro, sin filtro.
+const ALL = { text: null, limit: 100, offset: 0 };
+
 export function describeItemPortsContract(implementation: string, createHarness: () => ItemPortsHarness): void {
   describe(`Item ports contract: ${implementation}`, () => {
     const harness = createHarness();
@@ -140,7 +143,7 @@ export function describeItemPortsContract(implementation: string, createHarness:
           ports.items.save(anItem({ id: ITEM_B, code: 'ART000002', sku: 'AGUA-500', units: baseUnitOnly(UNIT_BOX) })),
         ).rejects.toThrow(DuplicateSkuError);
 
-        const items = await ports.items.searchByTenant(tenantA);
+        const { items } = await ports.items.search(tenantA, ALL);
         expect(items.map((item) => item.toPrimitives().units)).toEqual([[{ unitId: UNIT_PIECE, conversionFactor: 1, isBase: true }]]);
       });
 
@@ -148,8 +151,24 @@ export function describeItemPortsContract(implementation: string, createHarness:
         await seedReferences();
         await ports.items.save(anItem());
 
-        expect(await ports.items.searchByTenant(tenantA)).toHaveLength(1);
-        expect(await ports.items.searchByTenant(tenantB)).toEqual([]);
+        expect((await ports.items.search(tenantA, ALL)).items).toHaveLength(1);
+        expect(await ports.items.search(tenantB, ALL)).toEqual({ items: [], total: 0 });
+      });
+
+      // El listado se pide por paginas y se filtra por texto: codigo, SKU, nombre o codigo de barras.
+      it('pages the master and filters it by text', async () => {
+        await seedReferences();
+        await ports.items.save(anItem({ sku: 'AGUA-500', name: 'Agua mineral', barcode: '7591234567890' }));
+        await ports.items.save(anItem({ id: ITEM_B, code: 'ART000002', sku: 'JABON-1KG', name: 'Jabón azul', units: baseUnitOnly(UNIT_BOX) }));
+
+        const page = await ports.items.search(tenantA, { text: null, limit: 1, offset: 0 });
+
+        expect(page.total).toBe(2);
+        expect(page.items.map((item) => item.sku().value)).toEqual(['AGUA-500']);
+        expect((await ports.items.search(tenantA, { text: null, limit: 1, offset: 1 })).items.map((item) => item.sku().value)).toEqual(['JABON-1KG']);
+        expect((await ports.items.search(tenantA, { text: 'jab', limit: 10, offset: 0 })).items.map((item) => item.sku().value)).toEqual(['JABON-1KG']);
+        expect((await ports.items.search(tenantA, { text: '75912', limit: 10, offset: 0 })).items.map((item) => item.sku().value)).toEqual(['AGUA-500']);
+        expect((await ports.items.search(tenantA, { text: 'nada', limit: 10, offset: 0 })).total).toBe(0);
       });
     });
 

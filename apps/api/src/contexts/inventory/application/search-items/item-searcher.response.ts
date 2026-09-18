@@ -26,4 +26,9 @@ export interface ItemResponse {
 
 export interface ItemSearcherResponse {
   items: ItemResponse[];
+  // De la pagina: cuantos cumplen el filtro y donde empieza lo que se devuelve.
+  total: number;
+  limit: number;
+  offset: number;
+  hasMore: boolean;
 }

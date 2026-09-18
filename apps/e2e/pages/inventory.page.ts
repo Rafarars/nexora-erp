@@ -16,6 +16,13 @@ export interface LineInput {
 export class InventoryPage {
   constructor(private readonly page: Page) {}
 
+  // El maestro se lista de a 20: para ver un articulo recien creado se busca, como haria una persona.
+  async findItem(text: string): Promise<void> {
+    await this.page.getByTestId('item-search').fill(text);
+    await this.page.getByTestId('item-search-submit').click();
+    await expect(this.page).toHaveURL(new RegExp(`q=${encodeURIComponent(text)}`));
+  }
+
   async open(section: Section): Promise<void> {
     // El modulo redirige a su primera seccion: si se elige la seccion antes de que termine esa
     // redireccion, la redireccion llega despues y deja la pantalla en la seccion equivocada.

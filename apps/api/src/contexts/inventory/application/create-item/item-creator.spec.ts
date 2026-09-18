@@ -53,7 +53,10 @@ function request(overrides: Partial<ItemCreatorRequest> = {}): ItemCreatorReques
   };
 }
 
-const itemsOf = async (s: ItemScenario) => (await s.items.searchByTenant(TenantId.of(TENANT_A))).map((i) => i.toPrimitives());
+// Todo el maestro de la empresa, sin filtro.
+const ALL = { text: null, limit: 100, offset: 0 };
+
+const itemsOf = async (s: ItemScenario) => (await s.items.search(TenantId.of(TENANT_A), ALL)).items.map((item) => item.toPrimitives());
 
 describe('ItemCreator', () => {
   it('creates the item with its units, its code and a normalized SKU', async () => {

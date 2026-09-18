@@ -1,5 +1,7 @@
 'use client';
 
+import Link from 'next/link';
+
 import { useState } from 'react';
 import { changeItemStatus, saveItem } from '@/app/(app)/inventario/actions';
 import { Field, TextArea } from '@/sections/shared/field';
@@ -19,9 +21,11 @@ export function ItemsBoard({
   categories,
   taxes,
   units,
+  search,
   ...permissions
 }: {
   items: Item[];
+  search: { q: string; page: number; pageSize: number; total: number; hasMore: boolean };
   categories: Category[];
   taxes: Tax[];
   units: MeasurementUnit[];
@@ -30,7 +34,10 @@ export function ItemsBoard({
   canDeactivate: boolean;
 }) {
   return (
-    <CatalogTable
+    <div className="space-y-4">
+      <ItemSearch search={search} />
+
+      <CatalogTable
       resource="item"
       title="Artículos"
       description="Productos y servicios. El SKU lo eliges tú; el código lo asigna el sistema."
@@ -75,9 +82,56 @@ export function ItemsBoard({
       ]}
       renderFields={(item) => <ItemFields item={item} categories={categories} taxes={taxes} units={units} />}
       save={saveItem}
-      changeStatus={changeItemStatus}
-      {...permissions}
-    />
+        changeStatus={changeItemStatus}
+        {...permissions}
+      />
+    </div>
+  );
+}
+
+// Buscar y pasar de pagina por la URL: la pantalla se puede compartir y el navegador vuelve atras.
+function ItemSearch({ search }: { search: { q: string; page: number; pageSize: number; total: number; hasMore: boolean } }) {
+  const from = search.total === 0 ? 0 : (search.page - 1) * search.pageSize + 1;
+  const to = (search.page - 1) * search.pageSize + Math.min(search.pageSize, Math.max(0, search.total - (search.page - 1) * search.pageSize));
+  const pageHref = (page: number) => `/inventario/articulos?${new URLSearchParams({ ...(search.q ? { q: search.q } : {}), ...(page > 1 ? { pagina: String(page) } : {}) }).toString()}`;
+
+  return (
+    <div className="flex flex-wrap items-end justify-between gap-3">
+      <form method="get" className="flex items-end gap-2">
+        <div className="space-y-1.5">
+          <label htmlFor="item-search" className="text-sm font-medium">
+            Buscar
+          </label>
+          <input
+            id="item-search"
+            name="q"
+            defaultValue={search.q}
+            placeholder="Código, SKU, nombre o código de barras"
+            data-testid="item-search"
+            className="border-line bg-background w-72 rounded-md border px-3 py-2 text-sm"
+          />
+        </div>
+        <button type="submit" data-testid="item-search-submit" className="border-line hover:bg-surface rounded-md border px-3 py-2 text-sm">
+          Buscar
+        </button>
+      </form>
+
+      <div className="flex items-center gap-3 text-sm">
+        <span className="text-muted" data-testid="item-page-range">
+          {from}–{to} de {search.total}
+        </span>
+        {search.page > 1 ? (
+          <Link href={pageHref(search.page - 1)} data-testid="item-page-previous" className="border-line hover:bg-surface rounded-md border px-3 py-2">
+            Anterior
+          </Link>
+        ) : null}
+        {search.hasMore ? (
+          <Link href={pageHref(search.page + 1)} data-testid="item-page-next" className="border-line hover:bg-surface rounded-md border px-3 py-2">
+            Siguiente
+          </Link>
+        ) : null}
+      </div>
+    </div>
   );
 }
 

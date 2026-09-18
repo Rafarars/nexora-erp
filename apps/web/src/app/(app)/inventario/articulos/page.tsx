@@ -6,8 +6,13 @@ import { requireSession } from '@/shared/session/current-session';
 
 export const dynamic = 'force-dynamic';
 
-export default async function ItemsPage() {
+// Lo que cabe de un vistazo; la API no deja pedir mas de 50.
+const PAGE_SIZE = 20;
+
+export default async function ItemsPage({ searchParams }: { searchParams: Promise<{ q?: string; pagina?: string }> }) {
   const { session, token } = await requireSession();
+  const { q, pagina } = await searchParams;
+  const page = Math.max(1, Number(pagina ?? '1') || 1);
 
   if (!can(session, 'inventory.items.search')) {
     return (
@@ -27,8 +32,8 @@ export default async function ItemsPage() {
     can(session, 'catalog.categories.search') && can(session, 'catalog.taxes.search') && can(session, 'catalog.units.search');
   const editable = (canCreate || canUpdate) && canPickOptions;
 
-  const [items, categories, taxes, units] = await Promise.all([
-    inventoryApi().searchItems(token),
+  const [page20, categories, taxes, units] = await Promise.all([
+    inventoryApi().searchItems(token, { q, limit: PAGE_SIZE, offset: (page - 1) * PAGE_SIZE }),
     editable ? catalog.searchCategories(token) : [],
     editable ? catalog.searchTaxes(token) : [],
     editable ? catalog.searchUnits(token) : [],
@@ -36,7 +41,8 @@ export default async function ItemsPage() {
 
   return (
     <ItemsBoard
-      items={items}
+      items={page20.items}
+      search={{ q: q ?? '', page, pageSize: PAGE_SIZE, total: page20.total, hasMore: page20.hasMore }}
       categories={categories}
       taxes={taxes}
       units={units}

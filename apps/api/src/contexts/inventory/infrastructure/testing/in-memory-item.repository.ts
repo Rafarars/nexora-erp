@@ -2,7 +2,7 @@ import { DuplicateSkuError } from '../../domain/errors/item.errors.js';
 import { Barcode } from '../../domain/item/barcode.vo.js';
 import { ItemId } from '../../domain/item/item-id.vo.js';
 import { Item, ItemPrimitives } from '../../domain/item/item.entity.js';
-import { ItemRepository } from '../../domain/item/item.repository.js';
+import { ItemCriteria, ItemRepository } from '../../domain/item/item.repository.js';
 import { Sku } from '../../domain/item/sku.vo.js';
 import { TenantId } from '../../domain/shared/tenant-id.vo.js';
 
@@ -46,8 +46,18 @@ export class InMemoryItemRepository implements ItemRepository {
     return row ? Item.fromPrimitives(row) : null;
   }
 
-  async searchByTenant(tenantId: TenantId): Promise<Item[]> {
-    return this.ofTenant(tenantId).map((row) => Item.fromPrimitives(row));
+  // Filtra y pagina como la base: por codigo, SKU, nombre o codigo de barras, sin distinguir
+  // mayusculas, y en orden de nombre.
+  async search(tenantId: TenantId, criteria: ItemCriteria): Promise<{ items: Item[]; total: number }> {
+    const text = criteria.text?.toLowerCase();
+    const matches = this.ofTenant(tenantId).filter(
+      (row) => !text || [row.code, row.sku, row.name, row.barcode ?? ''].some((value) => value.toLowerCase().includes(text)),
+    );
+
+    return {
+      items: matches.slice(criteria.offset, criteria.offset + criteria.limit).map((row) => Item.fromPrimitives(row)),
+      total: matches.length,
+    };
   }
 
   private ofTenant(tenantId: TenantId): ItemPrimitives[] {

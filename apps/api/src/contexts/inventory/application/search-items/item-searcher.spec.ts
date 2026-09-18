@@ -53,7 +53,30 @@ describe('ItemSearcher', () => {
     ]);
   });
 
-  it('never lists an item of another tenant', async () => {
+// Un maestro de miles de articulos no se pide entero: la pantalla pide una pagina y filtra.
+  it('answers one page at a time and says whether there is more', async () => {
+    const scenario = anItemScenario({
+      units: [aUnit()],
+      items: [
+        anItem({ sku: 'AGUA-500', name: 'Agua mineral' }),
+        anItem({ id: ITEM_B, code: 'ART000002', sku: 'JABON-1KG', name: 'Jabón azul' }),
+      ],
+    });
+    const searcher = new ItemSearcher(scenario.items, scenario.catalog);
+
+    const first = await searcher.run({ tenantId: TENANT_A, limit: 1 });
+
+    expect(first).toMatchObject({ total: 2, limit: 1, offset: 0, hasMore: true });
+    expect(first.items.map((item) => item.sku)).toEqual(['AGUA-500']);
+
+    const second = await searcher.run({ tenantId: TENANT_A, limit: 1, offset: 1 });
+
+    expect(second).toMatchObject({ total: 2, offset: 1, hasMore: false });
+    expect(second.items.map((item) => item.sku)).toEqual(['JABON-1KG']);
+    expect((await searcher.run({ tenantId: TENANT_A, q: ' jabón ' })).items.map((item) => item.sku)).toEqual(['JABON-1KG']);
+  });
+
+    it('never lists an item of another tenant', async () => {
     const scenario = anItemScenario({ items: [anItem({ id: ITEM_B, tenantId: TENANT_B })] });
 
     const { items } = await new ItemSearcher(scenario.items, scenario.catalog).run({

@@ -1,16 +1,43 @@
 import { AccessError } from '../../access/domain/access-error';
 import type { AccessErrorBody } from '../../access/domain/access-error';
 import type { Adjustment, Movement, Stock } from '../domain/inventory';
-import type { AdjustmentInput, InventoryApi, ItemInput } from '../domain/inventory-api';
+import type { AdjustmentInput, InventoryApi, ItemInput, ItemPage } from '../domain/inventory-api';
 import type { Item } from '../domain/item';
 
 const BASE = '/api/v1/inventory';
 
+// El tope que admite la API por peticion.
+const SELECTOR_PAGE = 50;
+
 export class HttpInventoryApi implements InventoryApi {
   constructor(private readonly baseUrl: string) {}
 
-  async searchItems(token: string): Promise<Item[]> {
-    return (await this.request<{ items: Item[] }>('GET', `${BASE}/items`, token)).items;
+  async searchItems(token: string, page: { q?: string; limit?: number; offset?: number } = {}): Promise<ItemPage> {
+    const query = new URLSearchParams();
+
+    if (page.q) query.set('q', page.q);
+    if (page.limit !== undefined) query.set('limit', String(page.limit));
+    if (page.offset) query.set('offset', String(page.offset));
+
+    const suffix = query.size > 0 ? `?${query.toString()}` : '';
+
+    return this.request<ItemPage>('GET', `${BASE}/items${suffix}`, token);
+  }
+
+  async allItems(token: string): Promise<Item[]> {
+    const items: Item[] = [];
+    let offset = 0;
+    let hasMore = true;
+
+    while (hasMore) {
+      const page = await this.searchItems(token, { limit: SELECTOR_PAGE, offset });
+
+      items.push(...page.items);
+      offset += page.items.length;
+      hasMore = page.hasMore && page.items.length > 0;
+    }
+
+    return items;
   }
 
   async saveItem(token: string, id: string | null, input: ItemInput): Promise<void> {

@@ -46,7 +46,8 @@ export async function aFreshItem(
     },
   });
 
-  const { items } = await (await request.get(`${baseUrl}/api/v1/inventory/items`, { headers: auth(token) })).json();
+  // El listado va paginado: se busca por su SKU, que es unico.
+  const { items } = await (await request.get(`${baseUrl}/api/v1/inventory/items?q=${sku}`, { headers: auth(token) })).json();
 
   return { ...items.find((item: { sku: string }) => item.sku === sku), sku, name };
 }

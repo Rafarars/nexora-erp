@@ -6,7 +6,7 @@ import { DuplicateSkuError } from '../../domain/errors/item.errors.js';
 import { Barcode } from '../../domain/item/barcode.vo.js';
 import { ItemId } from '../../domain/item/item-id.vo.js';
 import { Item } from '../../domain/item/item.entity.js';
-import { ItemRepository } from '../../domain/item/item.repository.js';
+import { ItemCriteria, ItemRepository } from '../../domain/item/item.repository.js';
 import { Sku } from '../../domain/item/sku.vo.js';
 import { TenantId } from '../../domain/shared/tenant-id.vo.js';
 
@@ -82,13 +82,27 @@ export class PrismaItemRepository implements ItemRepository {
     return row ? itemFromRow(row) : null;
   }
 
-  async searchByTenant(tenantId: TenantId): Promise<Item[]> {
-    const rows = await this.prisma.item.findMany({
-      where: { tenantId: tenantId.value },
-      include: WITH_UNITS,
-      orderBy: { name: 'asc' },
-    });
+  async search(tenantId: TenantId, criteria: ItemCriteria): Promise<{ items: Item[]; total: number }> {
+    const text = criteria.text;
+    const where = {
+      tenantId: tenantId.value,
+      ...(text
+        ? {
+            OR: [
+              { code: { contains: text, mode: 'insensitive' as const } },
+              { sku: { contains: text, mode: 'insensitive' as const } },
+              { name: { contains: text, mode: 'insensitive' as const } },
+              { barcode: { contains: text, mode: 'insensitive' as const } },
+            ],
+          }
+        : {}),
+    };
 
-    return rows.map(itemFromRow);
+    const [rows, total] = await Promise.all([
+      this.prisma.item.findMany({ where, include: WITH_UNITS, orderBy: { name: 'asc' }, take: criteria.limit, skip: criteria.offset }),
+      this.prisma.item.count({ where }),
+    ]);
+
+    return { items: rows.map(itemFromRow), total };
   }
 }

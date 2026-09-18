@@ -71,6 +71,13 @@ unidad base.
 0,9996 docenas, no una. Con ocho, 0,08333333 × 12 = 0,99999996, que redondeado a las cuatro
 diezmilésimas de las cantidades es exactamente 1.
 
+**El listado va por páginas.** `GET /api/v1/inventory/items` devuelve 20 por defecto (`limit` hasta 50,
+`offset` desde 0) y, junto a los artículos, `total`, `limit`, `offset` y `hasMore`. `q` filtra por
+código, SKU, nombre y código de barras, sin distinguir mayúsculas. La pantalla busca y pasa de página
+por la URL, así que un listado se puede compartir tal como se ve. Los selectores de otros módulos
+piden 50; con un maestro mayor harán falta selectores que busquen contra el servidor
+([FUTURE.md](../FUTURE.md)).
+
 **El SKU y el nombre viajan con la línea.** Cada línea de ajuste, orden, entrada, pedido, despacho y
 factura guarda `item_sku` e `item_name` copiados del maestro al escribirse. Renombrar un artículo no
 cambia lo que dice un documento ya emitido, que es lo que hacen Business Central, Odoo, ERPNext y
@@ -339,7 +346,7 @@ Las del artículo se explican en [§1](#1-artículos); la de la bodega vive en e
 
 | Acción | Ruta | Permiso |
 |---|---|---|
-| Listar artículos | `GET /api/v1/inventory/items` | `inventory.items.search` |
+| Listar artículos | `GET /api/v1/inventory/items?q=&limit=&offset=` | `inventory.items.search` |
 | Crear artículo | `POST /api/v1/inventory/items` | `inventory.items.create` |
 | Editar artículo y sus unidades | `PUT /api/v1/inventory/items/:itemId` | `inventory.items.update` |
 | Desactivar o reactivar artículo | `PUT /api/v1/inventory/items/:itemId/status` | `inventory.items.deactivate` |

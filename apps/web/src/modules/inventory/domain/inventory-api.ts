@@ -22,8 +22,19 @@ export interface AdjustmentInput {
   lines: { itemId: string; unitId: string; direction: string; quantity: number; unitCost: number | null }[];
 }
 
+export interface ItemPage {
+  items: Item[];
+  total: number;
+  limit: number;
+  offset: number;
+  hasMore: boolean;
+}
+
 export interface InventoryApi {
-  searchItems(token: string): Promise<Item[]>;
+  // Una pagina del maestro: `q` filtra por codigo, SKU, nombre y codigo de barras.
+  searchItems(token: string, page?: { q?: string; limit?: number; offset?: number }): Promise<ItemPage>;
+  // Todos los articulos, para llenar un selector: recorre las paginas que haga falta.
+  allItems(token: string): Promise<Item[]>;
   saveItem(token: string, id: string | null, input: ItemInput): Promise<void>;
   changeItemStatus(token: string, id: string, active: boolean): Promise<void>;
 

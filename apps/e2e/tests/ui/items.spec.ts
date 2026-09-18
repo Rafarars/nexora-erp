@@ -52,7 +52,10 @@ test.describe('The items, from the screen', () => {
     const item = await aStockedItem(request, await tokenFor(request, ACME_ADMIN.email, API), 3, API);
     const table = new CatalogPage(page);
 
-    await new InventoryPage(page).open('articulos');
+    const inventory = new InventoryPage(page);
+
+    await inventory.open('articulos');
+    await inventory.findItem(item.sku);
     await table.toggleStatus('item', item.sku);
 
     await expect(page.getByTestId('item-status-error')).toHaveText('El artículo todavía tiene existencia: no se puede desactivar.');
@@ -63,7 +66,10 @@ test.describe('The items, from the screen', () => {
     const item = await aStockedItem(request, await tokenFor(request, ACME_ADMIN.email, API), 3, API);
     const table = new CatalogPage(page);
 
-    await new InventoryPage(page).open('articulos');
+    const inventory = new InventoryPage(page);
+
+    await inventory.open('articulos');
+    await inventory.findItem(item.sku);
     await table.startEditing('item', item.sku);
     await page.getByTestId('item-type').selectOption({ label: 'Servicio' });
     await table.submit('item');
@@ -76,7 +82,10 @@ test.describe('The items, from the screen', () => {
     const item = await anOrderedItem(request);
     const table = new CatalogPage(page);
 
-    await new InventoryPage(page).open('articulos');
+    const inventory = new InventoryPage(page);
+
+    await inventory.open('articulos');
+    await inventory.findItem(item.sku);
     await table.startEditing('item', item.sku);
     await page.getByTestId('item-unit-factor-1').fill('12');
     await table.submit('item');
@@ -90,7 +99,10 @@ test.describe('The items, from the screen', () => {
     const item = await anOrderedItem(request);
     const table = new CatalogPage(page);
 
-    await new InventoryPage(page).open('articulos');
+    const inventory = new InventoryPage(page);
+
+    await inventory.open('articulos');
+    await inventory.findItem(item.sku);
     await table.toggleStatus('item', item.sku);
 
     await expect(page.getByTestId('item-status-error')).toHaveText(

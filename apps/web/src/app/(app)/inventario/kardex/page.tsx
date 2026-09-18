@@ -20,7 +20,7 @@ export default async function KardexPage({ searchParams }: { searchParams: Promi
 
   const { articulo, bodega } = await searchParams;
   const [items, warehouses] = await Promise.all([
-    can(session, 'inventory.items.search') ? inventoryApi().searchItems(token) : [],
+    can(session, 'inventory.items.search') ? inventoryApi().allItems(token) : [],
     can(session, 'catalog.warehouses.search') ? catalogApi().searchWarehouses(token) : [],
   ]);
 

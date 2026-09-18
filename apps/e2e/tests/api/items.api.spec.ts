@@ -49,7 +49,7 @@ test.describe('inventory: items', () => {
 
     expect(response.status()).toBe(201);
 
-    const { items } = await (await request.get(`${ITEMS}`, { headers: auth(token) })).json();
+    const { items } = await (await request.get(`${ITEMS}?q=${sku}`, { headers: auth(token) })).json();
     const item = items.find((candidate: { sku: string }) => candidate.sku === sku);
 
     expect(item).toMatchObject({
@@ -119,7 +119,7 @@ test.describe('inventory: items', () => {
 
     expect(created.status()).toBe(201);
 
-    const { items } = await (await request.get(`${ITEMS}`, { headers: auth(token) })).json();
+    const { items } = await (await request.get(`${ITEMS}?q=${sku}`, { headers: auth(token) })).json();
     const item = items.find((row: { sku: string }) => row.sku === sku);
     const customer = await aFreshCustomer(request, token);
     const order = await request.post(SALES_ORDERS, {
@@ -131,7 +131,31 @@ test.describe('inventory: items', () => {
     expect((await order.json()).error).toBe('ItemNotSellableError');
   });
 
-  test('rejects a SKU already used, whatever its case', async ({ request }) => {
+// El maestro se pide por paginas y se filtra: un catalogo de miles no se trae entero.
+  test('lists one page at a time and filters by text', async ({ request }) => {
+    const token = await tokenFor(request, 'ana@acme.com');
+    const first = await (await request.get(`${ITEMS}?limit=1`, { headers: auth(token) })).json();
+
+    expect(first).toMatchObject({ limit: 1, offset: 0, hasMore: true });
+    expect(first.items).toHaveLength(1);
+    expect(first.total).toBeGreaterThan(1);
+
+    const second = await (await request.get(`${ITEMS}?limit=1&offset=1`, { headers: auth(token) })).json();
+
+    expect(second.items[0].sku).not.toBe(first.items[0].sku);
+
+    const filtered = await (await request.get(`${ITEMS}?q=AGUA-500`, { headers: auth(token) })).json();
+
+    expect(filtered.items.map((item: { sku: string }) => item.sku)).toEqual(['AGUA-500']);
+
+    const byBarcode = await (await request.get(`${ITEMS}?q=7591234567890`, { headers: auth(token) })).json();
+
+    expect(byBarcode.items.map((item: { sku: string }) => item.sku)).toEqual(['AGUA-500']);
+    // La pagina tiene tope duro: pedir 500 es un 400, no medio maestro.
+    expect((await request.get(`${ITEMS}?limit=500`, { headers: auth(token) })).status()).toBe(400);
+  });
+
+    test('rejects a SKU already used, whatever its case', async ({ request }) => {
     const response = await request.post(`${ITEMS}`, {
       headers: auth(await tokenFor(request, 'ana@acme.com')),
       data: {
@@ -178,7 +202,7 @@ test.describe('inventory: items', () => {
 
     expect(responses.map((response) => response.status())).toEqual(skus.map(() => 201));
 
-    const { items } = await (await request.get(`${ITEMS}`, { headers: auth(token) })).json();
+    const { items } = await (await request.get(`${ITEMS}?q=PARALELO-${stamp}&limit=50`, { headers: auth(token) })).json();
     const codes = items.filter((item: { sku: string }) => skus.includes(item.sku)).map((item: { code: string }) => item.code);
     expect(new Set(codes).size).toBe(skus.length);
   });

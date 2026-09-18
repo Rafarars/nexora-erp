@@ -26,7 +26,7 @@ export default async function SalesOrdersPage() {
   const [orders, customers, items, warehouses, currencies, settings] = await Promise.all([
     salesApi().searchOrders(token),
     canCreate || canUpdate ? salesApi().searchCustomers(token) : [],
-    canCreate || canUpdate ? inventoryApi().searchItems(token) : [],
+    canCreate || canUpdate ? inventoryApi().allItems(token) : [],
     canCreate || canUpdate ? catalogApi().searchWarehouses(token) : [],
     canCreate || canUpdate ? companyApi().currencies(token) : [],
     companyApi().settings(token),
