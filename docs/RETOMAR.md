@@ -29,7 +29,7 @@ un cambio de API o de web no se ve en el navegador ni en la e2e hasta que se eje
 |---|---|
 | Repositorio | github.com/Rafarars/nexora-erp |
 | Reporte de pruebas | https://rafarars.github.io/nexora-erp/ |
-| Pruebas | 2640 + 174 unitarias · 176 de contrato · 374 end-to-end |
+| Pruebas | 2653 + 182 unitarias · 178 de contrato · 374 end-to-end |
 | **H0 — Fundación** | **Completado** |
 | **H1 — Multiempresa y acceso** | **Completado** y revisado |
 | **H2 — Catálogo** | **Completado** ([`H2-CATALOGO.md`](H2-CATALOGO.md)) |
@@ -38,7 +38,7 @@ un cambio de API o de web no se ve en el navegador ni en la e2e hasta que se eje
 | **H5 — Ventas** | **Completado**. Informe en [`H5-VENTAS.md`](H5-VENTAS.md) |
 | **H6 — Cuentas por cobrar** | **Completado**. Informe en [`H6-CUENTAS-POR-COBRAR.md`](H6-CUENTAS-POR-COBRAR.md) |
 | **H7 — Reportes y tablero** | **Completado**. Informe en [`H7-REPORTES.md`](H7-REPORTES.md) |
-| **Revisión módulo por módulo** | **En curso**: Artículos, cerrado. Ver [la sección de abajo](#revisión-módulo-por-módulo) y [`revision/README.md`](revision/README.md) |
+| **Revisión módulo por módulo** | **En curso**: Artículos **cerrado y revisado** (el piloto). El método ya es la skill `module-review`. Ver [la sección de abajo](#revisión-módulo-por-módulo) y [`revision/README.md`](revision/README.md) |
 
 Lo que ya funciona: monorepo con API, frontend y suite E2E; PostgreSQL en Docker;
 endpoint de salud que verifica la base; CI con cuatro trabajos publicando el reporte;
@@ -500,12 +500,37 @@ cliente, el precio mínimo y el precio sugerido en el pedido. Después, la fase 
 3. **Fase 7 · Cierre de Artículos.** ✅ Hecha el 18-sep-2026. Informe cerrado en
    [`revision/inventario/articulos.md`](revision/inventario/articulos.md) §10: qué cerró cada fase, los nueve
    hallazgos uno por uno, lo que el piloto enseñó sobre el método y lo que queda abierto.
-4. **Revisión exhaustiva de todo lo construido** en las fases 1 a 7: reglas de negocio contra el código, el compañero,
-   la ley y los ERP; la interfaz a mano; el CI. Como la del 17-sep-2026 (ver
-   [`revision/temas/configuracion-empresa.md`](revision/temas/configuracion-empresa.md) §10), pero sobre el submódulo
-   entero.
-5. **Convertir el método en una skill.** Artículos es el piloto: con él cerrado se escribe el procedimiento reutilizable
-   para revisar los demás submódulos igual ([`revision/README.md`](revision/README.md) § Método).
+4. **Revisión exhaustiva de lo construido.** ✅ Hecha el 18-sep-2026. Dos revisiones en paralelo (adversarial de código
+   y cobertura de pruebas) más la interfaz a mano. Encontró **diez cosas cuando el módulo ya se daba por cerrado**:
+   cinco defectos de código —uno permitía **cobrar dos veces**— y cinco de interfaz, uno de los cuales ninguna prueba
+   podía encontrar. Todos corregidos. Informe en
+   [`revision/inventario/articulos.md`](revision/inventario/articulos.md) §11.
+5. **Convertir el método en skills.** ✅ Hecho el 18-sep-2026, fuera de este repositorio:
+   - **`module-review`** y **`module-build`**, skills de Claude Code en `~/.claude/skills/`, en español y agnósticas
+     del lenguaje y del sistema.
+   - El método largo, con el porqué y los ejemplos, en el repositorio **`engineering-playbook`**:
+     `method/module-review.md`, `method/module-development.md`, y los patrones `patterns/money-and-quantities.md`,
+     `patterns/business-documents.md` y `patterns/multi-currency.md`.
+
+---
+
+### Qué sigue (acordado el 18-sep-2026, antes del compact)
+
+**Continuar la revisión módulo por módulo con la skill `module-review`**, que es justo el método que salió de este
+piloto. El orden y el estado están en [`revision/README.md`](revision/README.md) § Orden y estado.
+
+Dos maneras de empezar, ambas válidas:
+
+- **Cerrar el flanco del piloto**: la **fase 4 de Artículos** (artículo completo: código de barras, dos impuestos,
+  factor de ocho decimales, mínimos por bodega, SKU copiado en los documentos, listado paginado) **se cerró sin
+  revisión adversarial propia**. Las fases 5 y 6, al mirarlas de nuevo, soltaron diez cosas; suponer que la 4 está
+  limpia porque las pruebas pasan sería ingenuo. Además estrenaría la skill sobre terreno conocido.
+- **Seguir el checklist**: el siguiente submódulo pendiente según las dependencias es el **Catálogo** (unidades,
+  categorías, impuestos, bodegas), del que depende todo lo demás.
+
+**Al arrancar:** invocar la skill `module-review`, decirle qué submódulo se revisa y que el sistema de referencia es
+`verlumyx/erp` (se lee con `gh api repos/verlumyx/erp/contents/<ruta> --jq '.content' | base64 -d`; **leer su código,
+no solo su documentación**).
 
 **Decisión abierta que no bloquea nada de lo anterior:** la tasa de fines de semana y feriados
 ([`revision/temas/configuracion-empresa.md`](revision/temas/configuracion-empresa.md) §10.3, punto 1).

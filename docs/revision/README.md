@@ -26,7 +26,12 @@ Veredictos de la matriz: **coincide**, **difiere con motivo** (decisión de alca
 **hueco** (algo que el sistema debería hacer y no hace) y **sobra** (algo que el sistema hace de
 más).
 
-**Artículos es el piloto.** Cuando esté cerrado, el método se escribe como una **skill** reutilizable
+> **El método ya está escrito como skill.** Desde el 18-sep-2026 vive fuera de este repositorio, para poder usarlo en
+> cualquier proyecto: la skill **`module-review`** (en `~/.claude/skills/`) es el procedimiento ejecutable, y el método
+> largo con su porqué está en el repositorio **`engineering-playbook`** (`method/module-review.md`). Lo que sigue en
+> esta página es cómo se aplica **aquí**: el orden de los submódulos, su estado y sus informes.
+
+**Artículos fue el piloto.** Cuando esté cerrado, el método se escribe como una **skill** reutilizable
 (instrucciones paso a paso, con la forma del informe y la lista de comprobaciones) para revisar los
 demás submódulos igual, sin volver a inventar el procedimiento. Lo que la skill tendrá que recoger, de
 lo aprendido en Artículos:

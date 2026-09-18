@@ -27,6 +27,23 @@ solo lee, de todos ([reportes.md](reportes.md)).
 
 ---
 
+## Qué está revisado y qué no
+
+Estas páginas describen lo que el sistema **hace hoy**. Otra cosa distinta es si esas reglas se han
+contrastado con cómo lo resuelven un ERP de referencia y el sector: eso es la **revisión módulo por
+módulo**, cuyo estado vive en [`../revision/README.md`](../revision/README.md).
+
+| | |
+|---|---|
+| **Revisado y cerrado** | Inventario › **Artículos** (el piloto del método), y con él la configuración de la empresa y la multimoneda, las listas de precio y los servicios en los documentos |
+| **Documentado pero sin revisar** | Todo lo demás. Funciona y está probado, pero sus reglas **no se han contrastado** con un ERP de referencia |
+| **Lo que falta a propósito** | [`../FUTURE.md`](../FUTURE.md), con qué es, por qué se dejó fuera y qué haría falta |
+
+La diferencia importa: «probado» significa que hace lo que dijimos; «revisado» significa que lo que
+dijimos es lo que un ERP debería hacer.
+
+---
+
 ## Convenciones que valen para todos los módulos
 
 ### Multiempresa
@@ -57,8 +74,12 @@ solo lee, de todos ([reportes.md](reportes.md)).
 | `UOM` | Unidades de medida |
 | `IMP` | Impuestos |
 | `BOD` | Bodegas |
+| `LPR` | Listas de precio |
 | `ART` | Artículos |
 | `AJU` | Ajustes de inventario |
+| `OC` · `ENT` | Órdenes de compra y entradas de mercancía |
+| `PED` · `DES` · `FAC` | Pedidos de venta, despachos y facturas |
+| `COB` | Cobros |
 
 ### Permisos
 
