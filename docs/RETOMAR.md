@@ -23,7 +23,7 @@ de ninguna conversación anterior**.
 |---|---|
 | Repositorio | github.com/Rafarars/nexora-erp |
 | Reporte de pruebas | https://rafarars.github.io/nexora-erp/ |
-| Pruebas | 2466 + 172 unitarias · 160 de contrato · 347 end-to-end |
+| Pruebas | 2503 + 172 unitarias · 166 de contrato · 358 end-to-end |
 | **H0 — Fundación** | **Completado** |
 | **H1 — Multiempresa y acceso** | **Completado** y revisado |
 | **H2 — Catálogo** | **Completado** ([`H2-CATALOGO.md`](H2-CATALOGO.md)) |
@@ -432,7 +432,7 @@ Informe completo en [`revision/inventario/articulos.md`](revision/inventario/art
 | 1 · Integridad | H8 una sola base en la base de datos; H1 unidades protegidas con órdenes o pedidos abiertos y entrada con la base de la orden; H2 no desactivar con documentos abiertos; H9 bloqueos `FOR UPDATE`/`FOR SHARE` contra carreras; borradores con caja cambiada piden revisión | ✅ Commits `539659b..ff3360e`, CI en verde, segunda pasada del método hecha |
 | 2 · Artículos en Inventario | Mover **código, pantalla y permisos**: contexto `catalog` → `inventory`, ruta `/inventario/articulos`, menú, `catalog.items.*` → `inventory.items.*` (semillas, roles, aislamiento, documentación). Añadir la prueba de interfaz de los mensajes del artículo | ✅ Código en `contexts/inventory`, puertos `CatalogReferences` e `ItemUsage`, migración de permisos, prueba de interfaz de los mensajes |
 | 3 · Configuración de la empresa y monedas | Investigada y decidida ([informe](revision/temas/configuracion-empresa.md)): contexto propio `company`, todo de una vez, multimoneda con tasas cargadas a mano, zona horaria. Cinco pasos: 1 Empresa y hoy por zona · 2 Monedas y tasas · 3 Compras · 4 Ventas y cobranza · 5 Reportes | ✅ Los 5 pasos hechos y revalidados ([módulo](modulos/empresa.md)); queda abierta la tasa de fines de semana |
-| 4 · Artículo completo | H5 impuesto de venta y de compra; H4 factor con 8 decimales; H6 código de barras, comprable/vendible, mínimo/máximo/reorden; H7 copiar SKU y nombre en las líneas; paginación y búsqueda | ⬜ |
+| 4 · Artículo completo | H5 impuesto de venta y de compra; H4 factor con 8 decimales; H6 código de barras, comprable/vendible, mínimo/máximo/reorden; H7 copiar SKU y nombre en las líneas; paginación y búsqueda | ✅ Los cinco puntos, con su pantalla de **Bajo mínimo** ([módulo](modulos/inventario.md) §1 y §1.1) |
 | 5 · Listas de precio | Investigar su ubicación; maestro, precio por artículo, lista en el cliente, precio mínimo, precio sugerido en el pedido | ⬜ |
 | 6 · Servicios (H3) | Corregir documentación y pantalla. Comprar y vender servicios se hace en Compras y Facturas con la regla del compañero: la línea de servicio no cuenta para recibido o despachado | ⬜ |
 | 7 · Cierre | Informe, checklist en ✅, `make verify` | ⬜ |
@@ -469,10 +469,14 @@ IGTF): [`revision/temas/configuracion-empresa.md`](revision/temas/configuracion-
 **La fase 3 (configuración de la empresa y multimoneda) está cerrada**, con una decisión abierta: la tasa de fines de
 semana y feriados ([`revision/temas/configuracion-empresa.md`](revision/temas/configuracion-empresa.md) §10.3, punto 1).
 
-**Sigue la fase 4 de Artículos, «artículo completo»**, que es lo que falta para dejar el submódulo al 100 %: impuesto
-de compra y de venta separados (H5), factor de conversión con 8 decimales (H4), código de barras, «se compra» / «se
-vende» y mínimo, máximo y reorden (H6), copiar SKU y nombre en las líneas de los documentos (H7), y listado con
-paginación y búsqueda. Después quedan la fase 5 (listas de precio), la 6 (servicios) y el cierre.
+**Fase 4 de Artículos cerrada (18-sep-2026):** impuesto de venta y de compra separados; factor de conversión con 8
+decimales; código de barras único por empresa y banderas «se compra» / «se vende» validadas en el dominio; SKU y nombre
+del artículo copiados en las líneas de los seis documentos; listado paginado con búsqueda por código, SKU, nombre o
+código de barras; y mínimos por bodega con la pantalla **Inventario › Bajo mínimo**, que dice cuánto falta y cuánto
+pedir.
+
+**Sigue la fase 5, listas de precio**: investigar dónde vive el maestro, el precio por artículo, la lista en el
+cliente, el precio mínimo y el precio sugerido en el pedido. Después, la fase 6 (servicios) y el cierre.
 
 **Decisiones de Rafael que no hay que volver a discutir:**
 
