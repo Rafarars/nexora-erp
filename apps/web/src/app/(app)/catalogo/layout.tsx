@@ -9,7 +9,7 @@ export default async function CatalogLayout({ children }: { children: React.Reac
     <div className="space-y-6">
       <div>
         <h1 className="text-lg font-semibold">Catálogo</h1>
-        <p className="text-muted mt-1 text-sm">Lo que comparten los artículos y los documentos: categorías, unidades, impuestos y bodegas.</p>
+        <p className="text-muted mt-1 text-sm">Lo que comparten los artículos y los documentos: categorías, unidades, impuestos, bodegas y listas de precio.</p>
       </div>
 
       <div className="flex flex-col gap-6 sm:flex-row">

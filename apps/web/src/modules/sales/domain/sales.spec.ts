@@ -19,8 +19,17 @@ describe('orderActions', () => {
     expect(orderActions({ status: 'draft', lines: goods })).toEqual({ edit: true, confirm: true, cancel: true, dispatch: false, invoice: false });
   });
 
+  // Despachado en parte quiere decir que algo salio ya: por eso no se puede anular.
   it('offers only dispatching the rest of a partially dispatched order', () => {
-    expect(orderActions({ status: 'partially_dispatched', lines: goods })).toEqual({ edit: false, confirm: false, cancel: false, dispatch: true, invoice: false });
+    const half = [line({ dispatchedQuantity: 4 })];
+
+    expect(orderActions({ status: 'partially_dispatched', lines: half })).toEqual({ edit: false, confirm: false, cancel: false, dispatch: true, invoice: false });
+  });
+
+  // Nace despachado sin tener un despacho: anularlo tiene que seguir ofreciendose.
+  it('offers cancelling an order of only services while nothing was invoiced', () => {
+    expect(orderActions({ status: 'dispatched', lines: service })).toMatchObject({ cancel: true, invoice: true });
+    expect(orderActions({ status: 'dispatched', lines: [line({ movesStock: false, invoicedQuantity: 10 })] })).toMatchObject({ cancel: false, invoice: false });
   });
 
   // Un pedido que solo vende servicios no se despacha: se factura directo.

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { describeUnits, suggestedPrice } from './item';
+import { describePrices, describeUnits, suggestedPrice } from './item';
 
 const unit = (overrides: Partial<{ unitId: string; abbreviation: string; conversionFactor: number; isBase: boolean }>) => ({
   unitId: 'u',
@@ -59,5 +59,23 @@ describe('suggestedPrice', () => {
 
   it('suggests nothing when the item has no price in that list', () => {
     expect(suggestedPrice(water, 'u', { id: 'mayorista', currency: 'USD' }, 'USD', 2)).toBeNull();
+  });
+});
+
+describe('describePrices', () => {
+  const price = (name: string, value: number) => ({ priceList: { id: name, name, currency: 'USD' }, price: value });
+
+  it('reads the price of each list in one line', () => {
+    expect(describePrices({ prices: [price('Detal', 0.85), price('Mayorista', 0.7)], minPrice: null })).toBe(
+      'Detal 0,85 · Mayorista 0,7',
+    );
+  });
+
+  it('shows the minimum behind the prices', () => {
+    expect(describePrices({ prices: [price('Detal', 0.85)], minPrice: 0.5 })).toBe('Detal 0,85 (min. 0,5)');
+  });
+
+  it('shows a dash when the item has no price at all', () => {
+    expect(describePrices({ prices: [], minPrice: null })).toBe('—');
   });
 });

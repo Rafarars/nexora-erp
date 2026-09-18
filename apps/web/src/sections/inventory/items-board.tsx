@@ -8,7 +8,7 @@ import { Field, TextArea } from '@/sections/shared/field';
 import { CatalogTable } from '@/sections/catalog/catalog-table';
 import { formatNumber, selectableOptions } from '@/modules/catalog/domain/catalog';
 import type { Category, MeasurementUnit, PriceList, Tax, Warehouse } from '@/modules/catalog/domain/catalog';
-import { ITEM_TYPE_LABELS, describeUnits } from '@/modules/inventory/domain/item';
+import { ITEM_TYPE_LABELS, describePrices, describeUnits } from '@/modules/inventory/domain/item';
 import type { Item } from '@/modules/inventory/domain/item';
 
 // Cada impuesto con su porcentaje; sin impuesto, la linea no lleva ninguno.
@@ -78,6 +78,10 @@ export function ItemsBoard({
               Venta: {describeTax(item.salesTax)} · Compra: {describeTax(item.purchaseTax)}
             </span>
           ),
+        },
+        {
+          header: 'Precios',
+          cell: (item) => <span data-testid={`item-prices-${item.sku}`}>{describePrices(item)}</span>,
         },
         {
           header: 'Unidades',

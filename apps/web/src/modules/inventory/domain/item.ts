@@ -76,3 +76,15 @@ export function suggestedPrice(
 
   return Math.round(found.price * unit.conversionFactor * step) / step;
 }
+
+
+// Los precios de un articulo en una linea, con su minimo detras: "Detal 0,85 · Mayorista 0,70
+// (min. 0,50)". Sin precios cargados, un guion.
+export function describePrices(item: Pick<Item, 'prices' | 'minPrice'>): string {
+  const prices = item.prices.map((price) => `${price.priceList.name} ${formatNumber(price.price)}`).join(' · ');
+  const minimum = item.minPrice === null ? '' : `min. ${formatNumber(item.minPrice)}`;
+
+  if (!prices) return minimum || '—';
+
+  return minimum ? `${prices} (${minimum})` : prices;
+}

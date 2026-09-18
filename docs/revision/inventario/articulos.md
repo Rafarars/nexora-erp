@@ -530,4 +530,28 @@ Los tres primeros los introdujo la fase 6, y los dos primeros solo existían en 
 facturar sin despacho: **abrir un camino alternativo a un documento exige repasar todas las reglas
 que el camino viejo daba por hechas**. Eso se lleva la skill.
 
+### 11.3 Revisión de la interfaz a mano (18-sep-2026)
+
+Rafael inició sesión y se recorrieron las pantallas nuevas en el navegador. **Lo que funciona tal
+como se diseñó:** la lista de precios con su moneda y su marca de por defecto; la moneda que
+desaparece al editar una lista; el editor de precios del artículo; el precio que se rellena solo al
+elegir el artículo (0,85), cambia a 20,40 al vender en cajas y a 16,80 al cambiar a la lista
+mayorista; el precio pactado a mano que sobrevive al cambio de lista; el aviso de que se convertirá
+con la tasa del día; el servicio que ya se puede elegir en el pedido y nace despachado; y la factura
+sin despacho, que muestra un guion en su columna.
+
+**Cinco detalles encontrados y corregidos:**
+
+| # | Detalle | Corrección |
+|---|---|---|
+| 1 | **Cambiar la moneda del pedido dejaba el precio pactado con el mismo número**, que pasaba a significar otra cosa: 15 dólares se convertían en 15 euros sin avisar | Cambiar de lista respeta el precio pactado; cambiar de **moneda** vuelve a cotizarlo todo, y si no se puede sugerir, el campo queda en blanco para que la persona diga cuánto vale |
+| 2 | **Un pedido de solo servicios confirmado no ofrecía «Anular»** en la pantalla, aunque el dominio ya lo permitía tras el arreglo del §11.2 | La pantalla decide como el servidor: por los hechos (lo despachado y lo facturado), no por el estado |
+| 3 | **El listado de artículos no mostraba los precios** ni el mínimo: se podían cargar y no se veían | Columna «Precios»: «Detal 0,85 · Mayorista 0,7 (min. 0,50)» |
+| 4 | El subtítulo del Catálogo no nombraba las listas de precio | Corregido |
+| 5 | El texto de Facturas decía que cobran lo que salió en un despacho, y ya no es solo eso | Corregido: «más los servicios del pedido, que no salen de ninguna bodega» |
+
+El primero solo se ve usando la pantalla: ninguna prueba lo habría encontrado, porque el servidor
+recibía exactamente lo que el formulario mandaba. **Recorrer la interfaz a mano sigue siendo parte
+del método**, no un extra.
+
 **Estado: ✅ cerrado y revisado.** El siguiente paso es escribir el método como skill reutilizable.

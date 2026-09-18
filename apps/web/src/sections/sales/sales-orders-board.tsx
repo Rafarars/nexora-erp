@@ -346,19 +346,28 @@ function OrderFields({
 
   // Rellena el precio de una linea con el de la lista. Un precio pactado a mano se respeta: solo
   // se pisa lo que ya venia de la lista o esta en blanco, como hace el ERP del que se copio.
-  const repriced = (row: LineRow, itemId: string, unitId: string, list = effectiveList, money = currency): Partial<LineRow> => {
+  // `keepsAgreed` respeta el precio que la persona escribio. Cambiar de lista o de articulo lo
+  // respeta; cambiar de MONEDA no, porque el mismo numero pasaria a significar otra cosa: 15
+  // dolares no son 15 euros. En ese caso se vuelve a cotizar, y si no se puede, el campo queda en
+  // blanco para que la persona diga cuanto vale en la moneda nueva.
+  const repriced = (
+    row: LineRow,
+    itemId: string,
+    unitId: string,
+    list = effectiveList,
+    money = currency,
+    keepsAgreed = true,
+  ): Partial<LineRow> => {
     const suggestion = suggestedPrice(sellable.find((candidate) => candidate.id === itemId), unitId, list, money, priceDecimals);
-    const pinned = row.price !== '' && row.price !== row.listPrice;
+    const listPrice = suggestion === null ? '' : formatCost(suggestion);
+    const agreed = row.price !== '' && row.price !== row.listPrice;
 
-    return pinned ? { listPrice: suggestion === null ? '' : formatCost(suggestion) } : {
-      price: suggestion === null ? '' : formatCost(suggestion),
-      listPrice: suggestion === null ? '' : formatCost(suggestion),
-    };
+    return keepsAgreed && agreed ? { listPrice } : { price: listPrice, listPrice };
   };
 
   // Cambiar de lista o de moneda vuelve a cotizar todas las lineas.
-  const repriceAll = (list: PriceList | null, money: string) =>
-    setRows((current) => current.map((row) => ({ ...row, ...repriced(row, row.itemId, row.unitId, list, money) })));
+  const repriceAll = (list: PriceList | null, money: string, keepsAgreed = true) =>
+    setRows((current) => current.map((row) => ({ ...row, ...repriced(row, row.itemId, row.unitId, list, money, keepsAgreed) })));
 
   return (
     <>
@@ -465,7 +474,8 @@ function OrderFields({
             value={currency}
             onChange={(event) => {
               setCurrency(event.target.value);
-              repriceAll(effectiveList, event.target.value);
+              // Sin `keepsAgreed`: un precio escrito en dolares no vale lo mismo en euros.
+              repriceAll(effectiveList, event.target.value, false);
             }}
             data-testid="sales-order-currency"
             className="border-line bg-background w-full rounded-md border px-3 py-2 text-sm"

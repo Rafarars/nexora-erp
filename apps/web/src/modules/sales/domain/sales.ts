@@ -130,11 +130,14 @@ export function orderActions(
 ): { edit: boolean; confirm: boolean; cancel: boolean; dispatch: boolean; invoice: boolean } {
   const goods = order.lines.some((line) => line.movesStock);
   const confirmed = order.status === 'confirmed' || order.status === 'dispatched';
+  // Anular no depende del estado sino de los hechos, como en el servidor: un pedido de solo
+  // servicios figura como despachado sin tener un solo despacho, y aun asi se puede anular.
+  const touched = order.lines.some((line) => line.dispatchedQuantity > 0 || line.invoicedQuantity > 0);
 
   return {
     edit: order.status === 'draft',
     confirm: order.status === 'draft',
-    cancel: order.status === 'draft' || order.status === 'confirmed',
+    cancel: order.status !== 'cancelled' && !touched,
     dispatch: goods && (order.status === 'confirmed' || order.status === 'partially_dispatched'),
     // Un pedido sin mercancia se factura directo: no hay despacho del que nacer. Lo que ya se
     // facturo no vuelve a ofrecerse.

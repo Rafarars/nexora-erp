@@ -20,7 +20,7 @@ export function InvoicesBoard({ invoices, canCancel }: { invoices: Invoice[]; ca
     <section className="space-y-4">
       <div>
         <h2 className="text-base font-semibold">Facturas</h2>
-        <p className="text-muted mt-1 text-sm">Cobran lo que salió en un despacho. No mueven existencia; anular una deja volver a facturar su despacho.</p>
+        <p className="text-muted mt-1 text-sm">Cobran lo que salió en un despacho, más los servicios del pedido, que no salen de ninguna bodega. No mueven existencia; anular una deja volver a facturar.</p>
       </div>
 
       <FormError message={state.error} testId="invoice-action-error" />
