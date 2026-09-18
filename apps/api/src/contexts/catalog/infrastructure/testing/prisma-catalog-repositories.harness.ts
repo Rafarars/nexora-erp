@@ -9,6 +9,7 @@ import { PrismaCodeSequence } from '../persistence/prisma-code-sequence.js';
 import { PrismaItemUsage } from '../persistence/prisma-item-usage.js';
 import { PrismaMeasurementUnitRepository } from '../persistence/prisma-measurement-unit.repository.js';
 import { PrismaTaxRepository } from '../persistence/prisma-tax.repository.js';
+import { PrismaPriceListCurrencies } from '../persistence/prisma-price-list-currencies.js';
 import { PrismaPriceListRepository } from '../persistence/prisma-price-list.repository.js';
 import { PrismaWarehouseRepository } from '../persistence/prisma-warehouse.repository.js';
 
@@ -33,6 +34,7 @@ export class PrismaCatalogRepositoriesHarness implements CatalogRepositoriesHarn
       taxes: new PrismaTaxRepository(this.prisma),
       warehouses: new PrismaWarehouseRepository(this.prisma),
       priceLists: new PrismaPriceListRepository(this.prisma),
+      currencies: new PrismaPriceListCurrencies(this.prisma),
       itemUsage: new PrismaItemUsage(this.prisma),
       codes: new PrismaCodeSequence(this.prisma),
     };
@@ -55,6 +57,15 @@ export class PrismaCatalogRepositoriesHarness implements CatalogRepositoriesHarn
           data: unitIds.map((unitId, index) => ({ tenantId: TENANT_A, itemId: id, unitId, conversionFactor: index === 0 ? 1 : 24, isBase: index === 0 })),
         });
       },
+    };
+  }
+
+  // Las monedas son un catalogo global, compartido por todas las empresas: se apaga y se restaura.
+  async deactivateCurrency(code: string): Promise<() => Promise<void>> {
+    await this.prisma.currency.update({ where: { code }, data: { isActive: false } });
+
+    return async () => {
+      await this.prisma.currency.update({ where: { code }, data: { isActive: true } });
     };
   }
 

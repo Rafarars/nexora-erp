@@ -1,5 +1,6 @@
 import { CategoryRepository } from '../domain/category/category.repository.js';
 import { MeasurementUnitRepository } from '../domain/measurement-unit/measurement-unit.repository.js';
+import { PriceListCurrencies } from '../domain/price-list/price-list-currencies.js';
 import { PriceListRepository } from '../domain/price-list/price-list.repository.js';
 import { CodeSequence } from '../domain/shared/code-sequence.js';
 import { TaxRepository } from '../domain/tax/tax.repository.js';
@@ -12,6 +13,7 @@ export interface CatalogRepositories {
   taxes: TaxRepository;
   warehouses: WarehouseRepository;
   priceLists: PriceListRepository;
+  currencies: PriceListCurrencies;
   itemUsage: ItemUsage;
   codes: CodeSequence;
 }
@@ -26,6 +28,8 @@ export interface ItemSeeder {
 // dejar el catalogo vacio, con las dos empresas de prueba existiendo.
 export interface CatalogRepositoriesHarness {
   repositories(): CatalogRepositories;
+  // Apaga una moneda del catalogo global y devuelve como restaurarla: es una tabla compartida.
+  deactivateCurrency(code: string): Promise<() => Promise<void>>;
   items(): ItemSeeder;
   reset(): Promise<void>;
   close(): Promise<void>;

@@ -10,17 +10,23 @@ export class PriceListChoice {
   constructor(private readonly catalog: SalesCatalog) {}
 
   async resolve(tenantId: TenantId, chosen: PriceListRef | null, customerList: PriceListRef | null): Promise<SalesPriceList | null> {
-    for (const candidate of [chosen, customerList]) {
-      if (!candidate) continue;
+    // La del pedido la acaba de elegir una persona: si no sirve, se le dice.
+    if (chosen) {
+      const priceList = await this.catalog.findPriceList(tenantId, chosen);
 
-      const priceList = await this.catalog.findPriceList(tenantId, candidate);
-
-      if (!priceList) throw new PriceListNotFoundError(candidate.value);
-      // La del pedido la acaba de elegir una persona; la del cliente se le asigno antes y puede
-      // haberse apagado despues, asi que ninguna de las dos se usa apagada.
-      if (!priceList.isActive) throw new InactivePriceListError(candidate.value);
+      if (!priceList) throw new PriceListNotFoundError(chosen.value);
+      if (!priceList.isActive) throw new InactivePriceListError(chosen.value);
 
       return priceList;
+    }
+
+    // La del cliente se le asigno hace tiempo y pudo apagarse despues. Rechazar el pedido por eso
+    // dejaria a ese cliente sin poder comprar nada, ni siquiera con un precio escrito a mano: se
+    // cae a la lista por defecto, como si no tuviera ninguna.
+    if (customerList) {
+      const priceList = await this.catalog.findPriceList(tenantId, customerList);
+
+      if (priceList?.isActive) return priceList;
     }
 
     return this.catalog.findDefaultPriceList(tenantId);

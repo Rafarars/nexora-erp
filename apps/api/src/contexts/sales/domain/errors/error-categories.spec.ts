@@ -29,6 +29,8 @@ const cases: Array<[DomainError, typeof DomainError]> = [
   [new errors.NothingToInvoiceError(ID), ConflictError],
   [new errors.InvoiceOriginRequiredError(), InvalidArgumentError],
   [new errors.ServiceNotDispatchableError(ID), InvalidArgumentError],
+  [new errors.SalesOrderWithInvoicesError(ID), ConflictError],
+  [new errors.SalesOrderNotInvoiceableError(ID, 'draft'), ConflictError],
   [new errors.MissingSalesPriceError(ID), InvalidArgumentError],
   [new errors.SalesPriceBelowMinimumError(ID), InvalidArgumentError],
   [new errors.PriceListNotFoundError(ID), NotFoundError],

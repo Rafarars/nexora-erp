@@ -498,5 +498,36 @@ Lo que se lleva la skill, con el caso que lo demostró:
   ([configuracion-empresa.md §10.3](../temas/configuracion-empresa.md#103-decisiones-pendientes-de-rafael)).
 - **Todo lo anotado en `FUTURE.md`** para este submódulo, que es deuda consciente, no olvido.
 
-**Estado: ✅ cerrado.** El siguiente paso es la revisión exhaustiva de lo construido en las seis
-fases, y después escribir el método como skill reutilizable.
+---
+
+## 11. Revisión exhaustiva de las seis fases (18-sep-2026)
+
+Dos revisiones en paralelo sobre lo construido —una adversarial del código, otra de cobertura de
+pruebas— más comprobaciones propias. **Cada hallazgo se reprodujo antes de aceptarlo**, escribiendo
+la prueba que lo dispara.
+
+### 11.1 Lo que estaba bien
+
+| Comprobado | Resultado |
+|---|---|
+| 18 reglas de negocio de las fases 5 y 6 | 17 ya tenían prueba que fallaría si se borrara la regla |
+| Dos líneas del mismo servicio en un pedido | Cada una se factura por su cuenta; prueba añadida |
+| División por cero al convertir un precio | Imposible: `RateValue` rechaza cero o menos en origen |
+| Orden de bloqueos al emitir y al anular | Sin ciclo: despacho o factura siempre antes que el pedido |
+| Límite de crédito con servicios arrastrados | Se compara el total real de la factura, servicios incluidos |
+
+### 11.2 Los cinco defectos encontrados, todos corregidos
+
+| # | Defecto | Por qué importaba | Corrección |
+|---|---|---|---|
+| **1** | **Se podía facturar un pedido en borrador**, y como el borrador sigue editándose, editarlo rehacía las líneas con identificadores nuevos y **se podía volver a facturar: doble cobro** | El peor de los cinco. Nació al abrir la vía «facturar sin despacho»: esa rama no comprobaba el estado del pedido | `SalesOrder.isInvoiceable()`; facturar un borrador responde `SalesOrderNotInvoiceableError`. Y una clave ajena de `invoice_lines` a la línea del pedido impide que una factura quede apuntando a una línea borrada |
+| **2** | **Las facturas anteriores a la migración no se podían anular**: `invoiced_quantity` nació en cero aunque la línea ya estuviera facturada, y restar de cero revienta. Además el enlace `order_line_id` se rellenó cruzando artículo y unidad, y con dos líneas iguales elegía una al azar | Solo se ve en una base con datos previos, que es justo donde más duele | Migración `20261002000000`: el enlace se recalcula por **posición** contra las líneas del despacho (exacto, sin ambigüedad) y `invoiced_quantity` se recalcula desde las facturas emitidas |
+| **3** | **Un pedido de solo servicios confirmado no se podía anular nunca**: nace «despachado», y anular rechazaba ese estado | Un pedido creado por error quedaba vivo para siempre | Anular ya no mira el estado sino los hechos: lo que se despachó y lo que se facturó. Un pedido facturado tampoco se anula (`SalesOrderWithInvoicesError`) |
+| **4** | **Desactivar una lista dejaba sin comprar a sus clientes**: cualquier pedido de un cliente con esa lista se rechazaba, incluso con el precio escrito a mano | Desactivar una lista es una acción normal de mantenimiento, no debería paralizar clientes | La lista **del cliente** desactivada se ignora y se cae a la de por defecto; la que **elige una persona** en el pedido sí se rechaza, porque acaba de elegirla |
+| **5** | **La pantalla sugería precios con más decimales de los que la empresa admite**: con `price_decimals = 2`, un factor de 12,5 sobre 0,85 proponía 10,625 y la API rechazaba el pedido | El usuario veía un precio que el sistema le rechazaba sin haberlo tocado | `suggestedPrice` redondea a los decimales de la empresa, como hace el servidor |
+
+Los tres primeros los introdujo la fase 6, y los dos primeros solo existían en la vía nueva de
+facturar sin despacho: **abrir un camino alternativo a un documento exige repasar todas las reglas
+que el camino viejo daba por hechas**. Eso se lleva la skill.
+
+**Estado: ✅ cerrado y revisado.** El siguiente paso es escribir el método como skill reutilizable.

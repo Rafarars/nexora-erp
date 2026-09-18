@@ -8,6 +8,7 @@ import {
   SalesOrderNotDispatchableError,
   SalesOrderNotEditableError,
   SalesOrderWithDispatchesError,
+  SalesOrderWithInvoicesError,
 } from '../errors/sales.errors.js';
 import { CustomerId } from '../customer/customer.entity.js';
 import { unitsToNumber } from '../../../../shared/domain/amount.js';
@@ -220,6 +221,11 @@ export class SalesOrder {
     return SalesOrder.fromPrimitives(this.toPrimitives());
   }
 
+  // Un borrador no se factura: se sigue editando, y lo cobrado dejaria de corresponderse con el.
+  isInvoiceable(): boolean {
+    return this.status === 'confirmed' || this.status === 'partially_dispatched' || this.status === 'dispatched';
+  }
+
   movesStock(): boolean {
     return this.details.lines.some((line) => line.movesStock);
   }
@@ -254,8 +260,14 @@ export class SalesOrder {
   }
 
   cancel(now: Date): void {
-    if (this.status === 'partially_dispatched' || this.status === 'dispatched') {
+    // Lo que impide anular es lo que ya salio o ya se cobro, no el estado: un pedido de solo
+    // servicios nace despachado sin tener un solo despacho, y aun asi se puede anular.
+    if (this.details.lines.some((line) => !line.dispatchedQuantity().isZero())) {
       throw new SalesOrderWithDispatchesError(this.id.value);
+    }
+
+    if (this.details.lines.some((line) => !line.invoicedQuantity().isZero())) {
+      throw new SalesOrderWithInvoicesError(this.id.value);
     }
 
     if (this.status === 'cancelled') throw new SalesOrderNotCancellableError(this.id.value, this.status);

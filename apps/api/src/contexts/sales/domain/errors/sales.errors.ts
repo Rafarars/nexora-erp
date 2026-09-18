@@ -369,3 +369,17 @@ export class ServiceNotDispatchableError extends InvalidArgumentError {
     super(`Item <${itemId}> is a service and cannot be dispatched.`, 'A service is not dispatched: it is charged on the invoice.');
   }
 }
+
+// Un pedido ya facturado no se anula: la factura es un documento fiscal emitido.
+export class SalesOrderWithInvoicesError extends ConflictError {
+  constructor(id: string) {
+    super(`Sales order <${id}> already has issued invoices.`, 'The sales order is already invoiced: cancel its invoices first.');
+  }
+}
+
+// Un borrador no se factura: todavia se puede editar.
+export class SalesOrderNotInvoiceableError extends ConflictError {
+  constructor(id: string, status: string) {
+    super(`Sales order <${id}> is <${status}> and cannot be invoiced.`, 'Confirm the sales order before invoicing it.');
+  }
+}

@@ -15,6 +15,7 @@ import {
 import { ConcurrentDefaultWarehouseError } from '../domain/errors/warehouse.errors.js';
 import { PriceListId } from '../domain/price-list/price-list-id.vo.js';
 import { PriceListName } from '../domain/price-list/price-list-name.vo.js';
+import { CurrencyCode } from '../domain/shared/currency-code.vo.js';
 import { MeasurementUnitId } from '../domain/measurement-unit/measurement-unit-id.vo.js';
 import { MeasurementUnitName } from '../domain/measurement-unit/measurement-unit-name.vo.js';
 import { UnitAbbreviation } from '../domain/measurement-unit/unit-abbreviation.vo.js';
@@ -386,6 +387,27 @@ export function describeCatalogRepositoriesContract(
       // La moneda es una clave ajena al catalogo global de monedas.
       it('refuses a price list in a currency that does not exist', async () => {
         await expect(repos.priceLists.save(aPriceList({ currency: 'XYZ' }))).rejects.toThrow();
+      });
+    });
+
+    // Lo unico que el catalogo pregunta de una moneda: si sirve para cotizar. Una retirada del
+    // catalogo existe, pero ya no sirve.
+    describe('PriceListCurrencies', () => {
+      it('accepts an active currency and refuses one that does not exist', async () => {
+        expect(await repos.currencies.isUsable(CurrencyCode.of('USD'))).toBe(true);
+        expect(await repos.currencies.isUsable(CurrencyCode.of('XYZ'))).toBe(false);
+      });
+
+      it('refuses a currency that exists but was deactivated', async () => {
+        const restore = await harness.deactivateCurrency('EUR');
+
+        try {
+          expect(await repos.currencies.isUsable(CurrencyCode.of('EUR'))).toBe(false);
+        } finally {
+          await restore();
+        }
+
+        expect(await repos.currencies.isUsable(CurrencyCode.of('EUR'))).toBe(true);
       });
     });
 

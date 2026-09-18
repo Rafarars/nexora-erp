@@ -122,8 +122,10 @@ El precio dejó de teclearse: sale de la lista con la que se cotiza el pedido.
 2. La lista del **cliente**.
 3. La lista **por defecto** de la empresa.
 
-Una lista elegida que no existe se rechaza (`PriceListNotFoundError`) y una desactivada también
-(`InactivePriceListError`). Si al final no hay ninguna, o el artículo no tiene precio en la que
+Una lista **elegida en el pedido** que no existe se rechaza (`PriceListNotFoundError`), y una
+desactivada también (`InactivePriceListError`): acaba de elegirla una persona. La **del cliente**,
+en cambio, se le asignó hace tiempo y pudo apagarse después: si ya no sirve **se ignora y se cae a
+la lista por defecto**, porque desactivar una lista no puede dejar sin comprar a sus clientes. Si al final no hay ninguna, o el artículo no tiene precio en la que
 resultó, **no se sugiere nada**: el campo queda en blanco y lo escribe la persona, como antes de que
 hubiera listas. Si tampoco se escribe, la línea no se puede valorar (`MissingSalesPriceError`).
 
@@ -171,6 +173,9 @@ demás, igual que en el ERP del compañero, donde la misma idea vive en una sola
 
 - **No reserva existencia** al confirmar el pedido: no ocupa nada de nadie.
 - **No se puede despachar** (`ServiceNotDispatchableError`). La pantalla ni lo ofrece.
+- **No impide anular el pedido.** Anular no mira el estado sino los hechos: se rechaza si algo se
+  despachó (`SalesOrderWithDispatchesError`) o si algo se facturó (`SalesOrderWithInvoicesError`),
+  no porque el pedido figure como despachado sin tener un solo despacho.
 - **No cuenta para el estado de despacho.** Su línea nace saldada, así que un pedido que solo vende
   servicios **nace despachado** y uno mixto queda despachado en cuanto sale toda la mercancía. Sin
   esta regla el pedido no cerraría jamás: es el defecto que ERPNext tiene
@@ -187,6 +192,7 @@ nace de un despacho, y un servicio no se despacha):
 | Pedido de solo servicios | Se factura **desde el pedido**, sin despacho (`POST /invoices` con `orderId`) |
 | Pedido con mercancía, sin despacho | Se rechaza (`OrderNotDirectlyInvoiceableError`): lo que salió lo dice el despacho |
 | Nada pendiente de facturar | Se rechaza (`NothingToInvoiceError`) |
+| Pedido todavía en borrador | Se rechaza (`SalesOrderNotInvoiceableError`): un borrador se sigue editando |
 
 Emitir **consume saldo del pedido**: sube `invoiced_quantity` en cada línea que entró. Sin esa
 cuenta, un servicio se cobraría una vez por cada despacho del pedido. **Anular la factura lo

@@ -124,6 +124,18 @@ describe('the price of a sales order line', () => {
     await expect(order({ priceListId: '00000000-0000-4000-8000-000000000000' })).rejects.toThrow(PriceListNotFoundError);
     await expect(order({ priceListId: CLOSED_LIST })).rejects.toThrow(InactivePriceListError);
   });
+
+  // Desactivar una lista no puede dejar sin comprar a los clientes que la tenian asignada: la suya
+  // se ignora y se cotiza con la de por defecto, como si no tuviera ninguna.
+  it('falls back to the default list when the one of the customer was deactivated', async () => {
+    const { s, order } = await world({ priceListId: CLOSED_LIST });
+
+    await order();
+
+    const found = await latest(s);
+    expect(found.priceList).toEqual({ id: RETAIL_LIST, name: 'Detal' });
+    expect(found.lines[0].unitPrice).toBe(0.85);
+  });
 });
 
 describe('the minimum price of an item', () => {

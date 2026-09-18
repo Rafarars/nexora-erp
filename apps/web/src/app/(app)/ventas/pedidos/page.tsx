@@ -43,6 +43,7 @@ export default async function SalesOrdersPage() {
       currencies={currencies}
       priceLists={active}
       defaultPriceListId={active.find((priceList) => priceList.isDefault)?.id ?? null}
+      priceDecimals={settings.priceDecimals}
       baseCurrency={settings.baseCurrency.code}
       allowsRateOverride={settings.allowsRateOverride}
       today={settings.today}

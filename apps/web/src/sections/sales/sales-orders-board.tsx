@@ -30,6 +30,7 @@ export function SalesOrdersBoard({
   currencies,
   priceLists,
   defaultPriceListId,
+  priceDecimals,
   baseCurrency,
   allowsRateOverride,
   today,
@@ -47,6 +48,7 @@ export function SalesOrdersBoard({
   currencies: Currency[];
   priceLists: PriceList[];
   defaultPriceListId: string | null;
+  priceDecimals: number;
   baseCurrency: string;
   allowsRateOverride: boolean;
   today: string;
@@ -251,6 +253,7 @@ export function SalesOrdersBoard({
             currencies={currencies}
             priceLists={priceLists}
             defaultPriceListId={defaultPriceListId}
+            priceDecimals={priceDecimals}
             baseCurrency={baseCurrency}
             allowsRateOverride={allowsRateOverride}
             today={today}
@@ -298,6 +301,7 @@ function OrderFields({
   currencies,
   priceLists,
   defaultPriceListId,
+  priceDecimals,
   baseCurrency,
   allowsRateOverride,
   today,
@@ -309,6 +313,7 @@ function OrderFields({
   currencies: Currency[];
   priceLists: PriceList[];
   defaultPriceListId: string | null;
+  priceDecimals: number;
   baseCurrency: string;
   allowsRateOverride: boolean;
   today: string;
@@ -342,7 +347,7 @@ function OrderFields({
   // Rellena el precio de una linea con el de la lista. Un precio pactado a mano se respeta: solo
   // se pisa lo que ya venia de la lista o esta en blanco, como hace el ERP del que se copio.
   const repriced = (row: LineRow, itemId: string, unitId: string, list = effectiveList, money = currency): Partial<LineRow> => {
-    const suggestion = suggestedPrice(sellable.find((candidate) => candidate.id === itemId), unitId, list, money);
+    const suggestion = suggestedPrice(sellable.find((candidate) => candidate.id === itemId), unitId, list, money, priceDecimals);
     const pinned = row.price !== '' && row.price !== row.listPrice;
 
     return pinned ? { listPrice: suggestion === null ? '' : formatCost(suggestion) } : {

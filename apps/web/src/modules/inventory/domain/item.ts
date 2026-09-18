@@ -60,6 +60,7 @@ export function suggestedPrice(
   unitId: string,
   priceList: { id: string; currency: string } | null,
   documentCurrency: string,
+  decimals: number,
 ): number | null {
   if (!item || !priceList || priceList.currency !== documentCurrency) return null;
 
@@ -68,5 +69,10 @@ export function suggestedPrice(
 
   if (!found || !unit) return null;
 
-  return found.price * unit.conversionFactor;
+  // Redondeado a los decimales de la empresa, como lo hace el servidor: sin esto, un factor de
+  // 12,5 sobre 0,85 sugeriria 10,625 y la API rechazaria el pedido por tener mas decimales de los
+  // que la empresa usa en sus precios. La columna no guarda mas de seis.
+  const step = 10 ** Math.min(decimals, 6);
+
+  return Math.round(found.price * unit.conversionFactor * step) / step;
 }

@@ -6,6 +6,7 @@ import {
   InvoiceWithPaymentsError,
   NothingToInvoiceError,
   OrderNotDirectlyInvoiceableError,
+  SalesOrderNotInvoiceableError,
 } from '../errors/sales.errors.js';
 import { CustomerId } from '../customer/customer.entity.js';
 import { CustomerCredit, ensureCreditAllows } from './credit/customer-credit.js';
@@ -99,8 +100,11 @@ export class Invoice {
       if (dispatch.currentStatus() !== 'confirmed') throw new DispatchNotInvoiceableError(dispatch.id.value, dispatch.currentStatus());
       if (issue.alreadyInvoiced) throw new DispatchAlreadyInvoicedError(dispatch.id.value);
     } else {
-      // Sin despacho solo se factura un pedido que no saca nada de la bodega.
+      // Sin despacho solo se factura un pedido que no saca nada de la bodega...
       if (order.movesStock()) throw new OrderNotDirectlyInvoiceableError(order.id.value);
+      // ...y que ya este confirmado: un borrador se sigue editando, y facturarlo dejaria cobrado
+      // algo que todavia puede cambiar de precio, de cantidad o desaparecer.
+      if (!order.isInvoiceable()) throw new SalesOrderNotInvoiceableError(order.id.value, order.currentStatus());
     }
 
     issue.date.ensureNotAfter(today);

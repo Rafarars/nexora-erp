@@ -922,6 +922,7 @@ model SalesOrderLine {
   item          Item            @relation(fields: [tenantId, itemId], references: [tenantId, id], onDelete: Restrict)
   unit          MeasurementUnit @relation(fields: [tenantId, unitId], references: [tenantId, id], onDelete: Restrict)
   dispatchLines DispatchLine[]
+  invoiceLines  InvoiceLine[]
 
   @@unique([tenantId, id])
   @@unique([orderId, lineNumber])
@@ -1061,8 +1062,9 @@ model InvoiceLine {
 
   tenant  Tenant          @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   invoice Invoice         @relation(fields: [tenantId, invoiceId], references: [tenantId, id], onDelete: Cascade)
-  item    Item            @relation(fields: [tenantId, itemId], references: [tenantId, id], onDelete: Restrict)
-  unit    MeasurementUnit @relation(fields: [tenantId, unitId], references: [tenantId, id], onDelete: Restrict)
+  item      Item            @relation(fields: [tenantId, itemId], references: [tenantId, id], onDelete: Restrict)
+  unit      MeasurementUnit @relation(fields: [tenantId, unitId], references: [tenantId, id], onDelete: Restrict)
+  orderLine SalesOrderLine? @relation(fields: [tenantId, orderLineId], references: [tenantId, id], onDelete: Restrict)
 
   @@unique([invoiceId, lineNumber])
   @@map("invoice_lines")

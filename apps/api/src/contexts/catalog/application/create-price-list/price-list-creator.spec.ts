@@ -50,10 +50,25 @@ describe('PriceListCreator', () => {
   });
 
   // Sin moneda usable no habria tasa con la que convertir sus precios al documento.
-  it('rejects a currency that is not available', async () => {
+  it('rejects a currency that does not exist', async () => {
     const scenario = aCatalogScenario();
 
     await expect(creatorFor(scenario).run({ tenantId: TENANT_A, name: 'Mayorista', currency: 'XYZ' })).rejects.toThrow(
+      UnknownPriceListCurrencyError,
+    );
+  });
+
+  // Una moneda retirada del catalogo existe, pero ya no se cotiza en ella: no es lo mismo que una
+  // que nunca existio, y el adaptador tiene que distinguirlo.
+  it('rejects a currency that exists but was deactivated', async () => {
+    const scenario = aCatalogScenario({
+      currencies: [
+        { code: 'USD', isActive: true },
+        { code: 'EUR', isActive: false },
+      ],
+    });
+
+    await expect(creatorFor(scenario).run({ tenantId: TENANT_A, name: 'Europa', currency: 'EUR' })).rejects.toThrow(
       UnknownPriceListCurrencyError,
     );
   });

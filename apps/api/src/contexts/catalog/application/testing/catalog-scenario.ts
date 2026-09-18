@@ -41,6 +41,7 @@ export function aCatalogScenario(
     taxes?: Tax[];
     warehouses?: Warehouse[];
     priceLists?: PriceList[];
+    currencies?: { code: string; isActive: boolean }[];
   } = {},
 ) {
   const categories = new InMemoryCategoryRepository(seed.categories ?? []);
@@ -48,7 +49,7 @@ export function aCatalogScenario(
   const taxes = new InMemoryTaxRepository(seed.taxes ?? []);
   const warehouses = new InMemoryWarehouseRepository(seed.warehouses ?? []);
   const priceLists = new InMemoryPriceListRepository(seed.priceLists ?? []);
-  const currencies = new InMemoryPriceListCurrencies();
+  const currencies = new InMemoryPriceListCurrencies(seed.currencies);
   const codes = new InMemoryCodeSequence();
   // Los articulos viven en el inventario: aqui solo se declara que usan.
   const itemUsage = new InMemoryItemUsage();
