@@ -52,7 +52,10 @@ describe('Item', () => {
     item.update(
       {
         sku: Sku.of('agua-1l'),
+        barcode: null,
         name: ItemName.of('Agua mineral 1 l'),
+        isPurchasable: true,
+        isSellable: true,
         description: '  Botella  ',
         type: 'inventoried',
         categoryId: CategoryRef.of(CATEGORY_B),
@@ -81,7 +84,10 @@ describe('Item', () => {
       anItem().update(
         {
           sku: Sku.of('X'),
+          barcode: null,
           name: ItemName.of('X'),
+          isPurchasable: true,
+          isSellable: true,
           description: 'x'.repeat(1001),
           type: 'service',
           categoryId: null,

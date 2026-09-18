@@ -47,7 +47,10 @@ function details(overrides: Partial<ItemDetails> = {}): ItemDetails {
 
   return {
     sku: Sku.of(current.sku),
+    barcode: null,
     name: ItemName.of(current.name),
+    isPurchasable: true,
+    isSellable: true,
     description: null,
     type: 'inventoried',
     categoryId: CategoryRef.of(current.categoryId!),

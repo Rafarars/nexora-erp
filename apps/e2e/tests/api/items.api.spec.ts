@@ -1,10 +1,13 @@
 import { expect, test } from '@playwright/test';
 import type { APIRequestContext } from '@playwright/test';
+import { ACME_INVENTORY } from '../../support/inventory-fixtures.js';
+import { SALES_ORDERS, aFreshCustomer } from '../../support/sales-fixtures.js';
 
 const LOGIN = '/api/v1/auth/login';
 const PASSWORD = 'Nexora-2026!';
 // El maestro de articulos vive en el inventario; sus categorias, impuestos y unidades, en el catalogo.
 const ITEMS = '/api/v1/inventory/items';
+
 
 // Identificadores del catalogo de Acme que siembra el seed.
 const ACME = {
@@ -25,6 +28,7 @@ test.describe('inventory: items', () => {
   test('creates an item with a box of 24 and returns the names of what it uses', async ({ request }) => {
     const token = await tokenFor(request, 'ana@acme.com');
     const sku = `JUGO-${Date.now()}`;
+    const barcode = `759${Date.now()}`;
 
     const response = await request.post(`${ITEMS}`, {
       headers: auth(token),
@@ -33,6 +37,7 @@ test.describe('inventory: items', () => {
         name: 'Jugo de naranja 1 l',
         type: 'inventoried',
         categoryId: ACME.drinks,
+        barcode,
         salesTaxId: ACME.vat,
         purchaseTaxId: ACME.exempt,
         units: [
@@ -51,6 +56,9 @@ test.describe('inventory: items', () => {
       sku,
       code: expect.stringMatching(/^ART\d{6}$/),
       category: { id: ACME.drinks, name: 'Bebidas' },
+      barcode,
+      isPurchasable: true,
+      isSellable: true,
       salesTax: { id: ACME.vat, name: 'IVA 16%', rate: 16 },
       purchaseTax: { id: ACME.exempt, name: 'Exento', rate: 0 },
       units: [
@@ -58,6 +66,46 @@ test.describe('inventory: items', () => {
         { unitId: ACME.box, abbreviation: 'cja', conversionFactor: 24, isBase: false },
       ],
     });
+  });
+
+  // El lector de la caja tiene que llevar a un solo articulo.
+  test('rejects a barcode another item already has', async ({ request }) => {
+    const response = await request.post(`${ITEMS}`, {
+      headers: auth(await tokenFor(request, 'ana@acme.com')),
+      data: {
+        sku: `CODIGO-${Date.now()}`,
+        name: 'Con el codigo del agua',
+        type: 'inventoried',
+        barcode: '7591234567890',
+        units: [{ unitId: ACME.piece, conversionFactor: 1, isBase: true }],
+      },
+    });
+
+    expect(response.status()).toBe(409);
+    expect((await response.json()).error).toBe('DuplicateBarcodeError');
+  });
+
+  // Un insumo que solo se compra no deberia poder colarse en un pedido de venta.
+  test('refuses to sell an item that is not marked as sellable', async ({ request }) => {
+    const token = await tokenFor(request, 'ana@acme.com');
+    const sku = `INSUMO-${Date.now()}`;
+    const created = await request.post(`${ITEMS}`, {
+      headers: auth(token),
+      data: { sku, name: 'Insumo interno', type: 'inventoried', isPurchasable: true, isSellable: false, units: [{ unitId: ACME.piece, conversionFactor: 1, isBase: true }] },
+    });
+
+    expect(created.status()).toBe(201);
+
+    const { items } = await (await request.get(`${ITEMS}`, { headers: auth(token) })).json();
+    const item = items.find((row: { sku: string }) => row.sku === sku);
+    const customer = await aFreshCustomer(request, token);
+    const order = await request.post(SALES_ORDERS, {
+      headers: auth(token),
+      data: { customerId: customer.id, warehouseId: ACME_INVENTORY.mainWarehouse, lines: [{ itemId: item.id, unitId: ACME.piece, quantity: 1, unitPrice: 1 }] },
+    });
+
+    expect(order.status()).toBe(409);
+    expect((await order.json()).error).toBe('ItemNotSellableError');
   });
 
   test('rejects a SKU already used, whatever its case', async ({ request }) => {

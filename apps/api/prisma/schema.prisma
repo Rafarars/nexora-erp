@@ -359,10 +359,14 @@ model Item {
   id          String   @id @db.Uuid
   tenantId    String   @map("tenant_id") @db.Uuid
   code        String   @db.VarChar(12)
-  sku         String   @db.VarChar(60)
-  name        String   @db.VarChar(200)
-  description String?
-  type        ItemType
+  sku           String   @db.VarChar(60)
+  /// El que trae impreso el producto; opcional y unico por empresa.
+  barcode       String?  @db.VarChar(60)
+  name          String   @db.VarChar(200)
+  description   String?
+  type          ItemType
+  isPurchasable Boolean  @default(true) @map("is_purchasable")
+  isSellable    Boolean  @default(true) @map("is_sellable")
   categoryId    String?  @map("category_id") @db.Uuid
   /// Se copia a la linea al venderlo; puede ser distinto del de compra o faltar.
   salesTaxId    String?  @map("sales_tax_id") @db.Uuid
@@ -390,6 +394,7 @@ model Item {
   @@unique([tenantId, id])
   @@unique([tenantId, code])
   @@unique([tenantId, sku])
+  @@unique([tenantId, barcode])
   @@index([tenantId, categoryId])
   @@index([tenantId, salesTaxId])
   @@index([tenantId, purchaseTaxId])

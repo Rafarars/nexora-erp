@@ -38,6 +38,9 @@ export async function saveItem(_state: FormState, form: FormData): Promise<FormS
       description: optional(form, 'description'),
       type: text(form, 'type'),
       categoryId: optional(form, 'categoryId'),
+      barcode: optional(form, 'barcode'),
+      isPurchasable: form.get('isPurchasable') !== null,
+      isSellable: form.get('isSellable') !== null,
       salesTaxId: optional(form, 'salesTaxId'),
       purchaseTaxId: optional(form, 'purchaseTaxId'),
       // Las filas sin unidad elegida se descartan: son las que la persona anadio y no

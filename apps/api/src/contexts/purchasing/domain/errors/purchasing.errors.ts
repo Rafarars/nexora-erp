@@ -90,6 +90,13 @@ export class ServiceNotPurchasableError extends InvalidArgumentError {
   }
 }
 
+// El maestro dice que ese articulo no se compra: no deberia llegar a una orden.
+export class ItemNotPurchasableError extends ConflictError {
+  constructor(id: string) {
+    super(`Item <${id}> is not marked as purchasable.`, 'That item is not marked to be purchased.');
+  }
+}
+
 export class PurchaseUnitNotOfItemError extends InvalidArgumentError {
   constructor(unitId: string, itemId: string) {
     super(`Unit <${unitId}> is not one of the units of item <${itemId}>.`, 'A line uses a unit that the item does not have.');

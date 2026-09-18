@@ -10,6 +10,7 @@ import {
   SalesItemNotFoundError,
   SalesUnitNotOfItemError,
   SalesWarehouseNotFoundError,
+  ItemNotSellableError,
   ServiceNotSellableError,
 } from '../../errors/sales.errors.js';
 import { TaxRate, UnitPrice } from '../../shared/money.js';
@@ -65,6 +66,7 @@ export class SalesOrderReferences {
       if (!item) throw new SalesItemNotFoundError(input.itemId);
       if (!item.isActive) throw new InactiveSalesItemError(item.id);
       if (item.type === 'service') throw new ServiceNotSellableError(item.id);
+      if (!item.isSellable) throw new ItemNotSellableError(item.id);
 
       const unitId = UnitRef.of(input.unitId);
       const unit = item.units.find((candidate) => candidate.unitId === unitId.value);

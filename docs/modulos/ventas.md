@@ -217,6 +217,7 @@ confirmar, con las filas bloqueadas.
 
 | Código | HTTP | Cuándo |
 |---|---|---|
+| `ItemNotSellableError` | 409 | El artículo no está marcado para venderse |
 | `InsufficientAvailabilityError` | 409 | Confirmar un pedido que no cabe en lo disponible |
 | `SalesItemChangedError` | 409 | Un artículo cambió mientras se confirmaba el pedido: se vuelve a intentar |
 | `SalesOrderWithDispatchesError` | 409 | Anular un pedido con mercancía despachada |

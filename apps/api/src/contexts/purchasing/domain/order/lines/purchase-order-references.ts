@@ -8,6 +8,7 @@ import {
   PurchaseItemNotFoundError,
   PurchaseUnitNotOfItemError,
   PurchaseWarehouseNotFoundError,
+  ItemNotPurchasableError,
   ServiceNotPurchasableError,
 } from '../../errors/purchasing.errors.js';
 import { TaxRate, UnitCost } from '../../shared/money.js';
@@ -65,6 +66,7 @@ export class PurchaseOrderReferences {
       if (!item) throw new PurchaseItemNotFoundError(input.itemId);
       if (!item.isActive) throw new InactivePurchaseItemError(item.id);
       if (item.type === 'service') throw new ServiceNotPurchasableError(item.id);
+      if (!item.isPurchasable) throw new ItemNotPurchasableError(item.id);
 
       const unitId = UnitRef.of(input.unitId);
       const unit = item.units.find((candidate) => candidate.unitId === unitId.value);

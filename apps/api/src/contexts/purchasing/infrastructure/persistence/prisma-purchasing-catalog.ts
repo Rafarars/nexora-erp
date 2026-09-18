@@ -23,6 +23,7 @@ export class PrismaPurchasingCatalog implements PurchasingCatalog {
       name: row.name,
       type: row.type,
       isActive: row.isActive,
+      isPurchasable: row.isPurchasable,
       // El de compra: un articulo puede comprarse exento y venderse con IVA.
       taxRate: row.purchaseTax ? row.purchaseTax.rate.toNumber() : 0,
       units: row.units.map((unit) => ({

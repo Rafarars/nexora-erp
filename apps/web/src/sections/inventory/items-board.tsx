@@ -53,6 +53,14 @@ export function ItemsBoard({
           cell: (item) => <span data-testid={`item-category-${item.sku}`}>{item.category?.name ?? '—'}</span>,
         },
         {
+          header: 'Se usa para',
+          cell: (item) => (
+            <span data-testid={`item-trade-${item.sku}`}>
+              {[item.isPurchasable ? 'Comprar' : null, item.isSellable ? 'Vender' : null].filter(Boolean).join(' · ') || '—'}
+            </span>
+          ),
+        },
+        {
           header: 'Impuestos',
           cell: (item) => (
             <span data-testid={`item-taxes-${item.sku}`}>
@@ -118,6 +126,20 @@ function ItemFields({
     <>
       <Field label="SKU" name="sku" testId="item-sku" defaultValue={item?.sku} autoComplete="off" />
       <Field label="Nombre" name="name" testId="item-name" defaultValue={item?.name} autoComplete="off" />
+      <Field label="Código de barras" name="barcode" testId="item-barcode" required={false} defaultValue={item?.barcode ?? ''} autoComplete="off" />
+
+      {/* Un insumo puede existir solo para comprarlo, y un servicio propio solo para venderlo. */}
+      <fieldset className="space-y-2">
+        <legend className="text-sm font-medium">Se usa para</legend>
+        <label className="flex items-center gap-2 text-sm">
+          <input type="checkbox" name="isPurchasable" defaultChecked={item?.isPurchasable ?? true} data-testid="item-purchasable" />
+          Comprar
+        </label>
+        <label className="flex items-center gap-2 text-sm">
+          <input type="checkbox" name="isSellable" defaultChecked={item?.isSellable ?? true} data-testid="item-sellable" />
+          Vender
+        </label>
+      </fieldset>
       <TextArea label="Descripción" name="description" testId="item-description" defaultValue={item?.description ?? ''} />
 
       <Select label="Tipo" name="type" testId="item-type" defaultValue={item?.type ?? 'inventoried'}>

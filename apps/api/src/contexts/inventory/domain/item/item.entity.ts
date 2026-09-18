@@ -3,6 +3,7 @@ import { CategoryRef, TaxRef, UnitRef } from '../shared/references.vo.js';
 import { TenantId } from '../shared/tenant-id.vo.js';
 import { ItemCode } from './item-code.vo.js';
 import { ItemId } from './item-id.vo.js';
+import { Barcode } from './barcode.vo.js';
 import { ItemName } from './item-name.vo.js';
 import { ItemUnitPrimitives, ItemUnits } from './item-units.js';
 import { ItemType } from './item-type.js';
@@ -16,9 +17,13 @@ export interface ItemPrimitives {
   createdAt: Date;
   updatedAt: Date;
   sku: string;
+  barcode: string | null;
   name: string;
   description: string | null;
   type: ItemType;
+  // Un articulo puede existir solo para comprar (un insumo) o solo para vender.
+  isPurchasable: boolean;
+  isSellable: boolean;
   categoryId: string | null;
   // Un articulo puede comprarse exento y venderse con IVA: son dos impuestos distintos.
   salesTaxId: string | null;
@@ -29,9 +34,12 @@ export interface ItemPrimitives {
 // Lo que una persona decide de un articulo, igual al crearlo y al editarlo.
 export interface ItemDetails {
   sku: Sku;
+  barcode: Barcode | null;
   name: ItemName;
   description: string | null;
   type: ItemType;
+  isPurchasable: boolean;
+  isSellable: boolean;
   categoryId: CategoryRef | null;
   salesTaxId: TaxRef | null;
   purchaseTaxId: TaxRef | null;
@@ -67,6 +75,9 @@ export class Item {
         description: row.description,
         type: row.type,
         categoryId: row.categoryId ? CategoryRef.of(row.categoryId) : null,
+        barcode: row.barcode ? Barcode.of(row.barcode) : null,
+        isPurchasable: row.isPurchasable,
+        isSellable: row.isSellable,
         salesTaxId: row.salesTaxId ? TaxRef.of(row.salesTaxId) : null,
         purchaseTaxId: row.purchaseTaxId ? TaxRef.of(row.purchaseTaxId) : null,
         units: ItemUnits.fromPrimitives(row.units),
@@ -78,7 +89,7 @@ export class Item {
   }
 
   toPrimitives(): ItemPrimitives {
-    const { sku, name, description, type, categoryId, salesTaxId, purchaseTaxId, units } = this.details;
+    const { sku, barcode, name, description, type, isPurchasable, isSellable, categoryId, salesTaxId, purchaseTaxId, units } = this.details;
 
     return {
       id: this.id.value,
@@ -92,6 +103,9 @@ export class Item {
       description,
       type,
       categoryId: categoryId?.value ?? null,
+      barcode: barcode?.value ?? null,
+      isPurchasable,
+      isSellable,
       salesTaxId: salesTaxId?.value ?? null,
       purchaseTaxId: purchaseTaxId?.value ?? null,
       units: units.toPrimitives(),
@@ -134,6 +148,10 @@ export class Item {
 
   sku(): Sku {
     return this.details.sku;
+  }
+
+  barcode(): Barcode | null {
+    return this.details.barcode;
   }
 
   categoryId(): CategoryRef | null {

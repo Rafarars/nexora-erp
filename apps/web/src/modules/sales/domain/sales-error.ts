@@ -17,6 +17,7 @@ const BY_CODE: Record<string, string> = {
   SalesItemChangedError: 'La unidad de un artículo cambió desde que se escribió el pedido: revisa las cantidades y guárdalo antes de confirmar.',
   InactiveSalesWarehouseError: 'El documento usa una bodega inactiva.',
   ServiceNotSellableError: 'Un servicio no sale de una bodega: no se puede pedir.',
+  ItemNotSellableError: 'Ese artículo no está marcado para venderse: revísalo en Inventario › Artículos.',
   SalesUnitNotOfItemError: 'Una línea usa una unidad que el artículo no tiene.',
   InvalidSalesQuantityError: 'Cada cantidad debe ser mayor que cero, con hasta cuatro decimales.',
   InvalidSalesPriceError: 'El precio debe ser cero o más, con hasta seis decimales.',

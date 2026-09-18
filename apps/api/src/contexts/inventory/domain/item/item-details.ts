@@ -1,4 +1,5 @@
 import { CategoryRef, TaxRef } from '../shared/references.vo.js';
+import { Barcode } from './barcode.vo.js';
 import { ItemDetails } from './item.entity.js';
 import { ItemName } from './item-name.vo.js';
 import { ItemUnitPrimitives, ItemUnits } from './item-units.js';
@@ -7,7 +8,10 @@ import { Sku } from './sku.vo.js';
 
 export interface ItemDetailsInput {
   sku: string;
+  barcode?: string | null;
   name: string;
+  isPurchasable?: boolean;
+  isSellable?: boolean;
   description?: string | null;
   type: string;
   categoryId?: string | null;
@@ -21,7 +25,11 @@ export interface ItemDetailsInput {
 export function itemDetailsOf(input: ItemDetailsInput): ItemDetails {
   return {
     sku: Sku.of(input.sku),
+    barcode: input.barcode ? Barcode.of(input.barcode) : null,
     name: ItemName.of(input.name),
+    // Por defecto se compra y se vende: lo raro es el articulo que solo sirve para una cosa.
+    isPurchasable: input.isPurchasable ?? true,
+    isSellable: input.isSellable ?? true,
     description: input.description ?? null,
     type: itemTypeOf(input.type),
     categoryId: input.categoryId ? CategoryRef.of(input.categoryId) : null,

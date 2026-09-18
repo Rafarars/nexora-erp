@@ -15,9 +15,10 @@ import {
   SalesOrderNotFoundError,
   SalesOrderWithDispatchesError,
   SalesWarehouseNotFoundError,
+  ItemNotSellableError,
   ServiceNotSellableError,
 } from '../domain/errors/sales.errors.js';
-import { BOX, FOREIGN_WAREHOUSE, KILO, MAIN, NORTH, PIECE, SERVICE, SOAP, TENANT_A, TENANT_B, WATER } from '../domain/testing/sales.mother.js';
+import { BOX, FOREIGN_WAREHOUSE, KILO, MAIN, NORTH, PIECE, SERVICE, SOAP, TENANT_A, TENANT_B, WATER, NOT_TRADED_ITEM } from '../domain/testing/sales.mother.js';
 import { SalesOrderCreatorRequest } from './create-order/sales-order-creator.js';
 import { SalesScenario, aSalesScenario } from './testing/sales-scenario.js';
 
@@ -92,6 +93,7 @@ describe('sales orders', () => {
       return {};
     }, InactiveCustomerError],
     ['a service', async () => ({ lines: [{ itemId: SERVICE, unitId: PIECE, quantity: 1, unitPrice: 1 }] }), ServiceNotSellableError],
+    ['an item that is not sold', async () => ({ lines: [{ itemId: NOT_TRADED_ITEM, unitId: PIECE, quantity: 1, unitPrice: 1 }] }), ItemNotSellableError],
     ['a warehouse of another tenant', async () => ({ warehouseId: FOREIGN_WAREHOUSE }), SalesWarehouseNotFoundError],
   ] as const)('refuses an order with %s', async (_case, arrange, error) => {
     const { s, customerId } = await world();

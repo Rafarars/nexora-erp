@@ -1,6 +1,7 @@
 import { afterAll, afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { ItemCommitments } from '../domain/item/commitments/item-commitments.js';
 import { DuplicateSkuError, ItemNotFoundError } from '../domain/errors/item.errors.js';
+import { Barcode } from '../domain/item/barcode.vo.js';
 import { ItemId } from '../domain/item/item-id.vo.js';
 import { ItemName } from '../domain/item/item-name.vo.js';
 import { ItemUnit, ItemUnits } from '../domain/item/item-units.js';
@@ -86,6 +87,16 @@ export function describeItemPortsContract(implementation: string, createHarness:
           salesTaxId: null,
           purchaseTaxId: null,
         });
+      });
+
+      // El lector de la caja busca por el codigo impreso, y nunca encuentra el de otra empresa.
+      it('finds an item by its barcode, only within its tenant', async () => {
+        await seedReferences();
+        await ports.items.save(anItem({ barcode: '7591234567890' }));
+
+        expect((await ports.items.findByBarcode(tenantA, Barcode.of('7591234567890')))?.id.value).toBe(ITEM_A);
+        expect(await ports.items.findByBarcode(tenantA, Barcode.of('0000000000000'))).toBeNull();
+        expect(await ports.items.findByBarcode(TenantId.of(TENANT_B), Barcode.of('7591234567890'))).toBeNull();
       });
 
       // Vender con IVA lo que se compra exento: son dos impuestos distintos.
@@ -277,6 +288,9 @@ function detailsOf(item: ReturnType<typeof anItem>) {
     description: row.description,
     type: row.type,
     categoryId: row.categoryId ? CategoryRef.of(row.categoryId) : null,
+    barcode: row.barcode ? Barcode.of(row.barcode) : null,
+    isPurchasable: row.isPurchasable,
+    isSellable: row.isSellable,
     salesTaxId: row.salesTaxId ? TaxRef.of(row.salesTaxId) : null,
     purchaseTaxId: row.purchaseTaxId ? TaxRef.of(row.purchaseTaxId) : null,
     units: ItemUnits.fromPrimitives(row.units),

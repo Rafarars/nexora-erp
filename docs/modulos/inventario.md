@@ -46,9 +46,12 @@ La categoría, el impuesto y las unidades siguen en el [catálogo](catalogo.md) 
 | Campo | Tipo | Regla |
 |---|---|---|
 | `sku` | texto(60) | Obligatorio, único por empresa. **Se guarda en mayúsculas**; solo letras, dígitos, `.`, `-` y `_` |
+| `barcode` | texto(60) | Opcional, **único por empresa**. Se guarda en mayúsculas, con las mismas letras y signos que el SKU |
 | `name` | texto(200) | Obligatorio |
 | `description` | texto(1000) | Opcional |
 | `type` | `inventoried` \| `service` | Inventariado tiene existencia; servicio se compra y vende pero nunca tiene stock |
+| `is_purchasable` | sí/no | Por defecto sí. En **no**, una orden de compra lo rechaza (`ItemNotPurchasableError`) |
+| `is_sellable` | sí/no | Por defecto sí. En **no**, un pedido de venta lo rechaza (`ItemNotSellableError`) |
 | `category_id` | categoría | Opcional |
 | `sales_tax_id` | impuesto | Opcional. **El que se copia a la línea al venderlo** |
 | `purchase_tax_id` | impuesto | Opcional. El que se copia a la línea al comprarlo |
@@ -67,6 +70,10 @@ unidad base.
 **Por qué ocho decimales:** con cuatro, una base «docena» daba 0,0833 por pieza y doce piezas sumaban
 0,9996 docenas, no una. Con ocho, 0,08333333 × 12 = 0,99999996, que redondeado a las cuatro
 diezmilésimas de las cantidades es exactamente 1.
+
+**Por qué las banderas se validan en el dominio:** el compañero solo filtra el selector de la pantalla y lo
+comprueba al guardar el documento; aquí la línea no se construye si el artículo no se compra o no se vende,
+así que ningún camino (API, importación o pantalla) puede saltárselo.
 
 **Por qué dos impuestos:** un artículo puede comprarse exento y venderse con IVA. La orden de compra
 copia el de compra y el pedido de venta copia el de venta; si falta, la línea va sin impuesto. Es lo
@@ -316,6 +323,9 @@ Las del artículo se explican en [§1](#1-artículos); la de la bodega vive en e
 | No cambia la unidad base ni el tipo de un artículo con movimientos | `ItemWithMovementsError` |
 | No se desactiva ni cambia de tipo un artículo que usan órdenes o pedidos abiertos | `ItemInOpenDocumentsError` |
 | No se quita ni cambia de factor una unidad que usan órdenes o pedidos abiertos | `ItemUnitInOpenDocumentsError` |
+| Dos artículos de una empresa no comparten código de barras | `DuplicateBarcodeError` |
+| No se compra un artículo marcado como «no se compra» | `ItemNotPurchasableError` |
+| No se vende un artículo marcado como «no se vende» | `ItemNotSellableError` |
 
 ---
 
@@ -359,7 +369,7 @@ Las del artículo se explican en [§1](#1-artículos); la de la bodega vive en e
 | Ruta | Qué hace |
 |---|---|
 | `/inventario` | Redirige a la primera sección que el rol puede ver |
-| `/inventario/articulos` | Tabla con SKU, tipo, categoría, **impuestos de venta y de compra** y unidades («un · 1 cja = 24 un»); panel con editor de unidades |
+| `/inventario/articulos` | Tabla con SKU, tipo, categoría, **para qué se usa** (comprar, vender), **impuestos de venta y de compra** y unidades («un · 1 cja = 24 un»); panel con código de barras y editor de unidades |
 | `/inventario/existencias` | Artículo, bodega, existencia en unidad base, costo promedio, valor y total; filtro por bodega en la dirección |
 | `/inventario/ajustes` | Código, fecha, bodega, resumen de líneas («+2 cja (48 un) AGUA-500»), estado y Opciones según el estado |
 | `/inventario/kardex` | Elige artículo y bodega; cada movimiento con documento, cantidad, costo, saldo y promedio, y las anulaciones marcadas |

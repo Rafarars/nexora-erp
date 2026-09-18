@@ -24,7 +24,7 @@ import {
 import { ItemScenario, anItemScenario } from '../testing/item-scenario.js';
 import { ItemCreator, ItemCreatorRequest } from './item-creator.js';
 
-const creatorFor = (s: ItemScenario) => new ItemCreator(s.items, s.references, s.skuUniqueness, s.codes, s.ids, s.clock);
+const creatorFor = (s: ItemScenario) => new ItemCreator(s.items, s.references, s.skuUniqueness, s.barcodeUniqueness, s.codes, s.ids, s.clock);
 
 function aStockedScenario(seed: Parameters<typeof anItemScenario>[0] = {}) {
   return anItemScenario({

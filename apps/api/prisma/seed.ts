@@ -412,7 +412,7 @@ async function seedCatalog(prisma: PrismaClient): Promise<void> {
   ];
   const items = [
     {
-      id: acme.items.water, tenantId: ACME, code: 'ART000001', sku: 'AGUA-500', name: 'Agua mineral 500 ml',
+      id: acme.items.water, tenantId: ACME, code: 'ART000001', sku: 'AGUA-500', name: 'Agua mineral 500 ml', barcode: '7591234567890',
       description: null, type: 'inventoried' as const, categoryId: acme.categories.drinks, salesTaxId: acme.taxes.vat, purchaseTaxId: acme.taxes.vat,
       units: [
         { unitId: acme.units.piece, conversionFactor: 1, isBase: true },
@@ -420,13 +420,13 @@ async function seedCatalog(prisma: PrismaClient): Promise<void> {
       ],
     },
     {
-      id: acme.items.detergent, tenantId: ACME, code: 'ART000002', sku: 'DETERGENTE-1KG', name: 'Detergente en polvo 1 kg',
+      id: acme.items.detergent, tenantId: ACME, code: 'ART000002', sku: 'DETERGENTE-1KG', name: 'Detergente en polvo 1 kg', barcode: '7591234567891',
       description: null, type: 'inventoried' as const, categoryId: acme.categories.cleaning, salesTaxId: acme.taxes.vat, purchaseTaxId: acme.taxes.exempt,
       units: [{ unitId: acme.units.kilo, conversionFactor: 1, isBase: true }],
     },
     {
       id: acme.items.delivery, tenantId: ACME, code: 'ART000003', sku: 'SERV-ENTREGA', name: 'Servicio de entrega',
-      description: 'Entrega a domicilio dentro de la ciudad', type: 'service' as const, categoryId: null,
+      description: 'Entrega a domicilio dentro de la ciudad', type: 'service' as const, categoryId: null, isPurchasable: false,
       salesTaxId: acme.taxes.exempt, purchaseTaxId: acme.taxes.exempt, units: [{ unitId: acme.units.piece, conversionFactor: 1, isBase: true }],
     },
     {

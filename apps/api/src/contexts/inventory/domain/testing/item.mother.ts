@@ -1,3 +1,4 @@
+import { Barcode } from '../item/barcode.vo.js';
 import { ReferencedCategory, ReferencedTax, ReferencedUnit } from '../catalog/catalog-references.js';
 import { ItemCode } from '../item/item-code.vo.js';
 import { ItemId } from '../item/item-id.vo.js';
@@ -75,6 +76,9 @@ export function anItem(
     tenantId?: string;
     code?: string;
     sku?: string;
+    barcode?: string | null;
+    isPurchasable?: boolean;
+    isSellable?: boolean;
     name?: string;
     type?: ItemType;
     categoryId?: string | null;
@@ -90,6 +94,9 @@ export function anItem(
     ItemCode.of(overrides.code ?? 'ART000001'),
     {
       sku: Sku.of(overrides.sku ?? 'AGUA-500'),
+      barcode: overrides.barcode ? Barcode.of(overrides.barcode) : null,
+      isPurchasable: overrides.isPurchasable ?? true,
+      isSellable: overrides.isSellable ?? true,
       name: ItemName.of(overrides.name ?? 'Agua mineral 500 ml'),
       description: null,
       type: overrides.type ?? 'inventoried',

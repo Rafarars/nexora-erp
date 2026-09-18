@@ -6,6 +6,7 @@ import { ItemId } from '../../domain/item/item-id.vo.js';
 import { Item } from '../../domain/item/item.entity.js';
 import { ItemRepository } from '../../domain/item/item.repository.js';
 import { ItemReferences } from '../../domain/item/references/item-references.js';
+import { BarcodeUniqueness } from '../../domain/item/unique/barcode-uniqueness.js';
 import { SkuUniqueness } from '../../domain/item/unique/sku-uniqueness.js';
 import { InventoryCodeSequence } from '../../domain/shared/code-sequence.js';
 import { TenantId } from '../../domain/shared/tenant-id.vo.js';
@@ -19,6 +20,7 @@ export class ItemCreator {
     private readonly items: ItemRepository,
     private readonly references: ItemReferences,
     private readonly skus: SkuUniqueness,
+    private readonly barcodes: BarcodeUniqueness,
     private readonly codes: InventoryCodeSequence,
     private readonly ids: IdGenerator,
     private readonly clock: Clock,
@@ -31,6 +33,7 @@ export class ItemCreator {
 
     await this.references.ensureAssignable(tenantId, details);
     await this.skus.ensureIsFree(tenantId, details.sku);
+    await this.barcodes.ensureIsFree(tenantId, details.barcode);
 
     const code = ItemCode.fromSequence(await this.codes.next(tenantId, ItemCode.PREFIX));
 

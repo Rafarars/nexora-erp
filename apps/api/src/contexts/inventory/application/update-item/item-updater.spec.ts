@@ -29,7 +29,7 @@ import {
 import { ItemScenario, anItemScenario } from '../testing/item-scenario.js';
 import { ItemUpdater, ItemUpdaterRequest } from './item-updater.js';
 
-const updaterFor = (s: ItemScenario) => new ItemUpdater(s.itemFinder, s.references, s.skuUniqueness, s.itemPosting, s.clock);
+const updaterFor = (s: ItemScenario) => new ItemUpdater(s.itemFinder, s.references, s.skuUniqueness, s.barcodeUniqueness, s.itemPosting, s.clock);
 
 function request(overrides: Partial<ItemUpdaterRequest> = {}): ItemUpdaterRequest {
   return {

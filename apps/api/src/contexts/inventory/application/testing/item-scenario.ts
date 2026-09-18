@@ -3,6 +3,7 @@ import { SequentialIdGenerator } from '../../../../shared/infrastructure/testing
 import { ItemFinder } from '../../domain/item/find/item-finder.js';
 import { Item } from '../../domain/item/item.entity.js';
 import { ItemReferences } from '../../domain/item/references/item-references.js';
+import { BarcodeUniqueness } from '../../domain/item/unique/barcode-uniqueness.js';
 import { SkuUniqueness } from '../../domain/item/unique/sku-uniqueness.js';
 import { NOW, aCategory, aTax, aUnit } from '../../domain/testing/item.mother.js';
 import { InMemoryCatalogReferences } from '../../infrastructure/testing/in-memory-catalog-references.js';
@@ -31,6 +32,7 @@ export function anItemScenario(
     clock: new FixedClock(NOW),
     itemFinder: new ItemFinder(items),
     skuUniqueness: new SkuUniqueness(items),
+    barcodeUniqueness: new BarcodeUniqueness(items),
     references: new ItemReferences(catalog),
     itemPosting: new InMemoryItemPosting(items),
   };

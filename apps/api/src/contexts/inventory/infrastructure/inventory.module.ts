@@ -28,6 +28,7 @@ import type { ItemRepository } from '../domain/item/item.repository.js';
 import { ITEM_POSTING } from '../domain/item/posting/item-posting.js';
 import type { ItemPosting } from '../domain/item/posting/item-posting.js';
 import { ItemReferences } from '../domain/item/references/item-references.js';
+import { BarcodeUniqueness } from '../domain/item/unique/barcode-uniqueness.js';
 import { SkuUniqueness } from '../domain/item/unique/sku-uniqueness.js';
 import { ADJUSTMENT_REPOSITORY } from '../domain/adjustment/adjustment.repository.js';
 import type { AdjustmentRepository } from '../domain/adjustment/adjustment.repository.js';
@@ -101,17 +102,18 @@ import { PrismaStockRepository } from './persistence/prisma-stock.repository.js'
     // ---- articulos
     { provide: ItemFinder, useFactory: (r: ItemRepository) => new ItemFinder(r), inject: [ITEM_REPOSITORY] },
     { provide: SkuUniqueness, useFactory: (r: ItemRepository) => new SkuUniqueness(r), inject: [ITEM_REPOSITORY] },
+    { provide: BarcodeUniqueness, useFactory: (r: ItemRepository) => new BarcodeUniqueness(r), inject: [ITEM_REPOSITORY] },
     { provide: ItemReferences, useFactory: (c: CatalogReferences) => new ItemReferences(c), inject: [CATALOG_REFERENCES] },
     {
       provide: ItemCreator,
-      useFactory: (r: ItemRepository, ref: ItemReferences, s: SkuUniqueness, c: InventoryCodeSequence, i: IdGenerator, k: Clock) =>
-        new ItemCreator(r, ref, s, c, i, k),
-      inject: [ITEM_REPOSITORY, ItemReferences, SkuUniqueness, INVENTORY_CODE_SEQUENCE, ID_GENERATOR, CLOCK],
+      useFactory: (r: ItemRepository, ref: ItemReferences, s: SkuUniqueness, b: BarcodeUniqueness, c: InventoryCodeSequence, i: IdGenerator, k: Clock) =>
+        new ItemCreator(r, ref, s, b, c, i, k),
+      inject: [ITEM_REPOSITORY, ItemReferences, SkuUniqueness, BarcodeUniqueness, INVENTORY_CODE_SEQUENCE, ID_GENERATOR, CLOCK],
     },
     {
       provide: ItemUpdater,
-      useFactory: (f: ItemFinder, ref: ItemReferences, s: SkuUniqueness, p: ItemPosting, k: Clock) => new ItemUpdater(f, ref, s, p, k),
-      inject: [ItemFinder, ItemReferences, SkuUniqueness, ITEM_POSTING, CLOCK],
+      useFactory: (f: ItemFinder, ref: ItemReferences, s: SkuUniqueness, b: BarcodeUniqueness, p: ItemPosting, k: Clock) => new ItemUpdater(f, ref, s, b, p, k),
+      inject: [ItemFinder, ItemReferences, SkuUniqueness, BarcodeUniqueness, ITEM_POSTING, CLOCK],
     },
     {
       provide: ItemStatusChanger,

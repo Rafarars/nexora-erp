@@ -6,6 +6,9 @@ export const itemRequestSchema = z.object({
   description: z.string().nullable().optional(),
   type: z.string(),
   categoryId: z.string().nullable().optional(),
+  barcode: z.string().nullable().optional(),
+  isPurchasable: z.boolean().optional(),
+  isSellable: z.boolean().optional(),
   salesTaxId: z.string().nullable().optional(),
   purchaseTaxId: z.string().nullable().optional(),
   units: z

@@ -17,6 +17,7 @@ const cases: Array<[DomainError, typeof DomainError]> = [
   [new errors.InactivePurchaseItemError(ID), ConflictError],
   [new errors.InactivePurchaseWarehouseError(ID), ConflictError],
   [new errors.ServiceNotPurchasableError(ID), InvalidArgumentError],
+  [new errors.ItemNotPurchasableError(ID), ConflictError],
   [new errors.PurchaseUnitNotOfItemError(ID, ID), InvalidArgumentError],
   [new errors.PurchaseItemChangedError(ID), ConflictError],
   [new errors.InvalidPurchaseQuantityError(-1), InvalidArgumentError],

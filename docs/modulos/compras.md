@@ -297,6 +297,7 @@ POST /api/v1/purchasing/receipts
 | `DuplicateSupplierNameError` | 409 | Otro proveedor de la empresa ya tiene ese nombre |
 | `InactiveSupplierError` | 409 | Orden a un proveedor inactivo |
 | `ServiceNotPurchasableError` | 400 | Una línea es un servicio |
+| `ItemNotPurchasableError` | 409 | El artículo no está marcado para comprarse |
 | `PurchaseItemChangedError` | 409 | Un artículo cambió mientras se confirmaba la orden: se vuelve a intentar |
 | `PurchaseOrderNotEditableError` | 409 | Editar una orden que no es borrador |
 | `PurchaseOrderWithReceiptsError` | 409 | Anular una orden que ya recibió mercancía |

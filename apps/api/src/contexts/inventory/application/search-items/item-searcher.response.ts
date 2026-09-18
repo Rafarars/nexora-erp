@@ -10,6 +10,9 @@ export interface ItemResponse {
   id: string;
   code: string;
   sku: string;
+  barcode: string | null;
+  isPurchasable: boolean;
+  isSellable: boolean;
   name: string;
   description: string | null;
   type: 'inventoried' | 'service';

@@ -23,6 +23,7 @@ export class PrismaSalesCatalog implements SalesCatalog {
       name: row.name,
       type: row.type,
       isActive: row.isActive,
+      isSellable: row.isSellable,
       taxRate: row.salesTax ? row.salesTax.rate.toNumber() : 0,
       units: row.units.map((unit) => ({
         unitId: unit.unitId,

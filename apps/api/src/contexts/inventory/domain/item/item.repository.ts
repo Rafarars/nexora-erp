@@ -1,3 +1,4 @@
+import { Barcode } from './barcode.vo.js';
 import { TenantId } from '../shared/tenant-id.vo.js';
 import { ItemId } from './item-id.vo.js';
 import { Item } from './item.entity.js';
@@ -10,5 +11,6 @@ export interface ItemRepository {
   save(item: Item): Promise<void>;
   find(tenantId: TenantId, id: ItemId): Promise<Item | null>;
   findBySku(tenantId: TenantId, sku: Sku): Promise<Item | null>;
+  findByBarcode(tenantId: TenantId, barcode: Barcode): Promise<Item | null>;
   searchByTenant(tenantId: TenantId): Promise<Item[]>;
 }

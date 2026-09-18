@@ -11,6 +11,7 @@ export interface SellableItem {
   name: string;
   type: 'inventoried' | 'service';
   isActive: boolean;
+  isSellable: boolean;
   // El porcentaje del impuesto del articulo; cero si no tiene.
   taxRate: number;
   units: { unitId: string; abbreviation: string; conversionFactor: number; isBase: boolean }[];

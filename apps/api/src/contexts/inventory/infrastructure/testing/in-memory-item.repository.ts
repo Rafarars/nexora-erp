@@ -1,4 +1,5 @@
 import { DuplicateSkuError } from '../../domain/errors/item.errors.js';
+import { Barcode } from '../../domain/item/barcode.vo.js';
 import { ItemId } from '../../domain/item/item-id.vo.js';
 import { Item, ItemPrimitives } from '../../domain/item/item.entity.js';
 import { ItemRepository } from '../../domain/item/item.repository.js';
@@ -35,6 +36,12 @@ export class InMemoryItemRepository implements ItemRepository {
 
   async findBySku(tenantId: TenantId, sku: Sku): Promise<Item | null> {
     const row = this.ofTenant(tenantId).find((candidate) => candidate.sku === sku.value);
+
+    return row ? Item.fromPrimitives(row) : null;
+  }
+
+  async findByBarcode(tenantId: TenantId, barcode: Barcode): Promise<Item | null> {
+    const row = this.ofTenant(tenantId).find((candidate) => candidate.barcode === barcode.value);
 
     return row ? Item.fromPrimitives(row) : null;
   }

@@ -95,6 +95,13 @@ export class InactiveSalesWarehouseError extends ConflictError {
 }
 
 // En el H5 solo se vende lo que sale de una bodega; vender servicios queda para despues.
+// El maestro dice que ese articulo no se vende: no deberia llegar a un pedido.
+export class ItemNotSellableError extends ConflictError {
+  constructor(id: string) {
+    super(`Item <${id}> is not marked as sellable.`, 'That item is not marked to be sold.');
+  }
+}
+
 export class ServiceNotSellableError extends InvalidArgumentError {
   constructor(id: string) {
     super(`Item <${id}> is a service and cannot be dispatched from a warehouse.`, 'A service cannot be ordered: it has no stock to dispatch.');

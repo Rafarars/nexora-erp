@@ -34,6 +34,12 @@ export class DuplicateSkuError extends ConflictError {
   }
 }
 
+export class DuplicateBarcodeError extends ConflictError {
+  constructor(barcode: string, tenantId: string) {
+    super(`Barcode <${barcode}> already exists in tenant <${tenantId}>.`, 'An item with that barcode already exists.');
+  }
+}
+
 // Un articulo nuevo no puede nacer apuntando a algo que ya no se ofrece.
 export class InactiveReferenceError extends ConflictError {
   constructor(kind: string, id: string) {
@@ -84,6 +90,15 @@ export class InvalidConversionFactorError extends InvalidArgumentError {
     super(
       `A conversion factor must be positive with at most eight decimals, received <${value}>.`,
       'A conversion factor must be a positive number.',
+    );
+  }
+}
+
+export class InvalidBarcodeError extends InvalidArgumentError {
+  constructor(value: string) {
+    super(
+      `A barcode may only contain letters, digits, dots, dashes and underscores, received <${value}>.`,
+      'The barcode contains characters that are not allowed.',
     );
   }
 }

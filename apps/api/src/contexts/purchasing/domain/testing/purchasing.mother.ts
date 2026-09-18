@@ -20,6 +20,8 @@ export const TENANT_B = '22222222-2222-4222-8222-222222222222';
 export const WATER = 'a1111111-1111-4111-8111-111111111111';
 export const SERVICE = 'a2222222-2222-4222-8222-222222222222';
 export const INACTIVE_ITEM = 'a3333333-3333-4333-8333-333333333333';
+// Existe en el maestro pero no se compra: solo se vende.
+export const NOT_TRADED_ITEM = 'a5555555-5555-4555-8555-555555555556';
 export const FOREIGN_ITEM = 'a4444444-4444-4444-8444-444444444444';
 export const SOAP = 'a5555555-5555-4555-8555-555555555555';
 
@@ -43,11 +45,12 @@ export function purchasableItems(): (PurchasableItem & { tenantId: string })[] {
   const kilo = [{ unitId: KILO, abbreviation: 'kg', conversionFactor: 1, isBase: true }];
 
   return [
-    { tenantId: TENANT_A, id: WATER, sku: 'AGUA-500', name: 'Agua', type: 'inventoried', isActive: true, taxRate: 16, units: water },
-    { tenantId: TENANT_A, id: SOAP, sku: 'JABON', name: 'Jabón', type: 'inventoried', isActive: true, taxRate: 0, units: kilo },
-    { tenantId: TENANT_A, id: SERVICE, sku: 'ENTREGA', name: 'Entrega', type: 'service', isActive: true, taxRate: 16, units: water.slice(0, 1) },
-    { tenantId: TENANT_A, id: INACTIVE_ITEM, sku: 'VIEJO', name: 'Viejo', type: 'inventoried', isActive: false, taxRate: 0, units: water.slice(0, 1) },
-    { tenantId: TENANT_B, id: FOREIGN_ITEM, sku: 'AJENO', name: 'Ajeno', type: 'inventoried', isActive: true, taxRate: 0, units: water.slice(0, 1) },
+    { tenantId: TENANT_A, id: WATER, sku: 'AGUA-500', name: 'Agua', type: 'inventoried', isActive: true, isPurchasable: true, taxRate: 16, units: water },
+    { tenantId: TENANT_A, id: SOAP, sku: 'JABON', name: 'Jabón', type: 'inventoried', isActive: true, isPurchasable: true, taxRate: 0, units: kilo },
+    { tenantId: TENANT_A, id: SERVICE, sku: 'ENTREGA', name: 'Entrega', type: 'service', isActive: true, isPurchasable: true, taxRate: 16, units: water.slice(0, 1) },
+    { tenantId: TENANT_A, id: NOT_TRADED_ITEM, sku: 'SOLO-VENTA', name: 'Solo venta', type: 'inventoried', isActive: true, isPurchasable: false, taxRate: 0, units: water.slice(0, 1) },
+    { tenantId: TENANT_A, id: INACTIVE_ITEM, sku: 'VIEJO', name: 'Viejo', type: 'inventoried', isActive: false, isPurchasable: true, taxRate: 0, units: water.slice(0, 1) },
+    { tenantId: TENANT_B, id: FOREIGN_ITEM, sku: 'AJENO', name: 'Ajeno', type: 'inventoried', isActive: true, isPurchasable: true, taxRate: 0, units: water.slice(0, 1) },
   ];
 }
 
