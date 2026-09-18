@@ -60,7 +60,7 @@ Estados: ⬜ pendiente · 🔍 revisado, esperando decisiones · ✅ cerrado (de
 
 | Submódulo | Estado | Informe |
 |---|---|---|
-| Artículos (piloto; empezó en Catálogo) | 🔨 Fases 1 a 5 hechas; faltan servicios y el cierre | [inventario/articulos.md](inventario/articulos.md) |
+| Artículos (piloto; empezó en Catálogo) | 🔨 Fases 1 a 6 hechas; falta el cierre | [inventario/articulos.md](inventario/articulos.md) |
 | Ajustes | ⬜ | |
 | Existencias | ⬜ | |
 | Kardex | ⬜ | |
@@ -127,5 +127,5 @@ decidir **en qué módulo viven** y **qué reglas llevan**. Cada una se resuelve
 | Tipo no inventariado | Si se agrega y qué documentos lo aceptan | Inventario › Existencias | ⬜ |
 | Lotes y series | Qué submódulo son y qué documentos los exigen | Inventario | ⬜ |
 | Método de costo | Promedio, FIFO o estándar; por artículo o por categoría | Inventario › Kardex | ⬜ |
-| Servicios en documentos | Comprar y vender servicios si la factura nace del despacho. **Decidido:** con la regla del compañero, una línea de servicio no cuenta para el estado de recibido o despachado de su orden, así la orden no queda abierta para siempre | Compras › Órdenes y Ventas › Facturas | ⬜ |
+| Servicios en documentos | Comprar y vender servicios si la factura nace del despacho | Compras › Órdenes y Ventas › Facturas | ✅ Fase 6 · [temas/servicios.md](temas/servicios.md) |
 | Contexto del despacho | ¿Ventas o Inventario? | Ventas › Despachos | ⬜ |

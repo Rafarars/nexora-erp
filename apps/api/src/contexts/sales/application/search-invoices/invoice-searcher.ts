@@ -11,7 +11,8 @@ export interface InvoiceResponse extends DocumentCurrencyPrimitives {
   id: string;
   code: string;
   customer: { id: string; name: string };
-  dispatch: { id: string; code: string };
+  // Nulo cuando la factura solo cobra servicios: no hubo despacho.
+  dispatch: { id: string; code: string } | null;
   order: { id: string; code: string };
   issueDate: string;
   dueDate: string;
@@ -66,7 +67,8 @@ export class InvoiceSearcher {
           id: row.id,
           code: row.code,
           customer: { id: row.customerId, name: customers.find((c) => c.id.value === row.customerId)?.name() ?? '' },
-          dispatch: { id: row.dispatchId, code: dispatches.find((d) => d.id.value === row.dispatchId)?.code ?? '' },
+          // Una factura de puros servicios no nace de un despacho.
+          dispatch: row.dispatchId === null ? null : { id: row.dispatchId, code: dispatches.find((d) => d.id.value === row.dispatchId)?.code ?? '' },
           order: { id: row.orderId, code: orders.find((o) => o.id.value === row.orderId)?.code ?? '' },
           issueDate: row.issueDate,
           dueDate: row.dueDate,

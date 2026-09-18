@@ -200,9 +200,10 @@ export class PurchaseOrder {
   confirm(now: Date): void {
     if (this.status !== 'draft') throw new PurchaseOrderNotConfirmableError(this.id.value, this.status);
 
-    this.status = 'confirmed';
     this.confirmedAt = now;
-    this.updatedAt = now;
+    this.status = 'confirmed';
+    // Una orden que solo pide servicios nace recibida: no hay nada que esperar en la bodega.
+    this.recomputeStatus(now);
   }
 
   cancel(now: Date): void {

@@ -9,7 +9,6 @@ import {
   PurchaseUnitNotOfItemError,
   PurchaseWarehouseNotFoundError,
   ItemNotPurchasableError,
-  ServiceNotPurchasableError,
 } from '../../errors/purchasing.errors.js';
 import { TaxRate, UnitCost } from '../../shared/money.js';
 import { Quantity } from '../../shared/quantity.vo.js';
@@ -65,7 +64,6 @@ export class PurchaseOrderReferences {
 
       if (!item) throw new PurchaseItemNotFoundError(input.itemId);
       if (!item.isActive) throw new InactivePurchaseItemError(item.id);
-      if (item.type === 'service') throw new ServiceNotPurchasableError(item.id);
       if (!item.isPurchasable) throw new ItemNotPurchasableError(item.id);
 
       const unitId = UnitRef.of(input.unitId);
@@ -90,6 +88,8 @@ export class PurchaseOrderReferences {
         baseQuantity,
         unitCost: UnitCost.of(input.unitCost),
         taxRate: TaxRate.of(item.taxRate),
+        // Un servicio se compra, pero no entra a la bodega: su linea no espera ninguna entrada.
+        movesStock: item.type !== 'service',
       });
     });
   }

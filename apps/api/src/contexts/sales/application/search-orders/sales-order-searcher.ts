@@ -21,6 +21,10 @@ export interface SalesOrderLineResponse {
   unitPrice: number;
   // Lo que sugirio la lista. Distinto de `unitPrice`, la persona pacto otro precio.
   listPrice: number;
+  // Si la linea sale de una bodega. Un servicio no: ni se reserva ni se despacha.
+  movesStock: boolean;
+  // Lo que ya se facturo de la linea. No mide lo mismo que lo despachado.
+  invoicedQuantity: number;
   taxRate: number;
   dispatchedQuantity: number;
   pendingQuantity: number;
@@ -89,7 +93,7 @@ export class SalesOrderSearcher {
             totals: order.totals(decimals),
             lines: order.lines().map((line) => {
               const item = items.find((candidate) => candidate.id === line.itemId.value);
-              const { id, lineNumber, itemId, unitId, quantity, baseQuantity, unitPrice, listPrice, taxRate, dispatchedQuantity } = line.toPrimitives();
+              const { id, lineNumber, itemId, unitId, quantity, baseQuantity, unitPrice, listPrice, taxRate, dispatchedQuantity, movesStock, invoicedQuantity } = line.toPrimitives();
 
               return {
                 id,
@@ -104,6 +108,8 @@ export class SalesOrderSearcher {
                 baseQuantity,
                 unitPrice,
                 listPrice,
+                movesStock,
+                invoicedQuantity,
                 taxRate,
                 dispatchedQuantity,
                 pendingQuantity: line.pending().toNumber(),

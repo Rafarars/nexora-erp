@@ -103,7 +103,7 @@ export function describeSalesPortsContract(implementation: string, createHarness
     const confirmDispatch = (id: DispatchId) => ports.dispatchPosting.post(tenant, id, (d, o) => new DispatchConfirmation().apply(d, o, NOW));
     const cancelDispatch = (id: DispatchId) => ports.dispatchPosting.post(tenant, id, (d, o, invoiced) => new DispatchCancellation().apply(d, o, invoiced, NOW));
     const issue = (id: DispatchId, date = TODAY) =>
-      ports.invoicePosting.issue(tenant, id, SalesDate.of(TODAY), 2, (dispatch, order, alreadyInvoiced, credit) =>
+      ports.invoicePosting.issue(tenant, { dispatchId: id }, SalesDate.of(TODAY), 2, (dispatch, order, alreadyInvoiced, credit) =>
         Invoice.issue(InvoiceId.of(`5f000000-0000-4000-8000-${next()}`), tenant, `FAC${next().slice(-6)}`, {
           dispatch,
           order,

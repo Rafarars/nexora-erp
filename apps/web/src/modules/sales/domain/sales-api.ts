@@ -43,7 +43,7 @@ export interface SalesApi {
   confirmDispatch(token: string, id: string): Promise<void>;
   cancelDispatch(token: string, id: string): Promise<void>;
   searchInvoices(token: string): Promise<Invoice[]>;
-  issueInvoice(token: string, dispatchId: string): Promise<void>;
+  issueInvoice(token: string, origin: { dispatchId: string } | { orderId: string }): Promise<void>;
   cancelInvoice(token: string, id: string): Promise<void>;
   searchAvailability(token: string, warehouseId?: string): Promise<Availability[]>;
 }

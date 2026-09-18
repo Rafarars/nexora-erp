@@ -33,6 +33,10 @@ export interface OrderLine {
   unitPrice: number;
   // Lo que sugirio la lista. Distinto de `unitPrice`, se pacto otro precio a mano.
   listPrice: number;
+  // Si la linea sale de una bodega. Un servicio no: ni se reserva ni se despacha.
+  movesStock: boolean;
+  // Lo que ya se facturo de la linea. No mide lo mismo que lo despachado.
+  invoicedQuantity: number;
   taxRate: number;
   dispatchedQuantity: number;
   pendingQuantity: number;
@@ -82,7 +86,8 @@ export interface Invoice extends DocumentCurrency {
   id: string;
   code: string;
   customer: { id: string; name: string };
-  dispatch: { id: string; code: string };
+  // Nulo cuando la factura solo cobra servicios: no hubo despacho del que nacer.
+  dispatch: { id: string; code: string } | null;
   order: { id: string; code: string };
   issueDate: string;
   dueDate: string;
@@ -120,12 +125,20 @@ export const INVOICE_STATUS_LABELS: Record<InvoiceStatus, string> = { issued: 'E
 
 // Lo que la interfaz ofrece en cada estado; la API lo vuelve a comprobar. Un pedido despachado
 // en parte no se anula: primero se anulan sus despachos.
-export function orderActions(order: Pick<SalesOrder, 'status'>): { edit: boolean; confirm: boolean; cancel: boolean; dispatch: boolean } {
+export function orderActions(
+  order: Pick<SalesOrder, 'status' | 'lines'>,
+): { edit: boolean; confirm: boolean; cancel: boolean; dispatch: boolean; invoice: boolean } {
+  const goods = order.lines.some((line) => line.movesStock);
+  const confirmed = order.status === 'confirmed' || order.status === 'dispatched';
+
   return {
     edit: order.status === 'draft',
     confirm: order.status === 'draft',
     cancel: order.status === 'draft' || order.status === 'confirmed',
-    dispatch: order.status === 'confirmed' || order.status === 'partially_dispatched',
+    dispatch: goods && (order.status === 'confirmed' || order.status === 'partially_dispatched'),
+    // Un pedido sin mercancia se factura directo: no hay despacho del que nacer. Lo que ya se
+    // facturo no vuelve a ofrecerse.
+    invoice: !goods && confirmed && order.lines.some((line) => line.quantity > line.invoicedQuantity),
   };
 }
 
@@ -155,8 +168,10 @@ export function summarizeDispatchLines(lines: DispatchLine[]): string {
 
 // Las lineas que un despacho puede llevar: las que tienen algo pendiente y, al editar un
 // borrador, las que ya lleva.
+// Un servicio no sale de una bodega: no se ofrece para despachar, se cobra en la factura.
 export function dispatchableLines(order: SalesOrder, dispatch: Dispatch | null): { line: OrderLine; quantity: number }[] {
   return order.lines
+    .filter((line) => line.movesStock)
     .map((line) => ({ line, quantity: dispatch?.lines.find((d) => d.orderLineId === line.id)?.quantity ?? 0 }))
     .filter(({ line, quantity }) => line.pendingQuantity > 0 || quantity > 0);
 }

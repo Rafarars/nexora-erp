@@ -1,5 +1,5 @@
 import { Uuid } from '../../../../shared/domain/uuid.vo.js';
-import { DispatchExceedsPendingError } from '../errors/sales.errors.js';
+import { DispatchExceedsPendingError, InvoiceExceedsPendingError } from '../errors/sales.errors.js';
 import { TaxRate, UnitPrice, lineSubtotalUnits, taxUnits } from '../shared/money.js';
 import { Quantity } from '../shared/quantity.vo.js';
 import { ItemRef, UnitRef } from '../shared/references.vo.js';
@@ -26,6 +26,10 @@ export interface SalesOrderLinePrimitives {
   listPrice: number;
   taxRate: number;
   dispatchedQuantity: number;
+  // Lo facturado no mide lo mismo que lo despachado: un servicio se factura y nunca se despacha.
+  invoicedQuantity: number;
+  // Si la linea sale de una bodega. Un servicio no: se copia al escribirla, como el SKU.
+  movesStock: boolean;
 }
 
 // Una linea ya validada contra el catalogo. Lo despachado se lleva en la unidad de la linea;
@@ -43,7 +47,9 @@ export class SalesOrderLine {
     readonly unitPrice: UnitPrice,
     readonly listPrice: UnitPrice,
     readonly taxRate: TaxRate,
+    readonly movesStock: boolean,
     private dispatched: Quantity,
+    private invoiced: Quantity,
   ) {}
 
   static of(fields: {
@@ -58,8 +64,24 @@ export class SalesOrderLine {
     unitPrice: UnitPrice;
     listPrice?: UnitPrice;
     taxRate: TaxRate;
+    movesStock?: boolean;
   }): SalesOrderLine {
-    return new SalesOrderLine(fields.id, fields.lineNumber, fields.itemId, fields.itemSku, fields.itemName, fields.unitId, fields.quantity, fields.baseQuantity, fields.unitPrice, fields.listPrice ?? fields.unitPrice, fields.taxRate, Quantity.zero());
+    return new SalesOrderLine(
+      fields.id,
+      fields.lineNumber,
+      fields.itemId,
+      fields.itemSku,
+      fields.itemName,
+      fields.unitId,
+      fields.quantity,
+      fields.baseQuantity,
+      fields.unitPrice,
+      fields.listPrice ?? fields.unitPrice,
+      fields.taxRate,
+      fields.movesStock ?? true,
+      Quantity.zero(),
+      Quantity.zero(),
+    );
   }
 
   static fromPrimitives(row: SalesOrderLinePrimitives): SalesOrderLine {
@@ -75,7 +97,9 @@ export class SalesOrderLine {
       UnitPrice.of(row.unitPrice),
       UnitPrice.of(row.listPrice),
       TaxRate.of(row.taxRate),
+      row.movesStock,
       Quantity.of(row.dispatchedQuantity),
+      Quantity.of(row.invoicedQuantity),
     );
   }
 
@@ -93,6 +117,8 @@ export class SalesOrderLine {
       listPrice: this.listPrice.toNumber(),
       taxRate: this.taxRate.toNumber(),
       dispatchedQuantity: this.dispatched.toNumber(),
+      invoicedQuantity: this.invoiced.toNumber(),
+      movesStock: this.movesStock,
     };
   }
 
@@ -114,8 +140,29 @@ export class SalesOrderLine {
     return this.baseQuantity.proportionOf(quantity, this.quantity);
   }
 
+  // Un servicio no sale de la bodega: su linea nace saldada, y asi un pedido que solo vende
+  // servicios no espera para siempre un despacho que nunca va a existir.
   isFullyDispatched(): boolean {
-    return this.dispatched.equals(this.quantity);
+    return !this.movesStock || this.dispatched.equals(this.quantity);
+  }
+
+  invoicedQuantity(): Quantity {
+    return this.invoiced;
+  }
+
+  // Lo que falta por facturar de esta linea, en su unidad.
+  pendingToInvoice(): Quantity {
+    return this.quantity.minus(this.invoiced);
+  }
+
+  invoice(quantity: Quantity): void {
+    if (quantity.isGreaterThan(this.pendingToInvoice())) throw new InvoiceExceedsPendingError(this.id.value);
+
+    this.invoiced = this.invoiced.plus(quantity);
+  }
+
+  uninvoice(quantity: Quantity): void {
+    this.invoiced = this.invoiced.minus(quantity);
   }
 
   subtotalUnits(decimals: number): bigint {

@@ -3,7 +3,6 @@ import {
   InsufficientAvailabilityError,
   SalesItemChangedError,
   SalesItemNotFoundError,
-  ServiceNotSellableError,
 } from '../../errors/sales.errors.js';
 import { ItemRef } from '../../shared/references.vo.js';
 import { SalesOrder } from '../sales-order.entity.js';
@@ -38,7 +37,6 @@ function ensureLinesMatchCatalog(order: SalesOrder, availability: StockAvailabil
 
     if (!item) throw new SalesItemNotFoundError(line.itemId.value);
     if (!item.isActive) throw new InactiveSalesItemError(line.itemId.value);
-    if (item.type === 'service') throw new ServiceNotSellableError(line.itemId.value);
 
     const factor = item.factorOf(line.unitId);
 

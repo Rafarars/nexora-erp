@@ -44,6 +44,7 @@ export interface PurchaseOrderRow extends CurrencyColumns {
     unitCost: Decimalish;
     taxRate: Decimalish;
     receivedQuantity: Decimalish;
+    movesStock: boolean;
   }[];
 }
 
@@ -66,6 +67,7 @@ export function orderFromRow(row: PurchaseOrderRow): PurchaseOrder {
       unitCost: n(line.unitCost),
       taxRate: n(line.taxRate),
       receivedQuantity: n(line.receivedQuantity),
+      movesStock: line.movesStock,
     })),
   });
 }

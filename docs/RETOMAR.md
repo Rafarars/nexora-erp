@@ -29,7 +29,7 @@ un cambio de API o de web no se ve en el navegador ni en la e2e hasta que se eje
 |---|---|
 | Repositorio | github.com/Rafarars/nexora-erp |
 | Reporte de pruebas | https://rafarars.github.io/nexora-erp/ |
-| Pruebas | 2618 + 172 unitarias · 176 de contrato · 371 end-to-end |
+| Pruebas | 2640 + 174 unitarias · 176 de contrato · 374 end-to-end |
 | **H0 — Fundación** | **Completado** |
 | **H1 — Multiempresa y acceso** | **Completado** y revisado |
 | **H2 — Catálogo** | **Completado** ([`H2-CATALOGO.md`](H2-CATALOGO.md)) |
@@ -38,7 +38,7 @@ un cambio de API o de web no se ve en el navegador ni en la e2e hasta que se eje
 | **H5 — Ventas** | **Completado**. Informe en [`H5-VENTAS.md`](H5-VENTAS.md) |
 | **H6 — Cuentas por cobrar** | **Completado**. Informe en [`H6-CUENTAS-POR-COBRAR.md`](H6-CUENTAS-POR-COBRAR.md) |
 | **H7 — Reportes y tablero** | **Completado**. Informe en [`H7-REPORTES.md`](H7-REPORTES.md) |
-| **Revisión módulo por módulo** | **En curso**: Artículos, fases 1 a 5 cerradas. Ver [la sección de abajo](#revisión-módulo-por-módulo) y [`revision/README.md`](revision/README.md) |
+| **Revisión módulo por módulo** | **En curso**: Artículos, fases 1 a 6 cerradas. Ver [la sección de abajo](#revisión-módulo-por-módulo) y [`revision/README.md`](revision/README.md) |
 
 Lo que ya funciona: monorepo con API, frontend y suite E2E; PostgreSQL en Docker;
 endpoint de salud que verifica la base; CI con cuatro trabajos publicando el reporte;
@@ -492,9 +492,11 @@ cliente, el precio mínimo y el precio sugerido en el pedido. Después, la fase 
    bolívar si la lista está en otra moneda y lo redondea a los decimales de la empresa; lo escrito a mano manda, y el
    mínimo del artículo es el piso. Tema y fuentes en
    [`revision/temas/listas-de-precio.md`](revision/temas/listas-de-precio.md).
-2. **Fase 6 · Servicios (H3).** Corregir documentación y pantalla: un servicio se compra y se vende, pero **su línea no
-   cuenta** para el estado de recibido o despachado de su orden, que es la regla del compañero. Hoy la orden de compra y
-   el pedido rechazan servicios (`ServiceNotPurchasableError`, `ServiceNotSellableError`).
+2. **Fase 6 · Servicios.** ✅ Hecha el 18-sep-2026. Un servicio se compra y se vende; su línea copia `moves_stock` y de
+   ahí sale todo: no reserva, no se despacha ni se recibe, y no cuenta para el estado, así que un documento que solo
+   lleva servicios nace saldado. A la factura entra igual que un tornillo: la del despacho arrastra los servicios
+   pendientes del pedido, y un pedido sin mercancía se factura directo. Tema en
+   [`revision/temas/servicios.md`](revision/temas/servicios.md).
 3. **Fase 7 · Cierre de Artículos.** Informe final en `revision/inventario/articulos.md`, checklist en ✅, `make verify`.
 4. **Revisión exhaustiva de todo lo construido** en las fases 1 a 7: reglas de negocio contra el código, el compañero,
    la ley y los ERP; la interfaz a mano; el CI. Como la del 17-sep-2026 (ver

@@ -38,6 +38,7 @@ export function SalesOrdersBoard({
   canConfirm,
   canCancel,
   canDispatch,
+  canInvoice,
 }: {
   orders: SalesOrder[];
   customers: Customer[];
@@ -54,6 +55,7 @@ export function SalesOrdersBoard({
   canConfirm: boolean;
   canCancel: boolean;
   canDispatch: boolean;
+  canInvoice: boolean;
 }) {
   const [editing, setEditing] = useState<SalesOrder | null>(null);
   const [creating, setCreating] = useState(false);
@@ -127,6 +129,8 @@ export function SalesOrdersBoard({
                 confirm: canConfirm && actions.confirm,
                 cancel: canCancel && actions.cancel,
                 dispatch: canDispatch && actions.dispatch,
+                // Un pedido sin mercancia se factura directo: no hay despacho del que nacer.
+                invoice: canInvoice && actions.invoice,
               };
 
               return (
@@ -168,6 +172,15 @@ export function SalesOrdersBoard({
                                 >
                                   Despachar
                                 </MenuButton>
+                              ) : null}
+                              {offered.invoice ? (
+                                <form action={change} onSubmit={close}>
+                                  <input type="hidden" name="id" value={order.id} />
+                                  <input type="hidden" name="extra" value="invoice-order" />
+                                  <MenuButton type="submit" testId={`sales-order-invoice-${order.code}`}>
+                                    Facturar
+                                  </MenuButton>
+                                </form>
                               ) : null}
                               {offered.edit ? (
                                 <MenuButton
@@ -304,8 +317,8 @@ function OrderFields({
   const [customerId, setCustomerId] = useState(order?.customer.id ?? '');
   // Vacio significa "la del cliente, y si no tiene, la de por defecto": el servidor decide igual.
   const [priceListId, setPriceListId] = useState(order?.priceList?.id ?? '');
-  // Solo se vende lo que sale de una bodega.
-  const sellable = items.filter((item) => item.type === 'inventoried');
+  // Tambien los servicios: se venden, aunque no salgan de una bodega.
+  const sellable = items.filter((item) => item.isSellable);
   const initial: LineRow[] = order
     ? order.lines.map((line, index) => ({
         key: index,

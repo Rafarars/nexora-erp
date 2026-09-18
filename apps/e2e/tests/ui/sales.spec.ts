@@ -211,3 +211,31 @@ test('leaves the price to the server when the list is in another currency than t
   // 0,85 USD por la tasa del dolar, entre la del euro.
   await expect(sales.orderOf(customer.name).getByTestId(/sales-order-total-/)).toContainText('EUR');
 });
+
+// Un servicio se vende desde la misma pantalla, y se factura sin pasar por un despacho.
+test('sells a service and invoices it straight from the order', async ({ page, request }) => {
+  const token = await tokenFor(request, ACME_ADMIN.email, API);
+  const customer = await aFreshCustomer(request, token, 15, API);
+  const sales = new SalesPage(page);
+
+  await new LoginPage(page).signIn(ACME_ADMIN);
+  await sales.open('pedidos');
+  await page.getByTestId('new-sales-order').click();
+  await page.getByTestId('sales-order-customer').selectOption({ label: customer.name });
+  await page.getByTestId('sales-order-line-item-0').selectOption({ label: 'SERV-ENTREGA — Servicio de entrega' });
+  await page.getByTestId('sales-order-line-quantity-0').fill('2');
+  await page.getByTestId('sales-order-submit').click();
+
+  const order = sales.orderOf(customer.name);
+  await expect(order).toBeVisible();
+
+  await sales.act(order, 'Confirmar');
+  // Nace despachado: no hay nada que sacar de la bodega.
+  await expect(order.getByTestId(/sales-order-status-/)).toHaveText('Despachado');
+
+  await sales.act(order, 'Facturar');
+
+  // Facturado todo, ya no se ofrece volver a facturarlo: cobrar dos veces el mismo servicio no.
+  await order.getByRole('button', { name: 'Opciones' }).click();
+  await expect(page.getByTestId(/sales-order-invoice-/)).toHaveCount(0);
+});

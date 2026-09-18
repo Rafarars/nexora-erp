@@ -8,16 +8,28 @@ import { visibleSalesSections } from './sales-sections';
 
 const line = (overrides: Partial<OrderLine>): OrderLine => ({
   id: 'l1', lineNumber: 1, itemId: 'water', sku: 'AGUA-500', itemName: 'Agua', unitId: 'box', unitAbbreviation: 'cja',
-  quantity: 10, baseQuantity: 240, unitPrice: 30, listPrice: 30, taxRate: 16, dispatchedQuantity: 0, pendingQuantity: 10, subtotal: 300, ...overrides,
+  quantity: 10, baseQuantity: 240, unitPrice: 30, listPrice: 30, movesStock: true, invoicedQuantity: 0, taxRate: 16, dispatchedQuantity: 0, pendingQuantity: 10, subtotal: 300, ...overrides,
 });
 
 describe('orderActions', () => {
+  const goods = [line({})];
+  const service = [line({ movesStock: false })];
+
   it('offers editing, confirming and cancelling a draft, but not dispatching', () => {
-    expect(orderActions({ status: 'draft' })).toEqual({ edit: true, confirm: true, cancel: true, dispatch: false });
+    expect(orderActions({ status: 'draft', lines: goods })).toEqual({ edit: true, confirm: true, cancel: true, dispatch: false, invoice: false });
   });
 
   it('offers only dispatching the rest of a partially dispatched order', () => {
-    expect(orderActions({ status: 'partially_dispatched' })).toEqual({ edit: false, confirm: false, cancel: false, dispatch: true });
+    expect(orderActions({ status: 'partially_dispatched', lines: goods })).toEqual({ edit: false, confirm: false, cancel: false, dispatch: true, invoice: false });
+  });
+
+  // Un pedido que solo vende servicios no se despacha: se factura directo.
+  it('offers invoicing, not dispatching, an order with only services', () => {
+    expect(orderActions({ status: 'confirmed', lines: service })).toMatchObject({ dispatch: false, invoice: true });
+  });
+
+  it('stops offering to invoice what was already invoiced', () => {
+    expect(orderActions({ status: 'confirmed', lines: [line({ movesStock: false, invoicedQuantity: 10 })] })).toMatchObject({ invoice: false });
   });
 });
 

@@ -59,7 +59,7 @@ export class DispatchSearcher {
         .map((row) => {
           const order = orders.find((candidate) => candidate.id.value === row.orderId);
           const customerId = order?.customerId().value ?? '';
-          const invoice = invoices.find((candidate) => candidate.dispatchId().value === row.id && candidate.currentStatus() === 'issued');
+          const invoice = invoices.find((candidate) => candidate.dispatchId()?.value === row.id && candidate.currentStatus() === 'issued');
 
           return {
             id: row.id,

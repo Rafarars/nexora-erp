@@ -50,6 +50,7 @@ import { INVOICE_POSTING } from '../domain/invoice/posting/invoice-posting.js';
 import type { InvoicePosting } from '../domain/invoice/posting/invoice-posting.js';
 import { SalesOrderFinder } from '../domain/order/find/sales-order-finder.js';
 import { SalesOrderReferences } from '../domain/order/lines/sales-order-references.js';
+import { InvoiceIssuance } from '../domain/invoice/posting/invoice-issuance.js';
 import { PriceListChoice } from '../domain/order/pricing/price-list-choice.js';
 import { SALES_ORDER_POSTING } from '../domain/order/posting/sales-order-posting.js';
 import type { SalesOrderPosting } from '../domain/order/posting/sales-order-posting.js';
@@ -175,6 +176,7 @@ import { PrismaSalesStock } from './persistence/prisma-sales-stock.js';
         new SalesOrderConfirmer(f, x, pl, r, p, s, k, cal, dr),
       inject: [SalesOrderFinder, SalesOrderReferences, PriceListChoice, SALES_ORDER_REPOSITORY, SALES_ORDER_POSTING, StockReservation, CLOCK, BUSINESS_CALENDAR, DOCUMENT_RATES],
     },
+    { provide: InvoiceIssuance, useClass: InvoiceIssuance },
     { provide: PriceListChoice, useFactory: (c: SalesCatalog) => new PriceListChoice(c), inject: [SALES_CATALOG] },
     { provide: SalesOrderCanceller, useFactory: (p: SalesOrderPosting, k: Clock) => new SalesOrderCanceller(p, k), inject: [SALES_ORDER_POSTING, CLOCK] },
     {
@@ -213,9 +215,9 @@ import { PrismaSalesStock } from './persistence/prisma-sales-stock.js';
 
     {
       provide: InvoiceIssuer,
-      useFactory: (d: DispatchFinder, o: SalesOrderFinder, v: InvoiceRepository, p: InvoicePosting, s: SalesCodeSequence, i: IdGenerator, k: Clock, cal: BusinessCalendar, dr: DocumentRates) =>
-        new InvoiceIssuer(d, o, v, p, s, i, k, cal, dr),
-      inject: [DispatchFinder, SalesOrderFinder, INVOICE_REPOSITORY, INVOICE_POSTING, SALES_CODE_SEQUENCE, ID_GENERATOR, CLOCK, BUSINESS_CALENDAR, DOCUMENT_RATES],
+      useFactory: (d: DispatchFinder, o: SalesOrderFinder, v: InvoiceRepository, p: InvoicePosting, u: InvoiceIssuance, s: SalesCodeSequence, i: IdGenerator, k: Clock, cal: BusinessCalendar, dr: DocumentRates) =>
+        new InvoiceIssuer(d, o, v, p, u, s, i, k, cal, dr),
+      inject: [DispatchFinder, SalesOrderFinder, INVOICE_REPOSITORY, INVOICE_POSTING, InvoiceIssuance, SALES_CODE_SEQUENCE, ID_GENERATOR, CLOCK, BUSINESS_CALENDAR, DOCUMENT_RATES],
     },
     { provide: InvoiceCanceller, useFactory: (p: InvoicePosting, k: Clock) => new InvoiceCanceller(p, k), inject: [INVOICE_POSTING, CLOCK] },
     {

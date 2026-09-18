@@ -1,6 +1,6 @@
 import { CustomerId } from '../../customer/customer.entity.js';
 import { Dispatch, DispatchId } from '../../dispatch/dispatch.entity.js';
-import { SalesOrder } from '../../order/sales-order.entity.js';
+import { SalesOrder, SalesOrderId } from '../../order/sales-order.entity.js';
 import { SalesDate } from '../../shared/sales-date.vo.js';
 import { TenantId } from '../../shared/tenant-id.vo.js';
 import { CustomerCredit } from '../credit/customer-credit.js';
@@ -16,12 +16,14 @@ export interface InvoicePosting {
   // Sin bloqueo, para rechazar antes de gastar un numero.
   // `decimals`: los de la empresa, con los que se redondea lo que debe cada factura.
   credit(tenantId: TenantId, customerId: CustomerId, today: SalesDate, decimals: number): Promise<CustomerCredit>;
+  // `origin` es el despacho, o el pedido cuando la factura nace sin despacho porque todo lo que
+  // vende son servicios. El trabajo devuelve la factura y deja el pedido con lo facturado al dia.
   issue(
     tenantId: TenantId,
-    dispatchId: DispatchId,
+    origin: { dispatchId: DispatchId; orderId?: undefined } | { dispatchId?: undefined; orderId: SalesOrderId },
     today: SalesDate,
     decimals: number,
-    work: (dispatch: Dispatch, order: SalesOrder, alreadyInvoiced: boolean, credit: CustomerCredit) => Invoice,
+    work: (dispatch: Dispatch | null, order: SalesOrder, alreadyInvoiced: boolean, credit: CustomerCredit) => Invoice,
   ): Promise<void>;
   cancel(tenantId: TenantId, invoiceId: InvoiceId, work: (invoice: Invoice, paid: number) => void): Promise<void>;
 }

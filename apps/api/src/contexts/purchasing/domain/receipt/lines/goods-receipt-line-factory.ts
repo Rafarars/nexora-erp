@@ -5,6 +5,7 @@ import {
   InactivePurchaseWarehouseError,
   InvalidPurchaseQuantityError,
   PurchaseItemNotFoundError,
+  ServiceNotReceivableError,
   PurchaseOrderNotReceivableError,
   PurchaseWarehouseNotFoundError,
   ReceiptExceedsPendingError,
@@ -49,6 +50,8 @@ export class GoodsReceiptLineFactory {
 
       if (!item) throw new PurchaseItemNotFoundError(orderLine.itemId.value);
       if (!item.isActive) throw new InactivePurchaseItemError(item.id);
+      // Un servicio no entra a la bodega: se paga en la factura del proveedor, no en una entrada.
+      if (!orderLine.movesStock) throw new ServiceNotReceivableError(orderLine.itemId.value);
 
       const quantity = Quantity.of(input.quantity);
       const baseQuantity = orderLine.baseOf(quantity);

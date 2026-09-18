@@ -12,7 +12,6 @@ import {
   SalesWarehouseNotFoundError,
   ItemNotSellableError,
   MissingSalesPriceError,
-  ServiceNotSellableError,
 } from '../../errors/sales.errors.js';
 import { TaxRate, UnitPrice } from '../../shared/money.js';
 import { Quantity } from '../../shared/quantity.vo.js';
@@ -70,7 +69,6 @@ export class SalesOrderReferences {
 
       if (!item) throw new SalesItemNotFoundError(input.itemId);
       if (!item.isActive) throw new InactiveSalesItemError(item.id);
-      if (item.type === 'service') throw new ServiceNotSellableError(item.id);
       if (!item.isSellable) throw new ItemNotSellableError(item.id);
 
       const unitId = UnitRef.of(input.unitId);
@@ -101,6 +99,8 @@ export class SalesOrderReferences {
         unitPrice,
         listPrice: listPrice ?? unitPrice,
         taxRate: TaxRate.of(item.taxRate),
+        // Un servicio se vende, pero no sale de la bodega: su linea no espera ningun despacho.
+        movesStock: item.type !== 'service',
       });
     });
   }

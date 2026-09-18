@@ -223,17 +223,21 @@ export class InMemorySalesStore {
   get invoicePosting(): InvoicePosting {
     return {
       credit: (tenantId, customerId, today, decimals) => this.credit(tenantId, customerId.value, today.value, decimals),
-      issue: (tenantId, dispatchId, today, decimals, work) =>
+      issue: (tenantId, origin, today, decimals, work) =>
         this.serial(async () => {
-          const dispatch = this.loadDispatch(tenantId, dispatchId.value);
+          // Con despacho se lee el y su pedido; sin el, el pedido directamente.
+          const dispatch = origin.dispatchId ? this.loadDispatch(tenantId, origin.dispatchId.value) : null;
 
-          if (!dispatch) throw new DispatchNotFoundError(dispatchId.value);
+          if (origin.dispatchId && !dispatch) throw new DispatchNotFoundError(origin.dispatchId.value);
 
-          const order = this.loadOrder(tenantId, dispatch.orderId.value) as SalesOrder;
+          const orderId = dispatch ? dispatch.orderId.value : origin.orderId!.value;
+          const order = this.loadOrder(tenantId, orderId) as SalesOrder;
           const credit = await this.credit(tenantId, order.customerId().value, today.value, decimals);
-          const invoice = work(dispatch, order, this.invoiced(tenantId.value, dispatch.id.value), credit);
+          const invoice = work(dispatch, order, dispatch ? this.invoiced(tenantId.value, dispatch.id.value) : false, credit);
 
           this.invoiceRows.set(invoice.id.value, invoice.toPrimitives());
+          // Emitir consume saldo del pedido, como en la base.
+          this.orderRows.set(order.id.value, order.toPrimitives());
         }),
       cancel: (tenantId, invoiceId, work) =>
         this.serial(async () => {

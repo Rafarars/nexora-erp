@@ -288,7 +288,7 @@ function OrderFields({
 }) {
   const [currency, setCurrency] = useState(order?.currency ?? baseCurrency);
   // Solo se compra lo que entra a una bodega.
-  const purchasable = items.filter((item) => item.type === 'inventoried');
+  const purchasable = items.filter((item) => item.isPurchasable);
   const initial: LineRow[] = order
     ? order.lines.map((line, index) => ({
         key: index,

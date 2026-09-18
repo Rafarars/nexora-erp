@@ -186,14 +186,54 @@ export class SalesOrder {
 
   // Lo que el pedido reserva por articulo, en unidad base. Un borrador aun no reserva nada, pero
   // al confirmarse reservara esto.
+  // Solo reserva lo que sale de la bodega: un servicio no ocupa existencia de nadie.
   reservedByItem(): Map<string, Quantity> {
     const reserved = new Map<string, Quantity>();
 
     for (const line of this.details.lines) {
+      if (!line.movesStock) continue;
+
       reserved.set(line.itemId.value, (reserved.get(line.itemId.value) ?? Quantity.zero()).plus(line.pendingBase()));
     }
 
     return reserved;
+  }
+
+  // Que factura un despacho: lo que salio en el, y ademas los servicios del pedido que aun no se
+  // cobraron. Un servicio no sale nunca en un despacho, asi que sin esto no se facturaria jamas.
+  // Sin despacho —un pedido que solo vende servicios— se factura todo lo que queda pendiente.
+  linesToInvoice(dispatched: { orderLineId: SalesOrderLineId; quantity: Quantity }[] | null): { line: SalesOrderLine; quantity: Quantity }[] {
+    if (!dispatched) {
+      return this.details.lines.filter((line) => !line.pendingToInvoice().isZero()).map((line) => ({ line, quantity: line.pendingToInvoice() }));
+    }
+
+    const services = this.details.lines
+      .filter((line) => !line.movesStock && !line.pendingToInvoice().isZero())
+      .map((line) => ({ line, quantity: line.pendingToInvoice() }));
+
+    return [...dispatched.map(({ orderLineId, quantity }) => ({ line: this.line(orderLineId), quantity })), ...services];
+  }
+
+  // Una copia para la validacion previa: comprobar si la factura sale no debe dejar el pedido con
+  // lo facturado ya sumado.
+  copy(): SalesOrder {
+    return SalesOrder.fromPrimitives(this.toPrimitives());
+  }
+
+  movesStock(): boolean {
+    return this.details.lines.some((line) => line.movesStock);
+  }
+
+  invoiceLines(invoiced: { orderLineId: SalesOrderLineId; quantity: Quantity }[], now: Date): void {
+    for (const { orderLineId, quantity } of invoiced) this.line(orderLineId).invoice(quantity);
+
+    this.updatedAt = now;
+  }
+
+  uninvoiceLines(invoiced: { orderLineId: SalesOrderLineId; quantity: Quantity }[], now: Date): void {
+    for (const { orderLineId, quantity } of invoiced) this.line(orderLineId).uninvoice(quantity);
+
+    this.updatedAt = now;
   }
 
   update(details: SalesOrderDetails, now: Date, today: string): void {
@@ -207,9 +247,10 @@ export class SalesOrder {
   confirm(now: Date): void {
     if (this.status !== 'draft') throw new SalesOrderNotConfirmableError(this.id.value, this.status);
 
-    this.status = 'confirmed';
     this.confirmedAt = now;
-    this.updatedAt = now;
+    this.status = 'confirmed';
+    // Un pedido que solo vende servicios nace despachado: no hay nada que sacar de la bodega.
+    this.recomputeStatus(now);
   }
 
   cancel(now: Date): void {

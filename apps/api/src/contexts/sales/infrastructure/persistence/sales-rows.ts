@@ -42,6 +42,8 @@ export interface SalesOrderRow {
     listPrice: Decimalish;
     taxRate: Decimalish;
     dispatchedQuantity: Decimalish;
+    invoicedQuantity: Decimalish;
+    movesStock: boolean;
   }[];
 }
 
@@ -62,6 +64,8 @@ export function orderFromRow(row: SalesOrderRow): SalesOrder {
       quantity: n(line.quantity),
       baseQuantity: n(line.baseQuantity),
       listPrice: n(line.listPrice),
+      invoicedQuantity: n(line.invoicedQuantity),
+      movesStock: line.movesStock,
       unitPrice: n(line.unitPrice),
       taxRate: n(line.taxRate),
       dispatchedQuantity: n(line.dispatchedQuantity),
@@ -107,7 +111,7 @@ export interface InvoiceRow {
   id: string;
   tenantId: string;
   code: string;
-  dispatchId: string;
+  dispatchId: string | null;
   orderId: string;
   customerId: string;
   issueDate: Date;

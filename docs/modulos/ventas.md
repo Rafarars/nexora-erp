@@ -60,7 +60,9 @@ defecto de la empresa. El tipo de cliente no interviene, como tampoco en el ERP 
 | `warehouse_id` | Bodega de salida, de la empresa y **activa** |
 | `order_date` | Por defecto hoy; **no futura** |
 | `price_list_id` | Opcional. Con qué lista se cotizó; puede no ser la del cliente |
-| Línea: `item_id`, `unit_id` | Artículo **activo e inventariado**; unidad **del artículo** |
+| Línea: `item_id`, `unit_id` | Artículo **activo y que se venda**; unidad **del artículo**. Puede ser un servicio |
+| Línea: `moves_stock` | Copiado del artículo al escribir la línea: falso en un servicio. De él dependen la reserva, el despacho y el estado |
+| Línea: `invoiced_quantity` | Lo que ya se facturó de la línea. **No mide lo mismo que lo despachado** |
 | Línea: `quantity`, `base_quantity` | Mayor que cero; base con el factor de hoy al guardar. Si la caja cambia antes de confirmar, el pedido no se confirma hasta revisarlo y guardarlo (`SalesItemChangedError`) |
 | Línea: `unit_price` | Cero o más, por unidad de la línea, **sin impuesto**, con como mucho los decimales de precio de la empresa (`PriceDecimalsExceededError`). **Si no se escribe, lo pone la lista** |
 | Línea: `list_price` | Lo que sugirió la lista, en la moneda del pedido. Distinto de `unit_price` significa que se pactó otro precio a mano |
@@ -161,11 +163,39 @@ compañero lo resuelve solo en el navegador y su backend acepta lo que reciba.
 editar el pedido, no confirmarlo. Y la factura cobra al precio del pedido, así que hereda la lista sin
 tocar nada.
 
-### 2.5 Moneda y tasas
+### 2.5 Servicios
+
+Un servicio se vende como cualquier artículo, pero **no sale de una bodega**. De ahí sale todo lo
+demás, igual que en el ERP del compañero, donde la misma idea vive en una sola función
+(`Item::movesStock()`):
+
+- **No reserva existencia** al confirmar el pedido: no ocupa nada de nadie.
+- **No se puede despachar** (`ServiceNotDispatchableError`). La pantalla ni lo ofrece.
+- **No cuenta para el estado de despacho.** Su línea nace saldada, así que un pedido que solo vende
+  servicios **nace despachado** y uno mixto queda despachado en cuanto sale toda la mercancía. Sin
+  esta regla el pedido no cerraría jamás: es el defecto que ERPNext tiene
+  [documentado en su repositorio](https://github.com/frappe/erpnext/issues/59071).
+- **Sí se factura**, igual que un tornillo. Por eso la línea lleva dos cuentas que no miden lo
+  mismo: lo despachado, solo sobre lo que mueve existencia; lo facturado, sobre todas las líneas.
+
+**Por dónde entra un servicio a la factura**, que es la pregunta que abre nuestro diseño (la factura
+nace de un despacho, y un servicio no se despacha):
+
+| Caso | Qué pasa |
+|---|---|
+| Pedido con mercancía y servicios | Se factura el despacho, y la factura **arrastra los servicios del pedido que aún no se cobraron** |
+| Pedido de solo servicios | Se factura **desde el pedido**, sin despacho (`POST /invoices` con `orderId`) |
+| Pedido con mercancía, sin despacho | Se rechaza (`OrderNotDirectlyInvoiceableError`): lo que salió lo dice el despacho |
+| Nada pendiente de facturar | Se rechaza (`NothingToInvoiceError`) |
+
+Emitir **consume saldo del pedido**: sube `invoiced_quantity` en cada línea que entró. Sin esa
+cuenta, un servicio se cobraría una vez por cada despacho del pedido.
+
+### 2.6 Moneda y tasas
 
 El pedido lleva `currency`, `exchange_rate`, `base_currency`, `base_exchange_rate` y
 `manual_exchange_rate` con las **mismas reglas que la orden de compra**
-([compras.md §2.4](compras.md#24-moneda-y-tasas)): la moneda la elige quien captura (por defecto, la
+([compras.md §2.5](compras.md#25-moneda-y-tasas)): la moneda la elige quien captura (por defecto, la
 de la empresa); el borrador refresca las tasas del día del pedido o la última anterior; confirmar las
 congela; una tasa escrita a mano se conserva si la empresa lo permite. Sin tasa, no se guarda
 (`MissingExchangeRateError`, 409).

@@ -3,7 +3,6 @@ import {
   InactivePurchaseItemError,
   PurchaseItemChangedError,
   PurchaseItemNotFoundError,
-  ServiceNotPurchasableError,
 } from '../../errors/purchasing.errors.js';
 import { BOX, aDraftOrder } from '../../testing/purchasing.mother.js';
 import { ensureOrderMatchesCatalog } from './ordered-items-check.js';
@@ -31,9 +30,13 @@ describe('ensureOrderMatchesCatalog', () => {
     expect(() => ensureOrderMatchesCatalog(aDraftOrder(), itemsLike({ boxFactor: null }))).toThrow(PurchaseItemChangedError);
   });
 
-  it('refuses an item that was deactivated, became a service or no longer exists', () => {
+  it('refuses an item that was deactivated or no longer exists', () => {
     expect(() => ensureOrderMatchesCatalog(aDraftOrder(), itemsLike({ isActive: false }))).toThrow(InactivePurchaseItemError);
-    expect(() => ensureOrderMatchesCatalog(aDraftOrder(), itemsLike({ type: 'service' }))).toThrow(ServiceNotPurchasableError);
     expect(() => ensureOrderMatchesCatalog(aDraftOrder(), { item: () => null })).toThrow(PurchaseItemNotFoundError);
+  });
+
+  // Un servicio se compra: lo que no hace es entrar a la bodega, y de eso se ocupa la linea.
+  it('accepts an item that became a service', () => {
+    expect(() => ensureOrderMatchesCatalog(aDraftOrder(), itemsLike({ type: 'service' }))).not.toThrow();
   });
 });

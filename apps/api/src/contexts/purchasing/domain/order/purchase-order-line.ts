@@ -24,6 +24,9 @@ export interface PurchaseOrderLinePrimitives {
   unitCost: number;
   taxRate: number;
   receivedQuantity: number;
+  // Si la linea entra a una bodega. Un servicio no: se copia al escribir la linea, como el SKU,
+  // para que el documento no cambie de sentido si el articulo cambia despues.
+  movesStock: boolean;
 }
 
 // Una linea ya validada contra el catalogo. Lo recibido se lleva en la unidad de la linea,
@@ -40,6 +43,7 @@ export class PurchaseOrderLine {
     readonly baseQuantity: Quantity,
     readonly unitCost: UnitCost,
     readonly taxRate: TaxRate,
+    readonly movesStock: boolean,
     private received: Quantity,
   ) {}
 
@@ -54,6 +58,7 @@ export class PurchaseOrderLine {
     baseQuantity: Quantity;
     unitCost: UnitCost;
     taxRate: TaxRate;
+    movesStock?: boolean;
   }): PurchaseOrderLine {
     return new PurchaseOrderLine(
       fields.id,
@@ -66,6 +71,7 @@ export class PurchaseOrderLine {
       fields.baseQuantity,
       fields.unitCost,
       fields.taxRate,
+      fields.movesStock ?? true,
       Quantity.zero(),
     );
   }
@@ -82,6 +88,7 @@ export class PurchaseOrderLine {
       Quantity.of(row.baseQuantity),
       UnitCost.of(row.unitCost),
       TaxRate.of(row.taxRate),
+      row.movesStock,
       Quantity.of(row.receivedQuantity),
     );
   }
@@ -99,6 +106,7 @@ export class PurchaseOrderLine {
       unitCost: this.unitCost.toNumber(),
       taxRate: this.taxRate.toNumber(),
       receivedQuantity: this.received.toNumber(),
+      movesStock: this.movesStock,
     };
   }
 
@@ -121,8 +129,10 @@ export class PurchaseOrderLine {
     return this.baseQuantity.proportionOf(quantity, this.quantity);
   }
 
+  // Un servicio no entra a la bodega: su linea nace saldada, y asi una orden que solo pide
+  // servicios no queda esperando para siempre una entrada que nunca va a existir.
   isFullyReceived(): boolean {
-    return this.received.equals(this.quantity);
+    return !this.movesStock || this.received.equals(this.quantity);
   }
 
   subtotalUnits(decimals: number): bigint {

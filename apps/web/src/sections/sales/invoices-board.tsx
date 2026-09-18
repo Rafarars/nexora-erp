@@ -48,7 +48,8 @@ export function InvoicesBoard({ invoices, canCancel }: { invoices: Invoice[]; ca
                 </td>
                 <td className="px-4 py-3">{invoice.customer.name}</td>
                 <td className="px-4 py-3">
-                  <p className="font-mono text-xs">{invoice.dispatch.code}</p>
+                  {/* Una factura de puros servicios no nace de un despacho. */}
+                  <p className="font-mono text-xs">{invoice.dispatch?.code ?? '—'}</p>
                   <p className="text-muted font-mono text-xs">{invoice.order.code}</p>
                 </td>
                 <td className="px-4 py-3 text-xs">

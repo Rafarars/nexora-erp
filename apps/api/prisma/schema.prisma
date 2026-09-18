@@ -721,6 +721,8 @@ model PurchaseOrderLine {
   unitCost         Decimal @map("unit_cost") @db.Decimal(18, 6)
   taxRate          Decimal @default(0) @map("tax_rate") @db.Decimal(7, 4)
   receivedQuantity Decimal @default(0) @map("received_quantity") @db.Decimal(18, 4)
+  /// Si la linea entra a una bodega. Un servicio no: se copia al escribirla, como el SKU.
+  movesStock       Boolean @default(true) @map("moves_stock")
 
   tenant       Tenant             @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   order        PurchaseOrder      @relation(fields: [tenantId, orderId], references: [tenantId, id], onDelete: Cascade)
@@ -910,6 +912,10 @@ model SalesOrderLine {
   listPrice          Decimal @default(0) @map("list_price") @db.Decimal(18, 6)
   taxRate            Decimal @default(0) @map("tax_rate") @db.Decimal(7, 4)
   dispatchedQuantity Decimal @default(0) @map("dispatched_quantity") @db.Decimal(18, 4)
+  /// Lo facturado no mide lo mismo que lo despachado: un servicio se factura y nunca se despacha.
+  invoicedQuantity   Decimal @default(0) @map("invoiced_quantity") @db.Decimal(18, 4)
+  /// Si la linea sale de una bodega. Un servicio no.
+  movesStock         Boolean @default(true) @map("moves_stock")
 
   tenant        Tenant          @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   order         SalesOrder      @relation(fields: [tenantId, orderId], references: [tenantId, id], onDelete: Cascade)
@@ -997,7 +1003,8 @@ model Invoice {
   id                 String        @id @db.Uuid
   tenantId           String        @map("tenant_id") @db.Uuid
   code               String        @db.VarChar(12)
-  dispatchId         String        @map("dispatch_id") @db.Uuid
+  /// Nula cuando el pedido solo vende servicios: no hay despacho del que nacer.
+  dispatchId         String?       @map("dispatch_id") @db.Uuid
   orderId            String        @map("order_id") @db.Uuid
   customerId         String        @map("customer_id") @db.Uuid
   issueDate          DateTime      @map("issue_date") @db.Date
@@ -1022,7 +1029,7 @@ model Invoice {
   tenant           Tenant              @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   currencyInfo     Currency            @relation("InvoiceCurrency", fields: [currency], references: [code], onDelete: Restrict)
   baseCurrencyInfo Currency            @relation("InvoiceBaseCurrency", fields: [baseCurrency], references: [code], onDelete: Restrict)
-  dispatch         Dispatch            @relation(fields: [tenantId, dispatchId], references: [tenantId, id], onDelete: Restrict)
+  dispatch         Dispatch?           @relation(fields: [tenantId, dispatchId], references: [tenantId, id], onDelete: Restrict)
   order            SalesOrder          @relation(fields: [tenantId, orderId], references: [tenantId, id], onDelete: Restrict)
   customer         Customer            @relation(fields: [tenantId, customerId], references: [tenantId, id], onDelete: Restrict)
   lines            InvoiceLine[]

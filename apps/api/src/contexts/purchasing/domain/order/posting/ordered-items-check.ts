@@ -2,7 +2,6 @@ import {
   InactivePurchaseItemError,
   PurchaseItemChangedError,
   PurchaseItemNotFoundError,
-  ServiceNotPurchasableError,
 } from '../../errors/purchasing.errors.js';
 import { PurchaseOrder } from '../purchase-order.entity.js';
 import { OrderedItems } from './purchase-order-posting.js';
@@ -16,7 +15,6 @@ export function ensureOrderMatchesCatalog(order: PurchaseOrder, items: OrderedIt
 
     if (!item) throw new PurchaseItemNotFoundError(line.itemId.value);
     if (!item.isActive) throw new InactivePurchaseItemError(line.itemId.value);
-    if (item.type === 'service') throw new ServiceNotPurchasableError(line.itemId.value);
 
     const factor = item.factorOf(line.unitId);
 

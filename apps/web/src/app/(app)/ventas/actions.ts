@@ -85,6 +85,11 @@ export async function changeOrder(_state: FormState, form: FormData): Promise<Fo
 
   if (form.get('extra') === 'confirm') return attempt('No se pudo confirmar el pedido.', (token) => salesApi().confirmOrder(token, id));
 
+  // Un pedido que solo vende servicios se factura sin pasar por un despacho.
+  if (form.get('extra') === 'invoice-order') {
+    return attempt('No se pudo emitir la factura.', (token) => salesApi().issueInvoice(token, { orderId: id }));
+  }
+
   return attempt('No se pudo anular el pedido.', (token) => salesApi().cancelOrder(token, id));
 }
 
@@ -112,7 +117,7 @@ export async function changeDispatch(_state: FormState, form: FormData): Promise
   const extra = form.get('extra');
 
   if (extra === 'confirm') return attempt('No se pudo confirmar el despacho.', (token) => salesApi().confirmDispatch(token, id));
-  if (extra === 'invoice') return attempt('No se pudo emitir la factura.', (token) => salesApi().issueInvoice(token, id));
+  if (extra === 'invoice') return attempt('No se pudo emitir la factura.', (token) => salesApi().issueInvoice(token, { dispatchId: id }));
 
   return attempt('No se pudo anular el despacho.', (token) => salesApi().cancelDispatch(token, id));
 }

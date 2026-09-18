@@ -233,4 +233,58 @@ test.describe('currency and exchange rates of sales', () => {
 
     expect(found.lines[0].unitPrice).toBeCloseTo(inBolivars / found.exchangeRate, 6);
   });
+
+  // Un servicio se vende pero no sale de una bodega: ni reserva, ni se despacha, ni deja el pedido
+  // abierto. A la factura entra igual que un tornillo.
+  test('an order of only services is born dispatched and is invoiced without a dispatch', async ({ request }) => {
+    const token = await tokenFor(request, 'ana@acme.com');
+    const customer = await aFreshCustomer(request, token);
+    const order = await aDraftSalesOrder(request, token, {
+      customerId: customer.id,
+      lines: [{ itemId: ACME_INVENTORY.serviceItem, unitId: piece, quantity: 2 }],
+    });
+
+    expect((await put(request, token, `${SALES_ORDERS}/${order.id}/confirm`)).status()).toBe(200);
+    expect((await find(request, token, SALES_ORDERS, 'orders', order.id)).status).toBe('dispatched');
+
+    const issued = await request.post(INVOICES, { headers: auth(token), data: { orderId: order.id } });
+    expect(issued.status()).toBe(201);
+
+    const { invoices } = await (await request.get(INVOICES, { headers: auth(token) })).json();
+    const invoice = invoices.find((row: { order: { id: string } }) => row.order.id === order.id);
+
+    expect(invoice.dispatch).toBeNull();
+    expect(invoice.lines).toHaveLength(1);
+  });
+
+  test('the invoice of a dispatch also charges the services of its order', async ({ request }) => {
+    const token = await tokenFor(request, 'ana@acme.com');
+    const [customer, item] = await Promise.all([aFreshCustomer(request, token), aStockedItem(request, token, 20)]);
+    const order = await aDraftSalesOrder(request, token, {
+      customerId: customer.id,
+      lines: [
+        { itemId: item.id, unitId: piece, quantity: 10, unitPrice: 1 },
+        { itemId: ACME_INVENTORY.serviceItem, unitId: piece, quantity: 1, unitPrice: 25 },
+      ],
+    });
+
+    expect((await put(request, token, `${SALES_ORDERS}/${order.id}/confirm`)).status()).toBe(200);
+
+    const confirmed = await find(request, token, SALES_ORDERS, 'orders', order.id);
+    const goods = confirmed.lines.find((line: { movesStock: boolean }) => line.movesStock);
+    const dispatch = await aDraftDispatch(request, token, order.id, [{ orderLineId: goods.id, quantity: 10 }]);
+
+    // El despacho solo lleva la mercancia.
+    expect(dispatch.lines).toHaveLength(1);
+    expect((await put(request, token, `${DISPATCHES}/${dispatch.id}/confirm`)).status()).toBe(200);
+    expect((await request.post(INVOICES, { headers: auth(token), data: { dispatchId: dispatch.id } })).status()).toBe(201);
+
+    const { invoices } = await (await request.get(INVOICES, { headers: auth(token) })).json();
+    const invoice = invoices.find((row: { dispatch: { id: string } | null }) => row.dispatch?.id === dispatch.id);
+
+    // La factura arrastra el servicio: si no, no se cobraria nunca.
+    expect(invoice.lines).toHaveLength(2);
+    // Y el pedido queda despachado del todo: el servicio no lo deja abierto.
+    expect((await find(request, token, SALES_ORDERS, 'orders', order.id)).status).toBe('dispatched');
+  });
 });

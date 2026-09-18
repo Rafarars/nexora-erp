@@ -250,3 +250,10 @@ export class ReceivedGoodsAlreadyUsedError extends ConflictError {
     );
   }
 }
+
+// Un servicio no entra a una bodega: se paga con la factura del proveedor, no con una entrada.
+export class ServiceNotReceivableError extends InvalidArgumentError {
+  constructor(itemId: string) {
+    super(`Item <${itemId}> is a service and cannot be received.`, 'A service is not received into a warehouse.');
+  }
+}

@@ -49,7 +49,7 @@ La categoría, el impuesto y las unidades siguen en el [catálogo](catalogo.md) 
 | `barcode` | texto(60) | Opcional, **único por empresa**. Se guarda en mayúsculas, con las mismas letras y signos que el SKU |
 | `name` | texto(200) | Obligatorio |
 | `description` | texto(1000) | Opcional |
-| `type` | `inventoried` \| `service` | Inventariado tiene existencia; servicio se compra y vende pero nunca tiene stock |
+| `type` | `inventoried` \| `service` | Inventariado tiene existencia; **un servicio se compra y se vende pero nunca tiene stock**: su línea no se recibe ni se despacha, y no deja el documento abierto ([ventas.md §2.5](ventas.md#25-servicios)) |
 | `is_purchasable` | sí/no | Por defecto sí. En **no**, una orden de compra lo rechaza (`ItemNotPurchasableError`) |
 | `is_sellable` | sí/no | Por defecto sí. En **no**, un pedido de venta lo rechaza (`ItemNotSellableError`) |
 | `category_id` | categoría | Opcional |

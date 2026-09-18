@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { InactiveSalesItemError, SalesItemChangedError, ServiceNotSellableError } from '../../errors/sales.errors.js';
+import { InactiveSalesItemError, SalesItemChangedError } from '../../errors/sales.errors.js';
 import { NOW, WATER, aDraftOrder, anAvailability } from '../../testing/sales.mother.js';
 import { StockReservation } from './stock-reservation.js';
 
@@ -15,13 +15,15 @@ describe('StockReservation against the item as it is when locked', () => {
     expect(order.currentStatus()).toBe('draft');
   });
 
-  it('refuses an item that was deactivated or became a service', () => {
+  it('refuses an item that was deactivated', () => {
     expect(() => new StockReservation().confirm(aDraftOrder(), anAvailability(plenty, {}, { isActive: false }), NOW)).toThrow(
       InactiveSalesItemError,
     );
-    expect(() => new StockReservation().confirm(aDraftOrder(), anAvailability(plenty, {}, { type: 'service' }), NOW)).toThrow(
-      ServiceNotSellableError,
-    );
+  });
+
+  // Un servicio se vende: lo que no hace es salir de la bodega, y de eso se ocupa la linea.
+  it('accepts an item that became a service', () => {
+    expect(() => new StockReservation().confirm(aDraftOrder(), anAvailability(plenty, {}, { type: 'service' }), NOW)).not.toThrow();
   });
 
   it('reserves when the item is still as the order saw it', () => {

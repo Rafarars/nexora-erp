@@ -1,5 +1,12 @@
 import { Uuid } from '../../../../shared/domain/uuid.vo.js';
-import { DispatchAlreadyInvoicedError, DispatchNotInvoiceableError, InvoiceAlreadyCancelledError, InvoiceWithPaymentsError } from '../errors/sales.errors.js';
+import {
+  DispatchAlreadyInvoicedError,
+  DispatchNotInvoiceableError,
+  InvoiceAlreadyCancelledError,
+  InvoiceWithPaymentsError,
+  NothingToInvoiceError,
+  OrderNotDirectlyInvoiceableError,
+} from '../errors/sales.errors.js';
 import { CustomerId } from '../customer/customer.entity.js';
 import { CustomerCredit, ensureCreditAllows } from './credit/customer-credit.js';
 import { Dispatch, DispatchId } from '../dispatch/dispatch.entity.js';
@@ -39,7 +46,8 @@ export interface InvoicePrimitives extends DocumentCurrencyPrimitives {
   id: string;
   tenantId: string;
   code: string;
-  dispatchId: string;
+  // Nulo cuando el pedido solo vende servicios: no hay despacho del que nacer.
+  dispatchId: string | null;
   orderId: string;
   customerId: string;
   issueDate: string;
@@ -59,7 +67,8 @@ export interface InvoicePrimitives extends DocumentCurrencyPrimitives {
 }
 
 export interface InvoiceIssue {
-  dispatch: Dispatch;
+  // Sin despacho cuando el pedido solo vende servicios.
+  dispatch: Dispatch | null;
   order: SalesOrder;
   // Si el despacho ya tiene una factura emitida, leido con el despacho bloqueado.
   alreadyInvoiced: boolean;
@@ -82,24 +91,34 @@ export class Invoice {
   static issue(id: InvoiceId, tenantId: TenantId, code: string, issue: InvoiceIssue, now: Date, today: string): Invoice {
     const { dispatch, order } = issue;
 
-    if (dispatch.currentStatus() !== 'confirmed') throw new DispatchNotInvoiceableError(dispatch.id.value, dispatch.currentStatus());
-    if (issue.alreadyInvoiced) throw new DispatchAlreadyInvoicedError(dispatch.id.value);
+    if (dispatch) {
+      if (dispatch.currentStatus() !== 'confirmed') throw new DispatchNotInvoiceableError(dispatch.id.value, dispatch.currentStatus());
+      if (issue.alreadyInvoiced) throw new DispatchAlreadyInvoicedError(dispatch.id.value);
+    } else {
+      // Sin despacho solo se factura un pedido que no saca nada de la bodega.
+      if (order.movesStock()) throw new OrderNotDirectlyInvoiceableError(order.id.value);
+    }
 
     issue.date.ensureNotAfter(today);
 
     const decimals = issue.amountDecimals;
-    const lines = dispatch.lines().map((line, index) => {
-      const orderLine = order.line(line.orderLineId);
-      const subtotal = lineSubtotalUnits(line.quantity, orderLine.unitPrice, decimals);
+
+    const invoiced = order.linesToInvoice(dispatch ? dispatch.lines().map((line) => ({ orderLineId: line.orderLineId, quantity: line.quantity })) : null);
+
+    if (invoiced.length === 0) throw new NothingToInvoiceError(order.id.value);
+
+    const lines = invoiced.map(({ line: orderLine, quantity }, index) => {
+      const subtotal = lineSubtotalUnits(quantity, orderLine.unitPrice, decimals);
 
       return {
         id: issue.lineIds(),
         lineNumber: index + 1,
-        itemId: line.itemId.value,
-        itemSku: line.itemSku,
-        itemName: line.itemName,
-        unitId: line.unitId.value,
-        quantity: line.quantity.toNumber(),
+        itemId: orderLine.itemId.value,
+        // El SKU y el nombre con que se escribio la linea del pedido.
+        itemSku: orderLine.itemSku,
+        itemName: orderLine.itemName,
+        unitId: orderLine.unitId.value,
+        quantity: quantity.toNumber(),
         unitPrice: orderLine.unitPrice.toNumber(),
         taxRate: orderLine.taxRate.toNumber(),
         subtotalUnits: subtotal,
@@ -121,7 +140,7 @@ export class Invoice {
       id: id.value,
       tenantId: tenantId.value,
       code,
-      dispatchId: dispatch.id.value,
+      dispatchId: dispatch?.id.value ?? null,
       orderId: order.id.value,
       customerId: order.customerId().value,
       issueDate: issue.date.value,
@@ -158,8 +177,8 @@ export class Invoice {
     return InvoiceId.of(this.row.id);
   }
 
-  dispatchId(): DispatchId {
-    return DispatchId.of(this.row.dispatchId);
+  dispatchId(): DispatchId | null {
+    return this.row.dispatchId === null ? null : DispatchId.of(this.row.dispatchId);
   }
 
   orderId(): SalesOrderId {

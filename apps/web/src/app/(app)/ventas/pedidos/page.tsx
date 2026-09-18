@@ -51,6 +51,7 @@ export default async function SalesOrdersPage() {
       canConfirm={can(session, 'sales.orders.confirm')}
       canCancel={can(session, 'sales.orders.cancel')}
       canDispatch={can(session, 'sales.dispatches.create')}
+      canInvoice={can(session, 'sales.invoices.create')}
     />
   );
 }

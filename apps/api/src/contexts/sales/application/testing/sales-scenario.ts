@@ -11,6 +11,7 @@ import { DispatchConfirmation } from '../../domain/dispatch/posting/dispatch-con
 import { SalesOrderFinder } from '../../domain/order/find/sales-order-finder.js';
 import { PriceListChoice } from '../../domain/order/pricing/price-list-choice.js';
 import { SalesOrderReferences } from '../../domain/order/lines/sales-order-references.js';
+import { InvoiceIssuance } from '../../domain/invoice/posting/invoice-issuance.js';
 import { StockReservation } from '../../domain/order/posting/stock-reservation.js';
 import { NOW, salesPriceLists, salesWarehouses, sellableItems } from '../../domain/testing/sales.mother.js';
 import { InMemoryCustomerRepository } from '../../infrastructure/testing/in-memory-customer.repository.js';
@@ -76,7 +77,7 @@ export function aSalesScenario() {
     confirmDispatch: new DispatchConfirmer(dispatchFinder, orderFinder, dispatchLines, store.dispatches, store.dispatchPosting, new DispatchConfirmation(), clock, calendar),
     cancelDispatch: new DispatchCanceller(store.dispatchPosting, new DispatchCancellation(), clock),
     searchDispatches: new DispatchSearcher(store.dispatches, store.orders, store.invoices, customers, catalog),
-    issueInvoice: new InvoiceIssuer(dispatchFinder, orderFinder, store.invoices, store.invoicePosting, codes, ids, clock, calendar, rates),
+    issueInvoice: new InvoiceIssuer(dispatchFinder, orderFinder, store.invoices, store.invoicePosting, new InvoiceIssuance(), codes, ids, clock, calendar, rates),
     cancelInvoice: new InvoiceCanceller(store.invoicePosting, clock),
     searchInvoices: new InvoiceSearcher(store.invoices, store.dispatches, store.orders, customers, catalog),
     searchAvailability: new AvailabilitySearcher(store.salesStock, store.orders, catalog),

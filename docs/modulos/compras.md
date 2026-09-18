@@ -138,7 +138,21 @@ Ejemplo: 10 cajas a 12 con 16 % y 5 kg a 3,20 exento → subtotal 136,00, impues
 - Anular una orden con entradas en borrador es posible: esas entradas ya no se podrán confirmar,
   solo anular.
 
-### 2.4 Moneda y tasas
+### 2.4 Servicios
+
+Un servicio se compra —un flete, una instalación— pero **no entra a una bodega**, y la regla es la
+misma que en ventas ([ventas.md §2.5](ventas.md#25-servicios)):
+
+- La línea copia `moves_stock` del artículo al escribirse: falso en un servicio.
+- **No se puede recibir** (`ServiceNotReceivableError`); la entrada de mercancía ni lo ofrece.
+- **No cuenta para el estado de recibido.** Una orden que solo pide servicios **nace recibida**: no
+  hay nada que esperar. Una orden mixta queda recibida en cuanto llega toda la mercancía.
+
+En el ERP del compañero es idéntico: «Una orden que solo pide servicios nace con
+`received_percent = 100`: no hay nada que esperar»
+([compras.md](https://github.com/verlumyx/erp/blob/main/docs/compras.md)).
+
+### 2.5 Moneda y tasas
 
 La orden guarda su moneda y **las dos tasas que congela**: la de su moneda y la de la moneda de la empresa, ambas en
 bolívares por unidad. Con los dos pares se reexpresa en bolívares y en la moneda de la empresa aunque esta cambie

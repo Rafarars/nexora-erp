@@ -10,7 +10,7 @@ import { CustomerNotFoundError, DispatchAlreadyInvoicedError, InvoiceNotFoundErr
 import { CustomerCredit } from '../../domain/invoice/credit/customer-credit.js';
 import { Invoice, InvoiceId } from '../../domain/invoice/invoice.entity.js';
 import { InvoicePosting } from '../../domain/invoice/posting/invoice-posting.js';
-import { SalesOrder } from '../../domain/order/sales-order.entity.js';
+import { SalesOrder, SalesOrderId } from '../../domain/order/sales-order.entity.js';
 import { SalesDate } from '../../domain/shared/sales-date.vo.js';
 import { TenantId } from '../../domain/shared/tenant-id.vo.js';
 import { asDate, invoiceFromRow } from './sales-rows.js';
@@ -31,26 +31,37 @@ export class PrismaInvoicePosting implements InvoicePosting {
 
   async issue(
     tenantId: TenantId,
-    dispatchId: DispatchId,
+    origin: { dispatchId?: DispatchId; orderId?: SalesOrderId },
     today: SalesDate,
     decimals: number,
-    work: (dispatch: Dispatch, order: SalesOrder, alreadyInvoiced: boolean, credit: CustomerCredit) => Invoice,
+    work: (dispatch: Dispatch | null, order: SalesOrder, alreadyInvoiced: boolean, credit: CustomerCredit) => Invoice,
   ): Promise<void> {
     const tenant = tenantId.value;
 
     try {
       await this.prisma.$transaction(async (tx) => {
-        const { dispatch, invoiced } = await lockDispatch(tx, tenant, dispatchId.value);
-        const order = await lockOrder(tx, tenant, dispatch.orderId.value);
+        // Con despacho se bloquea el, y su pedido detras; sin el, el pedido directamente.
+        const locked = origin.dispatchId ? await lockDispatch(tx, tenant, origin.dispatchId.value) : null;
+        const order = await lockOrder(tx, tenant, locked ? locked.dispatch.orderId.value : origin.orderId!.value);
         const credit = await this.creditOf(tx, tenant, order.customerId().value, today.value, decimals, true);
-        const { lines, issueDate, dueDate, ...row } = work(dispatch, order, invoiced, credit).toPrimitives();
+        const { lines, issueDate, dueDate, ...row } = work(locked?.dispatch ?? null, order, locked?.invoiced ?? false, credit).toPrimitives();
 
         await tx.invoice.create({ data: { ...row, issueDate: asDate(issueDate), dueDate: asDate(dueDate) } });
         await tx.invoiceLine.createMany({ data: lines.map((line) => ({ ...line, tenantId: tenant, invoiceId: row.id })) });
+
+        // Emitir consume saldo del pedido: lo facturado sube en cada linea que entro a la factura.
+        for (const line of order.toPrimitives().lines) {
+          await tx.salesOrderLine.update({
+            where: { tenantId_id: { tenantId: tenant, id: line.id } },
+            data: { invoicedQuantity: line.invoicedQuantity },
+          });
+        }
       });
     } catch (error) {
       // El bloqueo ya pone en fila dos emisiones; el indice parcial es la ultima palabra.
-      if (violatedUniqueFields(error)?.includes(ONE_ISSUED_PER_DISPATCH)) throw new DispatchAlreadyInvoicedError(dispatchId.value);
+      if (violatedUniqueFields(error)?.includes(ONE_ISSUED_PER_DISPATCH) && origin.dispatchId) {
+        throw new DispatchAlreadyInvoicedError(origin.dispatchId.value);
+      }
 
       throw error;
     }

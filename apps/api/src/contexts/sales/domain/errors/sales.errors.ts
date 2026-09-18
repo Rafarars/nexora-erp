@@ -331,3 +331,41 @@ export class MissingSalesPriceError extends InvalidArgumentError {
     super(`No price for item <${itemId}>.`, 'That item has no price in the chosen list: write one.');
   }
 }
+
+// Facturar mas de lo que queda pendiente en la linea del pedido.
+export class InvoiceExceedsPendingError extends ConflictError {
+  constructor(lineId: string) {
+    super(`Invoicing line <${lineId}> exceeds what is pending.`, 'One of the lines has already been invoiced.');
+  }
+}
+
+// Un pedido con mercancia se factura desde su despacho: es lo que dice que salio.
+export class OrderNotDirectlyInvoiceableError extends ConflictError {
+  constructor(orderId: string) {
+    super(
+      `Order <${orderId}> has lines that move stock and cannot be invoiced without a dispatch.`,
+      'That order has goods: invoice it from its dispatch.',
+    );
+  }
+}
+
+// Ya no queda nada por facturar en el pedido.
+export class NothingToInvoiceError extends ConflictError {
+  constructor(orderId: string) {
+    super(`Order <${orderId}> has nothing left to invoice.`, 'There is nothing left to invoice in that order.');
+  }
+}
+
+// Una factura nace de un despacho o de un pedido: sin ninguno no hay que cobrar.
+export class InvoiceOriginRequiredError extends InvalidArgumentError {
+  constructor() {
+    super('An invoice needs a dispatch or an order.', 'Choose the dispatch or the order to invoice.');
+  }
+}
+
+// Un servicio no sale de una bodega: entra a la factura, no al despacho.
+export class ServiceNotDispatchableError extends InvalidArgumentError {
+  constructor(itemId: string) {
+    super(`Item <${itemId}> is a service and cannot be dispatched.`, 'A service is not dispatched: it is charged on the invoice.');
+  }
+}

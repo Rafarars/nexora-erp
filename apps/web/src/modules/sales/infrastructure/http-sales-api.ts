@@ -69,8 +69,9 @@ export class HttpSalesApi implements SalesApi {
     return (await this.request<{ invoices: Invoice[] }>('GET', `${BASE}/invoices`, token)).invoices;
   }
 
-  async issueInvoice(token: string, dispatchId: string): Promise<void> {
-    await this.request('POST', `${BASE}/invoices`, token, { dispatchId });
+  // Un pedido que solo vende servicios se factura sin despacho: no hay nada que sacar.
+  async issueInvoice(token: string, origin: { dispatchId: string } | { orderId: string }): Promise<void> {
+    await this.request('POST', `${BASE}/invoices`, token, origin);
   }
 
   async cancelInvoice(token: string, id: string): Promise<void> {

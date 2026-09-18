@@ -255,6 +255,20 @@ Detalle y fuentes en [revision/temas/listas-de-precio.md](revision/temas/listas-
   esos decimales en un precio guardado. **Qué haría falta:** ampliar las columnas a `decimal(18,8)` o limitar el
   parámetro a 6.
 
+### Servicios: lo que la fase 6 dejó fuera
+
+- **Tipo «no inventariado»**, además de servicio. El compañero tiene cuatro tipos (`inventoried`, `non_inventoried`,
+  `service`, `serialized`) y trata igual al servicio y al no inventariado: ninguno mueve existencia. **Qué haría
+  falta:** un valor más en el tipo del artículo; la regla de `moves_stock` ya cubriría el resto.
+- **Facturar el pedido por partes sin despacho.** Hoy un pedido de solo servicios se factura entero de una vez. **Qué
+  haría falta:** elegir qué líneas y cuánto de cada una entra en la factura, como el `invoiceable-lines` del compañero.
+- **Cerrar el pedido cuando todo está despachado *y* facturado.** El compañero tiene un estado `completed` que exige
+  las dos cuentas al 100 %; aquí el pedido queda en «despachado» aunque falte facturar. **Qué haría falta:** un estado
+  más y recalcularlo también al emitir y al anular una factura.
+- **Anular una factura devuelve lo facturado al pedido.** Hoy anular deja la cuenta `invoiced_quantity` como estaba, así
+  que un servicio ya facturado no se vuelve a ofrecer aunque su factura se anule. **Qué haría falta:** descontar al
+  anular, con el pedido bloqueado.
+
 ### Selectores que buscan contra el servidor
 
 **Por qué:** los formularios de ajustes, órdenes y pedidos cargan hasta 50 artículos para su selector. El maestro ya

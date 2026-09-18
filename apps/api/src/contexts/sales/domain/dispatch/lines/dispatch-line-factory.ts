@@ -6,6 +6,7 @@ import {
   InactiveSalesWarehouseError,
   InvalidSalesQuantityError,
   SalesItemNotFoundError,
+  ServiceNotDispatchableError,
   SalesOrderNotDispatchableError,
   SalesWarehouseNotFoundError,
 } from '../../errors/sales.errors.js';
@@ -48,6 +49,8 @@ export class DispatchLineFactory {
 
       if (!item) throw new SalesItemNotFoundError(orderLine.itemId.value);
       if (!item.isActive) throw new InactiveSalesItemError(item.id);
+      // Un servicio no sale de la bodega: se cobra en la factura, no en el despacho.
+      if (!orderLine.movesStock) throw new ServiceNotDispatchableError(orderLine.itemId.value);
 
       const quantity = Quantity.of(input.quantity);
 

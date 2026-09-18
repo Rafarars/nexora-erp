@@ -14,7 +14,6 @@ import {
   ReceiptExceedsPendingError,
   ReceivedGoodsAlreadyUsedError,
   ItemNotPurchasableError,
-  ServiceNotPurchasableError,
 } from '../domain/errors/purchasing.errors.js';
 import { BOX, CLOSED, FOREIGN_ITEM, FOREIGN_WAREHOUSE, MAIN, NORTH, PIECE, SERVICE, SOAP, KILO, TENANT_A, TENANT_B, WATER, NOT_TRADED_ITEM } from '../domain/testing/purchasing.mother.js';
 import { PurchaseOrderCreatorRequest } from './create-order/purchase-order-creator.js';
@@ -99,7 +98,6 @@ describe('purchase orders', () => {
     ['an inactive warehouse', async () => ({ warehouseId: CLOSED }), InactivePurchaseWarehouseError],
     ['a warehouse of another tenant', async () => ({ warehouseId: FOREIGN_WAREHOUSE }), PurchaseWarehouseNotFoundError],
     ['an item of another tenant', async () => ({ lines: [{ itemId: FOREIGN_ITEM, unitId: PIECE, quantity: 1, unitCost: 1 }] }), PurchaseItemNotFoundError],
-    ['a service', async () => ({ lines: [{ itemId: SERVICE, unitId: PIECE, quantity: 1, unitCost: 1 }] }), ServiceNotPurchasableError],
     ['an item that is not bought', async () => ({ lines: [{ itemId: NOT_TRADED_ITEM, unitId: PIECE, quantity: 1, unitCost: 1 }] }), ItemNotPurchasableError],
   ] as const)('refuses an order with %s', async (_case, arrange, error) => {
     const { s, supplierId } = await world();
@@ -346,5 +344,47 @@ describe('goods receipts', () => {
 
     expect((await latestReceipt(s)).lines[0]).toMatchObject({ quantity: 10, baseQuantity: 240 });
     expect(s.store.stockOf(TENANT_A, WATER, MAIN)).toBe(240);
+  });
+});
+
+// Un servicio se compra —un flete, una instalación— pero no entra a una bodega: su línea no espera
+// ninguna entrada, y así la orden no queda abierta para siempre.
+describe('a service in a purchase order', () => {
+  it('can be ordered, and an order of only services is born received', async () => {
+    const { s, supplierId } = await world();
+
+    await s.createOrder.run(
+      orderRequest(supplierId, { lines: [{ itemId: SERVICE, unitId: PIECE, quantity: 1, unitCost: 40 }] }),
+    );
+    const order = await latestOrder(s);
+    await s.confirmOrder.run({ tenantId: TENANT_A, orderId: order.id });
+
+    expect((await latestOrder(s)).status).toBe('received');
+  });
+
+  it('does not keep an order open when the goods have all arrived', async () => {
+    const { s, supplierId } = await world();
+
+    await s.createOrder.run(
+      orderRequest(supplierId, {
+        lines: [
+          { itemId: WATER, unitId: PIECE, quantity: 10, unitCost: 1 },
+          { itemId: SERVICE, unitId: PIECE, quantity: 1, unitCost: 40 },
+        ],
+      }),
+    );
+    const order = await latestOrder(s);
+    await s.confirmOrder.run({ tenantId: TENANT_A, orderId: order.id });
+
+    const goods = order.lines.find((line) => line.itemId === WATER)!;
+    await s.createReceipt.run({ tenantId: TENANT_A, orderId: order.id, lines: [{ orderLineId: goods.id, quantity: 10 }] });
+    const receipt = await latestReceipt(s);
+
+    // La entrada solo puede traer la mercancía: el flete no se recibe en una bodega.
+    expect(receipt.lines).toHaveLength(1);
+
+    await s.confirmReceipt.run({ tenantId: TENANT_A, receiptId: receipt.id });
+
+    expect((await latestOrder(s)).status).toBe('received');
   });
 });
