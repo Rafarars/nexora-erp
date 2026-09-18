@@ -21,6 +21,9 @@ export interface SalesOrderLinePrimitives {
   quantity: number;
   baseQuantity: number;
   unitPrice: number;
+  // Lo que sugirio la lista en la moneda del pedido. Distinto de `unitPrice` significa que la
+  // persona pacto ese precio a mano, y entonces cambiar de lista no lo pisa.
+  listPrice: number;
   taxRate: number;
   dispatchedQuantity: number;
 }
@@ -38,6 +41,7 @@ export class SalesOrderLine {
     readonly quantity: Quantity,
     readonly baseQuantity: Quantity,
     readonly unitPrice: UnitPrice,
+    readonly listPrice: UnitPrice,
     readonly taxRate: TaxRate,
     private dispatched: Quantity,
   ) {}
@@ -52,9 +56,10 @@ export class SalesOrderLine {
     quantity: Quantity;
     baseQuantity: Quantity;
     unitPrice: UnitPrice;
+    listPrice?: UnitPrice;
     taxRate: TaxRate;
   }): SalesOrderLine {
-    return new SalesOrderLine(fields.id, fields.lineNumber, fields.itemId, fields.itemSku, fields.itemName, fields.unitId, fields.quantity, fields.baseQuantity, fields.unitPrice, fields.taxRate, Quantity.zero());
+    return new SalesOrderLine(fields.id, fields.lineNumber, fields.itemId, fields.itemSku, fields.itemName, fields.unitId, fields.quantity, fields.baseQuantity, fields.unitPrice, fields.listPrice ?? fields.unitPrice, fields.taxRate, Quantity.zero());
   }
 
   static fromPrimitives(row: SalesOrderLinePrimitives): SalesOrderLine {
@@ -68,6 +73,7 @@ export class SalesOrderLine {
       Quantity.of(row.quantity),
       Quantity.of(row.baseQuantity),
       UnitPrice.of(row.unitPrice),
+      UnitPrice.of(row.listPrice),
       TaxRate.of(row.taxRate),
       Quantity.of(row.dispatchedQuantity),
     );
@@ -84,6 +90,7 @@ export class SalesOrderLine {
       quantity: this.quantity.toNumber(),
       baseQuantity: this.baseQuantity.toNumber(),
       unitPrice: this.unitPrice.toNumber(),
+      listPrice: this.listPrice.toNumber(),
       taxRate: this.taxRate.toNumber(),
       dispatchedQuantity: this.dispatched.toNumber(),
     };

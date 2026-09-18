@@ -32,3 +32,9 @@ export class TaxRef extends Uuid {
     return new TaxRef(value);
   }
 }
+
+export class PriceListRef extends Uuid {
+  static of(value: string): PriceListRef {
+    return new PriceListRef(value);
+  }
+}

@@ -5,7 +5,10 @@ import { ItemCode } from './item-code.vo.js';
 import { ItemId } from './item-id.vo.js';
 import { Barcode } from './barcode.vo.js';
 import { ItemName } from './item-name.vo.js';
+import { PriceBelowMinimumError } from '../errors/item.errors.js';
+import { ItemPricePrimitives, ItemPrices } from './item-prices.js';
 import { ItemReorderRulePrimitives, ItemReorderRules } from './item-reorder-rules.js';
+import { SalePrice } from './sale-price.vo.js';
 import { ItemUnitPrimitives, ItemUnits } from './item-units.js';
 import { ItemType } from './item-type.js';
 import { Sku } from './sku.vo.js';
@@ -31,6 +34,9 @@ export interface ItemPrimitives {
   purchaseTaxId: string | null;
   units: ItemUnitPrimitives[];
   reorderRules: ItemReorderRulePrimitives[];
+  prices: ItemPricePrimitives[];
+  // Piso de venta, en la moneda de la empresa. Sin el, cualquier precio vale.
+  minPrice: number | null;
 }
 
 // Lo que una persona decide de un articulo, igual al crearlo y al editarlo.
@@ -47,6 +53,8 @@ export interface ItemDetails {
   purchaseTaxId: TaxRef | null;
   units: ItemUnits;
   reorderRules: ItemReorderRules;
+  prices: ItemPrices;
+  minPrice: SalePrice | null;
 }
 
 const DESCRIPTION_MAX = 1000;
@@ -85,6 +93,8 @@ export class Item {
         purchaseTaxId: row.purchaseTaxId ? TaxRef.of(row.purchaseTaxId) : null,
         units: ItemUnits.fromPrimitives(row.units),
         reorderRules: ItemReorderRules.fromPrimitives(row.reorderRules),
+        prices: ItemPrices.fromPrimitives(row.prices),
+        minPrice: row.minPrice === null ? null : SalePrice.of(row.minPrice),
       },
       row.isActive,
       row.createdAt,
@@ -93,7 +103,8 @@ export class Item {
   }
 
   toPrimitives(): ItemPrimitives {
-    const { sku, barcode, name, description, type, isPurchasable, isSellable, categoryId, salesTaxId, purchaseTaxId, units, reorderRules } = this.details;
+    const { sku, barcode, name, description, type, isPurchasable, isSellable, categoryId, salesTaxId, purchaseTaxId, units, reorderRules, prices, minPrice } =
+      this.details;
 
     return {
       id: this.id.value,
@@ -114,6 +125,8 @@ export class Item {
       purchaseTaxId: purchaseTaxId?.value ?? null,
       units: units.toPrimitives(),
       reorderRules: reorderRules.toPrimitives(),
+      prices: prices.toPrimitives(),
+      minPrice: minPrice?.toNumber() ?? null,
     };
   }
 
@@ -159,6 +172,14 @@ export class Item {
     return this.details.reorderRules;
   }
 
+  prices(): ItemPrices {
+    return this.details.prices;
+  }
+
+  minPrice(): SalePrice | null {
+    return this.details.minPrice;
+  }
+
   barcode(): Barcode | null {
     return this.details.barcode;
   }
@@ -200,5 +221,19 @@ export class Item {
 }
 
 function normalized(details: ItemDetails): ItemDetails {
+  ensurePricesReachTheMinimum(details);
+
   return { ...details, description: optionalText(details.description, DESCRIPTION_MAX, 'ItemDescription') };
+}
+
+// El minimo es el piso del articulo: cargar una lista por debajo dejaria un precio sugerido que la
+// linea del pedido rechazaria despues.
+function ensurePricesReachTheMinimum({ prices, minPrice }: ItemDetails): void {
+  if (!minPrice) return;
+
+  for (const price of prices.all()) {
+    if (price.price.isLowerThan(minPrice)) {
+      throw new PriceBelowMinimumError(price.price.toNumber(), minPrice.toNumber());
+    }
+  }
 }

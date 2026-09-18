@@ -8,7 +8,7 @@ import { visibleSalesSections } from './sales-sections';
 
 const line = (overrides: Partial<OrderLine>): OrderLine => ({
   id: 'l1', lineNumber: 1, itemId: 'water', sku: 'AGUA-500', itemName: 'Agua', unitId: 'box', unitAbbreviation: 'cja',
-  quantity: 10, baseQuantity: 240, unitPrice: 30, taxRate: 16, dispatchedQuantity: 0, pendingQuantity: 10, subtotal: 300, ...overrides,
+  quantity: 10, baseQuantity: 240, unitPrice: 30, listPrice: 30, taxRate: 16, dispatchedQuantity: 0, pendingQuantity: 10, subtotal: 300, ...overrides,
 });
 
 describe('orderActions', () => {

@@ -83,3 +83,25 @@ export async function setDefaultWarehouse(_state: FormState, form: FormData): Pr
     catalogApi().setDefaultWarehouse(token, text(form, 'id')),
   );
 }
+
+export async function savePriceList(_state: FormState, form: FormData): Promise<FormState> {
+  return attempt('/catalogo/listas-de-precio', 'No se pudo guardar la lista de precio.', (token) =>
+    catalogApi().savePriceList(token, idOf(form), {
+      name: text(form, 'name'),
+      description: optional(form, 'description'),
+      currency: text(form, 'currency'),
+    }),
+  );
+}
+
+export async function changePriceListStatus(_state: FormState, form: FormData): Promise<FormState> {
+  return attempt('/catalogo/listas-de-precio', 'No se pudo cambiar el estado.', (token) =>
+    catalogApi().changePriceListStatus(token, text(form, 'id'), form.get('active') === 'true'),
+  );
+}
+
+export async function setDefaultPriceList(_state: FormState, form: FormData): Promise<FormState> {
+  return attempt('/catalogo/listas-de-precio', 'No se pudo cambiar la lista por defecto.', (token) =>
+    catalogApi().setDefaultPriceList(token, text(form, 'id')),
+  );
+}

@@ -9,6 +9,7 @@ import { PrismaCodeSequence } from '../persistence/prisma-code-sequence.js';
 import { PrismaItemUsage } from '../persistence/prisma-item-usage.js';
 import { PrismaMeasurementUnitRepository } from '../persistence/prisma-measurement-unit.repository.js';
 import { PrismaTaxRepository } from '../persistence/prisma-tax.repository.js';
+import { PrismaPriceListRepository } from '../persistence/prisma-price-list.repository.js';
 import { PrismaWarehouseRepository } from '../persistence/prisma-warehouse.repository.js';
 
 function connectionString(): string {
@@ -31,6 +32,7 @@ export class PrismaCatalogRepositoriesHarness implements CatalogRepositoriesHarn
       units: new PrismaMeasurementUnitRepository(this.prisma),
       taxes: new PrismaTaxRepository(this.prisma),
       warehouses: new PrismaWarehouseRepository(this.prisma),
+      priceLists: new PrismaPriceListRepository(this.prisma),
       itemUsage: new PrismaItemUsage(this.prisma),
       codes: new PrismaCodeSequence(this.prisma),
     };
@@ -73,7 +75,9 @@ export class PrismaCatalogRepositoriesHarness implements CatalogRepositoriesHarn
     await this.prisma.itemStock.deleteMany();
     await this.prisma.adjustment.deleteMany();
     await this.prisma.itemUnit.deleteMany();
+    await this.prisma.itemPrice.deleteMany();
     await this.prisma.item.deleteMany();
+    await this.prisma.priceList.deleteMany();
     await this.prisma.category.deleteMany();
     await this.prisma.tax.deleteMany();
     await this.prisma.measurementUnit.deleteMany();

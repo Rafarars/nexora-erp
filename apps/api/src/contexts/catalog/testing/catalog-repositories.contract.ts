@@ -8,7 +8,13 @@ import {
   DuplicateTaxNameError,
   DuplicateWarehouseNameError,
 } from '../domain/errors/duplicate.errors.js';
+import {
+  ConcurrentDefaultPriceListError,
+  DuplicatePriceListNameError,
+} from '../domain/errors/price-list.errors.js';
 import { ConcurrentDefaultWarehouseError } from '../domain/errors/warehouse.errors.js';
+import { PriceListId } from '../domain/price-list/price-list-id.vo.js';
+import { PriceListName } from '../domain/price-list/price-list-name.vo.js';
 import { MeasurementUnitId } from '../domain/measurement-unit/measurement-unit-id.vo.js';
 import { MeasurementUnitName } from '../domain/measurement-unit/measurement-unit-name.vo.js';
 import { UnitAbbreviation } from '../domain/measurement-unit/unit-abbreviation.vo.js';
@@ -20,6 +26,8 @@ import {
   CATEGORY_A,
   CATEGORY_B,
   LATER,
+  PRICE_LIST_A,
+  PRICE_LIST_B,
   TAX_A,
   TAX_B,
   TENANT_A,
@@ -30,6 +38,7 @@ import {
   WAREHOUSE_A,
   WAREHOUSE_B,
   aCategory,
+  aPriceList,
   aTax,
   aUnit,
   aWarehouse,
@@ -308,6 +317,75 @@ export function describeCatalogRepositoriesContract(
 
         expect(await repos.warehouses.findByName(tenantA, WarehouseName.of('Principal'))).not.toBeNull();
         expect(await repos.warehouses.findByName(tenantB, WarehouseName.of('Principal'))).toBeNull();
+      });
+    });
+
+    describe('PriceListRepository', () => {
+      it('returns what it saved, currency and default mark included', async () => {
+        const priceList = aPriceList({ isDefault: true });
+        priceList.update(PriceListName.of('Mayorista'), 'Para revendedores', LATER);
+        await repos.priceLists.save(priceList);
+
+        expect((await repos.priceLists.find(tenantA, PriceListId.of(PRICE_LIST_A)))?.toPrimitives()).toEqual(
+          priceList.toPrimitives(),
+        );
+      });
+
+      it('finds the default price list of each tenant', async () => {
+        await repos.priceLists.save(aPriceList({ isDefault: true }));
+        await repos.priceLists.save(aPriceList({ id: PRICE_LIST_B, code: 'LPR000002', name: 'Detal' }));
+
+        expect((await repos.priceLists.findDefault(tenantA))?.id.value).toBe(PRICE_LIST_A);
+        expect(await repos.priceLists.findDefault(tenantB)).toBeNull();
+      });
+
+      it('moves the default mark in one write', async () => {
+        const mayorista = aPriceList({ isDefault: true });
+        const detal = aPriceList({ id: PRICE_LIST_B, name: 'Detal', code: 'LPR000002' });
+        await repos.priceLists.save(mayorista);
+        await repos.priceLists.save(detal);
+
+        mayorista.unmarkAsDefault(LATER);
+        detal.markAsDefault(LATER);
+        await repos.priceLists.saveAll([mayorista, detal]);
+
+        const defaults = (await repos.priceLists.searchByTenant(tenantA)).filter((list) => list.isDefault());
+        expect(defaults.map((list) => list.id.value)).toEqual([PRICE_LIST_B]);
+      });
+
+      // Todo o nada: si una de las filas choca, tampoco se escribe la otra.
+      it('writes nothing when one of the price lists clashes', async () => {
+        await repos.priceLists.save(aPriceList({ isDefault: true }));
+        const clashing = aPriceList({ id: PRICE_LIST_B, name: 'Mayorista', code: 'LPR000002' });
+        const other = aPriceList({ id: 'a3333333-3333-4333-8333-333333333333', name: 'Promocion', code: 'LPR000003' });
+
+        await expect(repos.priceLists.saveAll([other, clashing])).rejects.toThrow(DuplicatePriceListNameError);
+
+        expect(await repos.priceLists.searchByTenant(tenantA)).toHaveLength(1);
+      });
+
+      // Lo que la comprobacion del dominio no cubre: dos listas marcadas a la vez.
+      it('refuses a second default price list in the same tenant', async () => {
+        await repos.priceLists.save(aPriceList({ isDefault: true }));
+
+        await expect(
+          repos.priceLists.save(aPriceList({ id: PRICE_LIST_B, code: 'LPR000002', name: 'Detal', isDefault: true })),
+        ).rejects.toThrow(ConcurrentDefaultPriceListError);
+        await repos.priceLists.save(aPriceList({ id: PRICE_LIST_B, tenantId: TENANT_B, isDefault: true }));
+
+        expect((await repos.priceLists.findDefault(tenantA))?.id.value).toBe(PRICE_LIST_A);
+      });
+
+      it('finds by name within the tenant', async () => {
+        await repos.priceLists.save(aPriceList());
+
+        expect(await repos.priceLists.findByName(tenantA, PriceListName.of('Mayorista'))).not.toBeNull();
+        expect(await repos.priceLists.findByName(tenantB, PriceListName.of('Mayorista'))).toBeNull();
+      });
+
+      // La moneda es una clave ajena al catalogo global de monedas.
+      it('refuses a price list in a currency that does not exist', async () => {
+        await expect(repos.priceLists.save(aPriceList({ currency: 'XYZ' }))).rejects.toThrow();
       });
     });
 

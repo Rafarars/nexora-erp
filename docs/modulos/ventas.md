@@ -45,6 +45,9 @@ nombre único por empresa, identificación fiscal libre, correo, teléfono, dire
 **Límite de crédito**: monto de cero o más, o vacío para no tener límite. Decide cuánto se le puede
 fiar; se explica con ejemplos en [cuentas-por-cobrar.md §3](cuentas-por-cobrar.md#3-límite-de-crédito-y-facturas-a-crédito).
 
+**Lista de precio** (`price_list_id`, opcional): con cuál se le cotiza. Sin ella se usa la lista por
+defecto de la empresa. El tipo de cliente no interviene, como tampoco en el ERP del compañero.
+
 ---
 
 ## 2. Pedidos
@@ -56,9 +59,11 @@ fiar; se explica con ejemplos en [cuentas-por-cobrar.md §3](cuentas-por-cobrar.
 | `customer_id` | Cliente de la empresa y **activo** |
 | `warehouse_id` | Bodega de salida, de la empresa y **activa** |
 | `order_date` | Por defecto hoy; **no futura** |
+| `price_list_id` | Opcional. Con qué lista se cotizó; puede no ser la del cliente |
 | Línea: `item_id`, `unit_id` | Artículo **activo e inventariado**; unidad **del artículo** |
 | Línea: `quantity`, `base_quantity` | Mayor que cero; base con el factor de hoy al guardar. Si la caja cambia antes de confirmar, el pedido no se confirma hasta revisarlo y guardarlo (`SalesItemChangedError`) |
-| Línea: `unit_price` | Cero o más, por unidad de la línea, **sin impuesto**, con como mucho los decimales de precio de la empresa (`PriceDecimalsExceededError`) |
+| Línea: `unit_price` | Cero o más, por unidad de la línea, **sin impuesto**, con como mucho los decimales de precio de la empresa (`PriceDecimalsExceededError`). **Si no se escribe, lo pone la lista** |
+| Línea: `list_price` | Lo que sugirió la lista, en la moneda del pedido. Distinto de `unit_price` significa que se pactó otro precio a mano |
 | Línea: `tax_rate` | **Copiado del impuesto de venta del artículo** |
 | Línea: `item_sku`, `item_name` | **Copiados del artículo al escribir la línea**: el documento se lee como se emitió aunque el maestro cambie ([inventario.md §1](inventario.md#1-artículos)) |
 | Línea: `dispatched_quantity` | Lo que sumaron los despachos confirmados |
@@ -105,7 +110,58 @@ las cantidades base. Si cambiaron entre la revalidación y el bloqueo, el pedido
 (`SalesItemChangedError`, 409) y se vuelve a intentar. Mientras el pedido esté abierto, el maestro
 de artículos no deja desactivar el artículo ni cambiar la unidad que usa.
 
-### 2.4 Moneda y tasas
+### 2.4 El precio de una línea
+
+El precio dejó de teclearse: sale de la lista con la que se cotiza el pedido.
+
+**Con qué lista se cotiza**, en este orden:
+
+1. La lista del **pedido**, si quien captura eligió una.
+2. La lista del **cliente**.
+3. La lista **por defecto** de la empresa.
+
+Una lista elegida que no existe se rechaza (`PriceListNotFoundError`) y una desactivada también
+(`InactivePriceListError`). Si al final no hay ninguna, o el artículo no tiene precio en la que
+resultó, **no se sugiere nada**: el campo queda en blanco y lo escribe la persona, como antes de que
+hubiera listas. Si tampoco se escribe, la línea no se puede valorar (`MissingSalesPriceError`).
+
+**Cómo se calcula**, en este orden:
+
+```
+precio de la lista (unidad base)
+  → × factor de conversión de la unidad elegida
+  → convertido a la moneda del pedido por el bolívar
+  → redondeado a los decimales de precio de la empresa
+```
+
+- **Por la unidad elegida.** El precio de la lista es por unidad base; vender en cajas de 24 lo
+  multiplica por 24. Sin este paso, una caja se cobraría al precio de la pieza.
+- **Convertido por el bolívar**, con las tasas del día del pedido: la misma regla que el cobro de una
+  factura en otra moneda. Una lista en dólares sirve para vender en euros sin mantener dos listas.
+  Si la lista ya está en la moneda del pedido no se convierte nada, para no añadir un redondeo.
+  ERPNext hace lo mismo (lleva el precio a la moneda de la empresa y de ahí a la del documento);
+  Odoo y Business Central prefieren una lista por moneda.
+- **Redondeado** a `price_decimals`, y nunca a más de seis decimales, que es lo que guarda la columna.
+
+**El precio es una sugerencia, no una imposición** — es el consenso de los cuatro ERP. Llega relleno
+y se puede cambiar; la línea guarda lo que se escribió y, al lado, lo que sugirió la lista, así que
+la diferencia entre los dos es el descuento concedido. Cambiar de lista o de cliente **no pisa un
+precio pactado a mano**: solo se recalcula lo que aún coincidía con el de la lista.
+
+**El precio mínimo del artículo** (`min_price`, en la moneda de la empresa) es el piso: una línea por
+debajo se rechaza (`SalesPriceBelowMinimumError`). El precio de la línea se lleva a la moneda de la
+empresa por el bolívar antes de compararlo, así que vender en otra moneda no deja pasar precios por
+debajo del piso.
+
+**Resolver el precio es cosa del servidor.** La pantalla lo rellena para que se vea, pero la API lo
+vuelve a calcular al guardar: un precio que llegue del formulario no se acepta a ciegas. El ERP del
+compañero lo resuelve solo en el navegador y su backend acepta lo que reciba.
+
+**Confirmar no vuelve a cotizar**: conserva la lista y los precios del borrador. Cambiar un precio es
+editar el pedido, no confirmarlo. Y la factura cobra al precio del pedido, así que hereda la lista sin
+tocar nada.
+
+### 2.5 Moneda y tasas
 
 El pedido lleva `currency`, `exchange_rate`, `base_currency`, `base_exchange_rate` y
 `manual_exchange_rate` con las **mismas reglas que la orden de compra**

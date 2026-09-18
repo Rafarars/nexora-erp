@@ -9,6 +9,8 @@ export const customerRequestSchema = z.object({
   address: z.string().nullable().optional(),
   paymentTermDays: z.number().nullable().optional(),
   creditLimit: z.number().nullable().optional(),
+  // Con que lista se le cotiza; sin ella, la lista por defecto de la empresa.
+  priceListId: z.string().nullable().optional(),
 });
 
 export type CustomerRequestDto = z.infer<typeof customerRequestSchema>;

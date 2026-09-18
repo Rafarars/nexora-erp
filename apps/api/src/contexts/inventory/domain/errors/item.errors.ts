@@ -138,3 +138,26 @@ export class InvalidItemCodeError extends InvalidArgumentError {
     super(`An item code must be ART followed by six digits, received <${value}>.`, 'The item code is not valid.');
   }
 }
+
+export class InvalidItemPriceError extends InvalidArgumentError {
+  constructor(reason: string) {
+    super(`Invalid item price: ${reason}`, 'The price is not valid.');
+  }
+}
+
+// El minimo es el piso de venta del articulo y esta en la moneda de la empresa: un precio de lista
+// por debajo dejaria pasar lo que la linea del pedido si rechaza.
+export class PriceBelowMinimumError extends InvalidArgumentError {
+  constructor(price: number, minimum: number) {
+    super(
+      `Price <${price}> is below the minimum <${minimum}> of the item.`,
+      'The price is below the minimum allowed for that item.',
+    );
+  }
+}
+
+export class PriceListNotFoundError extends NotFoundError {
+  constructor(id: string) {
+    super(`Price list <${id}> does not exist.`);
+  }
+}

@@ -6,7 +6,10 @@ const BY_CODE: Record<string, string> = {
   DuplicateSkuError: 'Ya existe un artículo con ese SKU.',
   DuplicateBarcodeError: 'Ya existe un artículo con ese código de barras.',
   InvalidBarcodeError: 'El código de barras solo admite letras, dígitos, puntos, guiones y guiones bajos.',
-  InactiveReferenceError: 'El artículo usa una categoría, un impuesto o una unidad que están inactivos.',
+  InactiveReferenceError: 'El artículo usa una categoría, un impuesto, una unidad o una lista que están inactivos.',
+  InvalidItemPriceError: 'Revisa los precios: cada lista una sola vez, y el precio con hasta seis decimales.',
+  PriceBelowMinimumError: 'Hay un precio de lista por debajo del mínimo del artículo.',
+  PriceListNotFoundError: 'Una de las listas de precio ya no existe.',
   ItemInOpenDocumentsError:
     'El artículo está en órdenes de compra o pedidos de venta abiertos: recíbelos, despáchalos o anúlalos primero.',
   ItemUnitInOpenDocumentsError:

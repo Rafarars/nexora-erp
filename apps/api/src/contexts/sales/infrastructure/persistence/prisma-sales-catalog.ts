@@ -1,7 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../../../../shared/prisma/prisma.service.js';
-import { SalesWarehouse, SellableItem, SalesCatalog } from '../../domain/catalog/sales-catalog.js';
-import { ItemRef, WarehouseRef } from '../../domain/shared/references.vo.js';
+import { SalesPriceList, SalesWarehouse, SellableItem, SalesCatalog } from '../../domain/catalog/sales-catalog.js';
+import { ItemRef, PriceListRef, WarehouseRef } from '../../domain/shared/references.vo.js';
 import { TenantId } from '../../domain/shared/tenant-id.vo.js';
 
 // Capa anticorrupcion: lee las tablas del catalogo y las traduce al vocabulario de ventas.
@@ -14,7 +14,7 @@ export class PrismaSalesCatalog implements SalesCatalog {
 
     const rows = await this.prisma.item.findMany({
       where: { tenantId: tenantId.value, id: { in: ids.map((id) => id.value) } },
-      include: { units: { include: { unit: true } }, salesTax: true },
+      include: { units: { include: { unit: true } }, salesTax: true, prices: true },
     });
 
     return rows.map((row) => ({
@@ -31,6 +31,8 @@ export class PrismaSalesCatalog implements SalesCatalog {
         conversionFactor: unit.conversionFactor.toNumber(),
         isBase: unit.isBase,
       })),
+      prices: row.prices.map((price) => ({ priceListId: price.priceListId, price: price.price.toNumber() })),
+      minPrice: row.minPrice === null ? null : row.minPrice.toNumber(),
     }));
   }
 
@@ -40,6 +42,22 @@ export class PrismaSalesCatalog implements SalesCatalog {
     return this.prisma.warehouse.findMany({
       where: { tenantId: tenantId.value, id: { in: ids.map((id) => id.value) } },
       select: { id: true, name: true, isActive: true },
+    });
+  }
+
+  async findPriceList(tenantId: TenantId, id: PriceListRef): Promise<SalesPriceList | null> {
+    return this.prisma.priceList.findFirst({
+      where: { tenantId: tenantId.value, id: id.value },
+      select: { id: true, name: true, currency: true, isActive: true },
+    });
+  }
+
+  // Una lista por defecto apagada no existe para cotizar: la empresa no deja apagarla, pero el
+  // adaptador no depende de esa regla.
+  async findDefaultPriceList(tenantId: TenantId): Promise<SalesPriceList | null> {
+    return this.prisma.priceList.findFirst({
+      where: { tenantId: tenantId.value, isDefault: true, isActive: true },
+      select: { id: true, name: true, currency: true, isActive: true },
     });
   }
 }

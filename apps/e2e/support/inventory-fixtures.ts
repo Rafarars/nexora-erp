@@ -7,6 +7,8 @@ export const ACME_INVENTORY = {
   mainWarehouse: 'e3000000-0000-4000-8000-000000000001',
   piece: 'e0000000-0000-4000-8000-000000000001',
   box: 'e0000000-0000-4000-8000-000000000002',
+  // El agua del seed, con precio en las dos listas de Acme.
+  waterItem: 'e4000000-0000-4000-8000-000000000001',
 };
 
 export const auth = (token: string) => ({ authorization: `Bearer ${token}` });

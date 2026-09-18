@@ -32,12 +32,14 @@ export default async function ItemsPage({ searchParams }: { searchParams: Promis
     can(session, 'catalog.categories.search') && can(session, 'catalog.taxes.search') && can(session, 'catalog.units.search');
   const editable = (canCreate || canUpdate) && canPickOptions;
 
-  const [page20, categories, taxes, units, warehouses] = await Promise.all([
+  const [page20, categories, taxes, units, warehouses, priceLists] = await Promise.all([
     inventoryApi().searchItems(token, { q, limit: PAGE_SIZE, offset: (page - 1) * PAGE_SIZE }),
     editable ? catalog.searchCategories(token) : [],
     editable ? catalog.searchTaxes(token) : [],
     editable ? catalog.searchUnits(token) : [],
     editable && can(session, 'catalog.warehouses.search') ? catalog.searchWarehouses(token) : [],
+    // Sin permiso sobre las listas no se ofrecen precios: el resto del formulario sigue igual.
+    editable && can(session, 'catalog.pricelists.search') ? catalog.searchPriceLists(token) : [],
   ]);
 
   return (
@@ -48,6 +50,7 @@ export default async function ItemsPage({ searchParams }: { searchParams: Promis
       taxes={taxes}
       units={units}
       warehouses={warehouses}
+      priceLists={priceLists.filter((priceList) => priceList.isActive)}
       canCreate={canCreate && canPickOptions}
       canUpdate={canUpdate && canPickOptions}
       canDeactivate={can(session, 'inventory.items.deactivate')}

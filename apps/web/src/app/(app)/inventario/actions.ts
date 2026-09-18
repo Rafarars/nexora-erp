@@ -34,6 +34,9 @@ export async function saveItem(_state: FormState, form: FormData): Promise<FormS
   const ruleMinimums = form.getAll('ruleMin').map(String);
   const ruleMaximums = form.getAll('ruleMax').map(String);
   const ruleQuantities = form.getAll('ruleQuantity').map(String);
+  const priceLists = form.getAll('pricePriceList').map(String);
+  const priceValues = form.getAll('priceValue').map(String);
+  const minPrice = optional(form, 'minPrice');
 
   return attempt('No se pudo guardar el artículo.', (token) =>
     inventoryApi().saveItem(token, text(form, 'id') || null, {
@@ -65,6 +68,11 @@ export async function saveItem(_state: FormState, form: FormData): Promise<FormS
           reorderQuantity: (ruleQuantities[index] ?? '').trim() === '' ? 0 : parseDecimal(ruleQuantities[index] ?? ''),
         }))
         .filter((rule) => rule.warehouseId !== ''),
+      // Igual que las reglas: la fila sin lista elegida no cuenta.
+      prices: priceLists
+        .map((priceListId, index) => ({ priceListId, price: parseDecimal(priceValues[index] ?? '') }))
+        .filter((price) => price.priceListId !== ''),
+      minPrice: minPrice === null ? null : parseDecimal(minPrice),
     }),
   );
 }

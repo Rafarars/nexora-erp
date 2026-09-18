@@ -23,6 +23,7 @@ export interface SalesOrderRow {
   baseExchangeRate: Decimalish | null;
   manualExchangeRate: boolean;
   notes: string | null;
+  priceListId: string | null;
   status: 'draft' | 'confirmed' | 'partially_dispatched' | 'dispatched' | 'cancelled';
   confirmedAt: Date | null;
   cancelledAt: Date | null;
@@ -38,6 +39,7 @@ export interface SalesOrderRow {
     quantity: Decimalish;
     baseQuantity: Decimalish;
     unitPrice: Decimalish;
+    listPrice: Decimalish;
     taxRate: Decimalish;
     dispatchedQuantity: Decimalish;
   }[];
@@ -46,6 +48,7 @@ export interface SalesOrderRow {
 export function orderFromRow(row: SalesOrderRow): SalesOrder {
   return SalesOrder.fromPrimitives({
     ...row,
+    priceListId: row.priceListId ?? null,
     orderDate: day(row.orderDate),
     exchangeRate: row.exchangeRate ? n(row.exchangeRate) : null,
     baseExchangeRate: row.baseExchangeRate ? n(row.baseExchangeRate) : null,
@@ -58,6 +61,7 @@ export function orderFromRow(row: SalesOrderRow): SalesOrder {
       unitId: line.unitId,
       quantity: n(line.quantity),
       baseQuantity: n(line.baseQuantity),
+      listPrice: n(line.listPrice),
       unitPrice: n(line.unitPrice),
       taxRate: n(line.taxRate),
       dispatchedQuantity: n(line.dispatchedQuantity),

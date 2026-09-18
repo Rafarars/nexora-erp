@@ -1,6 +1,8 @@
+import { ItemPrices } from '../item/item-prices.js';
+import { SalePrice } from '../item/sale-price.vo.js';
 import { ItemReorderRules } from '../item/item-reorder-rules.js';
 import { Barcode } from '../item/barcode.vo.js';
-import { ReferencedCategory, ReferencedTax, ReferencedUnit } from '../catalog/catalog-references.js';
+import { ReferencedCategory, ReferencedPriceList, ReferencedTax, ReferencedUnit } from '../catalog/catalog-references.js';
 import { ItemCode } from '../item/item-code.vo.js';
 import { ItemId } from '../item/item-id.vo.js';
 import { ItemName } from '../item/item-name.vo.js';
@@ -28,6 +30,8 @@ export const TAX_A = 'f1111111-1111-4111-8111-111111111111';
 export const TAX_B = 'f2222222-2222-4222-8222-222222222222';
 export const WAREHOUSE_A = 'b1111111-1111-4111-8111-111111111111';
 export const WAREHOUSE_B = 'b2222222-2222-4222-8222-222222222222';
+export const PRICE_LIST_A = 'd4111111-1111-4111-8111-111111111111';
+export const PRICE_LIST_B = 'd4222222-2222-4222-8222-222222222222';
 export const ITEM_A = 'a1111111-1111-4111-8111-111111111111';
 export const ITEM_B = 'a2222222-2222-4222-8222-222222222222';
 
@@ -40,6 +44,18 @@ export function aCategory(
     tenantId: overrides.tenantId ?? TENANT_A,
     id: overrides.id ?? CATEGORY_A,
     name: overrides.name ?? 'Bebidas',
+    isActive: overrides.active ?? true,
+  };
+}
+
+export function aPriceList(
+  overrides: { id?: string; tenantId?: string; name?: string; currency?: string; active?: boolean } = {},
+): OfTenant<ReferencedPriceList> {
+  return {
+    tenantId: overrides.tenantId ?? TENANT_A,
+    id: overrides.id ?? PRICE_LIST_A,
+    name: overrides.name ?? 'Detal',
+    currency: overrides.currency ?? 'USD',
     isActive: overrides.active ?? true,
   };
 }
@@ -88,6 +104,8 @@ export function anItem(
     purchaseTaxId?: string | null;
     units?: ItemUnits;
     reorderRules?: ItemReorderRules;
+    prices?: ItemPrices;
+    minPrice?: number | null;
     active?: boolean;
   } = {},
 ): Item {
@@ -108,6 +126,8 @@ export function anItem(
       purchaseTaxId: overrides.purchaseTaxId === null ? null : TaxRef.of(overrides.purchaseTaxId ?? TAX_A),
       units: overrides.units ?? baseUnitOnly(),
       reorderRules: overrides.reorderRules ?? ItemReorderRules.none(),
+      prices: overrides.prices ?? ItemPrices.none(),
+      minPrice: overrides.minPrice === null || overrides.minPrice === undefined ? null : SalePrice.of(overrides.minPrice),
     },
     NOW,
   );

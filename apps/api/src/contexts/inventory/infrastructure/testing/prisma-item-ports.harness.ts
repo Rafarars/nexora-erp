@@ -50,6 +50,13 @@ export class PrismaItemPortsHarness implements ItemPortsHarness {
       warehouse: async ({ tenantId, id, name, isActive }) => {
         await prisma.warehouse.upsert({ where: { id }, create: { id, tenantId, code: code('BOD'), name, isActive }, update: { name, isActive } });
       },
+      priceList: async ({ tenantId, id, name, currency, isActive }) => {
+        await prisma.priceList.upsert({
+          where: { id },
+          create: { id, tenantId, code: code('LPR'), name, currency, isActive, updatedAt: NOW },
+          update: { name, isActive },
+        });
+      },
     };
   }
 
@@ -150,7 +157,9 @@ export class PrismaItemPortsHarness implements ItemPortsHarness {
     await this.prisma.itemStock.deleteMany();
     await this.prisma.adjustment.deleteMany();
     await this.prisma.itemUnit.deleteMany();
+    await this.prisma.itemPrice.deleteMany();
     await this.prisma.item.deleteMany();
+    await this.prisma.priceList.deleteMany();
     await this.prisma.category.deleteMany();
     await this.prisma.tax.deleteMany();
     await this.prisma.measurementUnit.deleteMany();

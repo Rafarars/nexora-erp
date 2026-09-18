@@ -71,6 +71,10 @@ export class FixedDocumentRates implements DocumentRates {
     return this.baseCurrency;
   }
 
+  async rateFor(_tenantId: string, currency: string, date: string): Promise<number> {
+    return this.rateOn(currency.trim().toUpperCase(), date);
+  }
+
   // La de ese dia o la ultima anterior; con dos del mismo dia, la ultima que se cargo.
   private rateOn(currency: string, date: string): number {
     if (currency === 'VES') return 1;

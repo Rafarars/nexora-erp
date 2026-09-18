@@ -7,7 +7,7 @@ import { changeItemStatus, saveItem } from '@/app/(app)/inventario/actions';
 import { Field, TextArea } from '@/sections/shared/field';
 import { CatalogTable } from '@/sections/catalog/catalog-table';
 import { formatNumber, selectableOptions } from '@/modules/catalog/domain/catalog';
-import type { Category, MeasurementUnit, Tax, Warehouse } from '@/modules/catalog/domain/catalog';
+import type { Category, MeasurementUnit, PriceList, Tax, Warehouse } from '@/modules/catalog/domain/catalog';
 import { ITEM_TYPE_LABELS, describeUnits } from '@/modules/inventory/domain/item';
 import type { Item } from '@/modules/inventory/domain/item';
 
@@ -22,11 +22,13 @@ export function ItemsBoard({
   taxes,
   units,
   warehouses,
+  priceLists,
   search,
   ...permissions
 }: {
   items: Item[];
   warehouses: Warehouse[];
+  priceLists: PriceList[];
   search: { q: string; page: number; pageSize: number; total: number; hasMore: boolean };
   categories: Category[];
   taxes: Tax[];
@@ -82,7 +84,9 @@ export function ItemsBoard({
           cell: (item) => <span data-testid={`item-units-${item.sku}`}>{describeUnits(item.units)}</span>,
         },
       ]}
-      renderFields={(item) => <ItemFields item={item} categories={categories} taxes={taxes} units={units} warehouses={warehouses} />}
+      renderFields={(item) => (
+        <ItemFields item={item} categories={categories} taxes={taxes} units={units} warehouses={warehouses} priceLists={priceLists} />
+      )}
       save={saveItem}
         changeStatus={changeItemStatus}
         {...permissions}
@@ -149,12 +153,14 @@ function ItemFields({
   taxes,
   units,
   warehouses,
+  priceLists,
 }: {
   item: Item | null;
   categories: Category[];
   taxes: Tax[];
   units: MeasurementUnit[];
   warehouses: Warehouse[];
+  priceLists: PriceList[];
 }) {
   const initial: UnitRow[] = item
     ? item.units.map((unit, index) => ({ key: index, unitId: unit.unitId, factor: formatNumber(unit.conversionFactor) }))
@@ -234,6 +240,8 @@ function ItemFields({
       </Select>
 
       <ReorderRulesEditor item={item} warehouses={warehouses} />
+
+      <PricesEditor item={item} priceLists={priceLists} />
 
       <fieldset className="space-y-2" data-testid="item-units-editor">
         <legend className="text-sm font-medium">Unidades</legend>
@@ -444,6 +452,99 @@ function ReorderRulesEditor({ item, warehouses }: { item: Item | null; warehouse
       >
         Agregar bodega
       </button>
+    </fieldset>
+  );
+}
+
+
+interface PriceRow {
+  key: number;
+  priceListId: string;
+  price: string;
+}
+
+// Un precio por lista, en la unidad base del articulo. Al venderlo en otra unidad, el pedido lo
+// multiplica por el factor de conversion.
+function PricesEditor({ item, priceLists }: { item: Item | null; priceLists: PriceList[] }) {
+  const initial: PriceRow[] = (item?.prices ?? []).map((price, index) => ({
+    key: index,
+    priceListId: price.priceList.id,
+    price: formatNumber(price.price),
+  }));
+
+  const [rows, setRows] = useState<PriceRow[]>(initial);
+  const [nextKey, setNextKey] = useState(initial.length);
+
+  const update = (key: number, change: Partial<PriceRow>) =>
+    setRows((current) => current.map((row) => (row.key === key ? { ...row, ...change } : row)));
+
+  return (
+    <fieldset className="space-y-2" data-testid="item-prices-editor">
+      <legend className="text-sm font-medium">Precios de venta</legend>
+      <p className="text-muted text-xs">
+        El precio de cada lista, en la unidad base. Al vender en otra unidad se multiplica por su factor. El mínimo
+        es el piso por debajo del cual no se puede vender, en la moneda de la empresa.
+      </p>
+
+      {rows.map((row, index) => (
+        <div key={row.key} className="flex items-center gap-2" data-testid={`item-price-row-${index}`}>
+          <select
+            name="pricePriceList"
+            value={row.priceListId}
+            onChange={(event) => update(row.key, { priceListId: event.target.value })}
+            aria-label="Lista de precio"
+            data-testid={`item-price-list-${index}`}
+            className="border-line bg-background min-w-0 flex-1 rounded-md border px-2 py-2 text-sm"
+          >
+            <option value="">Elige una lista</option>
+            {priceLists.map((priceList) => (
+              <option key={priceList.id} value={priceList.id}>
+                {priceList.name} ({priceList.currency})
+              </option>
+            ))}
+          </select>
+          <input
+            name="priceValue"
+            value={row.price}
+            onChange={(event) => update(row.key, { price: event.target.value })}
+            inputMode="decimal"
+            aria-label="Precio"
+            placeholder="Precio"
+            data-testid={`item-price-value-${index}`}
+            className="border-line bg-background w-28 rounded-md border px-2 py-2 text-sm"
+          />
+          <button
+            type="button"
+            onClick={() => setRows((current) => current.filter((candidate) => candidate.key !== row.key))}
+            data-testid={`item-price-remove-${index}`}
+            className="border-line hover:bg-surface rounded-md border px-2 py-2 text-sm"
+          >
+            Quitar
+          </button>
+        </div>
+      ))}
+
+      <button
+        type="button"
+        onClick={() => {
+          setRows((current) => [...current, { key: nextKey, priceListId: '', price: '' }]);
+          setNextKey((key) => key + 1);
+        }}
+        data-testid="item-price-add"
+        className="border-line hover:bg-surface rounded-md border px-3 py-2 text-sm"
+      >
+        Agregar lista
+      </button>
+
+      <Field
+        label="Precio mínimo"
+        name="minPrice"
+        testId="item-min-price"
+        defaultValue={item?.minPrice === null || item?.minPrice === undefined ? '' : formatNumber(item.minPrice)}
+        required={false}
+        inputMode="decimal"
+        autoComplete="off"
+      />
     </fieldset>
   );
 }

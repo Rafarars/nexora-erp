@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { ItemPrices } from '../../domain/item/item-prices.js';
 import { ItemUnit, ItemUnits } from '../../domain/item/item-units.js';
 import {
   CATEGORY_A,
@@ -8,7 +9,9 @@ import {
   TENANT_B,
   UNIT_BOX,
   UNIT_PIECE,
+  PRICE_LIST_A,
   aCategory,
+  aPriceList,
   aTax,
   aUnit,
   anItem,
@@ -49,9 +52,29 @@ describe('ItemSearcher', () => {
           { unitId: UNIT_BOX, name: 'Caja', abbreviation: 'cja', conversionFactor: 24, isBase: false },
         ],
         reorderRules: [],
+        prices: [],
+        minPrice: null,
         isActive: true,
       },
     ]);
+  });
+
+  // El precio llega con el nombre de su lista: la pantalla no tiene que cruzar dos listados.
+  it('returns the price of each list with its name and currency', async () => {
+    const scenario = anItemScenario({
+      units: [aUnit()],
+      categories: [aCategory()],
+      taxes: [aTax()],
+      priceLists: [aPriceList({ name: 'Mayorista' })],
+      items: [anItem({ minPrice: 0.5, prices: ItemPrices.fromPrimitives([{ priceListId: PRICE_LIST_A, price: 0.85 }]) })],
+    });
+
+    const { items } = await new ItemSearcher(scenario.items, scenario.catalog).run({ tenantId: TENANT_A });
+
+    expect(items[0].prices).toEqual([
+      { priceList: { id: PRICE_LIST_A, name: 'Mayorista', currency: 'USD' }, price: 0.85 },
+    ]);
+    expect(items[0].minPrice).toBe(0.5);
   });
 
 // Un maestro de miles de articulos no se pide entero: la pantalla pide una pagina y filtra.

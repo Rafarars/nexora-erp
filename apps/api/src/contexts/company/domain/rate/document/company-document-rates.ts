@@ -58,6 +58,16 @@ export class CompanyDocumentRates implements DocumentRates {
     return (await this.settings.find(TenantId.of(tenantId))).baseCurrency().value;
   }
 
+  async rateFor(tenantId: string, currency: string, date: string): Promise<number> {
+    const tenant = TenantId.of(tenantId);
+    const settings = await this.settings.find(tenant);
+    const code = CurrencyCode.of(currency);
+
+    // Una lista en una moneda retirada del catalogo sigue teniendo su serie de tasas: lo que
+    // decide si se puede cotizar en ella es el documento, no el precio.
+    return (await this.resolver.rateOn(tenant, code, settings.rateType(), RateDate.of(date))).rate;
+  }
+
   private async ensureUsable(code: CurrencyCode, keeps: boolean): Promise<void> {
     const currency = await this.currencies.find(code);
 

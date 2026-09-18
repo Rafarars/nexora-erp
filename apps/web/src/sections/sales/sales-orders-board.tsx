@@ -8,7 +8,8 @@ import { SlideOver } from '@/sections/shared/slide-over';
 import { emptyState } from '@/shared/forms/form-state';
 import type { FormState } from '@/shared/forms/form-state';
 import { selectableOptions } from '@/modules/catalog/domain/catalog';
-import type { Warehouse } from '@/modules/catalog/domain/catalog';
+import type { PriceList, Warehouse } from '@/modules/catalog/domain/catalog';
+import { suggestedPrice } from '@/modules/inventory/domain/item';
 import type { Item } from '@/modules/inventory/domain/item';
 import { formatCost, formatQuantity } from '@/modules/inventory/domain/inventory';
 import { currencyOptions, formatRate, offersManualRate } from '@/modules/company/domain/company';
@@ -27,6 +28,8 @@ export function SalesOrdersBoard({
   items,
   warehouses,
   currencies,
+  priceLists,
+  defaultPriceListId,
   baseCurrency,
   allowsRateOverride,
   today,
@@ -41,6 +44,8 @@ export function SalesOrdersBoard({
   items: Item[];
   warehouses: Warehouse[];
   currencies: Currency[];
+  priceLists: PriceList[];
+  defaultPriceListId: string | null;
   baseCurrency: string;
   allowsRateOverride: boolean;
   today: string;
@@ -231,6 +236,8 @@ export function SalesOrdersBoard({
             items={items}
             warehouses={warehouses}
             currencies={currencies}
+            priceLists={priceLists}
+            defaultPriceListId={defaultPriceListId}
             baseCurrency={baseCurrency}
             allowsRateOverride={allowsRateOverride}
             today={today}
@@ -266,6 +273,8 @@ interface LineRow {
   unitId: string;
   quantity: string;
   price: string;
+  // Lo que sugirio la lista: si el precio se aparta de esto, se pacto a mano y no se pisa.
+  listPrice: string;
 }
 
 function OrderFields({
@@ -274,6 +283,8 @@ function OrderFields({
   items,
   warehouses,
   currencies,
+  priceLists,
+  defaultPriceListId,
   baseCurrency,
   allowsRateOverride,
   today,
@@ -283,11 +294,16 @@ function OrderFields({
   items: Item[];
   warehouses: Warehouse[];
   currencies: Currency[];
+  priceLists: PriceList[];
+  defaultPriceListId: string | null;
   baseCurrency: string;
   allowsRateOverride: boolean;
   today: string;
 }) {
   const [currency, setCurrency] = useState(order?.currency ?? baseCurrency);
+  const [customerId, setCustomerId] = useState(order?.customer.id ?? '');
+  // Vacio significa "la del cliente, y si no tiene, la de por defecto": el servidor decide igual.
+  const [priceListId, setPriceListId] = useState(order?.priceList?.id ?? '');
   // Solo se vende lo que sale de una bodega.
   const sellable = items.filter((item) => item.type === 'inventoried');
   const initial: LineRow[] = order
@@ -297,13 +313,34 @@ function OrderFields({
         unitId: line.unitId,
         quantity: formatQuantity(line.quantity),
         price: formatCost(line.unitPrice),
+        listPrice: line.listPrice === 0 ? '' : formatCost(line.listPrice),
       }))
-    : [{ key: 0, itemId: '', unitId: '', quantity: '', price: '' }];
+    : [{ key: 0, itemId: '', unitId: '', quantity: '', price: '', listPrice: '' }];
 
   const [rows, setRows] = useState<LineRow[]>(initial);
   const [nextKey, setNextKey] = useState(initial.length);
   const update = (key: number, change: Partial<LineRow>) =>
     setRows((current) => current.map((row) => (row.key === key ? { ...row, ...change } : row)));
+
+  // La lista con la que se cotiza ahora mismo: la del pedido, la del cliente o la de por defecto.
+  const chosenList = priceListId || customers.find((candidate) => candidate.id === customerId)?.priceListId || defaultPriceListId;
+  const effectiveList = priceLists.find((candidate) => candidate.id === chosenList) ?? null;
+
+  // Rellena el precio de una linea con el de la lista. Un precio pactado a mano se respeta: solo
+  // se pisa lo que ya venia de la lista o esta en blanco, como hace el ERP del que se copio.
+  const repriced = (row: LineRow, itemId: string, unitId: string, list = effectiveList, money = currency): Partial<LineRow> => {
+    const suggestion = suggestedPrice(sellable.find((candidate) => candidate.id === itemId), unitId, list, money);
+    const pinned = row.price !== '' && row.price !== row.listPrice;
+
+    return pinned ? { listPrice: suggestion === null ? '' : formatCost(suggestion) } : {
+      price: suggestion === null ? '' : formatCost(suggestion),
+      listPrice: suggestion === null ? '' : formatCost(suggestion),
+    };
+  };
+
+  // Cambiar de lista o de moneda vuelve a cotizar todas las lineas.
+  const repriceAll = (list: PriceList | null, money: string) =>
+    setRows((current) => current.map((row) => ({ ...row, ...repriced(row, row.itemId, row.unitId, list, money) })));
 
   return (
     <>
@@ -314,7 +351,12 @@ function OrderFields({
         <select
           id="customerId"
           name="customerId"
-          defaultValue={order?.customer.id ?? ''}
+          value={customerId}
+          onChange={(event) => {
+            setCustomerId(event.target.value);
+            const list = priceListId || customers.find((c) => c.id === event.target.value)?.priceListId || defaultPriceListId;
+            repriceAll(priceLists.find((candidate) => candidate.id === list) ?? null, currency);
+          }}
           data-testid="sales-order-customer"
           className="border-line bg-background w-full rounded-md border px-3 py-2 text-sm"
         >
@@ -346,6 +388,37 @@ function OrderFields({
         </select>
       </div>
 
+      <div className="space-y-1.5">
+        <label htmlFor="order-price-list" className="text-sm font-medium">
+          Lista de precio <span className="text-muted font-normal">(opcional)</span>
+        </label>
+        <select
+          id="order-price-list"
+          name="priceListId"
+          value={priceListId}
+          onChange={(event) => {
+            setPriceListId(event.target.value);
+            const list = event.target.value || customers.find((c) => c.id === customerId)?.priceListId || defaultPriceListId;
+            repriceAll(priceLists.find((candidate) => candidate.id === list) ?? null, currency);
+          }}
+          data-testid="sales-order-price-list"
+          className="border-line bg-background w-full rounded-md border px-3 py-2 text-sm"
+        >
+          <option value="">La del cliente</option>
+          {priceLists.map((priceList) => (
+            <option key={priceList.id} value={priceList.id}>
+              {priceList.name} ({priceList.currency})
+            </option>
+          ))}
+        </select>
+        {effectiveList ? (
+          <p className="text-muted text-xs" data-testid="sales-order-price-list-hint">
+            Cotizando con {effectiveList.name} en {effectiveList.currency}.
+            {effectiveList.currency === currency ? '' : ' Los precios se convertirán con la tasa del día al guardar.'}
+          </p>
+        ) : null}
+      </div>
+
       <div className="flex gap-2">
         <div className="flex-1 space-y-1.5">
           <label htmlFor="order-date" className="text-sm font-medium">
@@ -372,7 +445,10 @@ function OrderFields({
             id="sales-order-currency"
             name="currency"
             value={currency}
-            onChange={(event) => setCurrency(event.target.value)}
+            onChange={(event) => {
+              setCurrency(event.target.value);
+              repriceAll(effectiveList, event.target.value);
+            }}
             data-testid="sales-order-currency"
             className="border-line bg-background w-full rounded-md border px-3 py-2 text-sm"
           >
@@ -421,7 +497,9 @@ function OrderFields({
                   // Al cambiar de articulo se propone su unidad base: la de antes ya no aplica.
                   onChange={(event) => {
                     const chosen = sellable.find((candidate) => candidate.id === event.target.value);
-                    update(row.key, { itemId: event.target.value, unitId: chosen?.units.find((u) => u.isBase)?.unitId ?? '' });
+                    const unitId = chosen?.units.find((u) => u.isBase)?.unitId ?? '';
+
+                    update(row.key, { itemId: event.target.value, unitId, ...repriced(row, event.target.value, unitId) });
                   }}
                   className="border-line bg-background min-w-0 flex-1 rounded-md border px-2 py-2 text-sm"
                 >
@@ -460,7 +538,7 @@ function OrderFields({
                   value={row.unitId}
                   aria-label="Unidad"
                   data-testid={`sales-order-line-unit-${index}`}
-                  onChange={(event) => update(row.key, { unitId: event.target.value })}
+                  onChange={(event) => update(row.key, { unitId: event.target.value, ...repriced(row, row.itemId, event.target.value) })}
                   className="border-line bg-background rounded-md border px-2 py-2 text-sm"
                 >
                   {(item?.units ?? []).map((unit) => (
@@ -487,7 +565,7 @@ function OrderFields({
         <button
           type="button"
           onClick={() => {
-            setRows((current) => [...current, { key: nextKey, itemId: '', unitId: '', quantity: '', price: '' }]);
+            setRows((current) => [...current, { key: nextKey, itemId: '', unitId: '', quantity: '', price: '', listPrice: '' }]);
             setNextKey((key) => key + 1);
           }}
           data-testid="sales-order-line-add"

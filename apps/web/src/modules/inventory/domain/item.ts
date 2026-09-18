@@ -23,6 +23,10 @@ export interface Item extends CatalogRecord {
   isSellable: boolean;
   // Cuanto se quiere tener en cada bodega; vacio, no se vigila.
   reorderRules: { warehouse: { id: string; name: string }; minQuantity: number; maxQuantity: number | null; reorderQuantity: number }[];
+  // Lo que cuesta en cada lista, en la unidad base; vacio, no se sugiere precio al venderlo.
+  prices: { priceList: { id: string; name: string; currency: string }; price: number }[];
+  // Piso de venta en la moneda de la empresa; nulo, no hay piso.
+  minPrice: number | null;
   // El que se copia al vender y el que se copia al comprar.
   salesTax: { id: string; name: string; rate: number } | null;
   purchaseTax: { id: string; name: string; rate: number } | null;
@@ -45,4 +49,24 @@ export function describeUnits(units: ItemUnit[]): string {
     .map((unit) => `1 ${unit.abbreviation} = ${formatNumber(unit.conversionFactor)} ${base.abbreviation}`);
 
   return [base.abbreviation, ...others].join(' · ');
+}
+
+
+// Lo que la pantalla puede sugerir sin preguntar al servidor: el precio de la lista por la unidad
+// elegida. Si la lista esta en otra moneda que el documento, no se sugiere nada y el campo queda
+// en blanco: la conversion por el bolivar la hace el servidor al guardar, con las tasas del dia.
+export function suggestedPrice(
+  item: Item | undefined,
+  unitId: string,
+  priceList: { id: string; currency: string } | null,
+  documentCurrency: string,
+): number | null {
+  if (!item || !priceList || priceList.currency !== documentCurrency) return null;
+
+  const found = item.prices.find((price) => price.priceList.id === priceList.id);
+  const unit = item.units.find((candidate) => candidate.unitId === unitId);
+
+  if (!found || !unit) return null;
+
+  return found.price * unit.conversionFactor;
 }

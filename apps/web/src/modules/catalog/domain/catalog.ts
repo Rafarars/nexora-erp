@@ -24,6 +24,13 @@ export interface Warehouse extends CatalogRecord {
   isDefault: boolean;
 }
 
+// La lista solo nombra el conjunto y dice en que moneda esta: los precios cuelgan del articulo.
+export interface PriceList extends CatalogRecord {
+  description: string | null;
+  currency: string;
+  isDefault: boolean;
+}
+
 // Lo que se ofrece en un selector: los activos, y ademas el que el registro ya tiene
 // aunque se haya desactivado despues, para que editarlo no lo borre en silencio.
 export function selectableOptions<T extends CatalogRecord>(records: T[], currentId?: string | null): T[] {

@@ -14,6 +14,7 @@ export const CATALOG_SECTIONS: CatalogSection[] = [
   { href: '/catalogo/unidades', label: 'Unidades', testId: 'catalog-unidades', permission: 'catalog.units.search' },
   { href: '/catalogo/impuestos', label: 'Impuestos', testId: 'catalog-impuestos', permission: 'catalog.taxes.search' },
   { href: '/catalogo/bodegas', label: 'Bodegas', testId: 'catalog-bodegas', permission: 'catalog.warehouses.search' },
+  { href: '/catalogo/listas-de-precio', label: 'Listas de precio', testId: 'catalog-listas-de-precio', permission: 'catalog.pricelists.search' },
 ];
 
 // Solo las secciones que el rol puede ver: un enlace que acaba en "no tienes permiso"

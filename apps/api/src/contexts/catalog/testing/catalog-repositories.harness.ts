@@ -1,5 +1,6 @@
 import { CategoryRepository } from '../domain/category/category.repository.js';
 import { MeasurementUnitRepository } from '../domain/measurement-unit/measurement-unit.repository.js';
+import { PriceListRepository } from '../domain/price-list/price-list.repository.js';
 import { CodeSequence } from '../domain/shared/code-sequence.js';
 import { TaxRepository } from '../domain/tax/tax.repository.js';
 import { ItemUsage } from '../domain/usage/item-usage.js';
@@ -10,6 +11,7 @@ export interface CatalogRepositories {
   units: MeasurementUnitRepository;
   taxes: TaxRepository;
   warehouses: WarehouseRepository;
+  priceLists: PriceListRepository;
   itemUsage: ItemUsage;
   codes: CodeSequence;
 }

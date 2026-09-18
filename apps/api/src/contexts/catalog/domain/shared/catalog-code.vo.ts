@@ -4,7 +4,7 @@ import { StringValueObject } from '../../../../shared/domain/value-object.js';
 const CODE_PATTERN = /^[A-Z]{3}\d{6,}$/;
 
 // ART ya no: el articulo vive en el inventario, con su propio codigo.
-export type CodePrefix = 'CAT' | 'UOM' | 'IMP' | 'BOD';
+export type CodePrefix = 'CAT' | 'UOM' | 'IMP' | 'BOD' | 'LPR';
 
 export class InvalidCatalogCodeError extends InvalidArgumentError {
   constructor(value: string) {

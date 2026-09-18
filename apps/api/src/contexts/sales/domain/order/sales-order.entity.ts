@@ -33,6 +33,8 @@ export interface SalesOrderDetails {
   orderDate: SalesDate;
   currency: DocumentCurrency;
   notes: string | null;
+  // Con que lista se cotizo. Queda escrita para saber de donde salio cada precio.
+  priceListId: string | null;
   lines: SalesOrderLine[];
 }
 
@@ -44,6 +46,7 @@ export interface SalesOrderPrimitives extends DocumentCurrencyPrimitives {
   warehouseId: string;
   orderDate: string;
   notes: string | null;
+  priceListId: string | null;
   status: SalesOrderStatus;
   confirmedAt: Date | null;
   cancelledAt: Date | null;
@@ -95,6 +98,7 @@ export class SalesOrder {
         orderDate: SalesDate.of(row.orderDate),
         currency: DocumentCurrency.fromPrimitives(row),
         notes: row.notes,
+        priceListId: row.priceListId,
         lines: [...row.lines].sort((a, b) => a.lineNumber - b.lineNumber).map((line) => SalesOrderLine.fromPrimitives(line)),
       },
       row.status,
@@ -116,6 +120,7 @@ export class SalesOrder {
       orderDate: this.details.orderDate.value,
       ...this.details.currency.toPrimitives(),
       notes: this.details.notes,
+      priceListId: this.details.priceListId,
       status: this.status,
       confirmedAt: this.confirmedAt,
       cancelledAt: this.cancelledAt,

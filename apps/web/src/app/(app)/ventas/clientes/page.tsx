@@ -1,5 +1,6 @@
 import { CustomersTable } from '@/sections/sales/customers-table';
 import { can } from '@/modules/access/domain/session';
+import { catalogApi } from '@/shared/session/catalog-api';
 import { salesApi } from '@/shared/session/sales-api';
 import { requireSession } from '@/shared/session/current-session';
 
@@ -16,11 +17,20 @@ export default async function CustomersPage() {
     );
   }
 
+  const canUpdate = can(session, 'sales.customers.update');
+  const canCreate = can(session, 'sales.customers.create');
+  const [customers, priceLists] = await Promise.all([
+    salesApi().searchCustomers(token),
+    // Sin permiso sobre las listas, el cliente se guarda con la que ya tenia.
+    (canCreate || canUpdate) && can(session, 'catalog.pricelists.search') ? catalogApi().searchPriceLists(token) : [],
+  ]);
+
   return (
     <CustomersTable
-      customers={await salesApi().searchCustomers(token)}
-      canCreate={can(session, 'sales.customers.create')}
-      canUpdate={can(session, 'sales.customers.update')}
+      customers={customers}
+      priceLists={priceLists.filter((priceList) => priceList.isActive)}
+      canCreate={canCreate}
+      canUpdate={canUpdate}
       canDeactivate={can(session, 'sales.customers.deactivate')}
     />
   );

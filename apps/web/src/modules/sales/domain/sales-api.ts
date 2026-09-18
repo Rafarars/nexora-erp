@@ -8,6 +8,7 @@ export interface CustomerInput {
   address: string | null;
   paymentTermDays: number | null;
   creditLimit: number | null;
+  priceListId: string | null;
 }
 
 export interface OrderInput {
@@ -17,7 +18,9 @@ export interface OrderInput {
   notes: string | null;
   currency: string | null;
   exchangeRate: number | null;
-  lines: { itemId: string; unitId: string; quantity: number; unitPrice: number }[];
+  priceListId: string | null;
+  // Sin precio manda el de la lista, que resuelve el servidor.
+  lines: { itemId: string; unitId: string; quantity: number; unitPrice: number | null }[];
 }
 
 export interface DispatchInput {

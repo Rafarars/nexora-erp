@@ -1,5 +1,6 @@
 import { Uuid } from '../../../../shared/domain/uuid.vo.js';
 import { InvalidCreditLimitError, InvalidPaymentTermError, InvalidCustomerEmailError } from '../errors/sales.errors.js';
+import { PriceListRef } from '../shared/references.vo.js';
 import { optionalText, requiredText } from '../shared/text.js';
 import { TenantId } from '../shared/tenant-id.vo.js';
 
@@ -17,6 +18,8 @@ export interface CustomerDetails {
   address?: string | null;
   paymentTermDays?: number | null;
   creditLimit?: number | null;
+  // Con que lista se le cotiza. Sin ella, la lista por defecto de la empresa.
+  priceListId?: string | null;
 }
 
 export interface CustomerPrimitives {
@@ -30,6 +33,7 @@ export interface CustomerPrimitives {
   address: string | null;
   paymentTermDays: number;
   creditLimit: number | null;
+  priceListId: string | null;
   isActive: boolean;
   createdAt: Date;
   updatedAt: Date;
@@ -92,6 +96,10 @@ export class Customer {
     return this.contact.creditLimit;
   }
 
+  priceListId(): PriceListRef | null {
+    return this.contact.priceListId ? PriceListRef.of(this.contact.priceListId) : null;
+  }
+
   update(details: CustomerDetails, now: Date): void {
     this.contact = validated(details);
     this.updatedAt = now;
@@ -118,6 +126,7 @@ function validated(details: CustomerDetails): Contact {
     throw new InvalidPaymentTermError(paymentTermDays);
   }
 
+  const priceListId = details.priceListId ?? null;
   const creditLimit = details.creditLimit ?? null;
 
   if (creditLimit !== null) {
@@ -137,5 +146,6 @@ function validated(details: CustomerDetails): Contact {
     address: optionalText(details.address, 500, 'CustomerAddress'),
     paymentTermDays,
     creditLimit,
+    priceListId,
   };
 }

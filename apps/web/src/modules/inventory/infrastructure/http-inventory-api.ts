@@ -52,7 +52,9 @@ export class HttpInventoryApi implements InventoryApi {
       ...unit,
       conversionFactor: Number.isNaN(unit.conversionFactor) ? 'NaN' : unit.conversionFactor,
     }));
-    const body = { ...input, units };
+    const prices = input.prices.map((price) => ({ ...price, price: Number.isNaN(price.price) ? 'NaN' : price.price }));
+    const minPrice = Number.isNaN(input.minPrice) ? 'NaN' : input.minPrice;
+    const body = { ...input, units, prices, minPrice };
 
     if (id) {
       await this.request('PUT', `${BASE}/items/${id}`, token, body);

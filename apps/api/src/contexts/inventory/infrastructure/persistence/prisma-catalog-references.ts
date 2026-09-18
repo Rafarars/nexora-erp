@@ -3,11 +3,12 @@ import { PrismaService } from '../../../../shared/prisma/prisma.service.js';
 import {
   CatalogReferences,
   ReferencedCategory,
+  ReferencedPriceList,
   ReferencedTax,
   ReferencedUnit,
   ReferencedWarehouse,
 } from '../../domain/catalog/catalog-references.js';
-import { CategoryRef, TaxRef, UnitRef, WarehouseRef } from '../../domain/shared/references.vo.js';
+import { CategoryRef, PriceListRef, TaxRef, UnitRef, WarehouseRef } from '../../domain/shared/references.vo.js';
 import { TenantId } from '../../domain/shared/tenant-id.vo.js';
 import { toNumber } from './decimals.js';
 
@@ -52,6 +53,15 @@ export class PrismaCatalogReferences implements CatalogReferences {
     return this.prisma.warehouse.findMany({
       where: { tenantId: tenantId.value, id: { in: ids.map((id) => id.value) } },
       select: { id: true, name: true, isActive: true },
+    });
+  }
+
+  async findPriceLists(tenantId: TenantId, ids: PriceListRef[]): Promise<ReferencedPriceList[]> {
+    if (ids.length === 0) return [];
+
+    return this.prisma.priceList.findMany({
+      where: { tenantId: tenantId.value, id: { in: ids.map((id) => id.value) } },
+      select: { id: true, name: true, currency: true, isActive: true },
     });
   }
 }

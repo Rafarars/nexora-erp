@@ -60,7 +60,7 @@ Estados: ⬜ pendiente · 🔍 revisado, esperando decisiones · ✅ cerrado (de
 
 | Submódulo | Estado | Informe |
 |---|---|---|
-| Artículos (piloto; empezó en Catálogo) | 🔨 Fases 1 a 4 hechas; faltan listas de precio, servicios y el cierre | [inventario/articulos.md](inventario/articulos.md) |
+| Artículos (piloto; empezó en Catálogo) | 🔨 Fases 1 a 5 hechas; faltan servicios y el cierre | [inventario/articulos.md](inventario/articulos.md) |
 | Ajustes | ⬜ | |
 | Existencias | ⬜ | |
 | Kardex | ⬜ | |
@@ -122,7 +122,7 @@ decidir **en qué módulo viven** y **qué reglas llevan**. Cada una se resuelve
 |---|---|---|---|
 | Artículos en Inventario | Mover código, pantalla y permisos de Catálogo a Inventario (decidido) | Artículos | ✅ Fase 2 |
 | Configuración de la empresa y monedas | Qué valores lleva y dónde vive; multimoneda con tasas (decidido: en esta fase) | Artículos (antes de listas de precio) | ✅ Los 5 pasos, hechos y revalidados · [temas/configuracion-empresa.md](temas/configuracion-empresa.md) |
-| Listas de precio | En qué módulo vive el maestro y cómo se resuelve el precio | Artículos | ⬜ |
+| Listas de precio | En qué módulo vive el maestro y cómo se resuelve el precio | Artículos | ✅ Fase 5 · [temas/listas-de-precio.md](temas/listas-de-precio.md) |
 | Adjuntos e imágenes | Módulo genérico de archivos: tabla, relación con cada registro y almacenamiento en el despliegue | Artículos (imagen del artículo) | ⬜ |
 | Tipo no inventariado | Si se agrega y qué documentos lo aceptan | Inventario › Existencias | ⬜ |
 | Lotes y series | Qué submódulo son y qué documentos los exigen | Inventario | ⬜ |

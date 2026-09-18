@@ -10,13 +10,15 @@ import { ItemCriteria, ItemRepository } from '../../domain/item/item.repository.
 import { Sku } from '../../domain/item/sku.vo.js';
 import { TenantId } from '../../domain/shared/tenant-id.vo.js';
 
-const WITH_UNITS = { units: true, reorderRules: true } as const;
+const WITH_UNITS = { units: true, reorderRules: true, prices: true } as const;
 
 type Decimalish = { toNumber(): number };
 
 type ItemRow = Awaited<ReturnType<PrismaService['item']['findFirstOrThrow']>> & {
   units: { unitId: string; conversionFactor: Decimalish; isBase: boolean }[];
   reorderRules: { warehouseId: string; minQuantity: Decimalish; maxQuantity: Decimalish | null; reorderQuantity: Decimalish }[];
+  prices: { priceListId: string; price: Decimalish }[];
+  minPrice: Decimalish | null;
 };
 
 export function itemFromRow(row: ItemRow): Item {
@@ -33,26 +35,31 @@ export function itemFromRow(row: ItemRow): Item {
       maxQuantity: rule.maxQuantity === null ? null : rule.maxQuantity.toNumber(),
       reorderQuantity: rule.reorderQuantity.toNumber(),
     })),
+    prices: row.prices.map((price) => ({ priceListId: price.priceListId, price: price.price.toNumber() })),
+    minPrice: row.minPrice === null ? null : row.minPrice.toNumber(),
   });
 }
 
 // El articulo y sus unidades dentro de la transaccion de quien llama. Las unidades se reemplazan
 // enteras, porque la persona manda el conjunto completo y no una lista de cambios.
 export async function writeItem(tx: TransactionClient, item: Item): Promise<void> {
-  const { id, tenantId, code, sku, barcode, name, description, type, isPurchasable, isSellable, categoryId, salesTaxId, purchaseTaxId, isActive, units, reorderRules, createdAt, updatedAt } =
+  const { id, tenantId, code, sku, barcode, name, description, type, isPurchasable, isSellable, categoryId, salesTaxId, purchaseTaxId, minPrice, isActive, units, reorderRules, prices, createdAt, updatedAt } =
     item.toPrimitives();
 
   try {
     await tx.item.upsert({
       where: { tenantId_id: { tenantId, id } },
-      create: { id, tenantId, code, sku, barcode, name, description, type, isPurchasable, isSellable, categoryId, salesTaxId, purchaseTaxId, isActive, createdAt, updatedAt },
-      update: { sku, barcode, name, description, type, isPurchasable, isSellable, categoryId, salesTaxId, purchaseTaxId, isActive, updatedAt },
+      create: { id, tenantId, code, sku, barcode, name, description, type, isPurchasable, isSellable, categoryId, salesTaxId, purchaseTaxId, minPrice, isActive, createdAt, updatedAt },
+      update: { sku, barcode, name, description, type, isPurchasable, isSellable, categoryId, salesTaxId, purchaseTaxId, minPrice, isActive, updatedAt },
     });
     await tx.itemUnit.deleteMany({ where: { tenantId, itemId: id } });
     await tx.itemUnit.createMany({ data: units.map((unit) => ({ tenantId, itemId: id, ...unit })) });
     // Las reglas se reemplazan enteras, como las unidades: la persona manda el conjunto.
     await tx.itemReorderRule.deleteMany({ where: { tenantId, itemId: id } });
     await tx.itemReorderRule.createMany({ data: reorderRules.map((rule) => ({ tenantId, itemId: id, ...rule })) });
+    // Los precios tambien: la persona manda la tabla completa de la pantalla del articulo.
+    await tx.itemPrice.deleteMany({ where: { tenantId, itemId: id } });
+    await tx.itemPrice.createMany({ data: prices.map((price) => ({ tenantId, itemId: id, ...price, updatedAt })) });
   } catch (error) {
     if (violates(error, 'sku')) throw new DuplicateSkuError(sku, tenantId);
     throw error;

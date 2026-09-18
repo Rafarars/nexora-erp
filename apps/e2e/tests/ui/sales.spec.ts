@@ -151,3 +151,63 @@ test('a read-only role sees orders, invoices and availability but gets no way to
   await expect(sales.reservedOf('AGUA-500', 'Principal')).toHaveText('72 un');
   await expect(sales.availableOf('DETERGENTE-1KG', 'Principal')).toHaveText('40 kg');
 });
+
+// El precio deja de teclearse: sale de la lista con la que se cotiza, ya multiplicado por la
+// unidad elegida. Y lo que se escribe a mano manda sobre la lista.
+test('fills the price from the list, by the chosen unit, and respects a price agreed by hand', async ({ page, request }) => {
+  const token = await tokenFor(request, ACME_ADMIN.email, API);
+  const customer = await aFreshCustomer(request, token, 15, API);
+  const sales = new SalesPage(page);
+
+  await new LoginPage(page).signIn(ACME_ADMIN);
+  await sales.open('pedidos');
+  await page.getByTestId('new-sales-order').click();
+  await page.getByTestId('sales-order-customer').selectOption({ label: customer.name });
+  await page.getByTestId('sales-order-line-item-0').selectOption({ label: 'AGUA-500 — Agua mineral 500 ml' });
+
+  // Sin lista elegida se cotiza con la de por defecto: el agua vale 0,85 la unidad.
+  await expect(page.getByTestId('sales-order-price-list-hint')).toContainText('Detal');
+  await expect(page.getByTestId('sales-order-line-price-0')).toHaveValue('0,85');
+
+  // En cajas de 24, el precio de la unidad base por el factor.
+  await page.getByTestId('sales-order-line-unit-0').selectOption({ label: 'cja' });
+  await expect(page.getByTestId('sales-order-line-price-0')).toHaveValue('20,4');
+
+  // Cambiar de lista vuelve a cotizar: al mayor, 0,70 por unidad son 16,80 por caja.
+  await page.getByTestId('sales-order-price-list').selectOption({ label: 'Mayorista (USD)' });
+  await expect(page.getByTestId('sales-order-line-price-0')).toHaveValue('16,8');
+
+  // Un precio pactado a mano ya no se pisa al cambiar de lista.
+  await page.getByTestId('sales-order-line-price-0').fill('15');
+  await page.getByTestId('sales-order-price-list').selectOption({ label: 'Detal (USD)' });
+  await expect(page.getByTestId('sales-order-line-price-0')).toHaveValue('15');
+
+  await page.getByTestId('sales-order-line-quantity-0').fill('2');
+  await page.getByTestId('sales-order-submit').click();
+
+  // Dos cajas a 15, mas el 16 %.
+  await expect(sales.orderOf(customer.name).getByTestId(/sales-order-total-/)).toContainText('34,80');
+});
+
+// La lista en otra moneda no se sugiere en pantalla: la convierte el servidor con la tasa del dia.
+test('leaves the price to the server when the list is in another currency than the order', async ({ page, request }) => {
+  const token = await tokenFor(request, ACME_ADMIN.email, API);
+  const customer = await aFreshCustomer(request, token, 15, API);
+  const sales = new SalesPage(page);
+
+  await new LoginPage(page).signIn(ACME_ADMIN);
+  await sales.open('pedidos');
+  await page.getByTestId('new-sales-order').click();
+  await page.getByTestId('sales-order-customer').selectOption({ label: customer.name });
+  await page.getByTestId('sales-order-currency').selectOption('EUR');
+  await page.getByTestId('sales-order-line-item-0').selectOption({ label: 'AGUA-500 — Agua mineral 500 ml' });
+  await page.getByTestId('sales-order-line-quantity-0').fill('1');
+
+  await expect(page.getByTestId('sales-order-price-list-hint')).toContainText('se convertirán con la tasa del día');
+  await expect(page.getByTestId('sales-order-line-price-0')).toHaveValue('');
+
+  await page.getByTestId('sales-order-submit').click();
+
+  // 0,85 USD por la tasa del dolar, entre la del euro.
+  await expect(sales.orderOf(customer.name).getByTestId(/sales-order-total-/)).toContainText('EUR');
+});

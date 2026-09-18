@@ -26,7 +26,7 @@ import { Quantity } from '../domain/shared/quantity.vo.js';
 import { WarehouseRef } from '../domain/shared/references.vo.js';
 import { SalesDate } from '../domain/shared/sales-date.vo.js';
 import { TenantId } from '../domain/shared/tenant-id.vo.js';
-import { aDocumentCurrency, BOX, CUSTOMER, MAIN, NOW, PIECE, TENANT_A, TENANT_B, TODAY, WATER, anOrderLine } from '../domain/testing/sales.mother.js';
+import { aDocumentCurrency, BOX, CUSTOMER, MAIN, NOW, PIECE, RETAIL_LIST, TENANT_A, TENANT_B, TODAY, WATER, anOrderLine } from '../domain/testing/sales.mother.js';
 import { SalesPorts, SalesPortsHarness } from './sales-ports.harness.js';
 
 const tenant = TenantId.of(TENANT_A);
@@ -67,6 +67,7 @@ export function describeSalesPortsContract(implementation: string, createHarness
           orderDate: SalesDate.of(TODAY),
           currency: aDocumentCurrency(),
           notes: 'contrato',
+          priceListId: null,
           lines,
         }, NOW, TODAY),
       );
@@ -115,6 +116,28 @@ export function describeSalesPortsContract(implementation: string, createHarness
           lineIds: () => `5f100000-0000-4000-8000-${next()}`,
         }, NOW, TODAY),
       );
+
+    // La lista con la que se cotizo y el precio que sugirio: los guarda la fila del pedido y la de
+    // cada linea, y vuelven enteros al leerlos.
+    it('keeps the price list of the order and the list price of each line', async () => {
+      const id = SalesOrderId.of(`5b000000-0000-4000-8000-${next()}`);
+
+      await ports.orders.save(
+        SalesOrder.draft(id, tenant, `PED${next().slice(-6)}`, {
+          customerId: CustomerId.of(CUSTOMER),
+          warehouseId: WarehouseRef.of(MAIN),
+          orderDate: SalesDate.of(TODAY),
+          currency: aDocumentCurrency(),
+          notes: 'contrato',
+          priceListId: RETAIL_LIST,
+          lines: [anOrderLine({ quantity: 1, unit: PIECE, factor: 1, unitPrice: 1.75, listPrice: 2 })],
+        }, NOW, TODAY),
+      );
+
+      const saved = (await ports.orders.find(tenant, id))?.toPrimitives();
+      expect(saved?.priceListId).toBe(RETAIL_LIST);
+      expect(saved?.lines[0]).toMatchObject({ unitPrice: 1.75, listPrice: 2 });
+    });
 
     describe('SalesOrderPosting', () => {
       it('confirms when the order fits and refuses without writing when it does not', async () => {
@@ -174,6 +197,7 @@ export function describeSalesPortsContract(implementation: string, createHarness
           orderDate: SalesDate.of(TODAY),
           currency: first.currency(),
           notes,
+          priceListId: null,
           lines: [pieces(1)],
         });
 

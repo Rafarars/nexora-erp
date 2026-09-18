@@ -55,6 +55,7 @@ La categoría, el impuesto y las unidades siguen en el [catálogo](catalogo.md) 
 | `category_id` | categoría | Opcional |
 | `sales_tax_id` | impuesto | Opcional. **El que se copia a la línea al venderlo** |
 | `purchase_tax_id` | impuesto | Opcional. El que se copia a la línea al comprarlo |
+| `min_price` | decimal(18,6) | Opcional. **Piso de venta, en la moneda de la empresa** |
 
 ### 1.1 Mínimos por bodega — `item_reorder_rules`
 
@@ -73,7 +74,41 @@ la Norte. Así lo llevan Odoo (`stock.warehouse.orderpoint`), ERPNext (`Item Reo
 (en el SKU, artículo + ubicación). El compañero los tiene planos en el artículo y **nadie los lee**; aquí
 los consume el listado de bajo mínimo.
 
-### 1.2 Unidades del artículo — `item_units`
+### 1.2 Precios por lista — `item_prices`
+
+Lo que cuesta el artículo en cada [lista de precio](catalogo.md#5-listas-de-precio). Una fila por
+artículo y lista.
+
+| Campo | Tipo | Regla |
+|---|---|---|
+| `price_list_id` | lista | De la misma empresa y activa |
+| `price` | decimal(18,6) | Cero o más. **Siempre en la unidad base del artículo** |
+
+**Reglas**
+
+- **Un solo precio por artículo y lista**, sin vigencia por fechas: el histórico vive en los
+  documentos ya emitidos, que congelan su precio. Es lo que hace el compañero; Business Central,
+  Odoo y ERPNext admiten además ventanas de fechas, anotado en [FUTURE.md](../FUTURE.md).
+- **El precio está en la unidad base.** Vender en otra unidad lo multiplica por el factor de
+  conversión, y eso lo hace el pedido, no esta tabla. En el ERP del compañero el precio se guarda
+  «en unidad base» pero se sugiere igual en cualquier unidad, así que una caja de doce se cobra al
+  precio de la pieza; aquí no, porque nuestro subtotal multiplica por la cantidad **en la unidad de
+  la línea**.
+- **Los precios se reemplazan enteros** al guardar el artículo, como las unidades y los mínimos: la
+  persona manda la tabla completa de la pantalla, no una lista de cambios.
+- **Ningún precio puede quedar por debajo de `min_price`** (`PriceBelowMinimumError`). Es una
+  invariante de la entidad: se comprueba al construirla, así que tampoco se puede subir el mínimo
+  por encima de un precio ya cargado.
+- **La lista tiene que existir y estar activa** (`PriceListNotFoundError`, `InactiveReferenceError`):
+  cargar un precio en una lista apagada sería escribir algo que nadie va a sugerir.
+
+**El precio mínimo va en la moneda de la empresa.** Las listas pueden estar en varias monedas, así
+que un número sin moneda no se podría comparar con nada. Cuando una línea de pedido se escribe en
+otra moneda, su precio se lleva a la de la empresa por el bolívar antes de compararlo
+([Ventas](ventas.md#el-precio-de-una-línea)). El ERP del compañero tiene el mismo campo pero compara
+números crudos, sin convertir, y su documentación no dice en qué moneda está.
+
+### 1.3 Unidades del artículo — `item_units`
 
 | Campo | Tipo | Regla |
 |---|---|---|

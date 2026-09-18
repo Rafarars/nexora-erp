@@ -1,7 +1,7 @@
 # Catálogo
 
 Los maestros que comparten los artículos y los documentos: **en qué unidades** se cuenta, **cómo**
-se clasifica, **con qué impuesto** y **dónde** se guarda. Los artículos viven en
+se clasifica, **con qué impuesto**, **dónde** se guarda y **a qué precio** se vende. Los artículos viven en
 [Inventario](inventario.md#1-artículos) desde la revisión de septiembre de 2026, como en los ERP.
 
 Contexto: `apps/api/src/contexts/catalog` · Pantallas: `/catalogo/*` · Informe técnico:
@@ -13,12 +13,13 @@ Contexto: `apps/api/src/contexts/catalog` · Pantallas: `/catalogo/*` · Informe
 | Unidades de medida | `measurement_units` | `UOM` | Artículos, ajustes |
 | Impuestos | `taxes` | `IMP` | Artículos (y documentos de venta y compra) |
 | Bodegas | `warehouses` | `BOD` | Inventario |
+| Listas de precio | `price_lists` | `LPR` | Artículos, clientes y pedidos de venta |
 
 Todas las tablas llevan `id`, `tenant_id`, `code`, `is_active`, `created_at` y `updated_at`.
 
 ---
 
-## Reglas comunes a los cuatro maestros
+## Reglas comunes a los cinco maestros
 
 - **Nada se borra**: se desactivan y se reactivan.
 - **Código legible** asignado por el sistema al crear; nunca cambia.
@@ -105,7 +106,44 @@ Donde se guarda la existencia.
 
 ---
 
-## 5. API y permisos
+## 5. Listas de precio
+
+«Mayorista», «Detal», «Promoción de enero». La lista **solo nombra el conjunto** y dice **en qué
+moneda está**: los precios cuelgan del artículo, en
+[`item_prices`](inventario.md#13-precios-por-lista). Es el modelo del compañero, y el que hace
+innecesario mantener un maestro de precios aparte.
+
+| Campo | Tipo | Regla |
+|---|---|---|
+| `name` | texto(150) | Obligatorio, único por empresa |
+| `description` | texto | Opcional |
+| `currency` | ISO 4217 | Obligatorio. **Se elige al crear y no se cambia** |
+| `is_default` | sí/no | **Exactamente una por empresa** en cuanto hay alguna |
+
+**Reglas**
+
+- **La moneda no se edita.** Cambiarla reinterpretaría de golpe todos los precios ya cargados: una
+  lista en dólares pasaría a leerse en euros sin que nadie tocara un precio. La pantalla ni siquiera
+  ofrece el campo al editar.
+- **La moneda tiene que existir y estar activa** (`UnknownPriceListCurrencyError`): sin ella no
+  habría tasa con la que convertir sus precios a la moneda del documento.
+- **La primera lista de una empresa es la de por defecto**, sin que nadie lo marque.
+- **Elegir otra por defecto** es una acción propia (`PUT /price-lists/:id/default`): le quita la
+  marca a la anterior en la misma escritura.
+- **No se desactiva la lista por defecto** (`DefaultPriceListDeactivationError`): un cliente sin
+  lista propia se cotiza con ella y se quedaría sin precio sugerido.
+- **Una lista inactiva no puede ser la de por defecto** (`InactiveDefaultPriceListError`), y una
+  lista apagada deja de sugerir precios — pero los documentos que ya la usaron conservan los suyos,
+  porque el precio se congela en la línea.
+- Si dos personas eligen a la vez listas por defecto distintas, un índice único parcial deja pasar
+  una y la otra recibe `ConcurrentDefaultPriceListError` (409).
+
+Cómo se elige la lista de un pedido y cómo se calcula el precio de una línea está en
+[Ventas § El precio de una línea](ventas.md#el-precio-de-una-línea).
+
+---
+
+## 6. API y permisos
 
 | Recurso | Listar | Crear | Editar | Desactivar/reactivar |
 |---|---|---|---|---|
@@ -113,11 +151,13 @@ Donde se guarda la existencia.
 | Unidades | `GET /api/v1/catalog/units` | `POST` | `PUT /:unitId` | `PUT /:unitId/status` |
 | Impuestos | `GET /api/v1/catalog/taxes` | `POST` | `PUT /:taxId` | `PUT /:taxId/status` |
 | Bodegas | `GET /api/v1/catalog/warehouses` | `POST` | `PUT /:warehouseId` | `PUT /:warehouseId/status` |
+| Listas de precio | `GET /api/v1/catalog/price-lists` | `POST` | `PUT /:priceListId` | `PUT /:priceListId/status` |
 
-Más `PUT /api/v1/catalog/warehouses/:warehouseId/default` para elegir la bodega por defecto.
+Más `PUT /api/v1/catalog/warehouses/:warehouseId/default` y
+`PUT /api/v1/catalog/price-lists/:priceListId/default` para elegir la bodega y la lista por defecto.
 
-**Permisos** (`catalog.{recurso}.{acción}`), con `{recurso}` = `categories`, `units`, `taxes` y
-`warehouses`. Los de artículos son `inventory.items.*`:
+**Permisos** (`catalog.{recurso}.{acción}`), con `{recurso}` = `categories`, `units`, `taxes`,
+`warehouses` y `pricelists` (sin guion: el código de un permiso solo admite letras y dígitos). Los de artículos son `inventory.items.*`:
 
 | Acción | Permite |
 |---|---|
@@ -128,7 +168,7 @@ Más `PUT /api/v1/catalog/warehouses/:warehouseId/default` para elegir la bodega
 
 ---
 
-## 6. Pantallas
+## 7. Pantallas
 
 | Ruta | Qué hace |
 |---|---|
@@ -145,7 +185,7 @@ Más `PUT /api/v1/catalog/warehouses/:warehouseId/default` para elegir la bodega
 
 ---
 
-## 7. Datos de demostración
+## 8. Datos de demostración
 
 | Empresa | Unidades | Categorías | Impuestos | Bodegas |
 |---|---|---|---|---|
@@ -155,7 +195,7 @@ Más `PUT /api/v1/catalog/warehouses/:warehouseId/default` para elegir la bodega
 
 ---
 
-## 8. Pruebas que lo protegen
+## 9. Pruebas que lo protegen
 
 | Nivel | Dónde | Qué cubre |
 |---|---|---|

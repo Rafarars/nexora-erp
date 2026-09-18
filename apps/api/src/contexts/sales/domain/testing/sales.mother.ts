@@ -1,6 +1,6 @@
 import { DocumentCurrency } from '../../../../shared/domain/document-currency.js';
 import { DocumentRateSet } from '../../../../shared/domain/ports/document-rates.js';
-import { SalesCatalog, SalesWarehouse, SellableItem } from '../catalog/sales-catalog.js';
+import { SalesCatalog, SalesPriceList, SalesWarehouse, SellableItem } from '../catalog/sales-catalog.js';
 import { CustomerId } from '../customer/customer.entity.js';
 import { ReservableItem, StockAvailability } from '../order/posting/stock-availability.js';
 import { SalesOrderLine, SalesOrderLineId } from '../order/sales-order-line.js';
@@ -37,6 +37,11 @@ export const FOREIGN_WAREHOUSE = 'b4444444-4444-4444-8444-444444444444';
 
 export const CUSTOMER = 'c1111111-1111-4111-8111-111111111111';
 
+export const RETAIL_LIST = 'd1111111-1111-4111-8111-111111111111';
+export const WHOLESALE_LIST = 'd2222222-2222-4222-8222-222222222222';
+export const EURO_LIST = 'd3333333-3333-4333-8333-333333333333';
+export const CLOSED_LIST = 'd4444444-4444-4444-8444-444444444444';
+
 // Agua: se cuenta en unidades, se vende en cajas de 24 y paga 16 % de impuesto.
 export function sellableItems(): (SellableItem & { tenantId: string })[] {
   const water = [
@@ -46,12 +51,23 @@ export function sellableItems(): (SellableItem & { tenantId: string })[] {
   const kilo = [{ unitId: KILO, abbreviation: 'kg', conversionFactor: 1, isBase: true }];
 
   return [
-    { tenantId: TENANT_A, id: WATER, sku: 'AGUA-500', name: 'Agua', type: 'inventoried', isActive: true, isSellable: true, taxRate: 16, units: water },
-    { tenantId: TENANT_A, id: SOAP, sku: 'JABON', name: 'Jabón', type: 'inventoried', isActive: true, isSellable: true, taxRate: 0, units: kilo },
-    { tenantId: TENANT_A, id: SERVICE, sku: 'ENTREGA', name: 'Entrega', type: 'service', isActive: true, isSellable: true, taxRate: 16, units: water.slice(0, 1) },
-    { tenantId: TENANT_A, id: NOT_TRADED_ITEM, sku: 'SOLO-COMPRA', name: 'Solo compra', type: 'inventoried', isActive: true, isSellable: false, taxRate: 0, units: water.slice(0, 1) },
-    { tenantId: TENANT_A, id: INACTIVE_ITEM, sku: 'VIEJO', name: 'Viejo', type: 'inventoried', isActive: false, isSellable: true, taxRate: 0, units: water.slice(0, 1) },
-    { tenantId: TENANT_B, id: FOREIGN_ITEM, sku: 'AJENO', name: 'Ajeno', type: 'inventoried', isActive: true, isSellable: true, taxRate: 0, units: water.slice(0, 1) },
+    // El agua vale 0,85 al detal y 0,70 al mayor, por pieza; en euros, 0,80.
+    { tenantId: TENANT_A, id: WATER, sku: 'AGUA-500', name: 'Agua', type: 'inventoried', isActive: true, isSellable: true, taxRate: 16, units: water, minPrice: null, prices: [{ priceListId: RETAIL_LIST, price: 0.85 }, { priceListId: WHOLESALE_LIST, price: 0.7 }, { priceListId: EURO_LIST, price: 0.8 }] },
+    { tenantId: TENANT_A, id: SOAP, sku: 'JABON', name: 'Jabón', type: 'inventoried', isActive: true, isSellable: true, taxRate: 0, units: kilo, minPrice: null, prices: [] },
+    { tenantId: TENANT_A, id: SERVICE, sku: 'ENTREGA', name: 'Entrega', type: 'service', isActive: true, isSellable: true, taxRate: 16, units: water.slice(0, 1), minPrice: null, prices: [] },
+    { tenantId: TENANT_A, id: NOT_TRADED_ITEM, sku: 'SOLO-COMPRA', name: 'Solo compra', type: 'inventoried', isActive: true, isSellable: false, taxRate: 0, units: water.slice(0, 1), minPrice: null, prices: [] },
+    { tenantId: TENANT_A, id: INACTIVE_ITEM, sku: 'VIEJO', name: 'Viejo', type: 'inventoried', isActive: false, isSellable: true, taxRate: 0, units: water.slice(0, 1), minPrice: null, prices: [] },
+    { tenantId: TENANT_B, id: FOREIGN_ITEM, sku: 'AJENO', name: 'Ajeno', type: 'inventoried', isActive: true, isSellable: true, taxRate: 0, units: water.slice(0, 1), minPrice: null, prices: [] },
+  ];
+}
+
+// Detal por defecto, mayorista y una en euros; la cerrada no cotiza.
+export function salesPriceLists(): (SalesPriceList & { tenantId: string; isDefault?: boolean })[] {
+  return [
+    { tenantId: TENANT_A, id: RETAIL_LIST, name: 'Detal', currency: 'USD', isActive: true, isDefault: true },
+    { tenantId: TENANT_A, id: WHOLESALE_LIST, name: 'Mayorista', currency: 'USD', isActive: true },
+    { tenantId: TENANT_A, id: EURO_LIST, name: 'Europa', currency: 'EUR', isActive: true },
+    { tenantId: TENANT_A, id: CLOSED_LIST, name: 'Vieja', currency: 'USD', isActive: false },
   ];
 }
 
@@ -68,7 +84,7 @@ let lineCounter = 0;
 
 // Una linea de agua ya validada: por defecto 10 cajas de 24 a 30 cada una, con 16 %.
 export function anOrderLine(
-  overrides: { quantity?: number; unit?: string; factor?: number; unitPrice?: number; taxRate?: number; item?: string } = {},
+  overrides: { quantity?: number; unit?: string; factor?: number; unitPrice?: number; listPrice?: number; taxRate?: number; item?: string } = {},
 ): SalesOrderLine {
   lineCounter += 1;
   const quantity = Quantity.of(overrides.quantity ?? 10);
@@ -83,6 +99,7 @@ export function anOrderLine(
     quantity,
     baseQuantity: quantity.times(overrides.factor ?? 24),
     unitPrice: UnitPrice.of(overrides.unitPrice ?? 30),
+    listPrice: overrides.listPrice === undefined ? undefined : UnitPrice.of(overrides.listPrice),
     taxRate: TaxRate.of(overrides.taxRate ?? 16),
   });
 }
@@ -93,6 +110,7 @@ export function aDraftOrder(lines: SalesOrderLine[] = [anOrderLine()], id = '5b0
     warehouseId: WarehouseRef.of(MAIN),
     orderDate: SalesDate.of(TODAY),
     notes: null,
+    priceListId: null,
     currency: aDocumentCurrency(),
     lines,
   }, NOW, TODAY);

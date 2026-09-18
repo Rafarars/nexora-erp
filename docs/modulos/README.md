@@ -93,8 +93,9 @@ solo lee, de todos ([reportes.md](reportes.md)).
 |---|---|---|
 | Cantidades | 4 decimales | Enteros de diezmilésimas (`BigInt`) |
 | Costos unitarios | 6 decimales | Enteros de millonésimas |
+| Precios unitarios | 6 decimales | Enteros de millonésimas, `decimal(18,6)`. Cuántos acepta la pantalla lo decide la empresa (`price_decimals`, 0 a 8) |
 | Porcentajes | 4 decimales | `decimal(7,4)` |
-| Factores de conversión | 4 decimales | `decimal(18,4)` |
+| Factores de conversión | 8 decimales | `decimal(18,8)`. Con cuatro, una pieza de una caja de mil no se podía expresar |
 
 La interfaz acepta **coma decimal** («8,5») y nunca agrupa miles en un campo editable.
 

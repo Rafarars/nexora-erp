@@ -2,17 +2,20 @@
 
 import { changeCustomerStatus, saveCustomer } from '@/app/(app)/ventas/actions';
 import { CatalogTable } from '@/sections/catalog/catalog-table';
-import { Field, TextArea } from '@/sections/shared/field';
+import { Field, SelectField, TextArea } from '@/sections/shared/field';
 import { formatAmount } from '@/modules/purchasing/domain/purchasing';
+import type { PriceList } from '@/modules/catalog/domain/catalog';
 import type { Customer } from '@/modules/sales/domain/sales';
 
 // Un cliente es un maestro como los del catalogo: la misma tabla, el mismo panel y la
 // misma politica de desactivar en vez de borrar.
 export function CustomersTable({
   customers,
+  priceLists,
   ...permissions
 }: {
   customers: Customer[];
+  priceLists: PriceList[];
   canCreate: boolean;
   canUpdate: boolean;
   canDeactivate: boolean;
@@ -74,6 +77,15 @@ export function CustomersTable({
             inputMode="decimal"
             required={false}
             autoComplete="off"
+          />
+          {/* Sin lista propia se le cotiza con la lista por defecto de la empresa. */}
+          <SelectField
+            label="Lista de precio"
+            name="priceListId"
+            testId="customer-price-list"
+            defaultValue={customer?.priceListId ?? ''}
+            emptyLabel="La lista por defecto"
+            options={priceLists.map((priceList) => ({ value: priceList.id, label: `${priceList.name} (${priceList.currency})` }))}
           />
           <TextArea label="Dirección" name="address" testId="customer-address" defaultValue={customer?.address ?? ''} />
         </>

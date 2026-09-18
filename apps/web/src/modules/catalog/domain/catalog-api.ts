@@ -1,4 +1,4 @@
-import type { Category, MeasurementUnit, Tax, Warehouse } from './catalog';
+import type { Category, MeasurementUnit, PriceList, Tax, Warehouse } from './catalog';
 
 // El puerto del catalogo. Las pantallas no saben de fetch ni de rutas de la API.
 export interface CatalogApi {
@@ -18,4 +18,9 @@ export interface CatalogApi {
   saveWarehouse(token: string, id: string | null, input: { name: string; address: string | null }): Promise<void>;
   changeWarehouseStatus(token: string, id: string, active: boolean): Promise<void>;
   setDefaultWarehouse(token: string, id: string): Promise<void>;
+
+  searchPriceLists(token: string): Promise<PriceList[]>;
+  savePriceList(token: string, id: string | null, input: { name: string; description: string | null; currency: string }): Promise<void>;
+  changePriceListStatus(token: string, id: string, active: boolean): Promise<void>;
+  setDefaultPriceList(token: string, id: string): Promise<void>;
 }

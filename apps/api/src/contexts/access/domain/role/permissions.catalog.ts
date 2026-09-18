@@ -55,6 +55,10 @@ export const CATALOG_PERMISSIONS: PermissionDefinition[] = [
   { code: 'catalog.warehouses.create', description: 'Crear bodegas' },
   { code: 'catalog.warehouses.update', description: 'Editar bodegas y elegir la bodega por defecto' },
   { code: 'catalog.warehouses.deactivate', description: 'Desactivar y reactivar bodegas' },
+  { code: 'catalog.pricelists.search', description: 'Consultar las listas de precio' },
+  { code: 'catalog.pricelists.create', description: 'Crear listas de precio' },
+  { code: 'catalog.pricelists.update', description: 'Editar listas de precio y elegir la lista por defecto' },
+  { code: 'catalog.pricelists.deactivate', description: 'Desactivar y reactivar listas de precio' },
 ];
 
 export const INVENTORY_PERMISSIONS: PermissionDefinition[] = [

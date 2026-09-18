@@ -305,3 +305,29 @@ export class InvoiceWithPaymentsError extends ConflictError {
     super(`Invoice <${invoiceId}> has confirmed payments applied.`, 'The invoice has payments applied; cancel them first.');
   }
 }
+
+export class PriceListNotFoundError extends NotFoundError {
+  constructor(id: string) {
+    super(`Price list <${id}> does not exist.`);
+  }
+}
+
+export class InactivePriceListError extends ConflictError {
+  constructor(id: string) {
+    super(`Price list <${id}> is inactive.`, 'That price list is deactivated.');
+  }
+}
+
+// El piso de venta del articulo, comparado en la moneda de la empresa.
+export class SalesPriceBelowMinimumError extends InvalidArgumentError {
+  constructor(itemId: string) {
+    super(`Price of item <${itemId}> is below its minimum.`, 'A price is below the minimum allowed for that item.');
+  }
+}
+
+// Ni precio escrito ni precio en la lista: la linea no se puede valorar.
+export class MissingSalesPriceError extends InvalidArgumentError {
+  constructor(itemId: string) {
+    super(`No price for item <${itemId}>.`, 'That item has no price in the chosen list: write one.');
+  }
+}

@@ -6,6 +6,7 @@ import { SalesOrderReferences } from '../../domain/order/lines/sales-order-refer
 import { SalesOrderId } from '../../domain/order/sales-order.entity.js';
 import { SalesOrderRepository } from '../../domain/order/sales-order.repository.js';
 import { TenantId } from '../../domain/shared/tenant-id.vo.js';
+import { PriceListChoice } from '../../domain/order/pricing/price-list-choice.js';
 import { SalesOrderInput, salesOrderDetails } from '../create-order/sales-order-creator.js';
 
 export interface SalesOrderUpdaterRequest extends SalesOrderInput {
@@ -18,6 +19,7 @@ export class SalesOrderUpdater {
   constructor(
     private readonly finder: SalesOrderFinder,
     private readonly references: SalesOrderReferences,
+    private readonly choice: PriceListChoice,
     private readonly orders: SalesOrderRepository,
     private readonly clock: Clock,
     private readonly calendar: BusinessCalendar,
@@ -33,7 +35,7 @@ export class SalesOrderUpdater {
     // Guardar el borrador refresca sus tasas. Conservar su moneda vale aunque se haya retirado.
     const keepsCurrency = (request.currency ?? '').trim().toUpperCase() === order.currency().currency;
 
-    order.update(await salesOrderDetails(this.references, this.rates, tenantId, request, today, keepsCurrency), now, today);
+    order.update(await salesOrderDetails(this.references, this.choice, this.rates, tenantId, request, today, keepsCurrency), now, today);
     await this.orders.save(order);
   }
 }

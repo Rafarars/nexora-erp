@@ -9,9 +9,10 @@ import { DispatchLineFactory } from '../../domain/dispatch/lines/dispatch-line-f
 import { DispatchCancellation } from '../../domain/dispatch/posting/dispatch-cancellation.js';
 import { DispatchConfirmation } from '../../domain/dispatch/posting/dispatch-confirmation.js';
 import { SalesOrderFinder } from '../../domain/order/find/sales-order-finder.js';
+import { PriceListChoice } from '../../domain/order/pricing/price-list-choice.js';
 import { SalesOrderReferences } from '../../domain/order/lines/sales-order-references.js';
 import { StockReservation } from '../../domain/order/posting/stock-reservation.js';
-import { NOW, salesWarehouses, sellableItems } from '../../domain/testing/sales.mother.js';
+import { NOW, salesPriceLists, salesWarehouses, sellableItems } from '../../domain/testing/sales.mother.js';
 import { InMemoryCustomerRepository } from '../../infrastructure/testing/in-memory-customer.repository.js';
 import { InMemorySalesCatalog } from '../../infrastructure/testing/in-memory-sales-catalog.js';
 import { InMemorySalesCodeSequence } from '../../infrastructure/testing/in-memory-sales-code-sequence.js';
@@ -42,12 +43,13 @@ export function aSalesScenario() {
   const calendar = new ClockBusinessCalendar(clock);
   const ids = new SequentialIdGenerator();
   const customers = new InMemoryCustomerRepository();
-  const catalog = new InMemorySalesCatalog(sellableItems(), salesWarehouses());
+  const catalog = new InMemorySalesCatalog(sellableItems(), salesWarehouses(), salesPriceLists());
   const store = new InMemorySalesStore(customers, catalog);
   const codes = new InMemorySalesCodeSequence();
   const customerFinder = new CustomerFinder(customers);
   const uniqueness = new CustomerUniqueness(customers);
   const references = new SalesOrderReferences(customerFinder, catalog, ids);
+  const priceListChoice = new PriceListChoice(catalog);
   const rates = new FixedDocumentRates();
   const orderFinder = new SalesOrderFinder(store.orders);
   const dispatchFinder = new DispatchFinder(store.dispatches);
@@ -64,9 +66,9 @@ export function aSalesScenario() {
     updateCustomer: new CustomerUpdater(customerFinder, uniqueness, customers, clock),
     changeCustomerStatus: new CustomerStatusChanger(customerFinder, customers, clock),
     searchCustomers: new CustomerSearcher(customers),
-    createOrder: new SalesOrderCreator(references, store.orders, codes, ids, clock, calendar, rates),
-    updateOrder: new SalesOrderUpdater(orderFinder, references, store.orders, clock, calendar, rates),
-    confirmOrder: new SalesOrderConfirmer(orderFinder, references, store.orders, store.orderPosting, new StockReservation(), clock, calendar, rates),
+    createOrder: new SalesOrderCreator(references, priceListChoice, store.orders, codes, ids, clock, calendar, rates),
+    updateOrder: new SalesOrderUpdater(orderFinder, references, priceListChoice, store.orders, clock, calendar, rates),
+    confirmOrder: new SalesOrderConfirmer(orderFinder, references, priceListChoice, store.orders, store.orderPosting, new StockReservation(), clock, calendar, rates),
     cancelOrder: new SalesOrderCanceller(store.orderPosting, clock),
     searchOrders: new SalesOrderSearcher(store.orders, customers, catalog, rates),
     createDispatch: new DispatchCreator(orderFinder, dispatchLines, store.dispatches, codes, ids, clock, calendar),

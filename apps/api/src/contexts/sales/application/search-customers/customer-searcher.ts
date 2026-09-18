@@ -11,6 +11,7 @@ export interface CustomerResponse {
   address: string | null;
   paymentTermDays: number;
   creditLimit: number | null;
+  priceListId: string | null;
   isActive: boolean;
 }
 
@@ -24,9 +25,9 @@ export class CustomerSearcher {
     return {
       customers: customers
         .map((customer) => {
-          const { id, code, name, fiscalId, email, phone, address, paymentTermDays, creditLimit, isActive } = customer.toPrimitives();
+          const { id, code, name, fiscalId, email, phone, address, paymentTermDays, creditLimit, priceListId, isActive } = customer.toPrimitives();
 
-          return { id, code, name, fiscalId, email, phone, address, paymentTermDays, creditLimit, isActive };
+          return { id, code, name, fiscalId, email, phone, address, paymentTermDays, creditLimit, priceListId, isActive };
         })
         .sort((a, b) => a.name.localeCompare(b.name)),
     };

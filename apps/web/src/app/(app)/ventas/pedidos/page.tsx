@@ -23,14 +23,16 @@ export default async function SalesOrdersPage() {
   const canCreate = can(session, 'sales.orders.create') && canPick;
   const canUpdate = can(session, 'sales.orders.update') && canPick;
 
-  const [orders, customers, items, warehouses, currencies, settings] = await Promise.all([
+  const [orders, customers, items, warehouses, currencies, priceLists, settings] = await Promise.all([
     salesApi().searchOrders(token),
     canCreate || canUpdate ? salesApi().searchCustomers(token) : [],
     canCreate || canUpdate ? inventoryApi().allItems(token) : [],
     canCreate || canUpdate ? catalogApi().searchWarehouses(token) : [],
     canCreate || canUpdate ? companyApi().currencies(token) : [],
+    (canCreate || canUpdate) && can(session, 'catalog.pricelists.search') ? catalogApi().searchPriceLists(token) : [],
     companyApi().settings(token),
   ]);
+  const active = priceLists.filter((priceList) => priceList.isActive);
 
   return (
     <SalesOrdersBoard
@@ -39,6 +41,8 @@ export default async function SalesOrdersPage() {
       items={items}
       warehouses={warehouses}
       currencies={currencies}
+      priceLists={active}
+      defaultPriceListId={active.find((priceList) => priceList.isDefault)?.id ?? null}
       baseCurrency={settings.baseCurrency.code}
       allowsRateOverride={settings.allowsRateOverride}
       today={settings.today}

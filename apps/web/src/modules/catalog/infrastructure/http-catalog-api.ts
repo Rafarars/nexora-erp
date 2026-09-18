@@ -1,6 +1,6 @@
 import { AccessError } from '../../access/domain/access-error';
 import type { AccessErrorBody } from '../../access/domain/access-error';
-import type { Category, MeasurementUnit, Tax, Warehouse } from '../domain/catalog';
+import type { Category, MeasurementUnit, PriceList, Tax, Warehouse } from '../domain/catalog';
 import type { CatalogApi } from '../domain/catalog-api';
 
 const BASE = '/api/v1/catalog';
@@ -61,6 +61,23 @@ export class HttpCatalogApi implements CatalogApi {
 
   async setDefaultWarehouse(token: string, id: string) {
     await this.request('PUT', `${BASE}/warehouses/${id}/default`, token);
+  }
+
+  async searchPriceLists(token: string): Promise<PriceList[]> {
+    return (await this.request<{ priceLists: PriceList[] }>('GET', `${BASE}/price-lists`, token)).priceLists;
+  }
+
+  // La moneda solo viaja al crear: despues la lista la conserva.
+  async savePriceList(token: string, id: string | null, input: { name: string; description: string | null; currency: string }) {
+    await this.save(token, 'price-lists', id, id ? { name: input.name, description: input.description } : input);
+  }
+
+  async changePriceListStatus(token: string, id: string, active: boolean) {
+    await this.request('PUT', `${BASE}/price-lists/${id}/status`, token, { active });
+  }
+
+  async setDefaultPriceList(token: string, id: string) {
+    await this.request('PUT', `${BASE}/price-lists/${id}/default`, token);
   }
 
   private async save(token: string, resource: string, id: string | null, body: unknown): Promise<void> {

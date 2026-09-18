@@ -15,6 +15,8 @@ export interface Customer {
   address: string | null;
   paymentTermDays: number;
   creditLimit: number | null;
+  // Con que lista se le cotiza; nula, la lista por defecto de la empresa.
+  priceListId: string | null;
   isActive: boolean;
 }
 
@@ -29,6 +31,8 @@ export interface OrderLine {
   quantity: number;
   baseQuantity: number;
   unitPrice: number;
+  // Lo que sugirio la lista. Distinto de `unitPrice`, se pacto otro precio a mano.
+  listPrice: number;
   taxRate: number;
   dispatchedQuantity: number;
   pendingQuantity: number;
@@ -42,6 +46,7 @@ export interface SalesOrder extends DocumentCurrency {
   warehouse: { id: string; name: string };
   date: string;
   notes: string | null;
+  priceList: { id: string; name: string } | null;
   status: OrderStatus;
   totals: { subtotal: number; tax: number; total: number };
   lines: OrderLine[];

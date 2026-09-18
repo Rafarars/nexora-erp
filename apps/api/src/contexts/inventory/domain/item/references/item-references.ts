@@ -1,12 +1,20 @@
-import { CatalogReferences, ReferencedCategory, ReferencedTax, ReferencedUnit, ReferencedWarehouse } from '../../catalog/catalog-references.js';
+import {
+  CatalogReferences,
+  ReferencedCategory,
+  ReferencedPriceList,
+  ReferencedTax,
+  ReferencedUnit,
+  ReferencedWarehouse,
+} from '../../catalog/catalog-references.js';
 import { StockWarehouseNotFoundError } from '../../errors/inventory.errors.js';
 import {
   CategoryNotFoundError,
   InactiveReferenceError,
   MeasurementUnitNotFoundError,
+  PriceListNotFoundError,
   TaxNotFoundError,
 } from '../../errors/item.errors.js';
-import { CategoryRef, TaxRef, UnitRef, WarehouseRef } from '../../shared/references.vo.js';
+import { CategoryRef, PriceListRef, TaxRef, UnitRef, WarehouseRef } from '../../shared/references.vo.js';
 import { TenantId } from '../../shared/tenant-id.vo.js';
 import { Item, ItemDetails } from '../item.entity.js';
 
@@ -44,6 +52,12 @@ export class ItemReferences {
     // Una regla de reposicion apunta a una bodega de la empresa que siga abierta.
     for (const warehouse of await this.warehouses(tenantId, details.reorderRules.warehouseIds())) {
       if (!warehouse.isActive) throw new InactiveReferenceError('Warehouse', warehouse.id);
+    }
+
+    // Un precio apunta a una lista de la empresa que siga abierta: cargarlo en una apagada seria
+    // escribir un precio que nadie va a sugerir.
+    for (const priceList of await this.priceLists(tenantId, details.prices.priceListIds())) {
+      if (!priceList.isActive) throw new InactiveReferenceError('PriceList', priceList.id);
     }
   }
 
@@ -91,6 +105,16 @@ export class ItemReferences {
     const missing = ids.find((id) => !found.some((warehouse) => warehouse.id === id.value));
 
     if (missing) throw new StockWarehouseNotFoundError(missing.value);
+
+    return found;
+  }
+
+  // Todas o ninguna, como las bodegas.
+  private async priceLists(tenantId: TenantId, ids: PriceListRef[]): Promise<ReferencedPriceList[]> {
+    const found = await this.catalog.findPriceLists(tenantId, ids);
+    const missing = ids.find((id) => !found.some((priceList) => priceList.id === id.value));
+
+    if (missing) throw new PriceListNotFoundError(missing.value);
 
     return found;
   }

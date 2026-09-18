@@ -9,12 +9,14 @@ import { StockReservation } from '../../domain/order/posting/stock-reservation.j
 import { SalesOrderId } from '../../domain/order/sales-order.entity.js';
 import { SalesOrderRepository } from '../../domain/order/sales-order.repository.js';
 import { TenantId } from '../../domain/shared/tenant-id.vo.js';
+import { PriceListChoice } from '../../domain/order/pricing/price-list-choice.js';
 import { salesOrderDetails } from '../create-order/sales-order-creator.js';
 
 export class SalesOrderConfirmer {
   constructor(
     private readonly finder: SalesOrderFinder,
     private readonly references: SalesOrderReferences,
+    private readonly choice: PriceListChoice,
     private readonly orders: SalesOrderRepository,
     private readonly posting: SalesOrderPosting,
     private readonly reservation: StockReservation,
@@ -36,6 +38,7 @@ export class SalesOrderConfirmer {
       const row = order.toPrimitives();
       const details = await salesOrderDetails(
         this.references,
+        this.choice,
         this.rates,
         tenantId,
         {
@@ -44,6 +47,9 @@ export class SalesOrderConfirmer {
           date: row.orderDate,
           notes: row.notes,
           currency: row.currency,
+          // Confirmar no vuelve a cotizar: conserva la lista y los precios que ya tenia el
+          // borrador. Cambiar el precio es editar el pedido, no confirmarlo.
+          priceListId: row.priceListId,
           // Confirmar congela la tasa del dia del pedido, salvo la escrita a mano.
           exchangeRate: order.currency().manualRate(),
           lines: row.lines.map(({ id, itemId, unitId, quantity, unitPrice }) => ({ id, itemId, unitId, quantity, unitPrice })),

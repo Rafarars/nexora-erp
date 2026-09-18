@@ -22,6 +22,7 @@ import {
   baseUnitOnly,
 } from '../../testing/item.mother.js';
 import { InMemoryCatalogReferences } from '../../../infrastructure/testing/in-memory-catalog-references.js';
+import { ItemPrices } from '../item-prices.js';
 import { ItemDetails } from '../item.entity.js';
 import { ItemName } from '../item-name.vo.js';
 import { Sku } from '../sku.vo.js';
@@ -52,6 +53,8 @@ function details(overrides: Partial<ItemDetails> = {}): ItemDetails {
     name: ItemName.of(current.name),
     isPurchasable: true,
     isSellable: true,
+    prices: ItemPrices.none(),
+    minPrice: null,
     description: null,
     type: 'inventoried',
     categoryId: CategoryRef.of(current.categoryId!),

@@ -28,7 +28,7 @@ describe('SalesOrder', () => {
       expect(() => aDraftOrder([])).toThrow(EmptySalesOrderError);
       expect(() =>
         aDraftOrder().update(
-          { customerId: CustomerId.of(CUSTOMER), warehouseId: WarehouseRef.of(MAIN), orderDate: SalesDate.of('2026-01-16'), notes: null, currency: aDocumentCurrency(), lines: [anOrderLine()] },
+          { customerId: CustomerId.of(CUSTOMER), warehouseId: WarehouseRef.of(MAIN), orderDate: SalesDate.of('2026-01-16'), notes: null, priceListId: null, currency: aDocumentCurrency(), lines: [anOrderLine()] },
           NOW, TODAY,
         ),
       ).toThrow(FutureSalesDateError);
@@ -43,7 +43,7 @@ describe('SalesOrder', () => {
     it('is editable until it is confirmed, and confirmed only once', () => {
       const order = aConfirmedOrder();
 
-      expect(() => order.update({ customerId: order.customerId(), warehouseId: order.warehouseId(), orderDate: order.orderDate(), currency: aDocumentCurrency(), notes: null, lines: [anOrderLine()] }, NOW, TODAY)).toThrow(
+      expect(() => order.update({ customerId: order.customerId(), warehouseId: order.warehouseId(), orderDate: order.orderDate(), currency: aDocumentCurrency(), notes: null, priceListId: null, lines: [anOrderLine()] }, NOW, TODAY)).toThrow(
         SalesOrderNotEditableError,
       );
       expect(() => order.confirm(NOW)).toThrow(SalesOrderNotConfirmableError);

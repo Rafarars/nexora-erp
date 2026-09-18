@@ -1,8 +1,8 @@
 import { expect } from '@playwright/test';
 import type { Locator, Page } from '@playwright/test';
 
-type Section = 'categorias' | 'unidades' | 'impuestos' | 'bodegas';
-type Resource = 'item' | 'category' | 'unit' | 'tax' | 'warehouse';
+type Section = 'categorias' | 'unidades' | 'impuestos' | 'bodegas' | 'listas-de-precio';
+type Resource = 'item' | 'category' | 'unit' | 'tax' | 'warehouse' | 'price-list';
 
 // Las pantallas del catalogo comparten la misma forma: tabla, menu Opciones por fila y
 // panel lateral. La de articulos vive en el inventario pero usa la misma tabla: se abre con

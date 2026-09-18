@@ -15,6 +15,8 @@ export interface ItemInput {
   purchaseTaxId: string | null;
   units: { unitId: string; conversionFactor: number; isBase: boolean }[];
   reorderRules: { warehouseId: string; minQuantity: number; maxQuantity: number | null; reorderQuantity: number }[];
+  prices: { priceListId: string; price: number }[];
+  minPrice: number | null;
 }
 
 export interface AdjustmentInput {

@@ -4,6 +4,11 @@ import { FixedClock } from '../../../../shared/infrastructure/testing/fixed-cloc
 import { SequentialIdGenerator } from '../../../../shared/infrastructure/testing/sequential-id-generator.js';
 import { Category } from '../../domain/category/category.entity.js';
 import { CategoryFinder } from '../../domain/category/find/category-finder.js';
+import { UsablePriceListCurrency } from '../../domain/price-list/currency/usable-price-list-currency.js';
+import { DefaultPriceList } from '../../domain/price-list/default/default-price-list.js';
+import { PriceListFinder } from '../../domain/price-list/find/price-list-finder.js';
+import { PriceList } from '../../domain/price-list/price-list.entity.js';
+import { PriceListUniqueness } from '../../domain/price-list/unique/price-list-uniqueness.js';
 import { CategoryUniqueness } from '../../domain/category/unique/category-uniqueness.js';
 import { CatalogUsage } from '../../domain/usage/catalog-usage.js';
 import { MeasurementUnitFinder } from '../../domain/measurement-unit/find/measurement-unit-finder.js';
@@ -21,6 +26,8 @@ import { InMemoryCategoryRepository } from '../../infrastructure/testing/in-memo
 import { InMemoryCodeSequence } from '../../infrastructure/testing/in-memory-code-sequence.js';
 import { InMemoryMeasurementUnitRepository } from '../../infrastructure/testing/in-memory-measurement-unit.repository.js';
 import { InMemoryTaxRepository } from '../../infrastructure/testing/in-memory-tax.repository.js';
+import { InMemoryPriceListCurrencies } from '../../infrastructure/testing/in-memory-price-list-currencies.js';
+import { InMemoryPriceListRepository } from '../../infrastructure/testing/in-memory-price-list.repository.js';
 import { InMemoryWarehouseRepository } from '../../infrastructure/testing/in-memory-warehouse.repository.js';
 import { InMemoryItemUsage } from '../../infrastructure/testing/in-memory-item-usage.js';
 import { InMemoryStockUsage } from '../../infrastructure/testing/in-memory-stock-usage.js';
@@ -33,12 +40,15 @@ export function aCatalogScenario(
     units?: MeasurementUnit[];
     taxes?: Tax[];
     warehouses?: Warehouse[];
+    priceLists?: PriceList[];
   } = {},
 ) {
   const categories = new InMemoryCategoryRepository(seed.categories ?? []);
   const units = new InMemoryMeasurementUnitRepository(seed.units ?? []);
   const taxes = new InMemoryTaxRepository(seed.taxes ?? []);
   const warehouses = new InMemoryWarehouseRepository(seed.warehouses ?? []);
+  const priceLists = new InMemoryPriceListRepository(seed.priceLists ?? []);
+  const currencies = new InMemoryPriceListCurrencies();
   const codes = new InMemoryCodeSequence();
   // Los articulos viven en el inventario: aqui solo se declara que usan.
   const itemUsage = new InMemoryItemUsage();
@@ -68,6 +78,12 @@ export function aCatalogScenario(
     itemUsage,
     usage: new CatalogUsage(itemUsage),
     defaultWarehouse: new DefaultWarehouse(warehouses),
+    priceLists,
+    currencies,
+    priceListFinder: new PriceListFinder(priceLists),
+    priceListUniqueness: new PriceListUniqueness(priceLists),
+    defaultPriceList: new DefaultPriceList(priceLists),
+    priceListCurrency: new UsablePriceListCurrency(currencies),
     stock: new InMemoryStockUsage(),
   };
 }

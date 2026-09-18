@@ -18,6 +18,17 @@ export const itemRequestSchema = z.object({
       }),
     )
     .optional(),
+  // Un precio por lista, en la unidad base del articulo.
+  prices: z
+    .array(
+      z.object({
+        priceListId: z.string(),
+        price: z.number(),
+      }),
+    )
+    .optional(),
+  // Piso de venta, en la moneda de la empresa.
+  minPrice: z.number().nullable().optional(),
   isPurchasable: z.boolean().optional(),
   isSellable: z.boolean().optional(),
   salesTaxId: z.string().nullable().optional(),

@@ -7,7 +7,7 @@ import { PrismaService } from '../../../../shared/prisma/prisma.service.js';
 // cuentas por cobrar detras de RECEIVABLE_BALANCES. Es composicion de prueba, no dependencia del dominio.
 import { PrismaDocumentStockPosting } from '../../../inventory/infrastructure/persistence/prisma-document-stock-posting.js';
 import { PrismaReceivableBalances } from '../../../receivables/infrastructure/persistence/prisma-receivable-balances.js';
-import { BOX, MAIN, NORTH, PIECE, TENANT_A, TENANT_B, WATER } from '../../domain/testing/sales.mother.js';
+import { BOX, MAIN, NORTH, PIECE, RETAIL_LIST, TENANT_A, TENANT_B, WATER } from '../../domain/testing/sales.mother.js';
 import { SalesPorts, SalesPortsHarness } from '../../testing/sales-ports.harness.js';
 import { PrismaCustomerRepository } from '../persistence/prisma-customer.repository.js';
 import { PrismaDispatchPosting } from '../persistence/prisma-dispatch-posting.js';
@@ -91,6 +91,8 @@ export class PrismaSalesPortsHarness implements SalesPortsHarness {
     await this.prisma.inventoryMovement.updateMany({ data: { reversalOfId: null } });
     await this.prisma.inventoryMovement.deleteMany();
     await this.prisma.itemStock.deleteMany();
+    await this.prisma.itemPrice.deleteMany();
+    await this.prisma.priceList.deleteMany();
     await this.prisma.codeSequence.deleteMany({ where: { prefix: { in: ['CLI', 'PED', 'DES', 'FAC'] } } });
 
     for (const [id, slug] of [
@@ -111,6 +113,13 @@ export class PrismaSalesPortsHarness implements SalesPortsHarness {
     ]) {
       await this.prisma.warehouse.upsert({ where: { id }, create: { id, tenantId: TENANT_A, code, name }, update: {} });
     }
+
+    // Una lista para poder guardar un pedido cotizado con ella.
+    await this.prisma.priceList.upsert({
+      where: { id: RETAIL_LIST },
+      create: { id: RETAIL_LIST, tenantId: TENANT_A, code: 'LPR900001', name: 'Contrato detal', currency: 'USD', isDefault: true, updatedAt: new Date() },
+      update: {},
+    });
 
     await this.prisma.item.upsert({
       where: { id: WATER },

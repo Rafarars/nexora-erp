@@ -18,6 +18,7 @@ export class InMemoryItemPortsHarness implements ItemPortsHarness {
       tax: async (row) => void catalog().taxes.push(row),
       unit: async (row) => void catalog().units.push(row),
       warehouse: async (row) => void catalog().warehouses.push(row),
+      priceList: async (row) => void catalog().priceLists.push(row),
     };
   }
 

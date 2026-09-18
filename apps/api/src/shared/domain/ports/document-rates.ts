@@ -36,6 +36,9 @@ export interface DocumentRates {
   priceDecimals(tenantId: string): Promise<number>;
   // En que moneda lleva la empresa sus cifras: en ella se expresan los saldos y los reportes.
   companyCurrency(tenantId: string): Promise<string>;
+  // Bolivares por 1 unidad de esa moneda en esa fecha. Lo usa el precio de una lista que esta en
+  // otra moneda que el documento: se pasa por el bolivar, como el cobro de una factura ajena.
+  rateFor(tenantId: string, currency: string, date: string): Promise<number>;
 }
 
 // Un precio o costo con mas decimales de los que la empresa lleva en sus precios.

@@ -97,3 +97,42 @@ export function SubmitButton({
     </button>
   );
 }
+
+export function SelectField({
+  label,
+  name,
+  testId,
+  defaultValue,
+  options,
+  emptyLabel,
+}: {
+  label: string;
+  name: string;
+  testId: string;
+  defaultValue?: string;
+  options: { value: string; label: string }[];
+  // Con etiqueta vacia el campo admite "ninguno": es opcional.
+  emptyLabel?: string;
+}) {
+  return (
+    <div className="space-y-1.5">
+      <label htmlFor={name} className="text-sm font-medium">
+        {label} {emptyLabel ? <span className="text-muted font-normal">(opcional)</span> : null}
+      </label>
+      <select
+        id={name}
+        name={name}
+        defaultValue={defaultValue ?? ''}
+        data-testid={testId}
+        className="border-line bg-background w-full rounded-md border px-3 py-2 text-sm"
+      >
+        {emptyLabel ? <option value="">{emptyLabel}</option> : null}
+        {options.map((option) => (
+          <option key={option.value} value={option.value}>
+            {option.label}
+          </option>
+        ))}
+      </select>
+    </div>
+  );
+}

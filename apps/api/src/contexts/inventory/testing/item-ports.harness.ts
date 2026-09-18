@@ -1,4 +1,11 @@
-import { CatalogReferences, ReferencedCategory, ReferencedTax, ReferencedUnit, ReferencedWarehouse } from '../domain/catalog/catalog-references.js';
+import {
+  CatalogReferences,
+  ReferencedCategory,
+  ReferencedPriceList,
+  ReferencedTax,
+  ReferencedUnit,
+  ReferencedWarehouse,
+} from '../domain/catalog/catalog-references.js';
 import { ItemPosting } from '../domain/item/posting/item-posting.js';
 import { ItemRepository } from '../domain/item/item.repository.js';
 
@@ -16,6 +23,7 @@ export interface CatalogSeeder {
   tax(row: OfTenant<ReferencedTax>): Promise<void>;
   unit(row: OfTenant<ReferencedUnit>): Promise<void>;
   warehouse(row: OfTenant<ReferencedWarehouse>): Promise<void>;
+  priceList(row: OfTenant<ReferencedPriceList>): Promise<void>;
 }
 
 export type PurchaseOrderStatus = 'draft' | 'confirmed' | 'partially_received' | 'received' | 'cancelled';

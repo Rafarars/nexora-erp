@@ -50,6 +50,7 @@ import { INVOICE_POSTING } from '../domain/invoice/posting/invoice-posting.js';
 import type { InvoicePosting } from '../domain/invoice/posting/invoice-posting.js';
 import { SalesOrderFinder } from '../domain/order/find/sales-order-finder.js';
 import { SalesOrderReferences } from '../domain/order/lines/sales-order-references.js';
+import { PriceListChoice } from '../domain/order/pricing/price-list-choice.js';
 import { SALES_ORDER_POSTING } from '../domain/order/posting/sales-order-posting.js';
 import type { SalesOrderPosting } from '../domain/order/posting/sales-order-posting.js';
 import { StockReservation } from '../domain/order/posting/stock-reservation.js';
@@ -158,20 +159,23 @@ import { PrismaSalesStock } from './persistence/prisma-sales-stock.js';
 
     {
       provide: SalesOrderCreator,
-      useFactory: (x: SalesOrderReferences, r: SalesOrderRepository, c: SalesCodeSequence, i: IdGenerator, k: Clock, cal: BusinessCalendar, dr: DocumentRates) => new SalesOrderCreator(x, r, c, i, k, cal, dr),
-      inject: [SalesOrderReferences, SALES_ORDER_REPOSITORY, SALES_CODE_SEQUENCE, ID_GENERATOR, CLOCK, BUSINESS_CALENDAR, DOCUMENT_RATES],
+      useFactory: (x: SalesOrderReferences, pl: PriceListChoice, r: SalesOrderRepository, c: SalesCodeSequence, i: IdGenerator, k: Clock, cal: BusinessCalendar, dr: DocumentRates) =>
+        new SalesOrderCreator(x, pl, r, c, i, k, cal, dr),
+      inject: [SalesOrderReferences, PriceListChoice, SALES_ORDER_REPOSITORY, SALES_CODE_SEQUENCE, ID_GENERATOR, CLOCK, BUSINESS_CALENDAR, DOCUMENT_RATES],
     },
     {
       provide: SalesOrderUpdater,
-      useFactory: (f: SalesOrderFinder, x: SalesOrderReferences, r: SalesOrderRepository, k: Clock, cal: BusinessCalendar, dr: DocumentRates) => new SalesOrderUpdater(f, x, r, k, cal, dr),
-      inject: [SalesOrderFinder, SalesOrderReferences, SALES_ORDER_REPOSITORY, CLOCK, BUSINESS_CALENDAR, DOCUMENT_RATES],
+      useFactory: (f: SalesOrderFinder, x: SalesOrderReferences, pl: PriceListChoice, r: SalesOrderRepository, k: Clock, cal: BusinessCalendar, dr: DocumentRates) =>
+        new SalesOrderUpdater(f, x, pl, r, k, cal, dr),
+      inject: [SalesOrderFinder, SalesOrderReferences, PriceListChoice, SALES_ORDER_REPOSITORY, CLOCK, BUSINESS_CALENDAR, DOCUMENT_RATES],
     },
     {
       provide: SalesOrderConfirmer,
-      useFactory: (f: SalesOrderFinder, x: SalesOrderReferences, r: SalesOrderRepository, p: SalesOrderPosting, s: StockReservation, k: Clock, cal: BusinessCalendar, dr: DocumentRates) =>
-        new SalesOrderConfirmer(f, x, r, p, s, k, cal, dr),
-      inject: [SalesOrderFinder, SalesOrderReferences, SALES_ORDER_REPOSITORY, SALES_ORDER_POSTING, StockReservation, CLOCK, BUSINESS_CALENDAR, DOCUMENT_RATES],
+      useFactory: (f: SalesOrderFinder, x: SalesOrderReferences, pl: PriceListChoice, r: SalesOrderRepository, p: SalesOrderPosting, s: StockReservation, k: Clock, cal: BusinessCalendar, dr: DocumentRates) =>
+        new SalesOrderConfirmer(f, x, pl, r, p, s, k, cal, dr),
+      inject: [SalesOrderFinder, SalesOrderReferences, PriceListChoice, SALES_ORDER_REPOSITORY, SALES_ORDER_POSTING, StockReservation, CLOCK, BUSINESS_CALENDAR, DOCUMENT_RATES],
     },
+    { provide: PriceListChoice, useFactory: (c: SalesCatalog) => new PriceListChoice(c), inject: [SALES_CATALOG] },
     { provide: SalesOrderCanceller, useFactory: (p: SalesOrderPosting, k: Clock) => new SalesOrderCanceller(p, k), inject: [SALES_ORDER_POSTING, CLOCK] },
     {
       provide: SalesOrderSearcher,

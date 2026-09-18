@@ -3,7 +3,7 @@
 Documento de traspaso: contiene lo necesario para continuar el proyecto **sin depender
 de ninguna conversación anterior**.
 
-**Actualizado:** 15 de septiembre de 2026
+**Actualizado:** 18 de septiembre de 2026
 
 ---
 
@@ -29,7 +29,7 @@ un cambio de API o de web no se ve en el navegador ni en la e2e hasta que se eje
 |---|---|
 | Repositorio | github.com/Rafarars/nexora-erp |
 | Reporte de pruebas | https://rafarars.github.io/nexora-erp/ |
-| Pruebas | 2503 + 172 unitarias · 166 de contrato · 358 end-to-end |
+| Pruebas | 2618 + 172 unitarias · 176 de contrato · 371 end-to-end |
 | **H0 — Fundación** | **Completado** |
 | **H1 — Multiempresa y acceso** | **Completado** y revisado |
 | **H2 — Catálogo** | **Completado** ([`H2-CATALOGO.md`](H2-CATALOGO.md)) |
@@ -38,7 +38,7 @@ un cambio de API o de web no se ve en el navegador ni en la e2e hasta que se eje
 | **H5 — Ventas** | **Completado**. Informe en [`H5-VENTAS.md`](H5-VENTAS.md) |
 | **H6 — Cuentas por cobrar** | **Completado**. Informe en [`H6-CUENTAS-POR-COBRAR.md`](H6-CUENTAS-POR-COBRAR.md) |
 | **H7 — Reportes y tablero** | **Completado**. Informe en [`H7-REPORTES.md`](H7-REPORTES.md) |
-| **Revisión módulo por módulo** | **En curso**: Artículos, fases 1 y 2 cerradas. Ver [la sección de abajo](#revisión-módulo-por-módulo) y [`revision/README.md`](revision/README.md) |
+| **Revisión módulo por módulo** | **En curso**: Artículos, fases 1 a 5 cerradas. Ver [la sección de abajo](#revisión-módulo-por-módulo) y [`revision/README.md`](revision/README.md) |
 
 Lo que ya funciona: monorepo con API, frontend y suite E2E; PostgreSQL en Docker;
 endpoint de salud que verifica la base; CI con cuatro trabajos publicando el reporte;
@@ -486,10 +486,12 @@ cliente, el precio mínimo y el precio sugerido en el pedido. Después, la fase 
 
 ### Plan de las fases que faltan (acordado el 18-sep-2026)
 
-1. **Fase 5 · Listas de precio.** Investigar primero (compañero + Business Central, Odoo, ERPNext y SAP) y escribir el
-   tema en `revision/temas/`; decidir con Rafael dónde vive el maestro (Catálogo, Inventario o Ventas), si el precio va
-   por lista y artículo con vigencia, cómo se elige la lista de un cliente, si hay precio mínimo y cómo llega el precio
-   sugerido al pedido. Construir, con pruebas y documentación de módulo.
+1. **Fase 5 · Listas de precio.** ✅ Hecha el 18-sep-2026. El maestro vive en el Catálogo (`price_lists`, solo nombre y
+   moneda) y los precios cuelgan del artículo (`item_prices`, en la unidad base). El pedido resuelve el precio con la
+   lista del pedido → la del cliente → la de por defecto, lo multiplica por el factor de la unidad, lo convierte por el
+   bolívar si la lista está en otra moneda y lo redondea a los decimales de la empresa; lo escrito a mano manda, y el
+   mínimo del artículo es el piso. Tema y fuentes en
+   [`revision/temas/listas-de-precio.md`](revision/temas/listas-de-precio.md).
 2. **Fase 6 · Servicios (H3).** Corregir documentación y pantalla: un servicio se compra y se vende, pero **su línea no
    cuenta** para el estado de recibido o despachado de su orden, que es la regla del compañero. Hoy la orden de compra y
    el pedido rechazan servicios (`ServiceNotPurchasableError`, `ServiceNotSellableError`).

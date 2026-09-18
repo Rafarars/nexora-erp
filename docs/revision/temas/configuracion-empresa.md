@@ -186,7 +186,7 @@ sola pantalla, «Empresa», con permisos `access.company.search` y `access.compa
    en la moneda de la empresa. Documentado en [modulos/compras.md §2.4](../../modulos/compras.md#24-moneda-y-tasas).
 4. ✅ Ventas y cobranza: pedidos, facturas con la tasa de su emisión e importes en bolívares, cobros en cualquier
    moneda con la tasa de su fecha y el diferencial cambiario de cada aplicación. Documentado en
-   [modulos/ventas.md §2.4](../../modulos/ventas.md#24-moneda-y-tasas) y
+   [modulos/ventas.md §2.4](../../modulos/ventas.md#25-moneda-y-tasas) y
    [modulos/cuentas-por-cobrar.md §1.5](../../modulos/cuentas-por-cobrar.md#15-cobrar-en-otra-moneda-y-el-diferencial-cambiario).
 5. ✅ Reportes en la moneda de la empresa: cada documento convertido con las tasas que congeló, con la moneda a la
    vista en la pantalla y en los archivos. Documentado en [modulos/reportes.md §0](../../modulos/reportes.md#0-la-moneda-de-los-reportes).

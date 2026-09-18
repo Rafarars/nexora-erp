@@ -23,6 +23,10 @@ export interface ItemResponse {
   units: ItemUnitResponse[];
   // Cuanto se quiere tener en cada bodega; vacio, no se vigila.
   reorderRules: { warehouse: { id: string; name: string }; minQuantity: number; maxQuantity: number | null; reorderQuantity: number }[];
+  // Lo que cuesta en cada lista, en la unidad base; vacio, no se sugiere precio.
+  prices: { priceList: { id: string; name: string; currency: string }; price: number }[];
+  // Piso de venta en la moneda de la empresa; nulo, no hay piso.
+  minPrice: number | null;
   isActive: boolean;
 }
 

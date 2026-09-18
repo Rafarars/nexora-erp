@@ -42,6 +42,7 @@ export async function saveCustomer(_state: FormState, form: FormData): Promise<F
       address: optional(form, 'address'),
       paymentTermDays: term === '' ? null : parseDecimal(term),
       creditLimit: limit === '' ? null : parseDecimal(limit),
+      priceListId: optional(form, 'priceListId'),
     }),
   );
 }
@@ -64,8 +65,16 @@ export async function saveOrder(_state: FormState, form: FormData): Promise<Form
       notes: optional(form, 'notes'),
       currency: optional(form, 'currency'),
       exchangeRate: rate(form),
+      priceListId: optional(form, 'priceListId'),
       lines: items
-        .map((itemId, index) => ({ itemId, unitId: units[index] ?? '', quantity: parseDecimal(quantities[index] ?? ''), unitPrice: parseDecimal(prices[index] ?? '') }))
+        .map((itemId, index) => ({
+          itemId,
+          unitId: units[index] ?? '',
+          quantity: parseDecimal(quantities[index] ?? ''),
+          // Precio en blanco: lo pone la lista. El servidor lo resuelve, tambien si hay que
+          // convertirlo de la moneda de la lista a la del pedido.
+          unitPrice: (prices[index] ?? '').trim() === '' ? null : parseDecimal(prices[index] ?? ''),
+        }))
         .filter((line) => line.itemId !== ''),
     }),
   );

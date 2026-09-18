@@ -8,19 +8,24 @@ import { PrismaModule } from '../../../shared/prisma/prisma.module.js';
 import { CategoryStatusChanger } from '../application/change-category-status/category-status-changer.js';
 import { MeasurementUnitStatusChanger } from '../application/change-measurement-unit-status/measurement-unit-status-changer.js';
 import { TaxStatusChanger } from '../application/change-tax-status/tax-status-changer.js';
+import { PriceListStatusChanger } from '../application/change-price-list-status/price-list-status-changer.js';
 import { WarehouseStatusChanger } from '../application/change-warehouse-status/warehouse-status-changer.js';
 import { CategoryCreator } from '../application/create-category/category-creator.js';
 import { MeasurementUnitCreator } from '../application/create-measurement-unit/measurement-unit-creator.js';
 import { TaxCreator } from '../application/create-tax/tax-creator.js';
+import { PriceListCreator } from '../application/create-price-list/price-list-creator.js';
 import { WarehouseCreator } from '../application/create-warehouse/warehouse-creator.js';
 import { CategorySearcher } from '../application/search-categories/category-searcher.js';
 import { MeasurementUnitSearcher } from '../application/search-measurement-units/measurement-unit-searcher.js';
 import { TaxSearcher } from '../application/search-taxes/tax-searcher.js';
+import { PriceListSearcher } from '../application/search-price-lists/price-list-searcher.js';
 import { WarehouseSearcher } from '../application/search-warehouses/warehouse-searcher.js';
+import { DefaultPriceListSetter } from '../application/set-default-price-list/default-price-list-setter.js';
 import { DefaultWarehouseSetter } from '../application/set-default-warehouse/default-warehouse-setter.js';
 import { CategoryUpdater } from '../application/update-category/category-updater.js';
 import { MeasurementUnitUpdater } from '../application/update-measurement-unit/measurement-unit-updater.js';
 import { TaxUpdater } from '../application/update-tax/tax-updater.js';
+import { PriceListUpdater } from '../application/update-price-list/price-list-updater.js';
 import { WarehouseUpdater } from '../application/update-warehouse/warehouse-updater.js';
 import { CATEGORY_REPOSITORY } from '../domain/category/category.repository.js';
 import type { CategoryRepository } from '../domain/category/category.repository.js';
@@ -39,6 +44,14 @@ import { TaxFinder } from '../domain/tax/find/tax-finder.js';
 import { TAX_REPOSITORY } from '../domain/tax/tax.repository.js';
 import type { TaxRepository } from '../domain/tax/tax.repository.js';
 import { TaxUniqueness } from '../domain/tax/unique/tax-uniqueness.js';
+import { UsablePriceListCurrency } from '../domain/price-list/currency/usable-price-list-currency.js';
+import { DefaultPriceList } from '../domain/price-list/default/default-price-list.js';
+import { PriceListFinder } from '../domain/price-list/find/price-list-finder.js';
+import { PRICE_LIST_CURRENCIES } from '../domain/price-list/price-list-currencies.js';
+import type { PriceListCurrencies } from '../domain/price-list/price-list-currencies.js';
+import { PRICE_LIST_REPOSITORY } from '../domain/price-list/price-list.repository.js';
+import type { PriceListRepository } from '../domain/price-list/price-list.repository.js';
+import { PriceListUniqueness } from '../domain/price-list/unique/price-list-uniqueness.js';
 import { DefaultWarehouse } from '../domain/warehouse/default/default-warehouse.js';
 import { WarehouseFinder } from '../domain/warehouse/find/warehouse-finder.js';
 import { WarehouseUniqueness } from '../domain/warehouse/unique/warehouse-uniqueness.js';
@@ -47,24 +60,31 @@ import type { WarehouseRepository } from '../domain/warehouse/warehouse.reposito
 import { ChangeCategoryStatusPutController } from './http/change-category-status-put.controller.js';
 import { ChangeMeasurementUnitStatusPutController } from './http/change-measurement-unit-status-put.controller.js';
 import { ChangeTaxStatusPutController } from './http/change-tax-status-put.controller.js';
+import { ChangePriceListStatusPutController } from './http/change-price-list-status-put.controller.js';
 import { ChangeWarehouseStatusPutController } from './http/change-warehouse-status-put.controller.js';
 import { CreateCategoryPostController } from './http/create-category-post.controller.js';
 import { CreateMeasurementUnitPostController } from './http/create-measurement-unit-post.controller.js';
 import { CreateTaxPostController } from './http/create-tax-post.controller.js';
+import { CreatePriceListPostController } from './http/create-price-list-post.controller.js';
 import { CreateWarehousePostController } from './http/create-warehouse-post.controller.js';
 import { SearchCategoriesGetController } from './http/search-categories-get.controller.js';
 import { SearchMeasurementUnitsGetController } from './http/search-measurement-units-get.controller.js';
 import { SearchTaxesGetController } from './http/search-taxes-get.controller.js';
+import { SearchPriceListsGetController } from './http/search-price-lists-get.controller.js';
 import { SearchWarehousesGetController } from './http/search-warehouses-get.controller.js';
+import { SetDefaultPriceListPutController } from './http/set-default-price-list-put.controller.js';
 import { SetDefaultWarehousePutController } from './http/set-default-warehouse-put.controller.js';
 import { UpdateCategoryPutController } from './http/update-category-put.controller.js';
 import { UpdateMeasurementUnitPutController } from './http/update-measurement-unit-put.controller.js';
 import { UpdateTaxPutController } from './http/update-tax-put.controller.js';
+import { UpdatePriceListPutController } from './http/update-price-list-put.controller.js';
 import { UpdateWarehousePutController } from './http/update-warehouse-put.controller.js';
 import { PrismaCategoryRepository } from './persistence/prisma-category.repository.js';
 import { PrismaCodeSequence } from './persistence/prisma-code-sequence.js';
 import { PrismaMeasurementUnitRepository } from './persistence/prisma-measurement-unit.repository.js';
 import { PrismaTaxRepository } from './persistence/prisma-tax.repository.js';
+import { PrismaPriceListCurrencies } from './persistence/prisma-price-list-currencies.js';
+import { PrismaPriceListRepository } from './persistence/prisma-price-list.repository.js';
 import { PrismaWarehouseRepository } from './persistence/prisma-warehouse.repository.js';
 import { PrismaItemUsage } from './persistence/prisma-item-usage.js';
 import { PrismaStockUsage } from './persistence/prisma-stock-usage.js';
@@ -97,12 +117,19 @@ import type { StockUsage } from '../domain/stock/stock-usage.js';
     UpdateWarehousePutController,
     ChangeWarehouseStatusPutController,
     SetDefaultWarehousePutController,
+    SearchPriceListsGetController,
+    CreatePriceListPostController,
+    UpdatePriceListPutController,
+    ChangePriceListStatusPutController,
+    SetDefaultPriceListPutController,
   ],
   providers: [
     { provide: CATEGORY_REPOSITORY, useClass: PrismaCategoryRepository },
     { provide: MEASUREMENT_UNIT_REPOSITORY, useClass: PrismaMeasurementUnitRepository },
     { provide: TAX_REPOSITORY, useClass: PrismaTaxRepository },
     { provide: WAREHOUSE_REPOSITORY, useClass: PrismaWarehouseRepository },
+    { provide: PRICE_LIST_REPOSITORY, useClass: PrismaPriceListRepository },
+    { provide: PRICE_LIST_CURRENCIES, useClass: PrismaPriceListCurrencies },
     { provide: CODE_SEQUENCE, useClass: PrismaCodeSequence },
     { provide: STOCK_USAGE, useClass: PrismaStockUsage },
     { provide: ITEM_USAGE, useClass: PrismaItemUsage },
@@ -129,6 +156,18 @@ import type { StockUsage } from '../domain/stock/stock-usage.js';
       inject: [WAREHOUSE_REPOSITORY],
     },
     { provide: DefaultWarehouse, useFactory: (r: WarehouseRepository) => new DefaultWarehouse(r), inject: [WAREHOUSE_REPOSITORY] },
+    { provide: PriceListFinder, useFactory: (r: PriceListRepository) => new PriceListFinder(r), inject: [PRICE_LIST_REPOSITORY] },
+    {
+      provide: PriceListUniqueness,
+      useFactory: (r: PriceListRepository) => new PriceListUniqueness(r),
+      inject: [PRICE_LIST_REPOSITORY],
+    },
+    { provide: DefaultPriceList, useFactory: (r: PriceListRepository) => new DefaultPriceList(r), inject: [PRICE_LIST_REPOSITORY] },
+    {
+      provide: UsablePriceListCurrency,
+      useFactory: (c: PriceListCurrencies) => new UsablePriceListCurrency(c),
+      inject: [PRICE_LIST_CURRENCIES],
+    },
     { provide: CatalogUsage, useFactory: (i: ItemUsage) => new CatalogUsage(i), inject: [ITEM_USAGE] },
     // ---- categorias
     {
@@ -215,6 +254,35 @@ import type { StockUsage } from '../domain/stock/stock-usage.js';
       inject: [WarehouseFinder, DefaultWarehouse, CLOCK],
     },
     { provide: WarehouseSearcher, useFactory: (r: WarehouseRepository) => new WarehouseSearcher(r), inject: [WAREHOUSE_REPOSITORY] },
+    {
+      provide: PriceListCreator,
+      useFactory: (
+        d: DefaultPriceList,
+        u: PriceListUniqueness,
+        m: UsablePriceListCurrency,
+        c: CodeSequence,
+        i: IdGenerator,
+        k: Clock,
+      ) => new PriceListCreator(d, u, m, c, i, k),
+      inject: [DefaultPriceList, PriceListUniqueness, UsablePriceListCurrency, CODE_SEQUENCE, ID_GENERATOR, CLOCK],
+    },
+    {
+      provide: PriceListUpdater,
+      useFactory: (f: PriceListFinder, u: PriceListUniqueness, r: PriceListRepository, k: Clock) =>
+        new PriceListUpdater(f, u, r, k),
+      inject: [PriceListFinder, PriceListUniqueness, PRICE_LIST_REPOSITORY, CLOCK],
+    },
+    {
+      provide: PriceListStatusChanger,
+      useFactory: (f: PriceListFinder, r: PriceListRepository, k: Clock) => new PriceListStatusChanger(f, r, k),
+      inject: [PriceListFinder, PRICE_LIST_REPOSITORY, CLOCK],
+    },
+    {
+      provide: DefaultPriceListSetter,
+      useFactory: (f: PriceListFinder, d: DefaultPriceList, k: Clock) => new DefaultPriceListSetter(f, d, k),
+      inject: [PriceListFinder, DefaultPriceList, CLOCK],
+    },
+    { provide: PriceListSearcher, useFactory: (r: PriceListRepository) => new PriceListSearcher(r), inject: [PRICE_LIST_REPOSITORY] },
 
   ],
 })

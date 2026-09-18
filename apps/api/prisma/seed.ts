@@ -46,6 +46,7 @@ const CATALOG = {
     categories: { drinks: 'e1000000-0000-4000-8000-000000000001', cleaning: 'e1000000-0000-4000-8000-000000000002' },
     taxes: { vat: 'e2000000-0000-4000-8000-000000000001', exempt: 'e2000000-0000-4000-8000-000000000002' },
     warehouses: { main: 'e3000000-0000-4000-8000-000000000001', north: 'e3000000-0000-4000-8000-000000000002' },
+    priceLists: { retail: 'e6000000-0000-4000-8000-000000000001', wholesale: 'e6000000-0000-4000-8000-000000000002' },
     items: {
       water: 'e4000000-0000-4000-8000-000000000001',
       detergent: 'e4000000-0000-4000-8000-000000000002',
@@ -61,6 +62,7 @@ const CATALOG = {
     categories: { parts: 'e1000000-0000-4000-8000-000000000101' },
     taxes: { vat: 'e2000000-0000-4000-8000-000000000101' },
     warehouses: { main: 'e3000000-0000-4000-8000-000000000101' },
+    priceLists: { retail: 'e6000000-0000-4000-8000-000000000101' },
     items: { filter: 'e4000000-0000-4000-8000-000000000101' },
   },
   initech: {
@@ -200,7 +202,7 @@ async function main(): Promise<void> {
 
     console.log(
       '  semillas aplicadas: 4 empresas con sus datos y parametros, 5 roles, 6 personas, 8 membresias; ' +
-        'catalogo: 7 unidades, 3 categorias, 3 impuestos, 5 bodegas, 4 articulos; ' +
+        'catalogo: 7 unidades, 3 categorias, 3 impuestos, 5 bodegas, 3 listas de precio, 4 articulos con 6 precios; ' +
         'inventario: 4 ajustes (2 confirmados), 3 existencias; ' +
         'compras: 3 proveedores, 4 ordenes, 2 entradas; ' +
         'ventas: 3 clientes, 4 pedidos, 3 despachos, 2 facturas; ' +
@@ -306,6 +308,7 @@ async function upsertRoles(prisma: PrismaClient): Promise<void> {
         'catalog.units.search',
         'catalog.taxes.search',
         'catalog.warehouses.search',
+        'catalog.pricelists.search',
         'inventory.items.search',
         'inventory.adjustments.search',
         'inventory.stock.search',
@@ -447,7 +450,15 @@ async function seedCatalog(prisma: PrismaClient): Promise<void> {
     },
   ];
 
-  await removeCatalogLeftovers(prisma, { units, categories, taxes, warehouses, items });
+  // Acme cotiza en dolares: al detal y al mayor, con la del detal por defecto. El mayor rebaja el
+  // agua y el detergente, que es lo que se ve en la pantalla del pedido.
+  const priceLists = [
+    { id: acme.priceLists.retail, tenantId: ACME, code: 'LPR000001', name: 'Detal', description: 'Precio de mostrador', currency: 'USD', isDefault: true },
+    { id: acme.priceLists.wholesale, tenantId: ACME, code: 'LPR000002', name: 'Mayorista', description: 'Desde 10 unidades', currency: 'USD', isDefault: false },
+    { id: globex.priceLists.retail, tenantId: GLOBEX, code: 'LPR000001', name: 'General', description: null, currency: 'USD', isDefault: true },
+  ];
+
+  await removeCatalogLeftovers(prisma, { units, categories, taxes, warehouses, priceLists, items });
 
   for (const unit of units) {
     await prisma.measurementUnit.upsert({ where: { id: unit.id }, create: unit, update: { ...unit, isActive: true } });
@@ -461,6 +472,9 @@ async function seedCatalog(prisma: PrismaClient): Promise<void> {
   for (const warehouse of warehouses) {
     await prisma.warehouse.upsert({ where: { id: warehouse.id }, create: warehouse, update: { ...warehouse, isActive: true } });
   }
+  for (const priceList of priceLists) {
+    await prisma.priceList.upsert({ where: { id: priceList.id }, create: priceList, update: { ...priceList, isActive: true } });
+  }
   for (const { units: itemUnits, ...item } of items) {
     await prisma.item.upsert({ where: { id: item.id }, create: item, update: { ...item, isActive: true } });
     await prisma.itemUnit.deleteMany({ where: { itemId: item.id } });
@@ -468,6 +482,19 @@ async function seedCatalog(prisma: PrismaClient): Promise<void> {
       data: itemUnits.map((unit) => ({ tenantId: item.tenantId, itemId: item.id, ...unit })),
     });
   }
+
+  // Precios por lista, en la unidad base del articulo. El servicio de entrega tambien se cotiza.
+  await prisma.itemPrice.deleteMany({ where: { tenantId: { in: [ACME, GLOBEX] } } });
+  await prisma.itemPrice.createMany({
+    data: [
+      { tenantId: ACME, itemId: acme.items.water, priceListId: acme.priceLists.retail, price: 0.85 },
+      { tenantId: ACME, itemId: acme.items.water, priceListId: acme.priceLists.wholesale, price: 0.7 },
+      { tenantId: ACME, itemId: acme.items.detergent, priceListId: acme.priceLists.retail, price: 4.5 },
+      { tenantId: ACME, itemId: acme.items.detergent, priceListId: acme.priceLists.wholesale, price: 3.9 },
+      { tenantId: ACME, itemId: acme.items.delivery, priceListId: acme.priceLists.retail, price: 3 },
+      { tenantId: GLOBEX, itemId: globex.items.filter, priceListId: globex.priceLists.retail, price: 12 },
+    ],
+  });
 
   // Reglas de reposicion: el agua se vigila en la Principal (hay 288 y el minimo es 300).
   await prisma.itemReorderRule.deleteMany({ where: { tenantId: { in: [ACME, GLOBEX] } } });
@@ -482,7 +509,7 @@ async function seedCatalog(prisma: PrismaClient): Promise<void> {
 
   // El contador nunca retrocede: si las pruebas ya numeraron mas alla de lo sembrado, se
   // queda donde esta; si no existia, arranca despues del ultimo codigo sembrado.
-  const rows = [...units, ...categories, ...taxes, ...warehouses, ...items];
+  const rows = [...units, ...categories, ...taxes, ...warehouses, ...priceLists, ...items];
   const highest = new Map<string, number>();
 
   for (const { tenantId, code } of rows) {
@@ -511,6 +538,7 @@ async function removeCatalogLeftovers(
   const ids = (table: string) => seeded[table].map((row) => row.id);
 
   await prisma.item.deleteMany({ where: { id: { notIn: ids('items') } } });
+  await prisma.priceList.deleteMany({ where: { id: { notIn: ids('priceLists') } } });
   await prisma.category.deleteMany({ where: { id: { notIn: ids('categories') } } });
   await prisma.tax.deleteMany({ where: { id: { notIn: ids('taxes') } } });
   await prisma.measurementUnit.deleteMany({ where: { id: { notIn: ids('units') } } });

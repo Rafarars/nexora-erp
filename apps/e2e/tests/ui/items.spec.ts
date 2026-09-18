@@ -121,3 +121,38 @@ test('a read-only role sees the items but gets no way to change them', async ({ 
   await expect(page.getByTestId('new-item')).toHaveCount(0);
   await expect(page.getByTestId('item-options-AGUA-500')).toHaveCount(0);
 });
+
+// Los precios se cargan en el articulo, uno por lista, y el minimo es el piso de venta.
+test.describe('The prices of an item', () => {
+  test.beforeEach(async ({ page }) => {
+    await new LoginPage(page).signIn(ACME_ADMIN);
+  });
+
+  test('loads a price for each list and refuses one below the minimum', async ({ page, request }) => {
+    const token = await tokenFor(request, ACME_ADMIN.email, API);
+    const item = await aFreshItem(request, token, API);
+    const table = new CatalogPage(page);
+    const inventory = new InventoryPage(page);
+
+    await inventory.open('articulos');
+    await inventory.findItem(item.sku);
+    await table.startEditing('item', item.sku);
+
+    // El mínimo por encima del precio: la API lo rechaza y lo dice en español.
+    await page.getByTestId('item-price-add').click();
+    await page.getByTestId('item-price-list-0').selectOption({ label: 'Detal (USD)' });
+    await page.getByTestId('item-price-value-0').fill('2');
+    await page.getByTestId('item-min-price').fill('3');
+    await table.submit('item');
+
+    await expect(page.getByTestId('item-error')).toHaveText('Hay un precio de lista por debajo del mínimo del artículo.');
+
+    // Con el mínimo por debajo, se guarda y el precio vuelve al formulario.
+    await page.getByTestId('item-min-price').fill('1,5');
+    await table.submitAndClose('item');
+
+    await table.startEditing('item', item.sku);
+    await expect(page.getByTestId('item-price-value-0')).toHaveValue('2');
+    await expect(page.getByTestId('item-min-price')).toHaveValue('1,5');
+  });
+});

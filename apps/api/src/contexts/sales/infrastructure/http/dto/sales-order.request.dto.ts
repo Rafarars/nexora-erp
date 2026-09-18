@@ -7,7 +7,10 @@ export const salesOrderRequestSchema = z.object({
   exchangeRate: z.number().nullable().optional(),
   date: z.string().nullable().optional(),
   notes: z.string().nullable().optional(),
-  lines: z.array(z.object({ itemId: z.string(), unitId: z.string(), quantity: z.number(), unitPrice: z.number() })),
+  // Con que lista se cotiza; sin ella, la del cliente o la de por defecto.
+  priceListId: z.string().nullable().optional(),
+  // Sin precio, manda el de la lista.
+  lines: z.array(z.object({ itemId: z.string(), unitId: z.string(), quantity: z.number(), unitPrice: z.number().nullable().optional() })),
 });
 
 export type SalesOrderRequestDto = z.infer<typeof salesOrderRequestSchema>;

@@ -223,6 +223,38 @@ Detalle y fuentes en [revision/temas/configuracion-empresa.md §10](revision/tem
   opción para copiar la tasa del documento base. **Qué haría falta:** un parámetro de empresa y que la emisión pida la
   tasa de la fecha del despacho.
 
+### Listas de precio: lo que la fase 5 dejó fuera
+
+Detalle y fuentes en [revision/temas/listas-de-precio.md](revision/temas/listas-de-precio.md).
+
+- **Vigencia por fechas de un precio.** Hoy hay un solo precio por artículo y lista, como el ERP del compañero: el
+  histórico vive en los documentos emitidos, que congelan su precio. **Por qué haría falta:** cargar en diciembre la
+  lista que entra en enero, sin tocarla ese día. **Cómo lo hacen:** ERPNext (`Valid From` / `Valid Upto`), Business
+  Central y Odoo lo llevan en la línea; SAP lo separa en *Special Prices*. **Qué haría falta:** varias filas por
+  artículo y lista, resolución por la fecha del documento y una validación que impida solapes.
+- **Precio distinto por unidad de medida.** Hoy el precio es por unidad base y se multiplica por el factor, así que
+  una caja de doce cuesta exactamente doce piezas. **Por qué haría falta:** en mayoreo la caja suele costar menos que
+  la suma de sus piezas. **Cómo lo hacen:** ERPNext ata cada `Item Price` a una unidad («A price is always specific to
+  a certain UOM»). **Qué haría falta:** la unidad en la clave de `item_prices` y decidir qué pasa cuando falta la de
+  la unidad elegida.
+- **Cantidad mínima y descuentos por volumen.** Ni el compañero ni nosotros los tenemos; Odoo, Business Central y SAP
+  sí. **Qué haría falta:** una cantidad mínima en la línea de precio y elegir la fila que aplica según la cantidad.
+- **Margen mínimo sobre el costo**, en vez o además del precio mínimo fijo. **Por qué:** es lo que hacen los ERP —SAP
+  calcula la ganancia bruta y dispara una aprobación, Odoo permite un piso de margen en la regla de precio y ERPNext
+  avisa si el precio de venta baja del de compra—, y un piso atado al costo se ajusta solo cuando el costo sube. **Se
+  descartó** porque un artículo recién creado, o sin compras todavía, tiene costo cero y cualquier margen lo
+  rechazaría. **Qué haría falta:** un porcentaje por artículo o de la empresa, y leer el costo promedio de la bodega
+  del pedido (que ya está en la moneda de la empresa).
+- **Descuento por cliente y por línea.** El compañero tiene un `discount_percent` fijo por cliente y un descuento por
+  documento. Aquí el descuento se ve restando `list_price` menos `unit_price`, pero no se declara como tal. **Qué
+  haría falta:** un campo de descuento que se aplique al precio sugerido y quede escrito en la línea.
+- **Listas de precio de compra.** La orden de compra sigue con el costo escrito a mano. **Cómo lo hacen:** Business
+  Central, ERPNext y SAP usan el mismo objeto marcado como de compra; Odoo lo separa en la ficha del producto. **Qué
+  haría falta:** una marca de venta o compra en la lista y resolver el costo sugerido en la orden.
+- **`price_decimals` admite hasta 8 pero las columnas de precio guardan 6.** Una empresa que configure 7 u 8 no verá
+  esos decimales en un precio guardado. **Qué haría falta:** ampliar las columnas a `decimal(18,8)` o limitar el
+  parámetro a 6.
+
 ### Selectores que buscan contra el servidor
 
 **Por qué:** los formularios de ajustes, órdenes y pedidos cargan hasta 50 artículos para su selector. El maestro ya

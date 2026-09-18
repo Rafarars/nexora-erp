@@ -19,3 +19,9 @@ export class WarehouseRef extends Uuid {
     return new WarehouseRef(value);
   }
 }
+
+export class PriceListRef extends Uuid {
+  static of(value: string): PriceListRef {
+    return new PriceListRef(value);
+  }
+}

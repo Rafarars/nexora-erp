@@ -200,4 +200,37 @@ test.describe('currency and exchange rates of sales', () => {
     const { orders } = await (await request.get(SALES_ORDERS, { headers: auth(token) })).json();
     expect(orders.find((row: { id: string }) => row.id === order.id)).toMatchObject({ status: 'confirmed', exchangeRate: 180.5, manualExchangeRate: true });
   });
+
+  // El precio sale de la lista, en la unidad de la linea, sin escribir nada.
+  test('a sales order line takes its price from the price list, by the chosen unit', async ({ request }) => {
+    const token = await tokenFor(request, 'ana@acme.com');
+    const customer = await aFreshCustomer(request, token);
+    const order = await aDraftSalesOrder(request, token, {
+      customerId: customer.id,
+      lines: [{ itemId: ACME_INVENTORY.waterItem, unitId: ACME_INVENTORY.box, quantity: 1 }],
+    });
+
+    const found = await find(request, token, SALES_ORDERS, 'orders', order.id);
+
+    // El agua vale 0,85 la unidad en la lista por defecto, y la caja trae 24.
+    expect(found.priceList).toMatchObject({ name: 'Detal' });
+    expect(found.lines[0]).toMatchObject({ unitPrice: 20.4, listPrice: 20.4 });
+  });
+
+  // La lista esta en dolares y el pedido en euros: se convierte por el bolivar, como el cobro.
+  test('converts the price of the list into the currency of the order', async ({ request }) => {
+    const token = await tokenFor(request, 'ana@acme.com');
+    const customer = await aFreshCustomer(request, token);
+    const order = await aDraftSalesOrder(request, token, {
+      customerId: customer.id,
+      currency: 'EUR',
+      date: '2026-01-15',
+      lines: [{ itemId: ACME_INVENTORY.waterItem, unitId: ACME_INVENTORY.piece, quantity: 1 }],
+    });
+
+    const found = await find(request, token, SALES_ORDERS, 'orders', order.id);
+    const inBolivars = 0.85 * found.baseExchangeRate;
+
+    expect(found.lines[0].unitPrice).toBeCloseTo(inBolivars / found.exchangeRate, 6);
+  });
 });

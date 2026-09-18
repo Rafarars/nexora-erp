@@ -184,3 +184,46 @@ test('the catalog module does not show up for a role without catalog permissions
   await page.goto('/catalogo/categorias');
   await expect(page.getByTestId('categories-forbidden')).toBeVisible();
 });
+
+// Las listas de precio: el maestro vive en el catalogo y los precios cuelgan del articulo.
+test.describe('Price lists', () => {
+  test.beforeEach(async ({ page }) => {
+    await new LoginPage(page).signIn(ACME_ADMIN);
+  });
+
+  test('creates a price list in a currency and cannot change that currency afterwards', async ({ page }) => {
+    const catalog = new CatalogPage(page);
+    const name = `Promoción ${stamp()}`;
+
+    await catalog.open('listas-de-precio');
+    await catalog.startCreating('price-list');
+    await page.getByTestId('price-list-name').fill(name);
+    await page.getByTestId('price-list-currency').selectOption('EUR');
+    await catalog.submitAndClose('price-list');
+
+    await expect(catalog.row('price-list', name)).toBeVisible();
+    await expect(catalog.row('price-list', name)).toContainText('EUR');
+
+    // Al editar, la moneda ya no se ofrece: cambiarla reinterpretaria todos sus precios.
+    await catalog.startEditing('price-list', name);
+    await expect(page.getByTestId('price-list-currency')).toHaveCount(0);
+    await page.getByTestId('price-list-name').fill(`${name} revisada`);
+    await catalog.submitAndClose('price-list');
+
+    await expect(catalog.row('price-list', `${name} revisada`)).toContainText('EUR');
+  });
+
+  test('refuses to deactivate the default price list and says why', async ({ page }) => {
+    const catalog = new CatalogPage(page);
+
+    await catalog.open('listas-de-precio');
+    await expect(page.getByTestId('price-list-default-Detal')).toBeVisible();
+
+    await catalog.toggleStatus('price-list', 'Detal');
+
+    await expect(page.getByTestId('price-list-status-error')).toHaveText(
+      'No se puede desactivar la lista de precio por defecto. Elige otra por defecto primero.',
+    );
+    await expect(catalog.status('price-list', 'Detal')).toHaveText('Activo');
+  });
+});

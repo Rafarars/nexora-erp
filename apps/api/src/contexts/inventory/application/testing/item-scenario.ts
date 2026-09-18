@@ -5,7 +5,7 @@ import { Item } from '../../domain/item/item.entity.js';
 import { ItemReferences } from '../../domain/item/references/item-references.js';
 import { BarcodeUniqueness } from '../../domain/item/unique/barcode-uniqueness.js';
 import { SkuUniqueness } from '../../domain/item/unique/sku-uniqueness.js';
-import { NOW, aCategory, aTax, aUnit } from '../../domain/testing/item.mother.js';
+import { NOW, aCategory, aPriceList, aTax, aUnit } from '../../domain/testing/item.mother.js';
 import { InMemoryCatalogReferences } from '../../infrastructure/testing/in-memory-catalog-references.js';
 import { InMemoryInventoryCodeSequence } from '../../infrastructure/testing/in-memory-inventory-code-sequence.js';
 import { InMemoryItemPosting } from '../../infrastructure/testing/in-memory-item-posting.js';
@@ -18,11 +18,18 @@ export function anItemScenario(
     categories?: ReturnType<typeof aCategory>[];
     taxes?: ReturnType<typeof aTax>[];
     units?: ReturnType<typeof aUnit>[];
+    priceLists?: ReturnType<typeof aPriceList>[];
     items?: Item[];
   } = {},
 ) {
   const items = new InMemoryItemRepository(seed.items ?? []);
-  const catalog = new InMemoryCatalogReferences(seed.categories ?? [], seed.taxes ?? [], seed.units ?? []);
+  const catalog = new InMemoryCatalogReferences(
+    seed.categories ?? [],
+    seed.taxes ?? [],
+    seed.units ?? [],
+    [],
+    seed.priceLists ?? [],
+  );
 
   return {
     items,

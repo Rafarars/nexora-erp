@@ -120,7 +120,7 @@ empresa si no dice) y la de la moneda de la empresa, de la serie que eligió en 
   `ensurePriceDecimals` del contrato rechaza el precio o costo que tenga más. `companyCurrency(empresa)` devuelve la
   moneda principal, que es en la que los reportes expresan sus cifras.
 - Lo usan las órdenes y entradas de compra ([compras.md §2.4](compras.md#24-moneda-y-tasas)), los pedidos y facturas de
-  venta ([ventas.md §2.4](ventas.md#24-moneda-y-tasas)) y los cobros
+  venta ([ventas.md §2.4](ventas.md#25-moneda-y-tasas)) y los cobros
   ([cuentas-por-cobrar.md §1.5](cuentas-por-cobrar.md#15-cobrar-en-otra-moneda-y-el-diferencial-cambiario)) y los
   reportes ([reportes.md §0](reportes.md#0-la-moneda-de-los-reportes)).
 

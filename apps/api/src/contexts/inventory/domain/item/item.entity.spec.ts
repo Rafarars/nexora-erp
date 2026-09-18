@@ -1,3 +1,4 @@
+import { ItemPrices } from './item-prices.js';
 import { ItemReorderRules } from './item-reorder-rules.js';
 import { describe, expect, it } from 'vitest';
 import { CategoryRef, TaxRef, UnitRef } from '../shared/references.vo.js';
@@ -21,6 +22,8 @@ describe('Item', () => {
     const item = anItem({
       units: ItemUnits.of([ItemUnit.of(UNIT_PIECE, 1, true), ItemUnit.of(UNIT_BOX, 24, false)]),
       reorderRules: ItemReorderRules.none(),
+      prices: ItemPrices.none(),
+      minPrice: null,
     });
 
     expect(Item.fromPrimitives(item.toPrimitives()).toPrimitives()).toEqual(item.toPrimitives());
@@ -65,6 +68,8 @@ describe('Item', () => {
         purchaseTaxId: null,
         units: baseUnitOnly(UNIT_BOX),
         reorderRules: ItemReorderRules.none(),
+      prices: ItemPrices.none(),
+      minPrice: null,
       },
       LATER,
     );
@@ -98,6 +103,8 @@ describe('Item', () => {
           purchaseTaxId: null,
           units: baseUnitOnly(),
           reorderRules: ItemReorderRules.none(),
+      prices: ItemPrices.none(),
+      minPrice: null,
         },
         LATER,
       ),

@@ -27,7 +27,7 @@ export class PrismaItemPosting implements ItemPosting {
 
       if (locked.length === 0) throw new ItemNotFoundError(id);
 
-      const item = itemFromRow(await tx.item.findFirstOrThrow({ where: { tenantId: tenant, id }, include: { units: true, reorderRules: true } }));
+      const item = itemFromRow(await tx.item.findFirstOrThrow({ where: { tenantId: tenant, id }, include: { units: true, reorderRules: true, prices: true } }));
       const stock = await tx.itemStock.findFirst({ where: { tenantId: tenant, itemId: id, quantity: { gt: 0 } }, select: { itemId: true } });
       const movement = await tx.inventoryMovement.findFirst({ where: { tenantId: tenant, itemId: id }, select: { id: true } });
       const openUnits = await tx.$queryRaw<{ unit_id: string }[]>`

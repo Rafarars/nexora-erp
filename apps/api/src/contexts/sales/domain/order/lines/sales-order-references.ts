@@ -11,12 +11,14 @@ import {
   SalesUnitNotOfItemError,
   SalesWarehouseNotFoundError,
   ItemNotSellableError,
+  MissingSalesPriceError,
   ServiceNotSellableError,
 } from '../../errors/sales.errors.js';
 import { TaxRate, UnitPrice } from '../../shared/money.js';
 import { Quantity } from '../../shared/quantity.vo.js';
-import { ItemRef, UnitRef, WarehouseRef } from '../../shared/references.vo.js';
+import { ItemRef, PriceListRef, UnitRef, WarehouseRef } from '../../shared/references.vo.js';
 import { TenantId } from '../../shared/tenant-id.vo.js';
+import { SalesPricing } from '../pricing/sales-pricing.js';
 import { SalesOrderLine, SalesOrderLineId } from '../sales-order-line.js';
 
 export interface SalesOrderLineInput {
@@ -25,7 +27,9 @@ export interface SalesOrderLineInput {
   itemId: string;
   unitId: string;
   quantity: number;
-  unitPrice: number;
+  // Sin precio, manda el de la lista. La pantalla lo rellena, pero el servidor lo vuelve a
+  // resolver: fiarse del formulario es lo que deja al companero sin revalidacion.
+  unitPrice?: number | null;
 }
 
 // Convierte lo que escribe una persona en referencias validas: cliente y bodega activos de su
@@ -38,12 +42,13 @@ export class SalesOrderReferences {
     private readonly ids: IdGenerator,
   ) {}
 
-  async customer(tenantId: TenantId, customerId: string): Promise<CustomerId> {
+  // Devuelve tambien su lista: es una condicion comercial del cliente, y el pedido la arrastra.
+  async customer(tenantId: TenantId, customerId: string): Promise<{ id: CustomerId; priceListId: PriceListRef | null }> {
     const customer = await this.customers.find(tenantId, CustomerId.of(customerId));
 
     if (!customer.isActive()) throw new InactiveCustomerError(customer.id.value);
 
-    return customer.id;
+    return { id: customer.id, priceListId: customer.priceListId() };
   }
 
   async warehouse(tenantId: TenantId, warehouseId: string): Promise<WarehouseRef> {
@@ -56,7 +61,7 @@ export class SalesOrderReferences {
     return ref;
   }
 
-  async lines(tenantId: TenantId, inputs: SalesOrderLineInput[]): Promise<SalesOrderLine[]> {
+  async lines(tenantId: TenantId, inputs: SalesOrderLineInput[], pricing: SalesPricing): Promise<SalesOrderLine[]> {
     const refs = [...new Set(inputs.map((input) => input.itemId))].map((id) => ItemRef.of(id));
     const items = await this.catalog.findItems(tenantId, refs);
 
@@ -75,6 +80,12 @@ export class SalesOrderReferences {
 
       const quantity = Quantity.of(input.quantity);
       const baseQuantity = quantity.times(unit.conversionFactor);
+      const listPrice = pricing.suggest(item, unit.conversionFactor);
+      const unitPrice = input.unitPrice === null || input.unitPrice === undefined ? listPrice : UnitPrice.of(input.unitPrice);
+
+      if (!unitPrice) throw new MissingSalesPriceError(item.id);
+
+      pricing.ensureAboveMinimum(item, unitPrice);
 
       if (quantity.isZero() || baseQuantity.isZero()) throw new InvalidSalesQuantityError(input.quantity);
 
@@ -87,7 +98,8 @@ export class SalesOrderReferences {
         unitId,
         quantity,
         baseQuantity,
-        unitPrice: UnitPrice.of(input.unitPrice),
+        unitPrice,
+        listPrice: listPrice ?? unitPrice,
         taxRate: TaxRate.of(item.taxRate),
       });
     });

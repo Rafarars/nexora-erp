@@ -1,3 +1,4 @@
+import { ItemPrices } from '../domain/item/item-prices.js';
 import { ItemReorderRules } from '../domain/item/item-reorder-rules.js';
 import { afterAll, afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { ItemCommitments } from '../domain/item/commitments/item-commitments.js';
@@ -15,6 +16,8 @@ import {
   ITEM_A,
   ITEM_B,
   LATER,
+  PRICE_LIST_A,
+  PRICE_LIST_B,
   TAX_A,
   WAREHOUSE_A,
   TAX_B,
@@ -76,6 +79,8 @@ export function describeItemPortsContract(implementation: string, createHarness:
         const item = anItem({
           units: ItemUnits.of([ItemUnit.of(UNIT_PIECE, 1, true), ItemUnit.of(UNIT_BOX, 0.08333333, false)]),
           reorderRules: ItemReorderRules.none(),
+      prices: ItemPrices.none(),
+      minPrice: null,
         });
 
         await ports.items.save(item);
@@ -112,6 +117,46 @@ export function describeItemPortsContract(implementation: string, createHarness:
         expect(await ports.items.withReorderRules(tenantA)).toEqual([]);
       });
 
+      // Los precios se guardan y se reemplazan enteros, como las unidades y las reglas.
+      it('saves the prices of an item, one per list, and replaces them whole', async () => {
+        await seedReferences();
+        await catalog.priceList({ tenantId: TENANT_A, id: PRICE_LIST_A, name: 'Detal', currency: 'USD', isActive: true });
+        await catalog.priceList({ tenantId: TENANT_A, id: PRICE_LIST_B, name: 'Mayorista', currency: 'USD', isActive: true });
+        await ports.items.save(
+          anItem({
+            minPrice: 0.5,
+            prices: ItemPrices.fromPrimitives([
+              { priceListId: PRICE_LIST_A, price: 0.85 },
+              { priceListId: PRICE_LIST_B, price: 0.7 },
+            ]),
+          }),
+        );
+
+        const saved = (await ports.items.find(tenantA, ItemId.of(ITEM_A)))?.toPrimitives();
+        expect(saved?.prices).toEqual([
+          { priceListId: PRICE_LIST_A, price: 0.85 },
+          { priceListId: PRICE_LIST_B, price: 0.7 },
+        ]);
+        expect(saved?.minPrice).toBe(0.5);
+
+        await ports.items.save(anItem({ prices: ItemPrices.fromPrimitives([{ priceListId: PRICE_LIST_A, price: 0.9 }]) }));
+
+        const updated = (await ports.items.find(tenantA, ItemId.of(ITEM_A)))?.toPrimitives();
+        expect(updated?.prices).toEqual([{ priceListId: PRICE_LIST_A, price: 0.9 }]);
+        expect(updated?.minPrice).toBeNull();
+      });
+
+      // Seis decimales exactos: la columna los guarda y no los redondea en silencio.
+      it('keeps the six decimals of a price', async () => {
+        await seedReferences();
+        await catalog.priceList({ tenantId: TENANT_A, id: PRICE_LIST_A, name: 'Detal', currency: 'USD', isActive: true });
+        await ports.items.save(anItem({ prices: ItemPrices.fromPrimitives([{ priceListId: PRICE_LIST_A, price: 0.123456 }]) }));
+
+        expect((await ports.items.find(tenantA, ItemId.of(ITEM_A)))?.toPrimitives().prices).toEqual([
+          { priceListId: PRICE_LIST_A, price: 0.123456 },
+        ]);
+      });
+
             // El lector de la caja busca por el codigo impreso, y nunca encuentra el de otra empresa.
       it('finds an item by its barcode, only within its tenant', async () => {
         await seedReferences();
@@ -137,6 +182,8 @@ export function describeItemPortsContract(implementation: string, createHarness:
         const item = anItem({
           units: ItemUnits.of([ItemUnit.of(UNIT_PIECE, 1, true), ItemUnit.of(UNIT_BOX, 24, false)]),
           reorderRules: ItemReorderRules.none(),
+      prices: ItemPrices.none(),
+      minPrice: null,
         });
         await ports.items.save(item);
 
@@ -335,5 +382,7 @@ function detailsOf(item: ReturnType<typeof anItem>) {
     purchaseTaxId: row.purchaseTaxId ? TaxRef.of(row.purchaseTaxId) : null,
     units: ItemUnits.fromPrimitives(row.units),
     reorderRules: ItemReorderRules.none(),
+      prices: ItemPrices.none(),
+      minPrice: null,
   };
 }

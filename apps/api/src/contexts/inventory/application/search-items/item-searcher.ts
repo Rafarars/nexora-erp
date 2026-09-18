@@ -1,6 +1,6 @@
 import { CatalogReferences } from '../../domain/catalog/catalog-references.js';
 import { ItemRepository } from '../../domain/item/item.repository.js';
-import { CategoryRef, TaxRef, UnitRef, WarehouseRef } from '../../domain/shared/references.vo.js';
+import { CategoryRef, PriceListRef, TaxRef, UnitRef, WarehouseRef } from '../../domain/shared/references.vo.js';
 import { TenantId } from '../../domain/shared/tenant-id.vo.js';
 import { ItemSearcherResponse } from './item-searcher.response.js';
 
@@ -25,17 +25,19 @@ export class ItemSearcher {
     const rows = page.items.map((item) => item.toPrimitives());
     const distinct = (ids: (string | null)[]) => [...new Set(ids.filter((id): id is string => id !== null))];
 
-    const [categories, taxes, units, warehouses] = await Promise.all([
+    const [categories, taxes, units, warehouses, priceLists] = await Promise.all([
       this.catalog.findCategories(tenantId, distinct(rows.map((row) => row.categoryId)).map((id) => CategoryRef.of(id))),
       this.catalog.findTaxes(tenantId, distinct(rows.flatMap((row) => [row.salesTaxId, row.purchaseTaxId])).map((id) => TaxRef.of(id))),
       this.catalog.findUnits(tenantId, distinct(rows.flatMap((row) => row.units.map((unit) => unit.unitId))).map((id) => UnitRef.of(id))),
       this.catalog.findWarehouses(tenantId, distinct(rows.flatMap((row) => row.reorderRules.map((rule) => rule.warehouseId))).map((id) => WarehouseRef.of(id))),
+      this.catalog.findPriceLists(tenantId, distinct(rows.flatMap((row) => row.prices.map((price) => price.priceListId))).map((id) => PriceListRef.of(id))),
     ]);
 
     const categoryById = new Map(categories.map((category) => [category.id, category]));
     const taxById = new Map(taxes.map((tax) => [tax.id, tax]));
     const unitById = new Map(units.map((unit) => [unit.id, unit]));
     const warehouseById = new Map(warehouses.map((warehouse) => [warehouse.id, warehouse]));
+    const priceListById = new Map(priceLists.map((priceList) => [priceList.id, priceList]));
 
     return {
       total: page.total,
@@ -82,6 +84,15 @@ export class ItemSearcher {
               maxQuantity: rule.maxQuantity,
               reorderQuantity: rule.reorderQuantity,
             })),
+            prices: row.prices.map((price) => {
+              const found = priceListById.get(price.priceListId);
+
+              return {
+                priceList: { id: price.priceListId, name: found?.name ?? '', currency: found?.currency ?? '' },
+                price: price.price,
+              };
+            }),
+            minPrice: row.minPrice,
             isActive: row.isActive,
           };
         })
