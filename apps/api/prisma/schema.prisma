@@ -314,8 +314,9 @@ model Tax {
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt @map("updated_at")
 
-  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  items  Item[]
+  tenant        Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  soldItems     Item[] @relation("SalesTax")
+  purchasedItems Item[] @relation("PurchaseTax")
 
   @@unique([tenantId, id])
   @@unique([tenantId, code])
@@ -362,8 +363,10 @@ model Item {
   name        String   @db.VarChar(200)
   description String?
   type        ItemType
-  categoryId  String?  @map("category_id") @db.Uuid
-  taxId       String?  @map("tax_id") @db.Uuid
+  categoryId    String?  @map("category_id") @db.Uuid
+  /// Se copia a la linea al venderlo; puede ser distinto del de compra o faltar.
+  salesTaxId    String?  @map("sales_tax_id") @db.Uuid
+  purchaseTaxId String?  @map("purchase_tax_id") @db.Uuid
   isActive    Boolean  @default(true) @map("is_active")
   createdAt   DateTime @default(now()) @map("created_at")
   updatedAt   DateTime @updatedAt @map("updated_at")
@@ -372,7 +375,8 @@ model Item {
   // Compuestas con la empresa: ni la propia base acepta un articulo que apunte a la
   // categoria o al impuesto de otra empresa.
   category        Category?           @relation(fields: [tenantId, categoryId], references: [tenantId, id], onDelete: Restrict)
-  tax             Tax?                @relation(fields: [tenantId, taxId], references: [tenantId, id], onDelete: Restrict)
+  salesTax        Tax?                @relation("SalesTax", fields: [tenantId, salesTaxId], references: [tenantId, id], onDelete: Restrict)
+  purchaseTax     Tax?                @relation("PurchaseTax", fields: [tenantId, purchaseTaxId], references: [tenantId, id], onDelete: Restrict)
   units           ItemUnit[]
   adjustmentLines AdjustmentLine[]
   movements       InventoryMovement[]
@@ -387,7 +391,8 @@ model Item {
   @@unique([tenantId, code])
   @@unique([tenantId, sku])
   @@index([tenantId, categoryId])
-  @@index([tenantId, taxId])
+  @@index([tenantId, salesTaxId])
+  @@index([tenantId, purchaseTaxId])
   @@map("items")
 }
 
@@ -406,7 +411,7 @@ model ItemUnit {
   tenantId         String  @map("tenant_id") @db.Uuid
   itemId           String  @map("item_id") @db.Uuid
   unitId           String  @map("unit_id") @db.Uuid
-  conversionFactor Decimal @map("conversion_factor") @db.Decimal(18, 4)
+  conversionFactor Decimal @map("conversion_factor") @db.Decimal(18, 8)
   isBase           Boolean @map("is_base")
 
   item Item            @relation(fields: [tenantId, itemId], references: [tenantId, id], onDelete: Cascade)

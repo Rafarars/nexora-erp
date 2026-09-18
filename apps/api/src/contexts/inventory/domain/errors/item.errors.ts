@@ -82,7 +82,7 @@ export class ItemUnitInOpenDocumentsError extends ConflictError {
 export class InvalidConversionFactorError extends InvalidArgumentError {
   constructor(value: number) {
     super(
-      `A conversion factor must be positive with at most four decimals, received <${value}>.`,
+      `A conversion factor must be positive with at most eight decimals, received <${value}>.`,
       'A conversion factor must be a positive number.',
     );
   }

@@ -45,5 +45,5 @@ export function parseDecimal(text: string): number {
 // Sin separador de miles: el mismo texto vuelve a los campos editables, y "12.345" no se
 // entenderia al guardarlo otra vez.
 export function formatNumber(value: number): string {
-  return value.toLocaleString('es', { maximumFractionDigits: 4, useGrouping: false });
+  return value.toLocaleString('es', { maximumFractionDigits: 8, useGrouping: false });
 }

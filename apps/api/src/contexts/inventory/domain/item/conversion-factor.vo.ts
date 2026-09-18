@@ -1,12 +1,13 @@
+import { hasAtMostDecimals } from '../../../../shared/domain/amount.js';
 import { InvalidConversionFactorError } from '../errors/item.errors.js';
 
-// Catorce digitos enteros: lo que cabe en la columna decimal(18,4).
-const MAX = 99_999_999_999_999;
+// Diez digitos enteros: lo que cabe en la columna decimal(18,8).
+const MAX = 9_999_999_999;
 
 // Cuantas unidades base contiene una unidad del articulo: 1 caja = 24 unidades.
 export class ConversionFactor {
   private constructor(readonly value: number) {
-    if (!Number.isFinite(value) || value <= 0 || value > MAX || !hasAtMostFourDecimals(value)) {
+    if (!Number.isFinite(value) || value <= 0 || value > MAX || !hasAtMostDecimals(value, 8)) {
       throw new InvalidConversionFactorError(value);
     }
   }
@@ -20,7 +21,5 @@ export class ConversionFactor {
   }
 }
 
-// La columna guarda cuatro decimales: uno con mas se redondearia en silencio.
-function hasAtMostFourDecimals(value: number): boolean {
-  return Math.abs(Math.round(value * 10_000) - value * 10_000) < 1e-6;
-}
+// La columna guarda ocho decimales: uno con mas se redondearia en silencio. Con ocho, una pieza de
+// una base 'docena' es 0,08333333 y doce piezas suman 0,99999996, no 0,9996.

@@ -35,8 +35,10 @@ describe('parseDecimal', () => {
 });
 
 describe('formatNumber', () => {
-  it('uses a decimal comma and at most four decimals', () => {
-    expect(formatNumber(12.34567)).toBe('12,3457');
+  // Ocho decimales: los que admite el factor de conversion (una pieza de una docena es 0,08333333).
+  it('uses a decimal comma and at most eight decimals', () => {
+    expect(formatNumber(12.345678912)).toBe('12,34567891');
+    expect(formatNumber(0.08333333)).toBe('0,08333333');
   });
 
   // Un factor de 12 345 que se mostrara como "12.345" no se podria volver a guardar.

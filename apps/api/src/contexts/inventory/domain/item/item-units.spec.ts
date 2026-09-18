@@ -38,13 +38,18 @@ describe('ItemUnits', () => {
     );
   });
 
-  it.each([0, -1, 0.00001, Number.NaN])('refuses a conversion factor of %d', (factor) => {
+  it.each([0, -1, 0.000000001, Number.NaN])('refuses a conversion factor of %d', (factor) => {
     expect(() => ItemUnit.of(UNIT_BOX, factor, false)).toThrow(InvalidConversionFactorError);
   });
 
   // Medio kilo por unidad es legitimo: el factor puede ser menor que 1.
   it('accepts a fractional factor', () => {
     expect(ItemUnit.of(UNIT_KILO, 0.5, false).factor.value).toBe(0.5);
+  });
+
+  // Con cuatro decimales, una pieza de una base "docena" era 0,0833 y doce piezas sumaban 0,9996.
+  it('accepts the eight decimals that a piece of a dozen needs', () => {
+    expect(ItemUnit.of(UNIT_KILO, 0.08333333, false).factor.value).toBe(0.08333333);
   });
 
   it('survives a round trip to primitives', () => {
