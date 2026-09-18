@@ -1,7 +1,7 @@
 import { expect, test } from '@playwright/test';
 import type { APIRequestContext } from '@playwright/test';
 import { ACME_INVENTORY } from '../../support/inventory-fixtures.js';
-import { SALES_ORDERS, aFreshCustomer } from '../../support/sales-fixtures.js';
+import { SALES_ORDERS, aDraftSalesOrder, aFreshCustomer, aStockedItem } from '../../support/sales-fixtures.js';
 
 const LOGIN = '/api/v1/auth/login';
 const PASSWORD = 'Nexora-2026!';
@@ -85,7 +85,30 @@ test.describe('inventory: items', () => {
     expect((await response.json()).error).toBe('DuplicateBarcodeError');
   });
 
-  // Un insumo que solo se compra no deberia poder colarse en un pedido de venta.
+// Un documento dice lo que decia el maestro cuando se escribio: la factura vieja no cambia de nombre.
+  test('a renamed item does not change the documents already written', async ({ request }) => {
+    const token = await tokenFor(request, 'ana@acme.com');
+    const customer = await aFreshCustomer(request, token);
+    const item = await aStockedItem(request, token, 5);
+    const order = await aDraftSalesOrder(request, token, {
+      customerId: customer.id,
+      lines: [{ itemId: item.id, unitId: ACME.piece, quantity: 2, unitPrice: 3 }],
+    });
+
+    const renamed = await request.put(`${ITEMS}/${item.id}`, {
+      headers: auth(token),
+      data: { sku: `${item.sku}-NUEVO`, name: 'Nombre cambiado', type: 'inventoried', units: [{ unitId: ACME.piece, conversionFactor: 1, isBase: true }] },
+    });
+
+    expect(renamed.status(), await renamed.text()).toBe(200);
+
+    const { orders } = await (await request.get(SALES_ORDERS, { headers: auth(token) })).json();
+    const line = orders.find((row: { id: string }) => row.id === order.id).lines[0];
+
+    expect(line).toMatchObject({ sku: item.sku, itemName: item.name });
+  });
+
+    // Un insumo que solo se compra no deberia poder colarse en un pedido de venta.
   test('refuses to sell an item that is not marked as sellable', async ({ request }) => {
     const token = await tokenFor(request, 'ana@acme.com');
     const sku = `INSUMO-${Date.now()}`;

@@ -71,6 +71,12 @@ unidad base.
 0,9996 docenas, no una. Con ocho, 0,08333333 × 12 = 0,99999996, que redondeado a las cuatro
 diezmilésimas de las cantidades es exactamente 1.
 
+**El SKU y el nombre viajan con la línea.** Cada línea de ajuste, orden, entrada, pedido, despacho y
+factura guarda `item_sku` e `item_name` copiados del maestro al escribirse. Renombrar un artículo no
+cambia lo que dice un documento ya emitido, que es lo que hacen Business Central, Odoo, ERPNext y
+SAP, y lo que hace falta para reimprimir una factura tal como se emitió. El `item_id` sigue ahí para
+los reportes y para volver al maestro.
+
 **Por qué las banderas se validan en el dominio:** el compañero solo filtra el selector de la pantalla y lo
 comprueba al guardar el documento; aquí la línea no se construye si el artículo no se compra o no se vende,
 así que ningún camino (API, importación o pantalla) puede saltárselo.

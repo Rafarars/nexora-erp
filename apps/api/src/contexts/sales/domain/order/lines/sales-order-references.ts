@@ -82,6 +82,8 @@ export class SalesOrderReferences {
         id: SalesOrderLineId.of(input.id ?? this.ids.next()),
         lineNumber: index + 1,
         itemId: ItemRef.of(item.id),
+        itemSku: item.sku,
+        itemName: item.name,
         unitId,
         quantity,
         baseQuantity,

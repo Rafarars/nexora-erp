@@ -30,6 +30,8 @@ function line(direction: 'in' | 'out', base: number, unitCost: number | null = n
     id: AdjustmentLineId.of(`11111111-aaaa-4aaa-8aaa-${String(lineCounter).padStart(12, '0')}`),
     lineNumber: lineCounter,
     itemId: ItemRef.of(WATER),
+    itemSku: 'PRUEBA-SKU',
+    itemName: 'Articulo de prueba',
     unitId: UnitRef.of(unit),
     direction,
     quantity: Quantity.of(quantity),

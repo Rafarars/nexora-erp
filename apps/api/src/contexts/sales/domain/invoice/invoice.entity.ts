@@ -24,6 +24,9 @@ export interface InvoiceLinePrimitives {
   id: string;
   lineNumber: number;
   itemId: string;
+  // La factura se reimprime como se emitio, aunque el articulo cambie de nombre despues.
+  itemSku: string;
+  itemName: string;
   unitId: string;
   quantity: number;
   unitPrice: number;
@@ -93,6 +96,8 @@ export class Invoice {
         id: issue.lineIds(),
         lineNumber: index + 1,
         itemId: line.itemId.value,
+        itemSku: line.itemSku,
+        itemName: line.itemName,
         unitId: line.unitId.value,
         quantity: line.quantity.toNumber(),
         unitPrice: orderLine.unitPrice.toNumber(),

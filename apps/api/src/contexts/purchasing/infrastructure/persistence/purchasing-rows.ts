@@ -36,6 +36,8 @@ export interface PurchaseOrderRow extends CurrencyColumns {
     id: string;
     lineNumber: number;
     itemId: string;
+    itemSku: string;
+    itemName: string;
     unitId: string;
     quantity: Decimalish;
     baseQuantity: Decimalish;
@@ -56,6 +58,8 @@ export function orderFromRow(row: PurchaseOrderRow): PurchaseOrder {
       id: line.id,
       lineNumber: line.lineNumber,
       itemId: line.itemId,
+      itemSku: line.itemSku,
+      itemName: line.itemName,
       unitId: line.unitId,
       quantity: n(line.quantity),
       baseQuantity: n(line.baseQuantity),
@@ -84,6 +88,8 @@ export interface GoodsReceiptRow extends CurrencyColumns {
     lineNumber: number;
     orderLineId: string;
     itemId: string;
+    itemSku: string;
+    itemName: string;
     unitId: string;
     quantity: Decimalish;
     baseQuantity: Decimalish;
@@ -102,6 +108,8 @@ export function receiptFromRow(row: GoodsReceiptRow): GoodsReceipt {
       lineNumber: line.lineNumber,
       orderLineId: line.orderLineId,
       itemId: line.itemId,
+      itemSku: line.itemSku,
+      itemName: line.itemName,
       unitId: line.unitId,
       quantity: n(line.quantity),
       baseQuantity: n(line.baseQuantity),

@@ -108,7 +108,19 @@ describe('purchase orders', () => {
     await expect(s.createOrder.run(orderRequest(supplierId, overrides))).rejects.toThrow(error);
   });
 
-  it('replaces the whole draft on edit, and not once it is confirmed', async () => {
+// La orden dice lo que decia el maestro cuando se escribio, no lo que dice hoy.
+  it('keeps the sku and the name the item had when the line was written', async () => {
+    const { s, supplierId } = await world();
+    await s.createOrder.run(orderRequest(supplierId));
+
+    const item = s.catalog.items.find((candidate) => candidate.id === WATER)!;
+    item.sku = 'AGUA-1L';
+    item.name = 'Agua mineral 1 l';
+
+    expect((await latestOrder(s, TENANT_A)).lines[0]).toMatchObject({ sku: 'AGUA-500', itemName: 'Agua' });
+  });
+
+    it('replaces the whole draft on edit, and not once it is confirmed', async () => {
     const { s, supplierId } = await world();
     await s.createOrder.run(orderRequest(supplierId));
     const { id } = await latestOrder(s);

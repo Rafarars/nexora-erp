@@ -77,6 +77,8 @@ export class AdjustmentLineFactory {
         id: AdjustmentLineId.of(this.ids.next()),
         lineNumber,
         itemId: ItemRef.of(item.id),
+        itemSku: item.sku,
+        itemName: item.name,
         unitId,
         direction,
         quantity,

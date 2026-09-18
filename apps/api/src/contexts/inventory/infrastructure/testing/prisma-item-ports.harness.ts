@@ -104,7 +104,7 @@ export class PrismaItemPortsHarness implements ItemPortsHarness {
           data: { id: orderId, tenantId: TENANT_A, code: `OC${String(next()).padStart(6, '0')}`, supplierId: SUPPLIER, warehouseId: WAREHOUSE_A, orderDate: NOW, status, currency: 'USD', baseCurrency: 'USD' },
         });
         await prisma.purchaseOrderLine.create({
-          data: { id: randomUUID(), tenantId: TENANT_A, orderId, lineNumber: 1, itemId, unitId, quantity, baseQuantity: quantity, unitCost: 1, receivedQuantity: received },
+          data: { id: randomUUID(), tenantId: TENANT_A, orderId, lineNumber: 1, itemId, itemSku: 'ARNES-SKU', itemName: 'Articulo del arnes', unitId, quantity, baseQuantity: quantity, unitCost: 1, receivedQuantity: received },
         });
       },
       salesLine: async ({ itemId, unitId, status, quantity, dispatched }) => {
@@ -120,7 +120,7 @@ export class PrismaItemPortsHarness implements ItemPortsHarness {
           data: { id: orderId, tenantId: TENANT_A, code: `PED${String(next()).padStart(6, '0')}`, customerId: CUSTOMER, warehouseId: WAREHOUSE_A, orderDate: NOW, status, currency: 'USD', baseCurrency: 'USD' },
         });
         await prisma.salesOrderLine.create({
-          data: { id: randomUUID(), tenantId: TENANT_A, orderId, lineNumber: 1, itemId, unitId, quantity, baseQuantity: quantity, unitPrice: 1, dispatchedQuantity: dispatched },
+          data: { id: randomUUID(), tenantId: TENANT_A, orderId, lineNumber: 1, itemId, itemSku: 'ARNES-SKU', itemName: 'Articulo del arnes', unitId, quantity, baseQuantity: quantity, unitPrice: 1, dispatchedQuantity: dispatched },
         });
       },
     };

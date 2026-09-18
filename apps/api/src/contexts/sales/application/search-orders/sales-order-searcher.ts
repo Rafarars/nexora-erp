@@ -81,8 +81,9 @@ export class SalesOrderSearcher {
                 id,
                 lineNumber,
                 itemId,
-                sku: item?.sku ?? '',
-                itemName: item?.name ?? '',
+                // Lo que la linea copio al escribirse: renombrar el articulo no cambia el documento.
+                sku: line.itemSku,
+                itemName: line.itemName,
                 unitId,
                 unitAbbreviation: item?.units.find((unit) => unit.unitId === unitId)?.abbreviation ?? '',
                 quantity,

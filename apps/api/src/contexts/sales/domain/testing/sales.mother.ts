@@ -77,6 +77,8 @@ export function anOrderLine(
     id: SalesOrderLineId.of(`5a000000-0000-4000-8000-${String(lineCounter).padStart(12, '0')}`),
     lineNumber: lineCounter,
     itemId: ItemRef.of(overrides.item ?? WATER),
+    itemSku: 'PRUEBA-SKU',
+    itemName: 'Articulo de prueba',
     unitId: UnitRef.of(overrides.unit ?? BOX),
     quantity,
     baseQuantity: quantity.times(overrides.factor ?? 24),

@@ -23,6 +23,8 @@ function aLine(): AdjustmentLine {
     id: AdjustmentLineId.of('11111111-aaaa-4aaa-8aaa-111111111111'),
     lineNumber: 1,
     itemId: ItemRef.of(WATER),
+    itemSku: 'PRUEBA-SKU',
+    itemName: 'Articulo de prueba',
     unitId: UnitRef.of(PIECE),
     direction: 'in',
     quantity: Quantity.of(5),

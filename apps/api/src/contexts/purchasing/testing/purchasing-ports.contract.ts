@@ -83,6 +83,8 @@ export function describePurchasingPortsContract(implementation: string, createHa
           lineNumber: index + 1,
           orderLineId: line.id,
           itemId: line.itemId,
+          itemSku: 'PRUEBA-SKU',
+          itemName: 'Articulo de prueba',
           unitId: line.unitId,
           quantity,
           baseQuantity: quantity.times(24),

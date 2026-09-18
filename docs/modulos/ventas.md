@@ -59,7 +59,8 @@ fiar; se explica con ejemplos en [cuentas-por-cobrar.md §3](cuentas-por-cobrar.
 | Línea: `item_id`, `unit_id` | Artículo **activo e inventariado**; unidad **del artículo** |
 | Línea: `quantity`, `base_quantity` | Mayor que cero; base con el factor de hoy al guardar. Si la caja cambia antes de confirmar, el pedido no se confirma hasta revisarlo y guardarlo (`SalesItemChangedError`) |
 | Línea: `unit_price` | Cero o más, por unidad de la línea, **sin impuesto**, con como mucho los decimales de precio de la empresa (`PriceDecimalsExceededError`) |
-| Línea: `tax_rate` | **Copiado del impuesto del artículo** |
+| Línea: `tax_rate` | **Copiado del impuesto de venta del artículo** |
+| Línea: `item_sku`, `item_name` | **Copiados del artículo al escribir la línea**: el documento se lee como se emitió aunque el maestro cambie ([inventario.md §1](inventario.md#1-artículos)) |
 | Línea: `dispatched_quantity` | Lo que sumaron los despachos confirmados |
 
 Montos por línea redondeados a los **decimales de importe de la empresa** (`amount_decimals`), como en compras.

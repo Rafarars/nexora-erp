@@ -14,6 +14,9 @@ export interface AdjustmentLinePrimitives {
   id: string;
   lineNumber: number;
   itemId: string;
+  // El SKU y el nombre con que se escribio la linea: el documento no cambia si el maestro cambia.
+  itemSku: string;
+  itemName: string;
   unitId: string;
   direction: StockDirection;
   quantity: number;
@@ -28,6 +31,8 @@ export class AdjustmentLine {
     readonly id: AdjustmentLineId,
     readonly lineNumber: number,
     readonly itemId: ItemRef,
+    readonly itemSku: string,
+    readonly itemName: string,
     readonly unitId: UnitRef,
     readonly direction: StockDirection,
     readonly quantity: Quantity,
@@ -39,6 +44,8 @@ export class AdjustmentLine {
     id: AdjustmentLineId;
     lineNumber: number;
     itemId: ItemRef;
+    itemSku: string;
+    itemName: string;
     unitId: UnitRef;
     direction: StockDirection;
     quantity: Quantity;
@@ -49,6 +56,8 @@ export class AdjustmentLine {
       fields.id,
       fields.lineNumber,
       fields.itemId,
+      fields.itemSku,
+      fields.itemName,
       fields.unitId,
       fields.direction,
       fields.quantity,
@@ -62,6 +71,8 @@ export class AdjustmentLine {
       AdjustmentLineId.of(row.id),
       row.lineNumber,
       ItemRef.of(row.itemId),
+      row.itemSku,
+      row.itemName,
       UnitRef.of(row.unitId),
       row.direction,
       Quantity.of(row.quantity),
@@ -75,6 +86,8 @@ export class AdjustmentLine {
       id: this.id.value,
       lineNumber: this.lineNumber,
       itemId: this.itemId.value,
+      itemSku: this.itemSku,
+      itemName: this.itemName,
       unitId: this.unitId.value,
       direction: this.direction,
       quantity: this.quantity.toNumber(),

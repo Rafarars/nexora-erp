@@ -89,7 +89,7 @@ export class PrismaReportingReadModelHarness implements ReportingReadModelHarnes
 
     for (const [index, line] of invoice.lines.entries()) {
       await this.prisma.invoiceLine.create({
-        data: { id: uuid(), tenantId, invoiceId: invoice.id, lineNumber: index + 1, itemId: line.itemId, unitId: await this.baseUnit(line.itemId), quantity: 1, unitPrice: line.subtotal, taxRate: 0, subtotal: line.subtotal, tax: 0 },
+        data: { id: uuid(), tenantId, invoiceId: invoice.id, lineNumber: index + 1, itemId: line.itemId, itemSku: 'ARNES-SKU', itemName: 'Articulo del arnes', unitId: await this.baseUnit(line.itemId), quantity: 1, unitPrice: line.subtotal, taxRate: 0, subtotal: line.subtotal, tax: 0 },
       });
     }
   }
@@ -122,10 +122,10 @@ export class PrismaReportingReadModelHarness implements ReportingReadModelHarnes
       const unitId = await this.baseUnit(line.itemId);
 
       await this.prisma.purchaseOrderLine.create({
-        data: { id: orderLineId, tenantId, orderId, lineNumber: index + 1, itemId: line.itemId, unitId, quantity: line.quantity, baseQuantity: line.quantity, unitCost: line.unitCost },
+        data: { id: orderLineId, tenantId, orderId, lineNumber: index + 1, itemId: line.itemId, itemSku: 'ARNES-SKU', itemName: 'Articulo del arnes', unitId, quantity: line.quantity, baseQuantity: line.quantity, unitCost: line.unitCost },
       });
       await this.prisma.goodsReceiptLine.create({
-        data: { id: uuid(), tenantId, receiptId, lineNumber: index + 1, orderLineId, itemId: line.itemId, unitId, quantity: line.quantity, baseQuantity: line.quantity, unitCost: line.unitCost },
+        data: { id: uuid(), tenantId, receiptId, lineNumber: index + 1, orderLineId, itemId: line.itemId, itemSku: 'ARNES-SKU', itemName: 'Articulo del arnes', unitId, quantity: line.quantity, baseQuantity: line.quantity, unitCost: line.unitCost },
       });
     }
   }

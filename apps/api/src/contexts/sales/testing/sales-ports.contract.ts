@@ -92,7 +92,7 @@ export function describeSalesPortsContract(implementation: string, createHarness
         Dispatch.draft(id, tenant, `DES${next().slice(-6)}`, { id: order.id, warehouseId: order.warehouseId() }, {
           date: SalesDate.of(TODAY),
           notes: null,
-          lines: [DispatchLine.of({ id: DispatchLineId.of(`5e000000-0000-4000-8000-${next()}`), lineNumber: 1, orderLineId: line.id, itemId: line.itemId, unitId: line.unitId, quantity: q, baseQuantity: line.baseOf(q) })],
+          lines: [DispatchLine.of({ id: DispatchLineId.of(`5e000000-0000-4000-8000-${next()}`), lineNumber: 1, orderLineId: line.id, itemId: line.itemId, itemSku: line.itemSku, itemName: line.itemName, unitId: line.unitId, quantity: q, baseQuantity: line.baseOf(q) })],
         }, NOW, TODAY),
       );
 

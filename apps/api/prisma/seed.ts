@@ -69,6 +69,17 @@ const CATALOG = {
   },
 };
 
+// Lo que cada linea copia del maestro: renombrar un articulo no cambia los documentos ya escritos.
+const ITEM_LABELS: Record<string, { itemSku: string; itemName: string }> = {
+  'e4000000-0000-4000-8000-000000000001': { itemSku: 'AGUA-500', itemName: 'Agua mineral 500 ml' },
+  'e4000000-0000-4000-8000-000000000002': { itemSku: 'DETERGENTE-1KG', itemName: 'Detergente en polvo 1 kg' },
+  'e4000000-0000-4000-8000-000000000003': { itemSku: 'SERV-ENTREGA', itemName: 'Servicio de entrega' },
+  'e4000000-0000-4000-8000-000000000101': { itemSku: 'FILTRO-ACEITE', itemName: 'Filtro de aceite' },
+};
+
+const labelsOf = (itemId: string) => ITEM_LABELS[itemId] ?? { itemSku: 'SIN-SKU', itemName: 'Sin nombre' };
+
+
 // Compras de ejemplo. Globex tiene una orden confirmada, un borrador y una entrada en
 // borrador porque la matriz de aislamiento los ataca desde Acme por su identificador.
 const PURCHASING = {
@@ -553,6 +564,7 @@ async function seedInventory(prisma: PrismaClient): Promise<void> {
     await prisma.adjustmentLine.createMany({
       data: lines.map((line, index) => ({
         ...line,
+        ...labelsOf(line.itemId),
         tenantId: adjustment.tenantId,
         adjustmentId: adjustment.id,
         lineNumber: index + 1,
@@ -654,7 +666,7 @@ async function seedPurchasing(prisma: PrismaClient): Promise<void> {
   for (const { lines, ...order } of orders) {
     await prisma.purchaseOrder.create({ data: { ...order, ...dollars(order.tenantId), createdAt: order.orderDate, updatedAt: order.confirmedAt ?? order.orderDate } });
     await prisma.purchaseOrderLine.createMany({
-      data: lines.map((line, index) => ({ ...line, tenantId: order.tenantId, orderId: order.id, lineNumber: index + 1 })),
+      data: lines.map((line, index) => ({ ...line, ...labelsOf(line.itemId), tenantId: order.tenantId, orderId: order.id, lineNumber: index + 1 })),
     });
   }
 
@@ -675,7 +687,7 @@ async function seedPurchasing(prisma: PrismaClient): Promise<void> {
   for (const { lines, ...receipt } of receipts) {
     await prisma.goodsReceipt.create({ data: { ...receipt, ...dollars(receipt.tenantId), createdAt: receipt.receiptDate, updatedAt: receipt.confirmedAt ?? receipt.receiptDate } });
     await prisma.goodsReceiptLine.createMany({
-      data: lines.map((line, index) => ({ ...line, tenantId: receipt.tenantId, receiptId: receipt.id, lineNumber: index + 1 })),
+      data: lines.map((line, index) => ({ ...line, ...labelsOf(line.itemId), tenantId: receipt.tenantId, receiptId: receipt.id, lineNumber: index + 1 })),
     });
   }
 
@@ -750,7 +762,7 @@ async function seedSales(prisma: PrismaClient): Promise<void> {
 
   for (const { lines, ...order } of orders) {
     await prisma.salesOrder.create({ data: { ...order, createdAt: order.orderDate, updatedAt: order.confirmedAt ?? order.orderDate } });
-    await prisma.salesOrderLine.createMany({ data: lines.map((line, index) => ({ ...line, tenantId: order.tenantId, orderId: order.id, lineNumber: index + 1 })) });
+    await prisma.salesOrderLine.createMany({ data: lines.map((line, index) => ({ ...line, ...labelsOf(line.itemId), tenantId: order.tenantId, orderId: order.id, lineNumber: index + 1 })) });
   }
 
   const dispatches = [
@@ -773,7 +785,7 @@ async function seedSales(prisma: PrismaClient): Promise<void> {
 
   for (const { lines, ...dispatch } of dispatches) {
     await prisma.dispatch.create({ data: { ...dispatch, createdAt: dispatch.dispatchDate, updatedAt: dispatch.confirmedAt ?? dispatch.dispatchDate } });
-    await prisma.dispatchLine.createMany({ data: lines.map((line, index) => ({ ...line, tenantId: dispatch.tenantId, dispatchId: dispatch.id, lineNumber: index + 1 })) });
+    await prisma.dispatchLine.createMany({ data: lines.map((line, index) => ({ ...line, ...labelsOf(line.itemId), tenantId: dispatch.tenantId, dispatchId: dispatch.id, lineNumber: index + 1 })) });
   }
 
   const invoices = [
@@ -793,7 +805,7 @@ async function seedSales(prisma: PrismaClient): Promise<void> {
 
   for (const { line, ...invoice } of invoices) {
     await prisma.invoice.create({ data: { ...invoice, status: 'issued', createdAt: invoice.issueDate, updatedAt: invoice.issueDate } });
-    await prisma.invoiceLine.create({ data: { ...line, tenantId: invoice.tenantId, invoiceId: invoice.id, lineNumber: 1 } });
+    await prisma.invoiceLine.create({ data: { ...line, ...labelsOf(line.itemId), tenantId: invoice.tenantId, invoiceId: invoice.id, lineNumber: 1 } });
   }
 
   const exits = [

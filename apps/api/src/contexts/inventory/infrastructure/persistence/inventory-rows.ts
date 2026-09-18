@@ -21,6 +21,8 @@ export interface AdjustmentRow {
     id: string;
     lineNumber: number;
     itemId: string;
+    itemSku: string;
+    itemName: string;
     unitId: string;
     direction: 'in' | 'out';
     quantity: Decimalish;

@@ -15,6 +15,9 @@ export interface GoodsReceiptLinePrimitives {
   lineNumber: number;
   orderLineId: string;
   itemId: string;
+  // Copiados de la linea de la orden, que a su vez los copio del maestro.
+  itemSku: string;
+  itemName: string;
   unitId: string;
   quantity: number;
   baseQuantity: number;
@@ -29,6 +32,8 @@ export class GoodsReceiptLine {
     readonly lineNumber: number,
     readonly orderLineId: PurchaseOrderLineId,
     readonly itemId: ItemRef,
+    readonly itemSku: string,
+    readonly itemName: string,
     readonly unitId: UnitRef,
     readonly quantity: Quantity,
     readonly baseQuantity: Quantity,
@@ -40,6 +45,8 @@ export class GoodsReceiptLine {
     lineNumber: number;
     orderLineId: PurchaseOrderLineId;
     itemId: ItemRef;
+    itemSku: string;
+    itemName: string;
     unitId: UnitRef;
     quantity: Quantity;
     baseQuantity: Quantity;
@@ -50,6 +57,8 @@ export class GoodsReceiptLine {
       fields.lineNumber,
       fields.orderLineId,
       fields.itemId,
+      fields.itemSku,
+      fields.itemName,
       fields.unitId,
       fields.quantity,
       fields.baseQuantity,
@@ -63,6 +72,8 @@ export class GoodsReceiptLine {
       row.lineNumber,
       PurchaseOrderLineId.of(row.orderLineId),
       ItemRef.of(row.itemId),
+      row.itemSku,
+      row.itemName,
       UnitRef.of(row.unitId),
       Quantity.of(row.quantity),
       Quantity.of(row.baseQuantity),
@@ -76,6 +87,8 @@ export class GoodsReceiptLine {
       lineNumber: this.lineNumber,
       orderLineId: this.orderLineId.value,
       itemId: this.itemId.value,
+      itemSku: this.itemSku,
+      itemName: this.itemName,
       unitId: this.unitId.value,
       quantity: this.quantity.toNumber(),
       baseQuantity: this.baseQuantity.toNumber(),

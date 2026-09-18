@@ -89,8 +89,9 @@ export class InvoiceSearcher {
             return {
               lineNumber: line.lineNumber,
               itemId: line.itemId,
-              sku: item?.sku ?? '',
-              itemName: item?.name ?? '',
+              // Lo que la linea copio al escribirse: renombrar el articulo no cambia el documento.
+                sku: line.itemSku,
+              itemName: line.itemName,
               unitAbbreviation: item?.units.find((unit) => unit.unitId === line.unitId)?.abbreviation ?? '',
               quantity: line.quantity,
               unitPrice: line.unitPrice,

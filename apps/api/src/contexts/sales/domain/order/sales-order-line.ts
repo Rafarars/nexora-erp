@@ -14,6 +14,9 @@ export interface SalesOrderLinePrimitives {
   id: string;
   lineNumber: number;
   itemId: string;
+  // El SKU y el nombre con que se escribio la linea: el documento no cambia si el maestro cambia.
+  itemSku: string;
+  itemName: string;
   unitId: string;
   quantity: number;
   baseQuantity: number;
@@ -29,6 +32,8 @@ export class SalesOrderLine {
     readonly id: SalesOrderLineId,
     readonly lineNumber: number,
     readonly itemId: ItemRef,
+    readonly itemSku: string,
+    readonly itemName: string,
     readonly unitId: UnitRef,
     readonly quantity: Quantity,
     readonly baseQuantity: Quantity,
@@ -41,13 +46,15 @@ export class SalesOrderLine {
     id: SalesOrderLineId;
     lineNumber: number;
     itemId: ItemRef;
+    itemSku: string;
+    itemName: string;
     unitId: UnitRef;
     quantity: Quantity;
     baseQuantity: Quantity;
     unitPrice: UnitPrice;
     taxRate: TaxRate;
   }): SalesOrderLine {
-    return new SalesOrderLine(fields.id, fields.lineNumber, fields.itemId, fields.unitId, fields.quantity, fields.baseQuantity, fields.unitPrice, fields.taxRate, Quantity.zero());
+    return new SalesOrderLine(fields.id, fields.lineNumber, fields.itemId, fields.itemSku, fields.itemName, fields.unitId, fields.quantity, fields.baseQuantity, fields.unitPrice, fields.taxRate, Quantity.zero());
   }
 
   static fromPrimitives(row: SalesOrderLinePrimitives): SalesOrderLine {
@@ -55,6 +62,8 @@ export class SalesOrderLine {
       SalesOrderLineId.of(row.id),
       row.lineNumber,
       ItemRef.of(row.itemId),
+      row.itemSku,
+      row.itemName,
       UnitRef.of(row.unitId),
       Quantity.of(row.quantity),
       Quantity.of(row.baseQuantity),
@@ -69,6 +78,8 @@ export class SalesOrderLine {
       id: this.id.value,
       lineNumber: this.lineNumber,
       itemId: this.itemId.value,
+      itemSku: this.itemSku,
+      itemName: this.itemName,
       unitId: this.unitId.value,
       quantity: this.quantity.toNumber(),
       baseQuantity: this.baseQuantity.toNumber(),

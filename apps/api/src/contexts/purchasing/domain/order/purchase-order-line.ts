@@ -14,6 +14,10 @@ export interface PurchaseOrderLinePrimitives {
   id: string;
   lineNumber: number;
   itemId: string;
+  // El SKU y el nombre con que se escribio la linea: el documento se reproduce como se emitio
+  // aunque el maestro cambie despues.
+  itemSku: string;
+  itemName: string;
   unitId: string;
   quantity: number;
   baseQuantity: number;
@@ -29,6 +33,8 @@ export class PurchaseOrderLine {
     readonly id: PurchaseOrderLineId,
     readonly lineNumber: number,
     readonly itemId: ItemRef,
+    readonly itemSku: string,
+    readonly itemName: string,
     readonly unitId: UnitRef,
     readonly quantity: Quantity,
     readonly baseQuantity: Quantity,
@@ -41,6 +47,8 @@ export class PurchaseOrderLine {
     id: PurchaseOrderLineId;
     lineNumber: number;
     itemId: ItemRef;
+    itemSku: string;
+    itemName: string;
     unitId: UnitRef;
     quantity: Quantity;
     baseQuantity: Quantity;
@@ -51,6 +59,8 @@ export class PurchaseOrderLine {
       fields.id,
       fields.lineNumber,
       fields.itemId,
+      fields.itemSku,
+      fields.itemName,
       fields.unitId,
       fields.quantity,
       fields.baseQuantity,
@@ -65,6 +75,8 @@ export class PurchaseOrderLine {
       PurchaseOrderLineId.of(row.id),
       row.lineNumber,
       ItemRef.of(row.itemId),
+      row.itemSku,
+      row.itemName,
       UnitRef.of(row.unitId),
       Quantity.of(row.quantity),
       Quantity.of(row.baseQuantity),
@@ -79,6 +91,8 @@ export class PurchaseOrderLine {
       id: this.id.value,
       lineNumber: this.lineNumber,
       itemId: this.itemId.value,
+      itemSku: this.itemSku,
+      itemName: this.itemName,
       unitId: this.unitId.value,
       quantity: this.quantity.toNumber(),
       baseQuantity: this.baseQuantity.toNumber(),

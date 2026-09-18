@@ -35,6 +35,8 @@ function dispatchLine(orderLine: SalesOrderLine, quantity: number): DispatchLine
     lineNumber: counter,
     orderLineId: orderLine.id,
     itemId: orderLine.itemId,
+    itemSku: 'PRUEBA-SKU',
+    itemName: 'Articulo de prueba',
     unitId: orderLine.unitId,
     quantity: q,
     baseQuantity: orderLine.baseOf(q),

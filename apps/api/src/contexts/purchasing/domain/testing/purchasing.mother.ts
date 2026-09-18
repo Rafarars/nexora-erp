@@ -74,6 +74,8 @@ export function anOrderLine(overrides: { quantity?: number; unit?: string; facto
     id: PurchaseOrderLineId.of(`0c000000-0000-4000-8000-${String(lineCounter).padStart(12, '0')}`),
     lineNumber: lineCounter,
     itemId: ItemRef.of(overrides.item ?? WATER),
+    itemSku: 'AGUA-500',
+    itemName: 'Agua',
     unitId: UnitRef.of(overrides.unit ?? BOX),
     quantity,
     baseQuantity: quantity.times(overrides.factor ?? 24),

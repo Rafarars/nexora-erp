@@ -62,6 +62,8 @@ export class DispatchLineFactory {
         lineNumber: index + 1,
         orderLineId: orderLine.id,
         itemId: orderLine.itemId,
+        itemSku: orderLine.itemSku,
+        itemName: orderLine.itemName,
         unitId: orderLine.unitId,
         quantity,
         baseQuantity: orderLine.baseOf(quantity),

@@ -482,6 +482,8 @@ model AdjustmentLine {
   adjustmentId String         @map("adjustment_id") @db.Uuid
   lineNumber   Int            @map("line_number")
   itemId       String         @map("item_id") @db.Uuid
+  itemSku  String   @map("item_sku") @db.VarChar(60)
+  itemName String   @map("item_name") @db.VarChar(200)
   unitId       String         @map("unit_id") @db.Uuid
   direction    StockDirection
   quantity     Decimal        @db.Decimal(18, 4)
@@ -638,6 +640,8 @@ model PurchaseOrderLine {
   orderId          String  @map("order_id") @db.Uuid
   lineNumber       Int     @map("line_number")
   itemId           String  @map("item_id") @db.Uuid
+  itemSku  String   @map("item_sku") @db.VarChar(60)
+  itemName String   @map("item_name") @db.VarChar(200)
   unitId           String  @map("unit_id") @db.Uuid
   quantity         Decimal @db.Decimal(18, 4)
   baseQuantity     Decimal @map("base_quantity") @db.Decimal(18, 4)
@@ -707,6 +711,8 @@ model GoodsReceiptLine {
   lineNumber   Int     @map("line_number")
   orderLineId  String  @map("order_line_id") @db.Uuid
   itemId       String  @map("item_id") @db.Uuid
+  itemSku  String   @map("item_sku") @db.VarChar(60)
+  itemName String   @map("item_name") @db.VarChar(200)
   unitId       String  @map("unit_id") @db.Uuid
   quantity     Decimal @db.Decimal(18, 4)
   baseQuantity Decimal @map("base_quantity") @db.Decimal(18, 4)
@@ -812,6 +818,8 @@ model SalesOrderLine {
   orderId            String  @map("order_id") @db.Uuid
   lineNumber         Int     @map("line_number")
   itemId             String  @map("item_id") @db.Uuid
+  itemSku  String   @map("item_sku") @db.VarChar(60)
+  itemName String   @map("item_name") @db.VarChar(200)
   unitId             String  @map("unit_id") @db.Uuid
   quantity           Decimal @db.Decimal(18, 4)
   baseQuantity       Decimal @map("base_quantity") @db.Decimal(18, 4)
@@ -874,6 +882,8 @@ model DispatchLine {
   lineNumber   Int     @map("line_number")
   orderLineId  String  @map("order_line_id") @db.Uuid
   itemId       String  @map("item_id") @db.Uuid
+  itemSku  String   @map("item_sku") @db.VarChar(60)
+  itemName String   @map("item_name") @db.VarChar(200)
   unitId       String  @map("unit_id") @db.Uuid
   quantity     Decimal @db.Decimal(18, 4)
   baseQuantity Decimal @map("base_quantity") @db.Decimal(18, 4)
@@ -947,6 +957,8 @@ model InvoiceLine {
   invoiceId  String  @map("invoice_id") @db.Uuid
   lineNumber Int     @map("line_number")
   itemId     String  @map("item_id") @db.Uuid
+  itemSku  String   @map("item_sku") @db.VarChar(60)
+  itemName String   @map("item_name") @db.VarChar(200)
   unitId     String  @map("unit_id") @db.Uuid
   quantity   Decimal @db.Decimal(18, 4)
   unitPrice  Decimal @map("unit_price") @db.Decimal(18, 6)

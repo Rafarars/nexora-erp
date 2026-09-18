@@ -88,6 +88,9 @@ de ninguno de los dos.
 
 **Por qué se copia el impuesto.** Si mañana el IVA cambia, la orden sigue diciendo lo que se pactó.
 
+**Y el SKU y el nombre, igual:** la orden y la entrada guardan `item_sku` e `item_name` del artículo al escribir la
+línea ([inventario.md §1](inventario.md#1-artículos)), así el documento se lee como se emitió.
+
 **Montos**, redondeados una sola vez por línea a los **decimales de importe de la empresa** (`amount_decimals`), y
 no se guardan: se calculan al leer. El costo por unidad admite como mucho los **decimales de precio**
 (`price_decimals`); con más, `PriceDecimalsExceededError`:

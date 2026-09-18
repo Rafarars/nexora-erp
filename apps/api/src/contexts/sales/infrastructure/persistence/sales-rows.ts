@@ -32,6 +32,8 @@ export interface SalesOrderRow {
     id: string;
     lineNumber: number;
     itemId: string;
+    itemSku: string;
+    itemName: string;
     unitId: string;
     quantity: Decimalish;
     baseQuantity: Decimalish;
@@ -51,6 +53,8 @@ export function orderFromRow(row: SalesOrderRow): SalesOrder {
       id: line.id,
       lineNumber: line.lineNumber,
       itemId: line.itemId,
+      itemSku: line.itemSku,
+      itemName: line.itemName,
       unitId: line.unitId,
       quantity: n(line.quantity),
       baseQuantity: n(line.baseQuantity),
@@ -74,7 +78,7 @@ export interface DispatchRow {
   cancelledAt: Date | null;
   createdAt: Date;
   updatedAt: Date;
-  lines: { id: string; lineNumber: number; orderLineId: string; itemId: string; unitId: string; quantity: Decimalish; baseQuantity: Decimalish }[];
+  lines: { id: string; lineNumber: number; orderLineId: string; itemId: string; itemSku: string; itemName: string; unitId: string; quantity: Decimalish; baseQuantity: Decimalish }[];
 }
 
 export function dispatchFromRow(row: DispatchRow): Dispatch {
@@ -86,6 +90,8 @@ export function dispatchFromRow(row: DispatchRow): Dispatch {
       lineNumber: line.lineNumber,
       orderLineId: line.orderLineId,
       itemId: line.itemId,
+      itemSku: line.itemSku,
+      itemName: line.itemName,
       unitId: line.unitId,
       quantity: n(line.quantity),
       baseQuantity: n(line.baseQuantity),
@@ -122,6 +128,8 @@ export interface InvoiceRow {
     id: string;
     lineNumber: number;
     itemId: string;
+    itemSku: string;
+    itemName: string;
     unitId: string;
     quantity: Decimalish;
     unitPrice: Decimalish;
@@ -150,6 +158,8 @@ export function invoiceFromRow(row: InvoiceRow): Invoice {
         id: line.id,
         lineNumber: line.lineNumber,
         itemId: line.itemId,
+        itemSku: line.itemSku,
+        itemName: line.itemName,
         unitId: line.unitId,
         quantity: n(line.quantity),
         unitPrice: n(line.unitPrice),
