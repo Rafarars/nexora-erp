@@ -14,6 +14,12 @@ de ninguna conversación anterior**.
 2. Leer [`docs/ARCHITECTURE.md`](ARCHITECTURE.md) — convención hexagonal
 3. Buscar en Engram, proyecto `nexora-erp`, para el porqué de cada decisión
 4. `make up` y `make verify` para confirmar que todo sigue en verde
+5. **Dónde quedamos y qué sigue**: al final de este archivo, «Revisión módulo por módulo» → «Dónde quedamos» y
+   «Plan de las fases que faltan»
+
+**Ojo con la base de desarrollo:** las pruebas de contrato la vacían. Después de `make verify`, o de correr contratos
+sueltos, hay que `make seed` antes de la suite end-to-end o de mirar la interfaz. Y `make up` reconstruye las imágenes:
+un cambio de API o de web no se ve en el navegador ni en la e2e hasta que se ejecuta.
 
 ---
 
@@ -477,6 +483,26 @@ pedir.
 
 **Sigue la fase 5, listas de precio**: investigar dónde vive el maestro, el precio por artículo, la lista en el
 cliente, el precio mínimo y el precio sugerido en el pedido. Después, la fase 6 (servicios) y el cierre.
+
+### Plan de las fases que faltan (acordado el 18-sep-2026)
+
+1. **Fase 5 · Listas de precio.** Investigar primero (compañero + Business Central, Odoo, ERPNext y SAP) y escribir el
+   tema en `revision/temas/`; decidir con Rafael dónde vive el maestro (Catálogo, Inventario o Ventas), si el precio va
+   por lista y artículo con vigencia, cómo se elige la lista de un cliente, si hay precio mínimo y cómo llega el precio
+   sugerido al pedido. Construir, con pruebas y documentación de módulo.
+2. **Fase 6 · Servicios (H3).** Corregir documentación y pantalla: un servicio se compra y se vende, pero **su línea no
+   cuenta** para el estado de recibido o despachado de su orden, que es la regla del compañero. Hoy la orden de compra y
+   el pedido rechazan servicios (`ServiceNotPurchasableError`, `ServiceNotSellableError`).
+3. **Fase 7 · Cierre de Artículos.** Informe final en `revision/inventario/articulos.md`, checklist en ✅, `make verify`.
+4. **Revisión exhaustiva de todo lo construido** en las fases 1 a 7: reglas de negocio contra el código, el compañero,
+   la ley y los ERP; la interfaz a mano; el CI. Como la del 17-sep-2026 (ver
+   [`revision/temas/configuracion-empresa.md`](revision/temas/configuracion-empresa.md) §10), pero sobre el submódulo
+   entero.
+5. **Convertir el método en una skill.** Artículos es el piloto: con él cerrado se escribe el procedimiento reutilizable
+   para revisar los demás submódulos igual ([`revision/README.md`](revision/README.md) § Método).
+
+**Decisión abierta que no bloquea nada de lo anterior:** la tasa de fines de semana y feriados
+([`revision/temas/configuracion-empresa.md`](revision/temas/configuracion-empresa.md) §10.3, punto 1).
 
 **Decisiones de Rafael que no hay que volver a discutir:**
 

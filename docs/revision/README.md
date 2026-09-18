@@ -26,6 +26,20 @@ Veredictos de la matriz: **coincide**, **difiere con motivo** (decisión de alca
 **hueco** (algo que el sistema debería hacer y no hace) y **sobra** (algo que el sistema hace de
 más).
 
+**Artículos es el piloto.** Cuando esté cerrado, el método se escribe como una **skill** reutilizable
+(instrucciones paso a paso, con la forma del informe y la lista de comprobaciones) para revisar los
+demás submódulos igual, sin volver a inventar el procedimiento. Lo que la skill tendrá que recoger, de
+lo aprendido en Artículos:
+
+- Investigar **antes** de construir, y separar lo investigado (informe del tema) de lo decidido
+  (tabla de decisiones de Rafael, con su frase textual cuando la hay).
+- Comparar contra tres fuentes: el sistema, el compañero y los ERP, **con cita verificable** en cada fila.
+- Verificar cada hallazgo en el código antes de aceptarlo: en dos rondas, la mitad de lo que llegó de
+  fuera no se sostuvo.
+- Atacar **todos** los hallazgos; los que no se construyen se anotan en `FUTURE.md` con su porqué.
+- Cerrar cada paso con `make verify`, commits por partes y el CI en verde.
+- Anotar en `PENDIENTE-REVISION.md` cada decisión tomada construyendo, aunque parezca menor.
+
 ## Orden y estado
 
 El orden sigue las dependencias: cada módulo se revisa después de aquellos de los que depende.
@@ -46,7 +60,7 @@ Estados: ⬜ pendiente · 🔍 revisado, esperando decisiones · ✅ cerrado (de
 
 | Submódulo | Estado | Informe |
 |---|---|---|
-| Artículos (piloto; empezó en Catálogo) | 🔍 | [inventario/articulos.md](inventario/articulos.md) |
+| Artículos (piloto; empezó en Catálogo) | 🔨 Fases 1 a 4 hechas; faltan listas de precio, servicios y el cierre | [inventario/articulos.md](inventario/articulos.md) |
 | Ajustes | ⬜ | |
 | Existencias | ⬜ | |
 | Kardex | ⬜ | |
