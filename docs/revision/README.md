@@ -60,7 +60,7 @@ Estados: ⬜ pendiente · 🔍 revisado, esperando decisiones · ✅ cerrado (de
 
 | Submódulo | Estado | Informe |
 |---|---|---|
-| Artículos (piloto; empezó en Catálogo) | 🔨 Fases 1 a 6 hechas; falta el cierre | [inventario/articulos.md](inventario/articulos.md) |
+| Artículos (piloto; empezó en Catálogo) | ✅ Cerrado: las seis fases, con sus temas, pruebas y documentación | [inventario/articulos.md](inventario/articulos.md) |
 | Ajustes | ⬜ | |
 | Existencias | ⬜ | |
 | Kardex | ⬜ | |

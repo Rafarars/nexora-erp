@@ -1,6 +1,6 @@
 # Revisión: Inventario › Artículos
 
-**Fecha:** 14-sep-2026 · **Estado:** 🔍 revisado, esperando decisiones · **Piloto del método**
+**Fecha:** 14-sep-2026, cerrado el 18-sep-2026 · **Estado:** ✅ cerrado · **Piloto del método**
 ([README](../README.md))
 
 El artículo es el maestro más referenciado del sistema: lo usan ajustes, kardex, existencias,
@@ -433,3 +433,70 @@ las fases 2 a 6 y la bodega con órdenes abiertas.
   y ventas y una e2e.
 - **Servicios:** se resuelven al implementarlos, con la regla del compañero: una línea de servicio no cuenta
   para el estado de recibido o despachado de su orden.
+
+---
+
+## 10. Cierre del piloto (18-sep-2026)
+
+Las seis fases están hechas y subidas, cada una con su tema investigado antes de construir, sus
+pruebas y su documentación de módulo. `make verify` en verde: **2640 + 174 unitarias, 176 de
+contrato y 374 end-to-end**.
+
+### 10.1 Qué se hizo en cada fase
+
+| Fase | Qué cerró | Dónde quedó documentado |
+|---|---|---|
+| **1 · Integridad** | H1, H2, H8, H9: unidades y bajas con documentos abiertos, dos bases en la misma fila, carreras | §8 y §9 de este informe |
+| **2 · Artículos en Inventario** | El maestro deja el Catálogo: código, pantalla, permisos y rutas | §8 |
+| **3 · Configuración de la empresa y multimoneda** | Datos y parámetros de la empresa, tasas de cambio, compras, ventas, cobranza y reportes con moneda | [temas/configuracion-empresa.md](../temas/configuracion-empresa.md) · [modulos/empresa.md](../../modulos/empresa.md) |
+| **4 · Artículo completo** | H4 (factor a 8 decimales), H5 (dos impuestos), H6 (código de barras, se compra / se vende, mínimos por bodega), H7 (SKU y nombre copiados en todos los documentos), listado paginado | [modulos/inventario.md §1](../../modulos/inventario.md#1-artículos) |
+| **5 · Listas de precio** | El precio de venta deja de teclearse: listas en Catálogo, precios por artículo, resolución por unidad y moneda, precio mínimo | [temas/listas-de-precio.md](../temas/listas-de-precio.md) · [modulos/ventas.md §2.4](../../modulos/ventas.md#24-el-precio-de-una-línea) |
+| **6 · Servicios** | H3: un servicio se compra y se vende sin dejar el documento abierto, y llega a la factura | [temas/servicios.md](../temas/servicios.md) · [modulos/ventas.md §2.5](../../modulos/ventas.md#25-servicios) |
+
+### 10.2 Los nueve hallazgos, uno por uno
+
+| Hallazgo | Estado |
+|---|---|
+| H1 · Unidad secundaria con órdenes abiertas | ✅ Corregido (fase 1). Cambiar o quitar una unidad que un documento abierto usa responde 409 |
+| H2 · Baja con documentos abiertos | ✅ Corregido (fase 1) |
+| H3 · Servicio que ningún documento acepta | ✅ Corregido (fase 6). Se compra, se vende, no se despacha ni se recibe, y se factura |
+| H4 · Factor con 4 decimales | ✅ Corregido (fase 4). Ocho decimales: una docena da 0,08333333 por pieza y doce piezas suman 1 |
+| H5 · Un solo impuesto | ✅ Corregido (fase 4). `sales_tax_id` y `purchase_tax_id` |
+| H6 · Campos de un maestro completo | ✅ En parte, y a propósito: código de barras, se compra / se vende, mínimos por bodega y precios, hechos. No inventariado, lotes, series, método de costo, peso, volumen e imagen quedan **anotados en [FUTURE.md](../../FUTURE.md)** con su porqué |
+| H7 · Cambiar el SKU cambia los documentos emitidos | ✅ Corregido (fase 4). Cada línea copia SKU y nombre |
+| H8 · Dos unidades base en la base de datos | ✅ Corregido (fase 1). Índice único parcial |
+| H9 · Carrera al desactivar o cambiar la base | ✅ Corregido (fase 1). Bloqueo del artículo antes de leer sus compromisos |
+
+### 10.3 Lo que este piloto enseñó sobre el método
+
+Lo que se lleva la skill, con el caso que lo demostró:
+
+1. **Investigar antes de construir, y escribir el tema antes de tocar código.** Cada fase empezó por
+   un documento en `revision/temas/` con las tres fuentes citadas. En listas de precio, eso cambió el
+   diseño: la moneda pasó a la cabecera de la lista, que es lo que hacen los cuatro ERP y no lo que
+   hace el compañero.
+2. **Verificar cada hallazgo contra el código antes de aceptarlo.** En la revalidación de la fase 3,
+   cuatro de cinco objeciones de `agy` no se sostuvieron. En la fase 5, los tres hallazgos sobre el
+   compañero **sí** se sostuvieron, y solo se supo leyendo su código, no su documentación: su propio
+   ERP no multiplica el precio por el factor de la unidad, y compara el precio mínimo sin convertir
+   la moneda.
+3. **Cuando las fuentes se contradicen, decide Rafael, y queda escrito por qué.** El precio mínimo es
+   el caso: el compañero tiene un número fijo, los ERP controlan el margen sobre el costo. Se eligió
+   el número fijo, y el porqué del descarte está en el tema.
+4. **Atacar todos los hallazgos; lo que no se construye se anota.** `FUTURE.md` creció con la
+   vigencia de precios, el precio por unidad, el margen sobre el costo, las listas de compra y los
+   tipos de artículo que faltan — cada uno con qué es, por qué y qué haría falta.
+5. **La prueba de interfaz en paralelo encuentra lo que la aislada no.** La pantalla de facturas
+   reventaba en cuanto existía una factura sin despacho; aislada pasaba.
+6. **Un campo que pasa a ser nulo hay que perseguirlo por toda la interfaz**, no solo por la API.
+7. **Verificar a mano contra la API local**, además de las pruebas: fue lo que confirmó que 0,85 por
+   pieza da 20,40 la caja, y que el mismo precio en euros da 0,743416 por el bolívar.
+
+### 10.4 Qué queda abierto
+
+- **La tasa de fines de semana y feriados**, decisión de Rafael que no bloquea nada
+  ([configuracion-empresa.md §10.3](../temas/configuracion-empresa.md#103-decisiones-pendientes-de-rafael)).
+- **Todo lo anotado en `FUTURE.md`** para este submódulo, que es deuda consciente, no olvido.
+
+**Estado: ✅ cerrado.** El siguiente paso es la revisión exhaustiva de lo construido en las seis
+fases, y después escribir el método como skill reutilizable.

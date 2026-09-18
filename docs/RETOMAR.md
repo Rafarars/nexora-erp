@@ -38,7 +38,7 @@ un cambio de API o de web no se ve en el navegador ni en la e2e hasta que se eje
 | **H5 — Ventas** | **Completado**. Informe en [`H5-VENTAS.md`](H5-VENTAS.md) |
 | **H6 — Cuentas por cobrar** | **Completado**. Informe en [`H6-CUENTAS-POR-COBRAR.md`](H6-CUENTAS-POR-COBRAR.md) |
 | **H7 — Reportes y tablero** | **Completado**. Informe en [`H7-REPORTES.md`](H7-REPORTES.md) |
-| **Revisión módulo por módulo** | **En curso**: Artículos, fases 1 a 6 cerradas. Ver [la sección de abajo](#revisión-módulo-por-módulo) y [`revision/README.md`](revision/README.md) |
+| **Revisión módulo por módulo** | **En curso**: Artículos, cerrado. Ver [la sección de abajo](#revisión-módulo-por-módulo) y [`revision/README.md`](revision/README.md) |
 
 Lo que ya funciona: monorepo con API, frontend y suite E2E; PostgreSQL en Docker;
 endpoint de salud que verifica la base; CI con cuatro trabajos publicando el reporte;
@@ -497,7 +497,9 @@ cliente, el precio mínimo y el precio sugerido en el pedido. Después, la fase 
    lleva servicios nace saldado. A la factura entra igual que un tornillo: la del despacho arrastra los servicios
    pendientes del pedido, y un pedido sin mercancía se factura directo. Tema en
    [`revision/temas/servicios.md`](revision/temas/servicios.md).
-3. **Fase 7 · Cierre de Artículos.** Informe final en `revision/inventario/articulos.md`, checklist en ✅, `make verify`.
+3. **Fase 7 · Cierre de Artículos.** ✅ Hecha el 18-sep-2026. Informe cerrado en
+   [`revision/inventario/articulos.md`](revision/inventario/articulos.md) §10: qué cerró cada fase, los nueve
+   hallazgos uno por uno, lo que el piloto enseñó sobre el método y lo que queda abierto.
 4. **Revisión exhaustiva de todo lo construido** en las fases 1 a 7: reglas de negocio contra el código, el compañero,
    la ley y los ERP; la interfaz a mano; el CI. Como la del 17-sep-2026 (ver
    [`revision/temas/configuracion-empresa.md`](revision/temas/configuracion-empresa.md) §10), pero sobre el submódulo
