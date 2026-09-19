@@ -243,7 +243,7 @@ export const ISOLATION_CASES: IsolationCase[] = [
     title: 'create an adjustment in a warehouse of another tenant',
     method: 'post',
     path: '/api/v1/inventory/adjustments',
-    body: { warehouseId: GLOBEX.warehouseId, lines: [{ itemId: GLOBEX.itemId, unitId: GLOBEX.unitId, direction: 'out', quantity: 1 }] },
+    body: { warehouseId: GLOBEX.warehouseId, type: 'loss', lines: [{ itemId: GLOBEX.itemId, unitId: GLOBEX.unitId, direction: 'out', quantity: 1 }] },
   },
   {
     route: 'GET /api/v1/inventory/items/:itemId/movements',

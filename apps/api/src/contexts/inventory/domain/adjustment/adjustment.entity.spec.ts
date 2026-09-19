@@ -34,7 +34,8 @@ function aLine(): AdjustmentLine {
 }
 
 function details(overrides: Partial<AdjustmentDetails> = {}): AdjustmentDetails {
-  return { warehouseId: WarehouseRef.of(MAIN), date: AdjustmentDate.of(TODAY), notes: null, lines: [aLine()], ...overrides };
+  return { warehouseId: WarehouseRef.of(MAIN), date: AdjustmentDate.of(TODAY),
+    type: 'correction', notes: null, lines: [aLine()], ...overrides };
 }
 
 const aDraft = () => Adjustment.draft(AdjustmentId.of(ID), TenantId.of(TENANT_A), 'AJU000001', details(), NOW, TODAY);

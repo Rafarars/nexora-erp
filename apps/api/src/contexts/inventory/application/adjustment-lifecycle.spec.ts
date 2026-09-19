@@ -17,8 +17,10 @@ import { AdjustmentCreator, AdjustmentCreatorRequest } from './create-adjustment
 import { AdjustmentSearcher } from './search-adjustments/adjustment-searcher.js';
 import { MovementSearcher } from './search-movements/movement-searcher.js';
 import { StockSearcher } from './search-stock/stock-searcher.js';
-import { InventoryScenario, anInventoryScenario } from './testing/inventory-scenario.js';
+import { ANA, InventoryScenario, anInventoryScenario } from './testing/inventory-scenario.js';
 import { AdjustmentUpdater } from './update-adjustment/adjustment-updater.js';
+
+const FIRST_PAGE = { text: null, warehouseId: null, status: null, type: null, from: null, to: null, limit: 20, offset: 0 };
 
 // Los casos de uso del inventario juntos, porque su valor esta en como se encadenan: crear,
 // confirmar, consultar, anular y volver a consultar.
@@ -28,7 +30,7 @@ function useCases(s: InventoryScenario) {
     update: new AdjustmentUpdater(s.finder, s.factory, s.store, s.clock, s.calendar),
     confirm: new AdjustmentConfirmer(s.finder, s.factory, s.store, s.store, s.confirmation, s.clock, s.calendar),
     cancel: new AdjustmentCanceller(s.store, s.cancellation, s.clock),
-    adjustments: new AdjustmentSearcher(s.store, s.catalog),
+    adjustments: new AdjustmentSearcher(s.store, s.catalog, s.authors),
     stock: new StockSearcher(s.store, s.catalog),
     kardex: new MovementSearcher(s.store, s.documents, s.catalog),
   };
@@ -37,7 +39,9 @@ function useCases(s: InventoryScenario) {
 function request(overrides: Partial<AdjustmentCreatorRequest> = {}): AdjustmentCreatorRequest {
   return {
     tenantId: TENANT_A,
+    userId: ANA,
     warehouseId: MAIN,
+    type: 'physical_count',
     notes: 'Conteo inicial',
     lines: [{ itemId: WATER, unitId: BOX, direction: 'in', quantity: 10, unitCost: 12 }],
     ...overrides,
@@ -46,7 +50,7 @@ function request(overrides: Partial<AdjustmentCreatorRequest> = {}): AdjustmentC
 
 async function created(s: InventoryScenario, overrides: Partial<AdjustmentCreatorRequest> = {}) {
   await useCases(s).create.run(request(overrides));
-  const [latest] = await s.store.searchByTenant(TenantId.of(TENANT_A));
+  const { adjustments: [latest] } = await s.store.search(TenantId.of(TENANT_A), FIRST_PAGE);
 
   return latest.id.value;
 }
@@ -82,7 +86,7 @@ describe('creating and editing a draft', () => {
     await useCases(s).create.run(request({ warehouseId: FOREIGN_WAREHOUSE })).catch(() => undefined);
     await created(s);
 
-    expect((await s.store.searchByTenant(TenantId.of(TENANT_A)))[0].code).toBe('AJU000001');
+    expect((await s.store.search(TenantId.of(TENANT_A), FIRST_PAGE)).adjustments[0].code).toBe('AJU000001');
   });
 
   it('replaces the whole draft on edit', async () => {
@@ -102,18 +106,44 @@ describe('creating and editing a draft', () => {
     const s = anInventoryScenario();
     const id = await created(s);
 
-    await expect(useCases(s).confirm.run({ tenantId: TENANT_B, adjustmentId: id })).rejects.toThrow(AdjustmentNotFoundError);
-    await expect(useCases(s).cancel.run({ tenantId: TENANT_B, adjustmentId: id })).rejects.toThrow(AdjustmentNotFoundError);
+    await expect(useCases(s).confirm.run({ tenantId: TENANT_B, userId: ANA, adjustmentId: id })).rejects.toThrow(AdjustmentNotFoundError);
+    await expect(useCases(s).cancel.run({ tenantId: TENANT_B, userId: ANA, adjustmentId: id })).rejects.toThrow(AdjustmentNotFoundError);
     await expect(useCases(s).update.run({ ...request({ tenantId: TENANT_B }), adjustmentId: id })).rejects.toThrow(
       AdjustmentNotFoundError,
     );
   });
 });
 
+// Un ajuste mueve existencia sin una operacion comercial detras: tiene que quedar quien lo hizo.
+describe('who did it', () => {
+  it('names who registered the draft and who closed it', async () => {
+    const s = anInventoryScenario();
+    const id = await created(s);
+
+    const [draft] = (await useCases(s).adjustments.run({ tenantId: TENANT_A })).adjustments;
+    expect(draft).toMatchObject({ createdBy: 'Ana Rivas', closedBy: null });
+
+    await useCases(s).confirm.run({ tenantId: TENANT_A, userId: ANA, adjustmentId: id });
+
+    const [confirmed] = (await useCases(s).adjustments.run({ tenantId: TENANT_A })).adjustments;
+    expect(confirmed).toMatchObject({ createdBy: 'Ana Rivas', closedBy: 'Ana Rivas', status: 'confirmed' });
+  });
+
+  // Alguien de otra empresa no se nombra en los documentos de esta, ni por error.
+  it('leaves the name empty when the person is not of the company', async () => {
+    const s = anInventoryScenario();
+    await useCases(s).create.run(request({ userId: '88888888-8888-4888-8888-888888888888' }));
+
+    const [draft] = (await useCases(s).adjustments.run({ tenantId: TENANT_A })).adjustments;
+
+    expect(draft.createdBy).toBeNull();
+  });
+});
+
 describe('confirming', () => {
   it('moves the stock and shows it valued at its average cost', async () => {
     const s = anInventoryScenario();
-    await useCases(s).confirm.run({ tenantId: TENANT_A, adjustmentId: await created(s) });
+    await useCases(s).confirm.run({ tenantId: TENANT_A, userId: ANA, adjustmentId: await created(s) });
 
     expect((await useCases(s).stock.run({ tenantId: TENANT_A })).stocks).toEqual([
       {
@@ -128,7 +158,7 @@ describe('confirming', () => {
 
   it('shows the kardex of the item with the code of the adjustment', async () => {
     const s = anInventoryScenario();
-    await useCases(s).confirm.run({ tenantId: TENANT_A, adjustmentId: await created(s) });
+    await useCases(s).confirm.run({ tenantId: TENANT_A, userId: ANA, adjustmentId: await created(s) });
 
     const { movements } = await useCases(s).kardex.run({ tenantId: TENANT_A, itemId: WATER });
 
@@ -141,7 +171,7 @@ describe('confirming', () => {
     const s = anInventoryScenario();
     const id = await created(s, { lines: [{ itemId: WATER, unitId: PIECE, direction: 'out', quantity: 1 }] });
 
-    await expect(useCases(s).confirm.run({ tenantId: TENANT_A, adjustmentId: id })).rejects.toThrow(InsufficientStockError);
+    await expect(useCases(s).confirm.run({ tenantId: TENANT_A, userId: ANA, adjustmentId: id })).rejects.toThrow(InsufficientStockError);
 
     expect((await useCases(s).adjustments.run({ tenantId: TENANT_A })).adjustments[0].status).toBe('draft');
   });
@@ -155,11 +185,11 @@ describe('confirming', () => {
       (item) => item.id === WATER,
     )!.units[1].conversionFactor = 12;
 
-    await expect(useCases(s).confirm.run({ tenantId: TENANT_A, adjustmentId: id })).rejects.toThrow(StockItemChangedError);
+    await expect(useCases(s).confirm.run({ tenantId: TENANT_A, userId: ANA, adjustmentId: id })).rejects.toThrow(StockItemChangedError);
     expect((await useCases(s).stock.run({ tenantId: TENANT_A })).stocks).toEqual([]);
 
     await useCases(s).update.run({ ...request(), adjustmentId: id });
-    await useCases(s).confirm.run({ tenantId: TENANT_A, adjustmentId: id });
+    await useCases(s).confirm.run({ tenantId: TENANT_A, userId: ANA, adjustmentId: id });
 
     expect((await useCases(s).stock.run({ tenantId: TENANT_A })).stocks[0].quantity).toBe(120);
   });
@@ -169,15 +199,15 @@ describe('confirming', () => {
     const id = await created(s);
     (s.catalog as unknown as { items: { id: string; isActive: boolean }[] }).items.find((item) => item.id === WATER)!.isActive = false;
 
-    await expect(useCases(s).confirm.run({ tenantId: TENANT_A, adjustmentId: id })).rejects.toThrow(InactiveStockItemError);
+    await expect(useCases(s).confirm.run({ tenantId: TENANT_A, userId: ANA, adjustmentId: id })).rejects.toThrow(InactiveStockItemError);
   });
 
   it('cannot confirm or edit an adjustment that is already confirmed', async () => {
     const s = anInventoryScenario();
     const id = await created(s);
-    await useCases(s).confirm.run({ tenantId: TENANT_A, adjustmentId: id });
+    await useCases(s).confirm.run({ tenantId: TENANT_A, userId: ANA, adjustmentId: id });
 
-    await expect(useCases(s).confirm.run({ tenantId: TENANT_A, adjustmentId: id })).rejects.toThrow(AdjustmentNotConfirmableError);
+    await expect(useCases(s).confirm.run({ tenantId: TENANT_A, userId: ANA, adjustmentId: id })).rejects.toThrow(AdjustmentNotConfirmableError);
     await expect(useCases(s).update.run({ ...request(), adjustmentId: id })).rejects.toThrow(AdjustmentNotEditableError);
   });
 });
@@ -186,9 +216,9 @@ describe('cancelling', () => {
   it('brings the stock back and leaves both the movement and its reversal in the kardex', async () => {
     const s = anInventoryScenario();
     const id = await created(s);
-    await useCases(s).confirm.run({ tenantId: TENANT_A, adjustmentId: id });
+    await useCases(s).confirm.run({ tenantId: TENANT_A, userId: ANA, adjustmentId: id });
 
-    await useCases(s).cancel.run({ tenantId: TENANT_A, adjustmentId: id });
+    await useCases(s).cancel.run({ tenantId: TENANT_A, userId: ANA, adjustmentId: id });
 
     expect((await useCases(s).stock.run({ tenantId: TENANT_A })).stocks[0].quantity).toBe(0);
     expect((await useCases(s).kardex.run({ tenantId: TENANT_A, itemId: WATER })).movements.map((m) => [m.direction, m.isReversal])).toEqual([
@@ -201,8 +231,8 @@ describe('cancelling', () => {
 describe('queries', () => {
   it('filters the stock by warehouse', async () => {
     const s = anInventoryScenario();
-    await useCases(s).confirm.run({ tenantId: TENANT_A, adjustmentId: await created(s) });
-    await useCases(s).confirm.run({ tenantId: TENANT_A, adjustmentId: await created(s, { warehouseId: NORTH }) });
+    await useCases(s).confirm.run({ tenantId: TENANT_A, userId: ANA, adjustmentId: await created(s) });
+    await useCases(s).confirm.run({ tenantId: TENANT_A, userId: ANA, adjustmentId: await created(s, { warehouseId: NORTH }) });
 
     const { stocks } = await useCases(s).stock.run({ tenantId: TENANT_A, warehouseId: NORTH });
 
@@ -211,7 +241,7 @@ describe('queries', () => {
 
   it('never shows the stock of another tenant', async () => {
     const s = anInventoryScenario();
-    await useCases(s).confirm.run({ tenantId: TENANT_A, adjustmentId: await created(s) });
+    await useCases(s).confirm.run({ tenantId: TENANT_A, userId: ANA, adjustmentId: await created(s) });
 
     expect(await useCases(s).stock.run({ tenantId: TENANT_B })).toEqual({ stocks: [] });
     await expect(useCases(s).kardex.run({ tenantId: TENANT_B, itemId: WATER })).rejects.toThrow(StockItemNotFoundError);

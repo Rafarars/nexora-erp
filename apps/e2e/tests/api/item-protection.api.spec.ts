@@ -43,9 +43,9 @@ async function adjustment(request: APIRequestContext, token: string, itemId: str
   const notes = `e2e ${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
   const line = { itemId, unitId: piece, direction, quantity, ...(direction === 'in' ? { unitCost: 1 } : {}) };
 
-  expect((await request.post(ADJUSTMENTS, { headers: auth(token), data: { warehouseId: mainWarehouse, notes, lines: [line] } })).status()).toBe(201);
+  expect((await request.post(ADJUSTMENTS, { headers: auth(token), data: { warehouseId: mainWarehouse, type: 'correction', notes, lines: [line] } })).status()).toBe(201);
 
-  const { adjustments } = await (await request.get(ADJUSTMENTS, { headers: auth(token) })).json();
+  const { adjustments } = await (await request.get(`${ADJUSTMENTS}?q=${encodeURIComponent(notes)}`, { headers: auth(token) })).json();
 
   return adjustments.find((candidate: { notes: string }) => candidate.notes === notes).id;
 }
@@ -135,8 +135,8 @@ test.describe('a draft whose box changed', () => {
     const item = await aFreshItem(request, token);
     const notes = `e2e ${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
     const lines = [{ itemId: item.id, unitId: box, direction: 'in', quantity: 1, unitCost: 24 }];
-    expect((await request.post(ADJUSTMENTS, { headers: auth(token), data: { warehouseId: mainWarehouse, notes, lines } })).status()).toBe(201);
-    const { adjustments } = await (await request.get(ADJUSTMENTS, { headers: auth(token) })).json();
+    expect((await request.post(ADJUSTMENTS, { headers: auth(token), data: { warehouseId: mainWarehouse, type: 'correction', notes, lines } })).status()).toBe(201);
+    const { adjustments } = await (await request.get(`${ADJUSTMENTS}?q=${encodeURIComponent(notes)}`, { headers: auth(token) })).json();
     const draft = adjustments.find((candidate: { notes: string }) => candidate.notes === notes);
 
     expect((await withUnits(request, token, item, baseAnd(12))).status()).toBe(200);

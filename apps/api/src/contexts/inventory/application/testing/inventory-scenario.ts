@@ -6,11 +6,15 @@ import { AdjustmentLineFactory } from '../../domain/adjustment/lines/adjustment-
 import { AdjustmentCancellation } from '../../domain/adjustment/posting/adjustment-cancellation.js';
 import { AdjustmentConfirmation } from '../../domain/adjustment/posting/adjustment-confirmation.js';
 import { StockMovements } from '../../domain/stock/posting/stock-movements.js';
-import { NOW, stockWarehouses, stockableItems } from '../../domain/testing/inventory.mother.js';
+import { NOW, TENANT_A, stockWarehouses, stockableItems } from '../../domain/testing/inventory.mother.js';
 import { InMemoryInventoryCatalog } from '../../infrastructure/testing/in-memory-inventory-catalog.js';
 import { InMemoryInventoryCodeSequence } from '../../infrastructure/testing/in-memory-inventory-code-sequence.js';
 import { InMemoryInventoryStore } from '../../infrastructure/testing/in-memory-inventory-store.js';
+import { InMemoryDocumentAuthors } from '../../infrastructure/testing/in-memory-document-authors.js';
 import { InMemoryMovementDocuments } from '../../infrastructure/testing/in-memory-movement-documents.js';
+
+// Quien registra en las pruebas de aplicacion.
+export const ANA = '99999999-9999-4999-8999-999999999999';
 
 // El mundo de una prueba de aplicacion del inventario: catalogo sembrado, almacen vacio y
 // reloj congelado. Sin base de datos ni NestJS.
@@ -28,6 +32,7 @@ export function anInventoryScenario() {
     store,
     catalog,
     documents: new InMemoryMovementDocuments(store),
+    authors: new InMemoryDocumentAuthors([{ tenantId: TENANT_A, id: ANA, name: 'Ana Rivas' }]),
     codes: new InMemoryInventoryCodeSequence(),
     finder: new AdjustmentFinder(store),
     factory: new AdjustmentLineFactory(catalog, ids),

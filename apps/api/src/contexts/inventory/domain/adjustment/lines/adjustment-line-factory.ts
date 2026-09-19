@@ -1,5 +1,5 @@
 import { IdGenerator } from '../../../../../shared/domain/ports/id-generator.js';
-import { InventoryCatalog } from '../../catalog/inventory-catalog.js';
+import { InventoryCatalog, StockableItem } from '../../catalog/inventory-catalog.js';
 import {
   CostOnOutgoingLineError,
   InvalidDirectionError,
@@ -7,6 +7,7 @@ import {
   FractionalQuantityError,
   InactiveStockWarehouseError,
   InvalidQuantityError,
+  MissingRevaluationCostError,
   ServiceHasNoStockError,
   StockItemNotFoundError,
   StockWarehouseNotFoundError,
@@ -18,12 +19,13 @@ import { UnitCost } from '../../quantity/unit-cost.vo.js';
 import { ItemRef, UnitRef, WarehouseRef } from '../../shared/references.vo.js';
 import { TenantId } from '../../shared/tenant-id.vo.js';
 import { AdjustmentLine, AdjustmentLineId } from '../adjustment-line.js';
+import { AdjustmentType, isRevaluation } from '../adjustment.entity.js';
 
 export interface AdjustmentLineInput {
   itemId: string;
-  unitId: string;
-  direction: string;
-  quantity: number;
+  unitId?: string;
+  direction?: string;
+  quantity?: number;
   unitCost?: number | null;
 }
 
@@ -46,32 +48,36 @@ export class AdjustmentLineFactory {
     return ref;
   }
 
-  async lines(tenantId: TenantId, inputs: AdjustmentLineInput[]): Promise<AdjustmentLine[]> {
+  async lines(tenantId: TenantId, inputs: AdjustmentLineInput[], type: AdjustmentType): Promise<AdjustmentLine[]> {
     const refs = [...new Set(inputs.map((input) => input.itemId))].map((id) => ItemRef.of(id));
     const items = await this.catalog.findItems(tenantId, refs);
 
     return inputs.map((input, index) => {
       const lineNumber = index + 1;
-      const direction = directionOf(input.direction);
       const item = items.find((candidate) => candidate.id === input.itemId);
 
       if (!item) throw new StockItemNotFoundError(input.itemId);
       if (!item.isActive) throw new InactiveStockItemError(item.id);
       if (item.type === 'service') throw new ServiceHasNoStockError(item.id);
 
-      const unitId = UnitRef.of(input.unitId);
+      // Revaluar no mueve cantidad: reexpresa lo que vale todo lo que hay, en unidad base y al
+      // costo nuevo, que aqui es obligatorio. Cuanto hay se sabe al publicar, no al escribirlo.
+      if (isRevaluation(type)) return this.revaluationLine(lineNumber, item, input);
+
+      const direction = directionOf(input.direction ?? '');
+      const unitId = UnitRef.of(input.unitId ?? '');
       const unit = item.units.find((candidate) => candidate.unitId === unitId.value);
 
       if (!unit) throw new UnitNotOfItemError(unitId.value, item.id);
 
-      const quantity = Quantity.of(input.quantity);
+      const quantity = Quantity.of(input.quantity ?? 0);
 
-      if (unit.mustBeWhole && !quantity.isWhole()) throw new FractionalQuantityError(input.quantity, unit.abbreviation);
+      if (unit.mustBeWhole && !quantity.isWhole()) throw new FractionalQuantityError(quantity.toNumber(), unit.abbreviation);
 
       const baseQuantity = quantity.times(unit.conversionFactor);
 
       // Cero, o tan pequeno que al convertir se redondea a cero, no mueve nada.
-      if (quantity.isZero() || baseQuantity.isZero()) throw new InvalidQuantityError(input.quantity);
+      if (quantity.isZero() || baseQuantity.isZero()) throw new InvalidQuantityError(quantity.toNumber());
 
       const hasCost = input.unitCost !== undefined && input.unitCost !== null;
 
@@ -89,6 +95,28 @@ export class AdjustmentLineFactory {
         baseQuantity,
         unitCost: hasCost ? UnitCost.of(input.unitCost as number) : null,
       });
+    });
+  }
+
+  // La linea de una revaluacion: el articulo, su unidad base y el costo nuevo. La cantidad
+  // queda en cero porque no se mueve ninguna; la que se revalora es la que haya al publicar.
+  private revaluationLine(lineNumber: number, item: StockableItem, input: AdjustmentLineInput): AdjustmentLine {
+    const base = item.units.find((unit) => unit.isBase);
+
+    if (!base) throw new UnitNotOfItemError(input.unitId ?? '', item.id);
+    if (input.unitCost === undefined || input.unitCost === null) throw new MissingRevaluationCostError(lineNumber);
+
+    return AdjustmentLine.of({
+      id: AdjustmentLineId.of(this.ids.next()),
+      lineNumber,
+      itemId: ItemRef.of(item.id),
+      itemSku: item.sku,
+      itemName: item.name,
+      unitId: UnitRef.of(base.unitId),
+      direction: 'in',
+      quantity: Quantity.zero(),
+      baseQuantity: Quantity.zero(),
+      unitCost: UnitCost.of(input.unitCost),
     });
   }
 }

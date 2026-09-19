@@ -1,7 +1,7 @@
 import { AccessError } from '../../access/domain/access-error';
 import type { AccessErrorBody } from '../../access/domain/access-error';
-import type { Adjustment, LowStockRow, Movement, Stock } from '../domain/inventory';
-import type { AdjustmentInput, InventoryApi, ItemInput, ItemPage } from '../domain/inventory-api';
+import type { LowStockRow, Movement, Stock } from '../domain/inventory';
+import type { AdjustmentFilters, AdjustmentInput, AdjustmentPage, InventoryApi, ItemInput, ItemPage } from '../domain/inventory-api';
 import type { Item } from '../domain/item';
 
 const BASE = '/api/v1/inventory';
@@ -80,8 +80,16 @@ export class HttpInventoryApi implements InventoryApi {
       .movements;
   }
 
-  async searchAdjustments(token: string): Promise<Adjustment[]> {
-    return (await this.request<{ adjustments: Adjustment[] }>('GET', `${BASE}/adjustments`, token)).adjustments;
+  async searchAdjustments(token: string, filters: AdjustmentFilters = {}): Promise<AdjustmentPage> {
+    const query = new URLSearchParams();
+
+    for (const [key, value] of Object.entries(filters)) {
+      if (value !== undefined && value !== '' && value !== 0) query.set(key, String(value));
+    }
+
+    const suffix = query.size > 0 ? `?${query.toString()}` : '';
+
+    return this.request<AdjustmentPage>('GET', `${BASE}/adjustments${suffix}`, token);
   }
 
   async saveAdjustment(token: string, id: string | null, input: AdjustmentInput): Promise<void> {

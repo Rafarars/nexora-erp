@@ -6,6 +6,7 @@ import {
   AdjustmentAlreadyCancelledError,
   InactiveStockItemError,
   InsufficientStockError,
+  NothingToRevalueError,
   StockItemChangedError,
   UnknownEntryCostError,
 } from '../../errors/inventory.errors.js';
@@ -16,7 +17,7 @@ import { TenantId } from '../../shared/tenant-id.vo.js';
 import { BOX, MAIN, NORTH, NOW, PIECE, TENANT_A, TODAY, WATER, stockWarehouses, stockableItems } from '../../testing/inventory.mother.js';
 import { AdjustmentDate } from '../adjustment-date.vo.js';
 import { AdjustmentLine, AdjustmentLineId } from '../adjustment-line.js';
-import { Adjustment, AdjustmentId } from '../adjustment.entity.js';
+import { Adjustment, AdjustmentId, AdjustmentType } from '../adjustment.entity.js';
 import { StockMovements } from '../../stock/posting/stock-movements.js';
 import { AdjustmentCancellation } from './adjustment-cancellation.js';
 import { AdjustmentConfirmation } from './adjustment-confirmation.js';
@@ -41,10 +42,11 @@ function line(direction: 'in' | 'out', base: number, unitCost: number | null = n
   });
 }
 
-async function draft(store: InMemoryInventoryStore, id: string, lines: AdjustmentLine[], warehouse = MAIN, day = TODAY) {
+async function draft(store: InMemoryInventoryStore, id: string, lines: AdjustmentLine[], warehouse = MAIN, day = TODAY, type: AdjustmentType = 'correction') {
   const adjustment = Adjustment.draft(AdjustmentId.of(id), tenant, `AJU${id.slice(-6)}`, {
     warehouseId: WarehouseRef.of(warehouse),
     date: AdjustmentDate.of(day),
+    type,
     notes: null,
     lines,
   }, NOW, TODAY);
@@ -145,6 +147,59 @@ describe('confirming an adjustment', () => {
 
     await expect(w.confirm(await draft(w.store, A1, [line('in', 10)]))).rejects.toThrow(UnknownEntryCostError);
     expect(await w.available()).toBe(0);
+    expect(await w.kardex()).toEqual([]);
+  });
+});
+
+// Revaluar no cambia cuanto hay: cambia cuanto vale. Se expresa sacando todo al costo viejo y
+// metiendolo al nuevo, que es lo unico que el kardex sabe escribir.
+describe('revaluing what is already in the warehouse', () => {
+  const revaluationLine = (newCost: number) =>
+    AdjustmentLine.of({
+      id: AdjustmentLineId.of('11111111-cccc-4ccc-8ccc-000000000001'),
+      lineNumber: 1,
+      itemId: ItemRef.of(WATER),
+      itemSku: 'PRUEBA-SKU',
+      itemName: 'Articulo de prueba',
+      unitId: UnitRef.of(PIECE),
+      direction: 'in',
+      quantity: Quantity.zero(),
+      baseQuantity: Quantity.zero(),
+      unitCost: UnitCost.of(newCost),
+    });
+
+  it('takes everything out at the old cost and brings it back at the new one', async () => {
+    const w = world();
+    await w.confirm(await draft(w.store, A1, [line('in', 40, 2)]));
+
+    await w.confirm(await draft(w.store, A2, [revaluationLine(3)], MAIN, TODAY, 'revaluation'));
+
+    expect(await w.available()).toBe(40);
+    expect((await w.kardex()).slice(1).map((m) => [m.direction, m.quantity, m.unitCost, m.balanceAverageCost])).toEqual([
+      ['out', 40, 2, 2],
+      ['in', 40, 3, 3],
+    ]);
+  });
+
+  // Deshacer en orden inverso es lo unico que devuelve el promedio a donde estaba.
+  it('brings the average back exactly when the revaluation is cancelled', async () => {
+    const w = world();
+    await w.confirm(await draft(w.store, A1, [line('in', 40, 2)]));
+    const id = await draft(w.store, A2, [revaluationLine(3)], MAIN, TODAY, 'revaluation');
+    await w.confirm(id);
+
+    await w.cancel(id);
+
+    expect(await w.available()).toBe(40);
+    expect((await w.kardex()).at(-1)).toMatchObject({ balanceAverageCost: 2 });
+  });
+
+  it('refuses to revalue a warehouse with nothing in it', async () => {
+    const w = world();
+
+    await expect(w.confirm(await draft(w.store, A1, [revaluationLine(3)], MAIN, TODAY, 'revaluation'))).rejects.toThrow(
+      NothingToRevalueError,
+    );
     expect(await w.kardex()).toEqual([]);
   });
 });

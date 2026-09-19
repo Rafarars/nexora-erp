@@ -29,10 +29,12 @@ export async function aStockedItem(request: APIRequestContext, token: string, qu
 
   await request.post(`${baseUrl}/api/v1/inventory/adjustments`, {
     headers: auth(token),
-    data: { warehouseId: ACME_INVENTORY.mainWarehouse, notes, lines: [{ itemId: item.id, unitId: ACME_INVENTORY.piece, direction: 'in', quantity, unitCost: 1 }] },
+    data: { warehouseId: ACME_INVENTORY.mainWarehouse, type: 'physical_count', notes, lines: [{ itemId: item.id, unitId: ACME_INVENTORY.piece, direction: 'in', quantity, unitCost: 1 }] },
   });
 
-  const { adjustments } = await (await request.get(`${baseUrl}/api/v1/inventory/adjustments`, { headers: auth(token) })).json();
+  const { adjustments } = await (
+    await request.get(`${baseUrl}/api/v1/inventory/adjustments?q=${encodeURIComponent(notes)}`, { headers: auth(token) })
+  ).json();
   const adjustment = adjustments.find((candidate: { notes: string }) => candidate.notes === notes);
 
   expect((await request.put(`${baseUrl}/api/v1/inventory/adjustments/${adjustment.id}/confirm`, { headers: auth(token) })).status()).toBe(200);

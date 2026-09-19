@@ -8,10 +8,10 @@ import { Posting } from './adjustment-posting.js';
 export class AdjustmentCancellation {
   constructor(private readonly movements: StockMovements) {}
 
-  apply(adjustment: Adjustment, ledger: Ledger, now: Date): Posting {
+  apply(adjustment: Adjustment, ledger: Ledger, now: Date, userId: string | null = null): Posting {
     const wasConfirmed = adjustment.currentStatus() === 'confirmed';
 
-    adjustment.cancel(now);
+    adjustment.cancel(now, userId);
 
     if (!wasConfirmed) {
       return { adjustment, stocks: [], movements: [] };

@@ -5,10 +5,12 @@ import { anItem } from '../domain/testing/item.mother.js';
 import { InMemoryExpectedStock } from '../infrastructure/testing/in-memory-expected-stock.js';
 import { InMemoryItemRepository } from '../infrastructure/testing/in-memory-item.repository.js';
 import { LowStockSearcher } from './search-low-stock/low-stock-searcher.js';
-import { anInventoryScenario } from './testing/inventory-scenario.js';
+import { ANA, anInventoryScenario } from './testing/inventory-scenario.js';
 import { AdjustmentConfirmer } from './confirm-adjustment/adjustment-confirmer.js';
 import { AdjustmentCreator } from './create-adjustment/adjustment-creator.js';
 import { TenantId } from '../domain/shared/tenant-id.vo.js';
+
+const FIRST_PAGE = { text: null, warehouseId: null, status: null, type: null, from: null, to: null, limit: 20, offset: 0 };
 
 // El agua tiene minimo 300 en la Principal y entran 200: falta reponer.
 async function world(minQuantity = 300, reorderQuantity = 600, expected: { reserved: number; incoming: number } = { reserved: 0, incoming: 0 }) {
@@ -26,13 +28,15 @@ async function world(minQuantity = 300, reorderQuantity = 600, expected: { reser
 
   await create.run({
     tenantId: TENANT_A,
+    userId: ANA,
     warehouseId: MAIN,
+    type: 'physical_count',
     notes: 'Conteo inicial',
     lines: [{ itemId: WATER, unitId: PIECE, direction: 'in', quantity: 200, unitCost: 1 }],
   });
 
-  const [adjustment] = await s.store.searchByTenant(TenantId.of(TENANT_A));
-  await confirm.run({ tenantId: TENANT_A, adjustmentId: adjustment.id.value });
+  const { adjustments: [adjustment] } = await s.store.search(TenantId.of(TENANT_A), FIRST_PAGE);
+  await confirm.run({ tenantId: TENANT_A, userId: ANA, adjustmentId: adjustment.id.value });
 
   const pending = new InMemoryExpectedStock([{ tenantId: TENANT_A, itemId: WATER, warehouseId: MAIN, ...expected }]);
 

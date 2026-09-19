@@ -1,8 +1,9 @@
 import { ConfigService } from '@nestjs/config';
 import type { Env } from '../../../../shared/config/env.schema.js';
 import { PrismaService } from '../../../../shared/prisma/prisma.service.js';
-import { BOX, MAIN, NORTH, PIECE, TENANT_A, TENANT_B, WATER } from '../../domain/testing/inventory.mother.js';
+import { BOX, MAIN, NORTH, PEOPLE, PIECE, TENANT_A, TENANT_B, WATER } from '../../domain/testing/inventory.mother.js';
 import { InventoryPorts, InventoryPortsHarness } from '../../testing/inventory-store.harness.js';
+import { PrismaDocumentAuthors } from '../persistence/prisma-document-authors.js';
 import { PrismaAdjustmentPosting } from '../persistence/prisma-adjustment-posting.js';
 import { PrismaAdjustmentRepository } from '../persistence/prisma-adjustment.repository.js';
 import { PrismaInventoryCodeSequence } from '../persistence/prisma-inventory-code-sequence.js';
@@ -24,6 +25,7 @@ export class PrismaInventoryPortsHarness implements InventoryPortsHarness {
       adjustments: new PrismaAdjustmentRepository(this.prisma),
       stocks: new PrismaStockRepository(this.prisma),
       posting: new PrismaAdjustmentPosting(this.prisma),
+      authors: new PrismaDocumentAuthors(this.prisma),
       codes: new PrismaInventoryCodeSequence(this.prisma),
     };
   }
@@ -50,6 +52,21 @@ export class PrismaInventoryPortsHarness implements InventoryPortsHarness {
       [TENANT_B, 'contract-inventory-b'],
     ]) {
       await this.prisma.tenant.upsert({ where: { id }, create: { id, name: slug, slug }, update: {} });
+    }
+
+    // Las personas que firman los documentos, cada una con su membresia: el puerto de autores
+    // las busca POR membresia, no por el usuario suelto.
+    for (const person of PEOPLE) {
+      await this.prisma.user.upsert({
+        where: { id: person.id },
+        create: { id: person.id, email: `${person.id}@contrato.test`, passwordHash: '$contrato', name: person.name },
+        update: { name: person.name },
+      });
+      await this.prisma.membership.upsert({
+        where: { userId_tenantId: { userId: person.id, tenantId: person.tenantId } },
+        create: { id: person.id, userId: person.id, tenantId: person.tenantId },
+        update: {},
+      });
     }
 
     // Lo minimo del catalogo y del maestro de articulos a lo que apuntan las claves ajenas.

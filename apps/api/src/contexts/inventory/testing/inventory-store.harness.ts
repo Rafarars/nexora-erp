@@ -3,10 +3,13 @@ import { AdjustmentPosting } from '../domain/adjustment/posting/adjustment-posti
 import { InventoryCodeSequence } from '../domain/shared/code-sequence.js';
 import { StockRepository } from '../domain/stock/stock.repository.js';
 
+import { DocumentAuthors } from '../domain/documents/document-authors.js';
+
 export interface InventoryPorts {
   adjustments: AdjustmentRepository;
   stocks: StockRepository;
   posting: AdjustmentPosting;
+  authors: DocumentAuthors;
   codes: InventoryCodeSequence;
 }
 

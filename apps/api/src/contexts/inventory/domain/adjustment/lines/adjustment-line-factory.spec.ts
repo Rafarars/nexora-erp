@@ -37,7 +37,7 @@ const line = (overrides = {}) => ({ itemId: WATER, unitId: PIECE, direction: 'in
 
 describe('AdjustmentLineFactory', () => {
   it('converts a line in boxes to base units and numbers the lines', async () => {
-    const lines = await factory().lines(tenant, [line({ unitId: BOX, quantity: 2, unitCost: 12 }), line({ direction: 'out', quantity: 1 })]);
+    const lines = await factory().lines(tenant, [line({ unitId: BOX, quantity: 2, unitCost: 12 }), line({ direction: 'out', quantity: 1 })], 'correction');
 
     expect(lines.map((built) => built.toPrimitives())).toMatchObject([
       { lineNumber: 1, unitId: BOX, quantity: 2, baseQuantity: 48, unitCost: 12, direction: 'in' },
@@ -59,40 +59,40 @@ describe('AdjustmentLineFactory', () => {
   });
 
   it('treats an item of another tenant as missing', async () => {
-    await expect(factory().lines(tenant, [line({ itemId: FOREIGN_ITEM })])).rejects.toThrow(StockItemNotFoundError);
+    await expect(factory().lines(tenant, [line({ itemId: FOREIGN_ITEM })], 'correction')).rejects.toThrow(StockItemNotFoundError);
   });
 
   it('refuses an inactive item', async () => {
-    await expect(factory().lines(tenant, [line({ itemId: INACTIVE_ITEM })])).rejects.toThrow(InactiveStockItemError);
+    await expect(factory().lines(tenant, [line({ itemId: INACTIVE_ITEM })], 'correction')).rejects.toThrow(InactiveStockItemError);
   });
 
   it('refuses a service, which has no stock', async () => {
-    await expect(factory().lines(tenant, [line({ itemId: SERVICE })])).rejects.toThrow(ServiceHasNoStockError);
+    await expect(factory().lines(tenant, [line({ itemId: SERVICE })], 'correction')).rejects.toThrow(ServiceHasNoStockError);
   });
 
   it('refuses a unit the item does not have', async () => {
-    await expect(factory().lines(tenant, [line({ unitId: KILO })])).rejects.toThrow(UnitNotOfItemError);
+    await expect(factory().lines(tenant, [line({ unitId: KILO })], 'correction')).rejects.toThrow(UnitNotOfItemError);
   });
 
   // Media caja no significa nada, y la unidad es quien lo dice.
   it('refuses half a box when the unit does not admit fractions', async () => {
-    await expect(factory().lines(tenant, [line({ unitId: BOX, quantity: 2.5 })])).rejects.toThrow(FractionalQuantityError);
+    await expect(factory().lines(tenant, [line({ unitId: BOX, quantity: 2.5 })], 'correction')).rejects.toThrow(FractionalQuantityError);
   });
 
   it('still admits a whole number of boxes', async () => {
-    await expect(factory().lines(tenant, [line({ unitId: BOX, quantity: 2 })])).resolves.toHaveLength(1);
+    await expect(factory().lines(tenant, [line({ unitId: BOX, quantity: 2 })], 'correction')).resolves.toHaveLength(1);
   });
 
   it.each([0, -1, 0.00001])('refuses a quantity of %d', async (quantity) => {
-    await expect(factory().lines(tenant, [line({ quantity })])).rejects.toThrow(InvalidQuantityError);
+    await expect(factory().lines(tenant, [line({ quantity })], 'correction')).rejects.toThrow(InvalidQuantityError);
   });
 
   // Una salida se valora al promedio vigente.
   it('refuses a cost on an outgoing line', async () => {
-    await expect(factory().lines(tenant, [line({ direction: 'out', unitCost: 3 })])).rejects.toThrow(CostOnOutgoingLineError);
+    await expect(factory().lines(tenant, [line({ direction: 'out', unitCost: 3 })], 'correction')).rejects.toThrow(CostOnOutgoingLineError);
   });
 
   it('refuses a direction that is neither in nor out', async () => {
-    await expect(factory().lines(tenant, [line({ direction: 'sideways' })])).rejects.toThrow(InvalidDirectionError);
+    await expect(factory().lines(tenant, [line({ direction: 'sideways' })], 'correction')).rejects.toThrow(InvalidDirectionError);
   });
 });

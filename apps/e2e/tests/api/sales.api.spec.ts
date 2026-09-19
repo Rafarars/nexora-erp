@@ -127,7 +127,7 @@ test.describe('dispatches and invoices', () => {
     const notes = `salida ${Date.now()}`;
     await request.post('/api/v1/inventory/adjustments', {
       headers: auth(token),
-      data: { warehouseId: ACME_INVENTORY.mainWarehouse, notes, lines: [{ itemId: item.id, unitId: piece, direction: 'out', quantity: 45 }] },
+      data: { warehouseId: ACME_INVENTORY.mainWarehouse, type: 'loss', notes, lines: [{ itemId: item.id, unitId: piece, direction: 'out', quantity: 45 }] },
     });
     const { adjustments } = await (await request.get('/api/v1/inventory/adjustments', { headers: auth(token) })).json();
     await put(request, token, `/api/v1/inventory/adjustments/${adjustments.find((a: { notes: string }) => a.notes === notes).id}/confirm`);

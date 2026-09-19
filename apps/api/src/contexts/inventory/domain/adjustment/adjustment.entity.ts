@@ -4,6 +4,7 @@ import {
   AdjustmentNotConfirmableError,
   AdjustmentNotEditableError,
   EmptyAdjustmentError,
+  InvalidAdjustmentTypeError,
   InventoryTextTooLongError,
 } from '../errors/inventory.errors.js';
 import { WarehouseRef } from '../shared/references.vo.js';
@@ -19,9 +20,37 @@ export class AdjustmentId extends Uuid {
 
 export type AdjustmentStatus = 'draft' | 'confirmed' | 'cancelled';
 
+// Por que se corrige la existencia. La revaluacion es el unico que no mueve cantidad:
+// reexpresa el costo de lo que ya esta en la bodega.
+export const ADJUSTMENT_TYPES = [
+  'physical_count',
+  'loss',
+  'damage',
+  'expiration',
+  'theft',
+  'correction',
+  'revaluation',
+  'other',
+] as const;
+
+export type AdjustmentType = (typeof ADJUSTMENT_TYPES)[number];
+
+export function isRevaluation(type: AdjustmentType): boolean {
+  return type === 'revaluation';
+}
+
+export function adjustmentTypeOf(value: string): AdjustmentType {
+  const type = ADJUSTMENT_TYPES.find((candidate) => candidate === value);
+
+  if (!type) throw new InvalidAdjustmentTypeError(value);
+
+  return type;
+}
+
 export interface AdjustmentDetails {
   warehouseId: WarehouseRef;
   date: AdjustmentDate;
+  type: AdjustmentType;
   notes: string | null;
   lines: AdjustmentLine[];
 }
@@ -32,10 +61,14 @@ export interface AdjustmentPrimitives {
   code: string;
   warehouseId: string;
   adjustmentDate: string;
+  type: AdjustmentType;
   notes: string | null;
   status: AdjustmentStatus;
+  createdBy: string | null;
   confirmedAt: Date | null;
+  confirmedBy: string | null;
   cancelledAt: Date | null;
+  cancelledBy: string | null;
   createdAt: Date;
   updatedAt: Date;
   lines: AdjustmentLinePrimitives[];
@@ -53,16 +86,29 @@ export class Adjustment {
     readonly code: string,
     private details: AdjustmentDetails,
     private status: AdjustmentStatus,
+    // Quien lo registro y quien lo cerro. Un ajuste mueve existencia sin una operacion
+    // comercial detras: sin esto no queda constancia de quien lo hizo.
+    private readonly createdBy: string | null,
     private confirmedAt: Date | null,
+    private confirmedBy: string | null,
     private cancelledAt: Date | null,
+    private cancelledBy: string | null,
     private readonly createdAt: Date,
     private updatedAt: Date,
     // El updatedAt con que se leyo; null si nunca se guardo.
     private readonly loadedVersion: Date | null = null,
   ) {}
 
-  static draft(id: AdjustmentId, tenantId: TenantId, code: string, details: AdjustmentDetails, now: Date, today: string): Adjustment {
-    return new Adjustment(id, tenantId, code, validated(details, today), 'draft', null, null, now, now);
+  static draft(
+    id: AdjustmentId,
+    tenantId: TenantId,
+    code: string,
+    details: AdjustmentDetails,
+    now: Date,
+    today: string,
+    createdBy: string | null = null,
+  ): Adjustment {
+    return new Adjustment(id, tenantId, code, validated(details, today), 'draft', createdBy, null, null, null, null, now, now);
   }
 
   static fromPrimitives(row: AdjustmentPrimitives): Adjustment {
@@ -73,12 +119,16 @@ export class Adjustment {
       {
         warehouseId: WarehouseRef.of(row.warehouseId),
         date: AdjustmentDate.of(row.adjustmentDate),
+        type: row.type,
         notes: row.notes,
         lines: [...row.lines].sort((a, b) => a.lineNumber - b.lineNumber).map((line) => AdjustmentLine.fromPrimitives(line)),
       },
       row.status,
+      row.createdBy,
       row.confirmedAt,
+      row.confirmedBy,
       row.cancelledAt,
+      row.cancelledBy,
       row.createdAt,
       row.updatedAt,
       row.updatedAt,
@@ -92,10 +142,14 @@ export class Adjustment {
       code: this.code,
       warehouseId: this.details.warehouseId.value,
       adjustmentDate: this.details.date.value,
+      type: this.details.type,
       notes: this.details.notes,
       status: this.status,
+      createdBy: this.createdBy,
       confirmedAt: this.confirmedAt,
+      confirmedBy: this.confirmedBy,
       cancelledAt: this.cancelledAt,
+      cancelledBy: this.cancelledBy,
       createdAt: this.createdAt,
       updatedAt: this.updatedAt,
       lines: this.details.lines.map((line) => line.toPrimitives()),
@@ -119,6 +173,10 @@ export class Adjustment {
     return this.details.date;
   }
 
+  type(): AdjustmentType {
+    return this.details.type;
+  }
+
   lines(): AdjustmentLine[] {
     return [...this.details.lines];
   }
@@ -132,23 +190,25 @@ export class Adjustment {
     this.updatedAt = now;
   }
 
-  confirm(now: Date): void {
+  confirm(now: Date, userId: string | null = null): void {
     if (this.status !== 'draft') {
       throw new AdjustmentNotConfirmableError(this.id.value, this.status);
     }
 
     this.status = 'confirmed';
     this.confirmedAt = now;
+    this.confirmedBy = userId;
     this.updatedAt = now;
   }
 
-  cancel(now: Date): void {
+  cancel(now: Date, userId: string | null = null): void {
     if (this.status === 'cancelled') {
       throw new AdjustmentAlreadyCancelledError(this.id.value);
     }
 
     this.status = 'cancelled';
     this.cancelledAt = now;
+    this.cancelledBy = userId;
     this.updatedAt = now;
   }
 }

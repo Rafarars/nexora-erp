@@ -575,7 +575,7 @@ async function seedInventory(prisma: PrismaClient): Promise<void> {
   const adjustments = [
     {
       id: INVENTORY.acme.opening, tenantId: ACME, code: 'AJU000001', warehouseId: acme.warehouses.main, notes: 'Conteo inicial',
-      status: 'confirmed' as const, confirmedAt,
+      type: 'physical_count' as const, status: 'confirmed' as const, confirmedAt, createdBy: ANA, confirmedBy: ANA,
       lines: [
         { id: INVENTORY.acme.openingWater, itemId: acme.items.water, unitId: acme.units.box, quantity: 10, baseQuantity: 240, unitCost: 12 },
         { id: INVENTORY.acme.openingDetergent, itemId: acme.items.detergent, unitId: acme.units.kilo, quantity: 50, baseQuantity: 50, unitCost: 3.2 },
@@ -583,18 +583,18 @@ async function seedInventory(prisma: PrismaClient): Promise<void> {
     },
     {
       id: INVENTORY.acme.breakage, tenantId: ACME, code: 'AJU000002', warehouseId: acme.warehouses.main, notes: 'Merma por rotura',
-      status: 'draft' as const, confirmedAt: null,
+      type: 'damage' as const, status: 'draft' as const, confirmedAt: null, createdBy: ANA, confirmedBy: null,
       lines: [{ id: INVENTORY.acme.breakageWater, itemId: acme.items.water, unitId: acme.units.piece, quantity: 6, baseQuantity: 6, unitCost: null }],
       direction: 'out' as const,
     },
     {
       id: INVENTORY.globex.opening, tenantId: GLOBEX, code: 'AJU000001', warehouseId: globex.warehouses.main, notes: 'Conteo inicial',
-      status: 'confirmed' as const, confirmedAt,
+      type: 'physical_count' as const, status: 'confirmed' as const, confirmedAt, createdBy: BETO, confirmedBy: BETO,
       lines: [{ id: INVENTORY.globex.openingFilter, itemId: globex.items.filter, unitId: globex.units.piece, quantity: 30, baseQuantity: 30, unitCost: 8.5 }],
     },
     {
       id: INVENTORY.globex.draft, tenantId: GLOBEX, code: 'AJU000002', warehouseId: globex.warehouses.main, notes: 'Filtros dañados',
-      status: 'draft' as const, confirmedAt: null,
+      type: 'damage' as const, status: 'draft' as const, confirmedAt: null, createdBy: BETO, confirmedBy: null,
       lines: [{ id: INVENTORY.globex.draftFilter, itemId: globex.items.filter, unitId: globex.units.piece, quantity: 2, baseQuantity: 2, unitCost: null }],
       direction: 'out' as const,
     },

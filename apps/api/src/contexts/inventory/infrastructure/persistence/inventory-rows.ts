@@ -1,4 +1,4 @@
-import { Adjustment } from '../../domain/adjustment/adjustment.entity.js';
+import { Adjustment, AdjustmentType } from '../../domain/adjustment/adjustment.entity.js';
 import { InventoryMovement, MovementOriginType } from '../../domain/movement/inventory-movement.entity.js';
 import { ItemStock } from '../../domain/stock/item-stock.entity.js';
 import { toNumber } from './decimals.js';
@@ -11,10 +11,14 @@ export interface AdjustmentRow {
   code: string;
   warehouseId: string;
   adjustmentDate: Date;
+  type: AdjustmentType;
   notes: string | null;
   status: 'draft' | 'confirmed' | 'cancelled';
+  createdBy: string | null;
   confirmedAt: Date | null;
+  confirmedBy: string | null;
   cancelledAt: Date | null;
+  cancelledBy: string | null;
   createdAt: Date;
   updatedAt: Date;
   lines: {

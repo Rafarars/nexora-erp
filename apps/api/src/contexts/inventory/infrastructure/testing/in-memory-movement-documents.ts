@@ -3,6 +3,8 @@ import { DocumentRef, MovementDocuments } from '../../domain/documents/movement-
 import { TenantId } from '../../domain/shared/tenant-id.vo.js';
 
 // Los ajustes salen del almacen de la prueba; entradas y despachos se siembran a mano.
+const ALL = { text: null, warehouseId: null, status: null, type: null, from: null, to: null, limit: 1000, offset: 0 };
+
 export class InMemoryMovementDocuments implements MovementDocuments {
   constructor(
     private readonly adjustments: AdjustmentRepository,
@@ -11,7 +13,8 @@ export class InMemoryMovementDocuments implements MovementDocuments {
 
   async codesOf(tenantId: TenantId, documents: DocumentRef[]): Promise<Map<string, string>> {
     const codes = new Map<string, string>();
-    const adjustments = await this.adjustments.searchByTenant(tenantId);
+    // Aqui no hay volumen: el doble de la prueba trae todos los de la empresa.
+    const { adjustments } = await this.adjustments.search(tenantId, ALL);
 
     for (const document of documents) {
       const code =

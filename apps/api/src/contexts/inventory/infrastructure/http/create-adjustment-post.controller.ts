@@ -18,6 +18,6 @@ export class CreateAdjustmentPostController {
     @Session() session: CurrentSession,
     @Body(new ZodValidationPipe(adjustmentRequestSchema)) body: AdjustmentRequestDto,
   ): Promise<void> {
-    await this.creator.run({ ...body, tenantId: session.tenantId });
+    await this.creator.run({ ...body, tenantId: session.tenantId, userId: session.userId });
   }
 }

@@ -1,5 +1,6 @@
 'use client';
 
+import Link from 'next/link';
 import { useActionState, useState } from 'react';
 import { changeAdjustment, saveAdjustment } from '@/app/(app)/inventario/actions';
 import { FormError, SubmitButton, TextArea } from '@/sections/shared/field';
@@ -10,12 +11,36 @@ import type { FormState } from '@/shared/forms/form-state';
 import { selectableOptions } from '@/modules/catalog/domain/catalog';
 import type { Warehouse } from '@/modules/catalog/domain/catalog';
 import type { Item } from '@/modules/inventory/domain/item';
-import { STATUS_LABELS, availableActions, formatCost, formatQuantity, summarizeLines } from '@/modules/inventory/domain/inventory';
-import type { Adjustment } from '@/modules/inventory/domain/inventory';
+import {
+  ADJUSTMENT_TYPE_LABELS,
+  STATUS_LABELS,
+  availableActions,
+  formatCost,
+  formatQuantity,
+  isRevaluation,
+  summarizeLines,
+} from '@/modules/inventory/domain/inventory';
+import type { Adjustment, AdjustmentType } from '@/modules/inventory/domain/inventory';
 import { submitKeepingValues } from '@/shared/forms/submit-keeping-values';
+
+const TYPE_OPTIONS = Object.keys(ADJUSTMENT_TYPE_LABELS) as AdjustmentType[];
+
+export interface AdjustmentSearch {
+  q: string;
+  warehouseId: string;
+  status: string;
+  type: string;
+  from: string;
+  to: string;
+  page: number;
+  pageSize: number;
+  total: number;
+  hasMore: boolean;
+}
 
 export function AdjustmentsBoard({
   adjustments,
+  search,
   items,
   warehouses,
   today,
@@ -25,6 +50,7 @@ export function AdjustmentsBoard({
   canCancel,
 }: {
   adjustments: Adjustment[];
+  search: AdjustmentSearch;
   items: Item[];
   warehouses: Warehouse[];
   today: string;
@@ -74,6 +100,8 @@ export function AdjustmentsBoard({
         ) : null}
       </div>
 
+      <AdjustmentFilters search={search} warehouses={warehouses} />
+
       <FormError message={changeState.error} testId="adjustment-action-error" />
 
       <div className="border-line overflow-x-auto rounded-lg border">
@@ -83,6 +111,7 @@ export function AdjustmentsBoard({
               <th className="px-4 py-2 font-medium">Código</th>
               <th className="px-4 py-2 font-medium">Fecha</th>
               <th className="px-4 py-2 font-medium">Bodega</th>
+              <th className="px-4 py-2 font-medium">Motivo</th>
               <th className="px-4 py-2 font-medium">Líneas</th>
               <th className="px-4 py-2 font-medium">Estado</th>
               {hasOptions ? <th className="w-16 px-4 py-2" aria-label="Opciones" /> : null}
@@ -102,12 +131,18 @@ export function AdjustmentsBoard({
                   <td className="px-4 py-3 font-mono text-xs">{adjustment.code}</td>
                   <td className="px-4 py-3">{adjustment.date}</td>
                   <td className="px-4 py-3">{adjustment.warehouse.name}</td>
+                  <td className="px-4 py-3" data-testid={`adjustment-type-${adjustment.code}`}>
+                    {ADJUSTMENT_TYPE_LABELS[adjustment.type]}
+                  </td>
                   <td className="px-4 py-3">
                     <p data-testid={`adjustment-lines-${adjustment.code}`}>{summarizeLines(adjustment.lines, baseUnitOf)}</p>
                     {adjustment.notes ? <p className="text-muted text-xs">{adjustment.notes}</p> : null}
                   </td>
                   <td className="px-4 py-3" data-testid={`adjustment-status-${adjustment.code}`}>
-                    {STATUS_LABELS[adjustment.status]}
+                    <p>{STATUS_LABELS[adjustment.status]}</p>
+                    <p className="text-muted text-xs" data-testid={`adjustment-author-${adjustment.code}`}>
+                      {authorLine(adjustment)}
+                    </p>
                   </td>
                   {hasOptions ? (
                     <td className="px-4 py-3 text-right">
@@ -156,7 +191,7 @@ export function AdjustmentsBoard({
 
             {adjustments.length === 0 ? (
               <tr>
-                <td colSpan={6} className="text-muted px-4 py-6 text-center" data-testid="adjustments-empty">
+                <td colSpan={7} className="text-muted px-4 py-6 text-center" data-testid="adjustments-empty">
                   Todavía no hay ajustes.
                 </td>
               </tr>
@@ -217,10 +252,22 @@ function AdjustmentFields({
         quantity: formatQuantity(line.quantity),
         cost: line.unitCost === null ? '' : formatCost(line.unitCost),
       }))
-    : [{ key: 0, itemId: '', unitId: '', direction: 'in', quantity: '', cost: '' }];
+    : [
+        {
+          key: 0,
+          itemId: '',
+          unitId: '',
+          direction: 'in',
+          quantity: '',
+          cost: '',
+        },
+      ];
 
   const [rows, setRows] = useState<LineRow[]>(initial);
   const [nextKey, setNextKey] = useState(initial.length);
+  // El motivo decide que pide cada linea: revaluar no mueve cantidad, solo cambia el costo.
+  const [type, setType] = useState<AdjustmentType>(adjustment?.type ?? 'physical_count');
+  const revaluing = isRevaluation(type);
   const update = (key: number, change: Partial<LineRow>) =>
     setRows((current) => current.map((row) => (row.key === key ? { ...row, ...change } : row)));
 
@@ -246,6 +293,26 @@ function AdjustmentFields({
       </div>
 
       <div className="space-y-1.5">
+        <label htmlFor="type" className="text-sm font-medium">
+          Motivo
+        </label>
+        <select
+          id="type"
+          name="type"
+          value={type}
+          onChange={(event) => setType(event.target.value as AdjustmentType)}
+          data-testid="adjustment-type"
+          className="border-line bg-background w-full rounded-md border px-3 py-2 text-sm"
+        >
+          {TYPE_OPTIONS.map((option) => (
+            <option key={option} value={option}>
+              {ADJUSTMENT_TYPE_LABELS[option]}
+            </option>
+          ))}
+        </select>
+      </div>
+
+      <div className="space-y-1.5">
         <label htmlFor="date" className="text-sm font-medium">
           Fecha
         </label>
@@ -265,8 +332,9 @@ function AdjustmentFields({
       <fieldset className="space-y-3" data-testid="adjustment-lines-editor">
         <legend className="text-sm font-medium">Líneas</legend>
         <p className="text-muted text-xs">
-          El costo es por unidad de la línea y solo lo llevan las entradas; sin costo, la entrada se valora a lo que el artículo
-          cuesta hoy, y si no tiene existencia en ninguna bodega hay que escribirlo.
+          {revaluing
+            ? 'Revaluar no cambia cuánto hay: cambia cuánto vale. Escribe el costo nuevo por unidad base; se aplica a toda la existencia que haya en la bodega al confirmar.'
+            : 'El costo es por unidad de la línea y solo lo llevan las entradas; sin costo, la entrada se valora a lo que el artículo cuesta hoy, y si no tiene existencia en ninguna bodega hay que escribirlo.'}
         </p>
 
         {rows.map((row, index) => {
@@ -283,7 +351,10 @@ function AdjustmentFields({
                   // Al cambiar de articulo se propone su unidad base: la de antes ya no aplica.
                   onChange={(event) => {
                     const chosen = stockable.find((candidate) => candidate.id === event.target.value);
-                    update(row.key, { itemId: event.target.value, unitId: chosen?.units.find((u) => u.isBase)?.unitId ?? '' });
+                    update(row.key, {
+                      itemId: event.target.value,
+                      unitId: chosen?.units.find((u) => u.isBase)?.unitId ?? '',
+                    });
                   }}
                   className="border-line bg-background min-w-0 flex-1 rounded-md border px-2 py-2 text-sm"
                 >
@@ -307,54 +378,73 @@ function AdjustmentFields({
               </div>
 
               <div className="flex gap-2">
-                <select
-                  name="lineDirection"
-                  value={row.direction}
-                  aria-label="Tipo"
-                  data-testid={`adjustment-line-direction-${index}`}
-                  onChange={(event) => update(row.key, { direction: event.target.value as 'in' | 'out' })}
-                  className="border-line bg-background rounded-md border px-2 py-2 text-sm"
-                >
-                  <option value="in">Entrada</option>
-                  <option value="out">Salida</option>
-                </select>
-                <input
-                  name="lineQuantity"
-                  value={row.quantity}
-                  inputMode="decimal"
-                  aria-label="Cantidad"
-                  placeholder="Cantidad"
-                  data-testid={`adjustment-line-quantity-${index}`}
-                  onChange={(event) => update(row.key, { quantity: event.target.value })}
-                  className="border-line w-24 rounded-md border bg-transparent px-2 py-2 text-sm"
-                />
-                <select
-                  name="lineUnit"
-                  value={row.unitId}
-                  aria-label="Unidad"
-                  data-testid={`adjustment-line-unit-${index}`}
-                  onChange={(event) => update(row.key, { unitId: event.target.value })}
-                  className="border-line bg-background rounded-md border px-2 py-2 text-sm"
-                >
-                  {(item?.units ?? []).map((unit) => (
-                    <option key={unit.unitId} value={unit.unitId}>
-                      {unit.abbreviation}
-                    </option>
-                  ))}
-                </select>
-                <input
-                  name="lineCost"
-                  value={row.direction === 'in' ? row.cost : ''}
-                  disabled={row.direction === 'out'}
-                  inputMode="decimal"
-                  aria-label="Costo"
-                  placeholder={row.direction === 'in' ? 'Costo' : 'Al promedio'}
-                  data-testid={`adjustment-line-cost-${index}`}
-                  onChange={(event) => update(row.key, { cost: event.target.value })}
-                  className="border-line w-24 rounded-md border bg-transparent px-2 py-2 text-sm disabled:opacity-60"
-                />
-                {/* Un campo deshabilitado no viaja: este mantiene alineadas las columnas. */}
-                {row.direction === 'out' ? <input type="hidden" name="lineCost" value="" /> : null}
+                {revaluing ? (
+                  <input
+                    name="lineCost"
+                    value={row.cost}
+                    inputMode="decimal"
+                    aria-label="Costo nuevo"
+                    placeholder={`Costo nuevo por ${item?.units.find((unit) => unit.isBase)?.abbreviation ?? 'unidad'}`}
+                    data-testid={`adjustment-line-new-cost-${index}`}
+                    onChange={(event) => update(row.key, { cost: event.target.value })}
+                    className="border-line w-full rounded-md border bg-transparent px-2 py-2 text-sm"
+                  />
+                ) : (
+                  <>
+                    <select
+                      name="lineDirection"
+                      value={row.direction}
+                      aria-label="Tipo"
+                      data-testid={`adjustment-line-direction-${index}`}
+                      onChange={(event) =>
+                        update(row.key, {
+                          direction: event.target.value as 'in' | 'out',
+                        })
+                      }
+                      className="border-line bg-background rounded-md border px-2 py-2 text-sm"
+                    >
+                      <option value="in">Entrada</option>
+                      <option value="out">Salida</option>
+                    </select>
+                    <input
+                      name="lineQuantity"
+                      value={row.quantity}
+                      inputMode="decimal"
+                      aria-label="Cantidad"
+                      placeholder="Cantidad"
+                      data-testid={`adjustment-line-quantity-${index}`}
+                      onChange={(event) => update(row.key, { quantity: event.target.value })}
+                      className="border-line w-24 rounded-md border bg-transparent px-2 py-2 text-sm"
+                    />
+                    <select
+                      name="lineUnit"
+                      value={row.unitId}
+                      aria-label="Unidad"
+                      data-testid={`adjustment-line-unit-${index}`}
+                      onChange={(event) => update(row.key, { unitId: event.target.value })}
+                      className="border-line bg-background rounded-md border px-2 py-2 text-sm"
+                    >
+                      {(item?.units ?? []).map((unit) => (
+                        <option key={unit.unitId} value={unit.unitId}>
+                          {unit.abbreviation}
+                        </option>
+                      ))}
+                    </select>
+                    <input
+                      name="lineCost"
+                      value={row.direction === 'in' ? row.cost : ''}
+                      disabled={row.direction === 'out'}
+                      inputMode="decimal"
+                      aria-label="Costo"
+                      placeholder={row.direction === 'in' ? 'Costo' : 'Al promedio'}
+                      data-testid={`adjustment-line-cost-${index}`}
+                      onChange={(event) => update(row.key, { cost: event.target.value })}
+                      className="border-line w-24 rounded-md border bg-transparent px-2 py-2 text-sm disabled:opacity-60"
+                    />
+                    {/* Un campo deshabilitado no viaja: este mantiene alineadas las columnas. */}
+                    {row.direction === 'out' ? <input type="hidden" name="lineCost" value="" /> : null}
+                  </>
+                )}
               </div>
             </div>
           );
@@ -363,7 +453,17 @@ function AdjustmentFields({
         <button
           type="button"
           onClick={() => {
-            setRows((current) => [...current, { key: nextKey, itemId: '', unitId: '', direction: 'in', quantity: '', cost: '' }]);
+            setRows((current) => [
+              ...current,
+              {
+                key: nextKey,
+                itemId: '',
+                unitId: '',
+                direction: 'in',
+                quantity: '',
+                cost: '',
+              },
+            ]);
             setNextKey((key) => key + 1);
           }}
           data-testid="adjustment-line-add"
@@ -398,4 +498,167 @@ function MenuButton({
       {children}
     </button>
   );
+}
+
+// Filtrar y pasar de pagina por la URL: la pantalla se puede compartir y el navegador vuelve
+// atras. Los nombres van en espanol porque son lo que la persona ve en la barra.
+function AdjustmentFilters({ search, warehouses }: { search: AdjustmentSearch; warehouses: Warehouse[] }) {
+  const from = search.total === 0 ? 0 : (search.page - 1) * search.pageSize + 1;
+  const to =
+    (search.page - 1) * search.pageSize + Math.min(search.pageSize, Math.max(0, search.total - (search.page - 1) * search.pageSize));
+  const pageHref = (page: number) =>
+    `/inventario/ajustes?${new URLSearchParams({
+      ...(search.q ? { q: search.q } : {}),
+      ...(search.warehouseId ? { bodega: search.warehouseId } : {}),
+      ...(search.status ? { estado: search.status } : {}),
+      ...(search.type ? { motivo: search.type } : {}),
+      ...(search.from ? { desde: search.from } : {}),
+      ...(search.to ? { hasta: search.to } : {}),
+      ...(page > 1 ? { pagina: String(page) } : {}),
+    }).toString()}`;
+
+  return (
+    <div className="border-line space-y-3 rounded-lg border p-3">
+      <form method="get" className="flex flex-wrap items-end gap-2">
+        <Filter label="Buscar" htmlFor="adjustment-search">
+          <input
+            id="adjustment-search"
+            name="q"
+            defaultValue={search.q}
+            placeholder="Código o notas"
+            data-testid="adjustment-search"
+            className="border-line bg-background w-56 rounded-md border px-3 py-2 text-sm"
+          />
+        </Filter>
+
+        <Filter label="Bodega" htmlFor="adjustment-filter-warehouse">
+          <select
+            id="adjustment-filter-warehouse"
+            name="bodega"
+            defaultValue={search.warehouseId}
+            data-testid="adjustment-filter-warehouse"
+            className="border-line bg-background rounded-md border px-3 py-2 text-sm"
+          >
+            <option value="">Todas</option>
+            {warehouses.map((warehouse) => (
+              <option key={warehouse.id} value={warehouse.id}>
+                {warehouse.name}
+              </option>
+            ))}
+          </select>
+        </Filter>
+
+        <Filter label="Estado" htmlFor="adjustment-filter-status">
+          <select
+            id="adjustment-filter-status"
+            name="estado"
+            defaultValue={search.status}
+            data-testid="adjustment-filter-status"
+            className="border-line bg-background rounded-md border px-3 py-2 text-sm"
+          >
+            <option value="">Todos</option>
+            {(Object.keys(STATUS_LABELS) as (keyof typeof STATUS_LABELS)[]).map((status) => (
+              <option key={status} value={status}>
+                {STATUS_LABELS[status]}
+              </option>
+            ))}
+          </select>
+        </Filter>
+
+        <Filter label="Motivo" htmlFor="adjustment-filter-type">
+          <select
+            id="adjustment-filter-type"
+            name="motivo"
+            defaultValue={search.type}
+            data-testid="adjustment-filter-type"
+            className="border-line bg-background rounded-md border px-3 py-2 text-sm"
+          >
+            <option value="">Todos</option>
+            {TYPE_OPTIONS.map((type) => (
+              <option key={type} value={type}>
+                {ADJUSTMENT_TYPE_LABELS[type]}
+              </option>
+            ))}
+          </select>
+        </Filter>
+
+        <Filter label="Desde" htmlFor="adjustment-filter-from">
+          <input
+            id="adjustment-filter-from"
+            name="desde"
+            type="date"
+            defaultValue={search.from}
+            data-testid="adjustment-filter-from"
+            className="border-line rounded-md border bg-transparent px-3 py-2 text-sm"
+          />
+        </Filter>
+
+        <Filter label="Hasta" htmlFor="adjustment-filter-to">
+          <input
+            id="adjustment-filter-to"
+            name="hasta"
+            type="date"
+            defaultValue={search.to}
+            data-testid="adjustment-filter-to"
+            className="border-line rounded-md border bg-transparent px-3 py-2 text-sm"
+          />
+        </Filter>
+
+        <button
+          type="submit"
+          data-testid="adjustment-search-submit"
+          className="border-line hover:bg-surface rounded-md border px-3 py-2 text-sm"
+        >
+          Filtrar
+        </button>
+      </form>
+
+      <div className="flex items-center justify-end gap-3 text-sm">
+        <span className="text-muted" data-testid="adjustment-page-range">
+          {from}–{to} de {search.total}
+        </span>
+        {search.page > 1 ? (
+          <Link
+            href={pageHref(search.page - 1)}
+            data-testid="adjustment-page-previous"
+            className="border-line hover:bg-surface rounded-md border px-3 py-2"
+          >
+            Anterior
+          </Link>
+        ) : null}
+        {search.hasMore ? (
+          <Link
+            href={pageHref(search.page + 1)}
+            data-testid="adjustment-page-next"
+            className="border-line hover:bg-surface rounded-md border px-3 py-2"
+          >
+            Siguiente
+          </Link>
+        ) : null}
+      </div>
+    </div>
+  );
+}
+
+function Filter({ label, htmlFor, children }: { label: string; htmlFor: string; children: React.ReactNode }) {
+  return (
+    <div className="space-y-1.5">
+      <label htmlFor={htmlFor} className="text-sm font-medium">
+        {label}
+      </label>
+      {children}
+    </div>
+  );
+}
+
+// Quien lo registro y quien lo cerro. Los ajustes anteriores al rastro no lo dicen, y callarlo es
+// mas honesto que inventar un nombre.
+function authorLine(adjustment: Adjustment): string {
+  const closed = adjustment.status === 'cancelled' ? 'Anuló' : 'Confirmó';
+  const parts = [
+    adjustment.createdBy ? `Registró ${adjustment.createdBy}` : null,
+    adjustment.status === 'draft' ? null : adjustment.closedBy ? `${closed} ${adjustment.closedBy}` : null,
+  ].filter(Boolean);
+
+  return parts.length > 0 ? parts.join(' · ') : 'Sin rastro de quién lo hizo';
 }

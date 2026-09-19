@@ -13,11 +13,11 @@ export class AdjustmentCanceller {
     private readonly clock: Clock,
   ) {}
 
-  async run(request: { tenantId: string; adjustmentId: string }): Promise<void> {
+  async run(request: { tenantId: string; adjustmentId: string; userId: string }): Promise<void> {
     const now = this.clock.now();
 
     await this.posting.post(TenantId.of(request.tenantId), AdjustmentId.of(request.adjustmentId), (adjustment, ledger) =>
-      this.cancellation.apply(adjustment, ledger, now),
+      this.cancellation.apply(adjustment, ledger, now, request.userId),
     );
   }
 }

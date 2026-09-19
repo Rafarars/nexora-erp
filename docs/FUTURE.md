@@ -123,13 +123,47 @@ los proveedores de la empresa para resolver nombres.
 
 **Qué habría que hacer:** paginar por código y resolver solo lo que la página muestra.
 
-### Paginación del kardex y de los ajustes
+### Paginación del kardex
 
-**Por qué:** el kardex de un artículo con años de movimientos, o el listado de ajustes de una
-empresa grande, se devuelven enteros.
+**Por qué:** el kardex de un artículo con años de movimientos se devuelve entero.
 
-**Qué habría que hacer:** paginar por `sequence` en el kardex y por código en los ajustes, y
-la guarda de rendimiento del H7.
+**Qué habría que hacer:** paginar por `sequence` y añadir la guarda de rendimiento del H7.
+El **listado de ajustes ya está paginado y filtrado** desde la revisión del módulo (19-sep-2026).
+
+### Aprobación de ajustes por umbral de importe
+
+**Por qué:** un ajuste mueve existencia **sin una operación comercial detrás**, y eso lo convierte
+en el hueco natural de un inventario. Hoy hay una defensa parcial: el permiso
+`inventory.adjustments.confirm` es independiente de `.create`, así que un rol puede registrar sin
+poder confirmar. Lo que falta es que, **por encima de un importe**, lo firme alguien distinto de
+quien lo registró. El sistema de referencia lo tiene, con el umbral configurable por empresa y
+comparado contra el **valor absoluto** del impacto: un faltante grande merece la segunda firma igual
+que un sobrante.
+
+**Qué haría falta:** un estado nuevo «esperando aprobación» con sus transiciones, un parámetro de
+empresa con el umbral, el rastro de quién confirma —que el ajuste ya guarda— y su pantalla. Es un
+hito de control interno completo, no un campo.
+
+### Conteo físico como documento propio
+
+**Por qué:** hoy el ajuste captura un **delta** («salen 5 rotas»), que es lo que hace falta para
+merma, daño, robo y hallazgo. Un conteo de verdad se captura al revés: se escribe **la cantidad
+contada** y el sistema calcula la diferencia. El sistema de referencia, Odoo y ERPNext capturan así.
+
+**Qué haría falta:** un documento propio que congele el saldo del sistema al abrir el conteo, deje
+escribir lo contado línea por línea y, al cerrarlo, **vuelva a comprobar que la existencia no se
+movió entretanto** —si se movió, la diferencia ya no es la que hay y toca recontar—. Se descartó
+cambiar el ajuste a cantidad contada porque rompería el caso frecuente sin resolver ese problema.
+
+### Rastro de autor en el resto de los documentos
+
+**Por qué:** desde la revisión de Ajustes, el ajuste guarda **quién lo registró y quién lo confirmó
+o anuló**. Ningún otro documento lo hace: ni órdenes, ni entradas, ni pedidos, ni despachos, ni
+facturas, ni cobros.
+
+**Qué haría falta:** decidir primero **quién le pasa el usuario al dominio** —el caso de uso, como
+en el ajuste— y repetirlo en los seis contextos, con su migración y su columna nulable para lo ya
+escrito. Se hace cuando se revise cada módulo, o de golpe al revisar Acceso.
 
 ### Ventas: lo que quedó fuera del H5
 
@@ -140,8 +174,6 @@ la guarda de rendimiento del H7.
   las reservas (a propósito: registra algo que ya pasó) y el despacho falla después con un mensaje
   claro. La mejora es avisar al confirmar el ajuste qué pedidos quedan afectados, sin bloquearlo.
   Explicado en `modulos/inventario.md` §1.0.1
-- **Motivo obligatorio en los ajustes** (conteo inicial, conteo, merma, daño, hallazgo), para saber
-  para qué se usó cada uno y sacar reportes de mermas
 - **Devoluciones de venta y notas de crédito**
 - **Listas de precio y descuentos**; hoy el precio se escribe en cada pedido
 - **Vender servicios**, que no salen de bodega

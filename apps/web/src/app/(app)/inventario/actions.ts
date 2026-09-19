@@ -90,20 +90,28 @@ export async function saveAdjustment(_state: FormState, form: FormData): Promise
   const quantities = form.getAll('lineQuantity').map(String);
   const costs = form.getAll('lineCost').map(String);
   const id = String(form.get('id') ?? '') || null;
+  const type = String(form.get('type') ?? '');
+  // Revaluar no mueve cantidad: la linea solo lleva articulo y costo nuevo.
+  const revaluation = type === 'revaluation';
 
   return attempt('No se pudo guardar el ajuste.', (token) =>
     inventoryApi().saveAdjustment(token, id, {
       warehouseId: String(form.get('warehouseId') ?? ''),
+      type,
       date: String(form.get('date') ?? '') || null,
       notes: String(form.get('notes') ?? '').trim() || null,
       // Una fila sin articulo es una que se agrego y no se lleno: se descarta.
       lines: items
         .map((itemId, index) => ({
           itemId,
-          unitId: units[index] ?? '',
-          direction: directions[index] ?? '',
-          quantity: parseDecimal(quantities[index] ?? ''),
-          unitCost: directions[index] === 'in' && (costs[index] ?? '').trim() !== '' ? parseDecimal(costs[index]) : null,
+          ...(revaluation
+            ? { unitCost: (costs[index] ?? '').trim() === '' ? null : parseDecimal(costs[index]) }
+            : {
+                unitId: units[index] ?? '',
+                direction: directions[index] ?? '',
+                quantity: parseDecimal(quantities[index] ?? ''),
+                unitCost: directions[index] === 'in' && (costs[index] ?? '').trim() !== '' ? parseDecimal(costs[index]) : null,
+              }),
         }))
         .filter((line) => line.itemId !== ''),
     }),

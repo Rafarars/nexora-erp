@@ -4,6 +4,7 @@ import { SequentialIdGenerator } from '../../../shared/infrastructure/testing/se
 import { AdjustmentDate } from '../domain/adjustment/adjustment-date.vo.js';
 import { AdjustmentLine, AdjustmentLineId } from '../domain/adjustment/adjustment-line.js';
 import { Adjustment, AdjustmentId } from '../domain/adjustment/adjustment.entity.js';
+import { AdjustmentCriteria } from '../domain/adjustment/adjustment.repository.js';
 import { AdjustmentCancellation } from '../domain/adjustment/posting/adjustment-cancellation.js';
 import { AdjustmentConfirmation } from '../domain/adjustment/posting/adjustment-confirmation.js';
 import {
@@ -21,7 +22,7 @@ import { ItemRef, UnitRef, WarehouseRef } from '../domain/shared/references.vo.j
 import { TenantId } from '../domain/shared/tenant-id.vo.js';
 import { StockMovements } from '../domain/stock/posting/stock-movements.js';
 
-import { BOX, MAIN, NORTH, NOW, PIECE, TENANT_A, TENANT_B, TODAY, WATER } from '../domain/testing/inventory.mother.js';
+import { ANA, BETO, BOX, MAIN, NORTH, NOW, PIECE, TENANT_A, TENANT_B, TODAY, WATER } from '../domain/testing/inventory.mother.js';
 import { InventoryPorts, InventoryPortsHarness } from './inventory-store.harness.js';
 
 const tenant = TenantId.of(TENANT_A);
@@ -74,6 +75,7 @@ export function describeInventoryPortsContract(implementation: string, createHar
         Adjustment.draft(id, tenant, `AJU${String(counter).padStart(6, '0')}`, {
           warehouseId: WarehouseRef.of(warehouse),
           date: AdjustmentDate.of(TODAY),
+          type: 'correction',
           notes: 'contrato',
           lines,
         }, NOW, TODAY),
@@ -81,6 +83,18 @@ export function describeInventoryPortsContract(implementation: string, createHar
 
       return id;
     }
+
+    const page = (overrides: Partial<AdjustmentCriteria> = {}): AdjustmentCriteria => ({
+      text: null,
+      warehouseId: null,
+      status: null,
+      type: null,
+      from: null,
+      to: null,
+      limit: 20,
+      offset: 0,
+      ...overrides,
+    });
 
     const confirm = (id: AdjustmentId) =>
       ports.posting.post(tenant, id, (adjustment, ledger) => new AdjustmentConfirmation(new StockMovements(ids)).apply(adjustment, ledger, NOW));
@@ -133,7 +147,7 @@ export function describeInventoryPortsContract(implementation: string, createHar
         const id = await draft([line('in', 1), line('in', 2)]);
         const adjustment = (await ports.adjustments.find(tenant, id))!;
 
-        adjustment.update({ warehouseId: WarehouseRef.of(NORTH), date: AdjustmentDate.of(TODAY), notes: null, lines: [line('in', 7)] }, NOW, TODAY);
+        adjustment.update({ warehouseId: WarehouseRef.of(NORTH), date: AdjustmentDate.of(TODAY), type: 'correction', notes: null, lines: [line('in', 7)] }, NOW, TODAY);
         await ports.adjustments.save(adjustment);
 
         expect((await ports.adjustments.find(tenant, id))?.toPrimitives()).toMatchObject({
@@ -148,7 +162,7 @@ export function describeInventoryPortsContract(implementation: string, createHar
         const id = await draft([line('in', 5, 1)]);
         const first = (await ports.adjustments.find(tenant, id))!;
         const second = (await ports.adjustments.find(tenant, id))!;
-        const details = (notes: string) => ({ warehouseId: WarehouseRef.of(MAIN), date: AdjustmentDate.of(TODAY), notes, lines: [line('in', 1)] });
+        const details = (notes: string) => ({ warehouseId: WarehouseRef.of(MAIN), date: AdjustmentDate.of(TODAY), type: 'correction' as const, notes, lines: [line('in', 1)] });
 
         first.update(details('primero'), new Date(NOW.getTime() + 1000), TODAY);
         await ports.adjustments.save(first);
@@ -164,7 +178,7 @@ export function describeInventoryPortsContract(implementation: string, createHar
         const stale = (await ports.adjustments.find(tenant, id))!;
         await confirm(id);
 
-        stale.update({ warehouseId: WarehouseRef.of(MAIN), date: AdjustmentDate.of(TODAY), notes: 'tarde', lines: [line('in', 1)] }, NOW, TODAY);
+        stale.update({ warehouseId: WarehouseRef.of(MAIN), date: AdjustmentDate.of(TODAY), type: 'correction', notes: 'tarde', lines: [line('in', 1)] }, NOW, TODAY);
 
         await expect(ports.adjustments.save(stale)).rejects.toThrow(AdjustmentNotEditableError);
         expect((await ports.adjustments.find(tenant, id))?.currentStatus()).toBe('confirmed');
@@ -174,10 +188,63 @@ export function describeInventoryPortsContract(implementation: string, createHar
         await draft([line('in', 1)]);
         await draft([line('in', 1)]);
 
-        const codes = (await ports.adjustments.searchByTenant(tenant)).map((adjustment) => adjustment.code);
+        const codes = (await ports.adjustments.search(tenant, page())).adjustments.map((adjustment) => adjustment.code);
 
         expect(codes).toEqual([...codes].sort().reverse());
-        expect(await ports.adjustments.searchByTenant(TenantId.of(TENANT_B))).toEqual([]);
+        expect((await ports.adjustments.search(TenantId.of(TENANT_B), page())).adjustments).toEqual([]);
+      });
+
+      // Sin paginar, el listado traia todos los ajustes de la empresa con todas sus lineas.
+      it('returns one page at a time and says how many match in total', async () => {
+        await draft([line('in', 1)]);
+        await draft([line('in', 1)]);
+        await draft([line('in', 1)]);
+
+        const first = await ports.adjustments.search(tenant, page({ limit: 2 }));
+        const second = await ports.adjustments.search(tenant, page({ limit: 2, offset: 2 }));
+
+        expect(first.adjustments).toHaveLength(2);
+        expect(second.adjustments).toHaveLength(1);
+        expect([first.total, second.total]).toEqual([3, 3]);
+        expect(first.adjustments.map((a) => a.code)).not.toContain(second.adjustments[0].code);
+      });
+
+      it('filters by warehouse, status, reason, dates and text, and counts only what matches', async () => {
+        const kept = await draft([line('in', 1)], NORTH);
+        await draft([line('in', 1)]);
+        await confirm(await draft([line('in', 1, 1)]));
+
+        const byWarehouse = await ports.adjustments.search(tenant, page({ warehouseId: NORTH }));
+        const byStatus = await ports.adjustments.search(tenant, page({ status: 'confirmed' }));
+        const byType = await ports.adjustments.search(tenant, page({ type: 'loss' }));
+        const byText = await ports.adjustments.search(tenant, page({ text: 'contrato' }));
+        const byFuture = await ports.adjustments.search(tenant, page({ from: '2099-01-01' }));
+
+        expect(byWarehouse.adjustments.map((a) => a.id.value)).toEqual([kept.value]);
+        expect(byWarehouse.total).toBe(1);
+        expect(byStatus.adjustments.map((a) => a.currentStatus())).toEqual(['confirmed']);
+        expect(byType.adjustments).toEqual([]);
+        expect(byText.total).toBe(3);
+        expect(byFuture.adjustments).toEqual([]);
+      });
+    });
+
+    // Un puerto sin contrato es un adaptador sin probar, por pequeno que parezca.
+    describe('DocumentAuthors', () => {
+      it('names the people of the company', async () => {
+        expect(await ports.authors.namesOf(tenant, [ANA])).toEqual(new Map([[ANA, 'Ana Rivas']]));
+      });
+
+      // Quien no pertenece a la empresa no se nombra en sus documentos, ni por error.
+      it('leaves out anyone who is not a member of the company', async () => {
+        const names = await ports.authors.namesOf(tenant, [ANA, BETO]);
+
+        expect(names.has(BETO)).toBe(false);
+        expect(names.get(ANA)).toBe('Ana Rivas');
+      });
+
+      it('answers an empty map when nobody is asked for', async () => {
+        expect(await ports.authors.namesOf(tenant, [])).toEqual(new Map());
       });
     });
 
@@ -229,6 +296,7 @@ export function describeInventoryPortsContract(implementation: string, createHar
           Adjustment.draft(id, tenant, `AJU${String(counter).padStart(6, '0')}`, {
             warehouseId: WarehouseRef.of(MAIN),
             date: AdjustmentDate.of('2025-11-30'),
+            type: 'correction',
             notes: 'contrato',
             lines: [line('in', 10, 2)],
           }, NOW, TODAY),

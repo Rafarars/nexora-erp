@@ -16,6 +16,15 @@ export const PIECE = 'e1111111-1111-4111-8111-111111111111';
 export const BOX = 'e2222222-2222-4222-8222-222222222222';
 export const KILO = 'e3333333-3333-4333-8333-333333333333';
 
+// Las personas del contrato: una de cada empresa.
+export const ANA = '99999999-9999-4999-8999-999999999999';
+export const BETO = '88888888-8888-4888-8888-888888888888';
+
+export const PEOPLE = [
+  { tenantId: TENANT_A, id: ANA, name: 'Ana Rivas' },
+  { tenantId: TENANT_B, id: BETO, name: 'Beto Lugo' },
+];
+
 export const MAIN = 'b1111111-1111-4111-8111-111111111111';
 export const NORTH = 'b2222222-2222-4222-8222-222222222222';
 export const CLOSED = 'b3333333-3333-4333-8333-333333333333';

@@ -1,7 +1,8 @@
 import { Injectable } from '@nestjs/common';
+import { Prisma } from '../../../../generated/prisma/client.js';
 import { PrismaService } from '../../../../shared/prisma/prisma.service.js';
 import { Adjustment, AdjustmentId } from '../../domain/adjustment/adjustment.entity.js';
-import { AdjustmentRepository } from '../../domain/adjustment/adjustment.repository.js';
+import { AdjustmentCriteria, AdjustmentRepository } from '../../domain/adjustment/adjustment.repository.js';
 import { AdjustmentNotEditableError } from '../../domain/errors/inventory.errors.js';
 import { ConcurrentModificationError } from '../../../../shared/domain/concurrent-modification.error.js';
 import { TenantId } from '../../domain/shared/tenant-id.vo.js';
@@ -52,13 +53,47 @@ export class PrismaAdjustmentRepository implements AdjustmentRepository {
     return row ? adjustmentFromRow(row) : null;
   }
 
-  async searchByTenant(tenantId: TenantId): Promise<Adjustment[]> {
-    const rows = await this.prisma.adjustment.findMany({
-      where: { tenantId: tenantId.value },
-      include: { lines: true },
-      orderBy: { code: 'desc' },
-    });
+  async search(tenantId: TenantId, criteria: AdjustmentCriteria): Promise<{ adjustments: Adjustment[]; total: number }> {
+    const where = whereOf(tenantId, criteria);
+    const [rows, total] = await Promise.all([
+      this.prisma.adjustment.findMany({
+        where,
+        include: { lines: true },
+        // El codigo es unico por empresa, asi que ordenar por el ya es determinista.
+        orderBy: { code: 'desc' },
+        take: criteria.limit,
+        skip: criteria.offset,
+      }),
+      this.prisma.adjustment.count({ where }),
+    ]);
 
-    return rows.map(adjustmentFromRow);
+    return { adjustments: rows.map(adjustmentFromRow), total };
   }
+}
+
+function whereOf(tenantId: TenantId, criteria: AdjustmentCriteria): Prisma.AdjustmentWhereInput {
+  const day = (value: string) => new Date(`${value}T00:00:00.000Z`);
+
+  return {
+    tenantId: tenantId.value,
+    ...(criteria.warehouseId ? { warehouseId: criteria.warehouseId } : {}),
+    ...(criteria.status ? { status: criteria.status } : {}),
+    ...(criteria.type ? { type: criteria.type } : {}),
+    ...(criteria.from || criteria.to
+      ? {
+          adjustmentDate: {
+            ...(criteria.from ? { gte: day(criteria.from) } : {}),
+            ...(criteria.to ? { lte: day(criteria.to) } : {}),
+          },
+        }
+      : {}),
+    ...(criteria.text
+      ? {
+          OR: [
+            { code: { contains: criteria.text, mode: 'insensitive' as const } },
+            { notes: { contains: criteria.text, mode: 'insensitive' as const } },
+          ],
+        }
+      : {}),
+  };
 }

@@ -41,7 +41,7 @@ export class PrismaCompanyPortsHarness implements CompanyPortsHarness {
 
     await this.prisma.warehouse.create({ data: { id: warehouseId, tenantId, code: `BOD${900000 + number}`, name: `Contrato ${number}` } });
     await this.prisma.adjustment.create({
-      data: { id: randomUUID(), tenantId, code: `AJU${900000 + number}`, warehouseId, adjustmentDate: new Date('2026-01-15'), status },
+      data: { id: randomUUID(), tenantId, code: `AJU${900000 + number}`, warehouseId, type: 'other' as const, adjustmentDate: new Date('2026-01-15'), status },
     });
   }
 

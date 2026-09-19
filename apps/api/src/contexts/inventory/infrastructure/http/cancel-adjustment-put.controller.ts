@@ -12,6 +12,6 @@ export class CancelAdjustmentPutController {
   @HttpCode(HttpStatus.OK)
   @RequirePermission('inventory.adjustments.cancel')
   async run(@Session() session: CurrentSession, @Param('adjustmentId') adjustmentId: string): Promise<void> {
-    await this.canceller.run({ tenantId: session.tenantId, adjustmentId });
+    await this.canceller.run({ tenantId: session.tenantId, userId: session.userId, adjustmentId });
   }
 }

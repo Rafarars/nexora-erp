@@ -1,6 +1,6 @@
 import { ConcurrentModificationError } from '../../../../shared/domain/concurrent-modification.error.js';
 import { Adjustment, AdjustmentId, AdjustmentPrimitives } from '../../domain/adjustment/adjustment.entity.js';
-import { AdjustmentRepository } from '../../domain/adjustment/adjustment.repository.js';
+import { AdjustmentCriteria, AdjustmentRepository } from '../../domain/adjustment/adjustment.repository.js';
 import { AdjustmentPosting, Ledger, Posting } from '../../domain/adjustment/posting/adjustment-posting.js';
 import {
   AdjustmentNotEditableError,
@@ -65,11 +65,26 @@ export class InMemoryInventoryStore implements AdjustmentRepository, StockReposi
     return row && row.tenantId === tenantId.value ? Adjustment.fromPrimitives(structuredClone(row)) : null;
   }
 
-  async searchByTenant(tenantId: TenantId): Promise<Adjustment[]> {
-    return [...this.adjustments.values()]
+  // Filtra y pagina igual que la base: el doble que filtra de menos da por buenas consultas
+  // que PostgreSQL rechaza, y el contrato deja de servir.
+  async search(tenantId: TenantId, criteria: AdjustmentCriteria): Promise<{ adjustments: Adjustment[]; total: number }> {
+    const text = criteria.text?.toLowerCase() ?? null;
+    const matching = [...this.adjustments.values()]
       .filter((row) => row.tenantId === tenantId.value)
-      .sort((a, b) => b.code.localeCompare(a.code))
-      .map((row) => Adjustment.fromPrimitives(structuredClone(row)));
+      .filter((row) => !criteria.warehouseId || row.warehouseId === criteria.warehouseId)
+      .filter((row) => !criteria.status || row.status === criteria.status)
+      .filter((row) => !criteria.type || row.type === criteria.type)
+      .filter((row) => !criteria.from || row.adjustmentDate >= criteria.from)
+      .filter((row) => !criteria.to || row.adjustmentDate <= criteria.to)
+      .filter((row) => !text || row.code.toLowerCase().includes(text) || (row.notes?.toLowerCase().includes(text) ?? false))
+      .sort((a, b) => b.code.localeCompare(a.code));
+
+    return {
+      adjustments: matching
+        .slice(criteria.offset, criteria.offset + criteria.limit)
+        .map((row) => Adjustment.fromPrimitives(structuredClone(row))),
+      total: matching.length,
+    };
   }
 
   async searchStocks(tenantId: TenantId, warehouseId?: WarehouseRef): Promise<ItemStock[]> {

@@ -1,5 +1,6 @@
-import { stockWarehouses, stockableItems } from '../../domain/testing/inventory.mother.js';
+import { PEOPLE, stockWarehouses, stockableItems } from '../../domain/testing/inventory.mother.js';
 import { InMemoryInventoryCatalog } from './in-memory-inventory-catalog.js';
+import { InMemoryDocumentAuthors } from './in-memory-document-authors.js';
 import { InMemoryInventoryCodeSequence } from './in-memory-inventory-code-sequence.js';
 import { InMemoryInventoryStore } from './in-memory-inventory-store.js';
 import { describeInventoryPortsContract } from '../../testing/inventory-ports.contract.js';
@@ -27,7 +28,13 @@ class InMemoryInventoryPortsHarness implements InventoryPortsHarness {
   private build(): InventoryPorts {
     const store = new InMemoryInventoryStore(this.catalog);
 
-    return { adjustments: store, stocks: store, posting: store, codes: new InMemoryInventoryCodeSequence() };
+    return {
+      adjustments: store,
+      stocks: store,
+      posting: store,
+      authors: new InMemoryDocumentAuthors(PEOPLE),
+      codes: new InMemoryInventoryCodeSequence(),
+    };
   }
 }
 

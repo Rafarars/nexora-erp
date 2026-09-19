@@ -14,6 +14,6 @@ export class ConfirmAdjustmentPutController {
   @HttpCode(HttpStatus.OK)
   @RequirePermission('inventory.adjustments.confirm')
   async run(@Session() session: CurrentSession, @Param('adjustmentId') adjustmentId: string): Promise<void> {
-    await this.confirmer.run({ tenantId: session.tenantId, adjustmentId });
+    await this.confirmer.run({ tenantId: session.tenantId, userId: session.userId, adjustmentId });
   }
 }

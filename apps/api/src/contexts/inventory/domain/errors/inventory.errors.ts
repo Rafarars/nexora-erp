@@ -111,6 +111,33 @@ export class CostOnOutgoingLineError extends InvalidArgumentError {
   }
 }
 
+// El motivo no es texto libre: si no es uno de los que el sistema conoce, el listado y los
+// informes no podrian agrupar por el.
+export class InvalidAdjustmentTypeError extends InvalidArgumentError {
+  constructor(value: string) {
+    super(`Adjustment type <${value}> is not one of the known reasons.`, 'Choose one of the reasons offered for the adjustment.');
+  }
+}
+
+// Revaluar es decir cuanto vale ahora lo que ya esta en la bodega: sin ese costo la linea no
+// dice nada.
+export class MissingRevaluationCostError extends InvalidArgumentError {
+  constructor(lineNumber: number) {
+    super(`Line ${lineNumber} revalues stock and needs a new unit cost.`, 'Every line of a revaluation needs its new unit cost.');
+  }
+}
+
+// Una revaluacion sobre bodega vacia no escribiria ni un movimiento: quedaria un documento
+// confirmado que no hizo nada.
+export class NothingToRevalueError extends ConflictError {
+  constructor(adjustmentId: string) {
+    super(
+      `Adjustment <${adjustmentId}> revalues items with no stock in its warehouse.`,
+      'There is no stock in this warehouse to revalue.',
+    );
+  }
+}
+
 // Una entrada sin costo se valora al promedio, y aqui no hay ninguno: ni la bodega ni el resto
 // de la empresa guardan existencia de este articulo. Valorarla en cero la regalaria, asi que se
 // pide el costo. Es hermano de InsufficientStockError: los dos aparecen al publicar, cuando ya

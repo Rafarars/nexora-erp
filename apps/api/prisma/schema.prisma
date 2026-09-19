@@ -64,7 +64,10 @@ model User {
   createdAt    DateTime @default(now()) @map("created_at")
   updatedAt    DateTime @updatedAt @map("updated_at")
 
-  memberships Membership[]
+  memberships          Membership[]
+  adjustmentsCreated   Adjustment[] @relation("AdjustmentCreatedBy")
+  adjustmentsConfirmed Adjustment[] @relation("AdjustmentConfirmedBy")
+  adjustmentsCancelled Adjustment[] @relation("AdjustmentCancelledBy")
 
   @@map("users")
 }
@@ -515,21 +518,44 @@ model Adjustment {
   code           String           @db.VarChar(12)
   warehouseId    String           @map("warehouse_id") @db.Uuid
   adjustmentDate DateTime         @map("adjustment_date") @db.Date
+  /// Por que se ajusta. Sin esto, ningun informe puede separar la merma del conteo.
+  type           AdjustmentType
   notes          String?          @db.VarChar(500)
   status         AdjustmentStatus @default(draft)
+  /// Quien lo registro y quien lo cerro. Nulables: los ajustes anteriores al rastro no lo dicen.
+  createdBy      String?          @map("created_by") @db.Uuid
   confirmedAt    DateTime?        @map("confirmed_at")
+  confirmedBy    String?          @map("confirmed_by") @db.Uuid
   cancelledAt    DateTime?        @map("cancelled_at")
+  cancelledBy    String?          @map("cancelled_by") @db.Uuid
   createdAt      DateTime         @default(now()) @map("created_at")
   updatedAt      DateTime         @updatedAt @map("updated_at")
 
-  tenant    Tenant           @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  warehouse Warehouse        @relation(fields: [tenantId, warehouseId], references: [tenantId, id], onDelete: Restrict)
-  lines     AdjustmentLine[]
+  tenant      Tenant           @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  warehouse   Warehouse        @relation(fields: [tenantId, warehouseId], references: [tenantId, id], onDelete: Restrict)
+  creator     User?            @relation("AdjustmentCreatedBy", fields: [createdBy], references: [id], onDelete: Restrict)
+  confirmer   User?            @relation("AdjustmentConfirmedBy", fields: [confirmedBy], references: [id], onDelete: Restrict)
+  canceller   User?            @relation("AdjustmentCancelledBy", fields: [cancelledBy], references: [id], onDelete: Restrict)
+  lines       AdjustmentLine[]
 
   @@unique([tenantId, id])
   @@unique([tenantId, code])
   @@index([tenantId, status])
+  @@index([tenantId, type])
   @@map("adjustments")
+}
+
+/// Por que se corrige la existencia. `revaluation` es el unico que no mueve cantidad:
+/// reexpresa el costo de lo que ya esta en la bodega.
+enum AdjustmentType {
+  physical_count
+  loss
+  damage
+  expiration
+  theft
+  correction
+  revaluation
+  other
 }
 
 /// Borrador editable, confirmado (ya movio existencia) o anulado (revertido con

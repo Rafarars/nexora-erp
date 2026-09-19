@@ -58,9 +58,40 @@ export interface Adjustment {
   code: string;
   warehouse: { id: string; name: string };
   date: string;
+  type: AdjustmentType;
   notes: string | null;
   status: AdjustmentStatus;
+  // Quien lo registro y quien lo cerro; null en los anteriores al rastro.
+  createdBy: string | null;
+  closedBy: string | null;
   lines: AdjustmentLine[];
+}
+
+export type AdjustmentType =
+  | 'physical_count'
+  | 'loss'
+  | 'damage'
+  | 'expiration'
+  | 'theft'
+  | 'correction'
+  | 'revaluation'
+  | 'other';
+
+// El orden en que se ofrecen: primero los que mas se usan.
+export const ADJUSTMENT_TYPE_LABELS: Record<AdjustmentType, string> = {
+  physical_count: 'Conteo físico',
+  loss: 'Merma',
+  damage: 'Daño',
+  expiration: 'Vencimiento',
+  theft: 'Robo',
+  correction: 'Corrección',
+  revaluation: 'Revaluación',
+  other: 'Otro',
+};
+
+// Revaluar no mueve cantidad: cambia lo que vale lo que ya esta en la bodega.
+export function isRevaluation(type: AdjustmentType): boolean {
+  return type === 'revaluation';
 }
 
 export const STATUS_LABELS: Record<AdjustmentStatus, string> = {

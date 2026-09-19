@@ -213,14 +213,18 @@ que hacen el compañero y SAP Business One.
 Un ajuste **corrige el sistema cuando no coincide con lo que hay físicamente**. No es la forma de
 meter mercancía comprada.
 
-| Situación | Documento correcto |
-|---|---|
-| Carga inicial: el sistema arranca y ya hay mercancía en la bodega | **Ajuste** de entrada («Conteo inicial») |
-| Un conteo encuentra más o menos de lo registrado | **Ajuste** de entrada o de salida |
-| Mercancía rota, vencida, perdida o robada (merma) | **Ajuste** de salida |
-| Aparece mercancía que no estaba registrada (hallazgo) | **Ajuste** de entrada |
-| Llega mercancía de un proveedor | **Entrada de mercancía** ([compras.md](compras.md)), no un ajuste |
-| Sale mercancía a un cliente | **Despacho** ([ventas.md](ventas.md)), no un ajuste |
+| Situación | Documento correcto | Motivo |
+|---|---|---|
+| Carga inicial: el sistema arranca y ya hay mercancía en la bodega | **Ajuste** de entrada | Conteo físico |
+| Un conteo encuentra más o menos de lo registrado | **Ajuste** de entrada o de salida | Conteo físico |
+| Mercancía rota o dañada | **Ajuste** de salida | Daño |
+| Mercancía que se perdió sin saber cómo | **Ajuste** de salida | Merma |
+| Mercancía vencida | **Ajuste** de salida | Vencimiento |
+| Mercancía robada | **Ajuste** de salida | Robo |
+| Un error de captura que hay que enmendar | **Ajuste** de entrada o de salida | Corrección |
+| El costo con que está valorada la existencia está mal | **Ajuste** de **revaluación** | Revaluación |
+| Llega mercancía de un proveedor | **Entrada de mercancía** ([compras.md](compras.md)), no un ajuste | — |
+| Sale mercancía a un cliente | **Despacho** ([ventas.md](ventas.md)), no un ajuste | — |
 
 **Por qué importa la diferencia.** La entrada queda ligada al proveedor, a la orden y a su costo
 real, y actualiza lo que viene en camino. Un ajuste no dice de dónde vino la mercancía: si se usa para
@@ -263,9 +267,36 @@ existencia, y un motivo obligatorio en cada ajuste (conteo inicial, conteo, merm
 | `code` | `AJU000001` | Asignado al crear |
 | `warehouse_id` | bodega | De la empresa y **activa** |
 | `adjustment_date` | fecha | Por defecto hoy. **No puede ser futura** |
+| `type` | motivo | **Obligatorio**, uno de los ocho de abajo |
 | `notes` | texto(500) | Opcional |
 | `status` | `draft` \| `confirmed` \| `cancelled` | Ver ciclo de vida |
 | `confirmed_at`, `cancelled_at` | fecha y hora | Cuándo cambió de estado |
+| `created_by`, `confirmed_by`, `cancelled_by` | persona | **Quién lo hizo.** Nulables: los ajustes anteriores al rastro no lo dicen |
+
+**Por qué queda quién.** Un ajuste mueve existencia **sin una operación comercial detrás**: no hay
+un proveedor ni un cliente al que volver. Es el hueco natural de un inventario, y lo más barato
+contra eso es que quede escrito quién lo registró y quién lo cerró. La pantalla lo muestra bajo el
+estado; si la persona ya no pertenece a la empresa, su nombre no se resuelve y no se enseña.
+
+Es el único documento que lleva este rastro: el resto está anotado en
+[FUTURE.md](../FUTURE.md).
+
+**Los ocho motivos.** Sin motivo no hay forma de separar cuánto se perdió por merma de cuánto se
+corrigió por conteo, y es la primera pregunta que llega después.
+
+| Motivo | Cuándo | Mueve cantidad |
+|---|---|---|
+| Conteo físico | Un conteo encontró otra cosa | Sí |
+| Merma | Se perdió sin saber cómo | Sí |
+| Daño | Rotura o deterioro | Sí |
+| Vencimiento | Caducó | Sí |
+| Robo | Faltante por sustracción | Sí |
+| Corrección | Se enmienda un error de captura | Sí |
+| **Revaluación** | El costo está mal; la cantidad, bien | **No**: cambia el costo |
+| Otro | No encaja en los anteriores | Sí |
+
+Un motivo que el sistema no conoce se rechaza (`InvalidAdjustmentTypeError`, 400): si fuera texto
+libre, ningún informe podría agrupar por él.
 
 ### 2.2 Líneas — `adjustment_lines`
 
@@ -285,7 +316,11 @@ existencia, y un motivo obligatorio en cada ajuste (conteo inicial, conteo, merm
 - La cantidad base se redondea a 4 decimales; si queda en cero, se rechaza.
 - **Una salida no lleva costo** (`CostOnOutgoingLineError`): se valora al costo promedio vigente.
 - **Costo por unidad de la línea**: 2 cajas de 24 a 12 cada una entran como 48 unidades a 0,50.
-- **Una entrada sin costo** se valora al costo promedio vigente (un hallazgo en un conteo).
+- **Una entrada sin costo** se valora al costo promedio vigente **de esa bodega**. Si el artículo
+  nunca estuvo en ella, ese promedio es cero, así que se usa **lo que el artículo cuesta en el resto
+  de la empresa**, ponderado por lo que hay en cada bodega. Y si no tiene existencia en ninguna,
+  no hay de dónde sacarlo: se pide escribirlo (`UnknownEntryCostError`, 409). Valorarla en cero
+  regalaría la mercancía en la valuación y en toda salida posterior.
 - **Al confirmar**, con los artículos ya bloqueados, cada cantidad base tiene que seguir siendo
   `cantidad × factor` de hoy. Si el artículo cambió su unidad entre la revalidación y el bloqueo,
   el ajuste no se confirma (`StockItemChangedError`, 409) y se vuelve a intentar.
@@ -304,6 +339,25 @@ borrador ───────────▶ confirmado ───────�
 | Borrador | No | Editar (reemplaza todo), confirmar, anular |
 | Confirmado | Ya la movió | Anular (escribe la contrapartida) |
 | Anulado | — | Nada |
+
+### 2.2.1 La revaluación, el motivo que no mueve cantidad
+
+Revaluar **no cambia cuánto hay: cambia cuánto vale**. Su línea no lleva dirección ni cantidad,
+solo el artículo y el **costo nuevo por unidad base**.
+
+Al confirmar se expresa como lo que de verdad es: **sale toda la existencia al costo viejo y vuelve
+a entrar al nuevo**. El kardex no sabe escribir un movimiento de cantidad cero, y expresarlo así
+deja el rastro de por dónde pasó el promedio. La cantidad que se revalora es **la que haya en la
+bodega al confirmar**, no la que hubiera al escribir el borrador.
+
+- Una línea cuyo artículo no tiene existencia en esa bodega no escribe nada.
+- Si **ninguna** línea tiene existencia, el ajuste no se confirma (`NothingToRevalueError`, 409):
+  quedaría un documento confirmado que no hizo nada.
+- **Anular** deshace los movimientos del último al primero —primero la entrada al costo nuevo,
+  después la salida al viejo—, que es lo único que devuelve el promedio exactamente a donde estaba.
+
+Ejemplo: 40 unidades a 2,00 revaluadas a 3,00 escriben una salida de 40 a 2,00 y una entrada de
+40 a 3,00. La existencia sigue en 40; el promedio queda en 3,00. Anular lo devuelve a 2,00.
 
 **Confirmar**
 
@@ -345,7 +399,15 @@ borrador ───────────▶ confirmado ───────�
 | `balance_average_cost` | Costo promedio **después** del movimiento |
 | `origin_type`, `origin_id`, `origin_line_id` | Documento y línea que lo originaron: `adjustment`, `receipt` (entrada de compra) o `dispatch` (despacho de venta) |
 | `reversal_of_id` | Movimiento que revierte, si es una anulación |
-| `occurred_at` | Cuándo |
+| `origin_date` | **El día que declara el documento**: un ajuste fechado en agosto lo dice aquí |
+| `occurred_at` | **Cuándo se publicó**, con su hora. No tiene por qué ser el mismo día |
+
+**Dos fechas, y las dos hacen falta.** Un ajuste fechado el 10 de agosto puede confirmarse el 19 de
+septiembre. El saldo corrido (`balance_quantity`) se calcula **en el orden en que se publica**, que
+es el orden en que la existencia cambió de verdad; por eso `sequence` y `occurred_at` mandan sobre
+el saldo. Pero quien lee el kardex quiere ver la fecha que escribió en el documento, así que la
+pantalla muestra `origin_date` y añade «Registrado el …» solo cuando las dos difieren. Las entradas
+de compra y los despachos guardan las suyas igual.
 
 **Costo promedio ponderado**
 
@@ -435,7 +497,7 @@ Las del artículo se explican en [§1](#1-artículos); la de la bodega vive en e
 | Crear artículo | `POST /api/v1/inventory/items` | `inventory.items.create` |
 | Editar artículo y sus unidades | `PUT /api/v1/inventory/items/:itemId` | `inventory.items.update` |
 | Desactivar o reactivar artículo | `PUT /api/v1/inventory/items/:itemId/status` | `inventory.items.deactivate` |
-| Listar ajustes | `GET /api/v1/inventory/adjustments` | `inventory.adjustments.search` |
+| Listar ajustes | `GET /api/v1/inventory/adjustments?q=&warehouseId=&status=&type=&from=&to=&limit=&offset=` | `inventory.adjustments.search` |
 | Crear borrador | `POST /api/v1/inventory/adjustments` | `inventory.adjustments.create` |
 | Editar borrador | `PUT /api/v1/inventory/adjustments/:adjustmentId` | `inventory.adjustments.update` |
 | Confirmar | `PUT /api/v1/inventory/adjustments/:adjustmentId/confirm` | `inventory.adjustments.confirm` |
@@ -470,8 +532,8 @@ Las del artículo se explican en [§1](#1-artículos); la de la bodega vive en e
 | `/inventario/articulos` | Tabla con SKU, tipo, categoría, **para qué se usa** (comprar, vender), **impuestos de venta y de compra** y unidades («un · 1 cja = 24 un»); **buscador y paginación**; panel con código de barras, editor de unidades y **mínimos por bodega** |
 | `/inventario/bajo-minimo` | Lo que hay que reponer: **existencia, reservado, en camino y proyectada**, mínimo, cuánto falta y cuánto pedir, con filtro por bodega |
 | `/inventario/existencias` | Artículo, bodega, existencia en unidad base, costo promedio, valor y total; filtro por bodega en la dirección |
-| `/inventario/ajustes` | Código, fecha, bodega, resumen de líneas («+2 cja (48 un) AGUA-500»), estado y Opciones según el estado |
-| `/inventario/kardex` | Elige artículo y bodega; cada movimiento con documento, cantidad, costo, saldo y promedio, y las anulaciones marcadas |
+| `/inventario/ajustes` | Código, fecha, bodega, **motivo**, resumen de líneas («+2 cja (48 un) AGUA-500»), estado con **quién lo registró y quién lo cerró**, y Opciones según el estado; **filtros por texto, bodega, estado, motivo y rango de fechas, y paginación** |
+| `/inventario/kardex` | Elige artículo y bodega; cada movimiento con **la fecha del documento** (y la de registro cuando difieren), documento, cantidad, costo, saldo y promedio, y las anulaciones marcadas |
 
 - El formulario de artículos se ofrece solo si el rol puede leer categorías, impuestos y unidades.
 - En el editor de unidades, **la primera unidad elegida queda como base**, y la marca sigue a la
@@ -479,6 +541,10 @@ Las del artículo se explican en [§1](#1-artículos); la de la bodega vive en e
 - El formulario de ajustes se ofrece solo si el rol puede leer artículos y bodegas.
 - En cada línea: al elegir un artículo se propone su unidad base; el costo solo se habilita en
   entradas.
+- **El motivo decide qué pide cada línea**: con «Revaluación» desaparecen dirección, cantidad y
+  unidad, y queda un solo campo, el costo nuevo por unidad base.
+- **Los filtros viajan en la dirección** (`?bodega=&estado=&motivo=&desde=&hasta=&pagina=`): la
+  pantalla se puede compartir y el navegador vuelve atrás.
 - Confirmar y anular muestran el error traducido encima de la tabla («No hay existencia suficiente
   para esta salida.»).
 
