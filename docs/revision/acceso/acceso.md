@@ -301,3 +301,22 @@ Vale la pena escribirlo para no volver a mirarlo, y porque el acierto enseña ta
   ve.
 - **Ninguna ruta llega sin declarar** qué pide: lo vigila una prueba que las recorre todas.
 - **El cuerpo de las peticiones nunca acepta `tenantId`**: sale siempre de la sesión firmada.
+
+---
+
+## Lo que esta revisión NO hizo
+
+Para que quien la lea sepa dónde están los bordes:
+
+- **No se leyó el sistema de referencia ni el consenso del sector.** Se lanzaron las dos lecturas al
+  empezar y ninguna llegó a tiempo; la revisión siguió sin ellas. Los hallazgos salieron todos de
+  leer el código propio y reproducirlos contra la API, y las decisiones de diseño se tomaron con ese
+  material. Queda pendiente contrastar con `verlumyx/erp` y con OWASP/NIST, sobre todo en tres
+  puntos: cuánto debe durar una sesión, si conviene un desafío tras varios intentos fallidos, y qué
+  reglas de contraseña pedir —hoy sólo se exigen ocho caracteres, sin comprobación contra listas de
+  contraseñas filtradas—.
+- **No se revisó la auditoría de accesos**, que no existe: el sistema no registra quién entró, ni
+  quién cambió permisos a quién. No se miró si eso importa para este proyecto.
+- **La pasada a mano se hizo sobre lo construido hoy**, no sobre todas las pantallas del módulo: se
+  comprobó que el rol de administrador aparece sin botón de editar, que el rol vacío se rechaza con
+  su mensaje en español, y que quien cambia su contraseña sigue dentro después.
