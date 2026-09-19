@@ -61,7 +61,7 @@ class InMemoryReportingHarness implements ReportingReadModelHarness {
       model.receipt(tenantId, { ...currency, date, amount: lines.reduce((sum, line) => sum + Math.round(line.quantity * line.unitCost * 100), 0) / 100 });
     }
 
-    for (const warehouse of this.warehouses) model.warehouse(warehouse.tenantId, warehouse.id);
+    for (const warehouse of this.warehouses) model.warehouse(warehouse.tenantId, warehouse.id, warehouse.name);
 
     for (const stock of this.stocks) {
       const item = this.items.find((candidate) => candidate.id === stock.itemId)!;

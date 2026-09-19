@@ -1,7 +1,8 @@
 import { can } from '@/modules/access/domain/session';
 import { formatCost, formatQuantity } from '@/modules/inventory/domain/inventory';
-import { formatAmount } from '@/modules/purchasing/domain/purchasing';
+import { formatReportAmount } from '@/modules/reports/domain/reports';
 import { DownloadLinks } from '@/sections/reports/download-links';
+import { ReportPager } from '@/sections/reports/report-pager';
 import { ReportTable } from '@/sections/reports/report-table';
 import { catalogApi } from '@/shared/session/catalog-api';
 import { reportsApi } from '@/shared/session/reports-api';
@@ -9,7 +10,7 @@ import { requireSession } from '@/shared/session/current-session';
 
 export const dynamic = 'force-dynamic';
 
-export default async function ValuationReportPage({ searchParams }: { searchParams: Promise<{ bodega?: string }> }) {
+export default async function ValuationReportPage({ searchParams }: { searchParams: Promise<{ bodega?: string; desde_fila?: string }> }) {
   const { session, token } = await requireSession();
 
   if (!can(session, 'reports.inventory.search')) {
@@ -20,8 +21,11 @@ export default async function ValuationReportPage({ searchParams }: { searchPara
     );
   }
 
-  const { bodega } = await searchParams;
-  const [report, warehouses] = await Promise.all([reportsApi().valuation(token, bodega || undefined), can(session, 'catalog.warehouses.search') ? catalogApi().searchWarehouses(token) : []]);
+  const { bodega, desde_fila } = await searchParams;
+  const offset = Number(desde_fila ?? 0);
+  const [report, warehouses] = await Promise.all([reportsApi().valuation(token, bodega || undefined, Number.isInteger(offset) && offset > 0 ? offset : 0), can(session, 'catalog.warehouses.search') ? catalogApi().searchWarehouses(token) : []]);
+
+  const amount = (value: number) => formatReportAmount(value, report.decimals);
 
   return (
     <section className="space-y-4">
@@ -64,10 +68,11 @@ export default async function ValuationReportPage({ searchParams }: { searchPara
           { header: 'Artículo', cell: (row) => `${row.item.sku} — ${row.item.name}` },
           { header: 'Existencia', numeric: true, cell: (row) => `${formatQuantity(row.quantity)} ${row.baseUnit}` },
           { header: 'Costo promedio', numeric: true, cell: (row) => formatCost(row.averageCost) },
-          { header: 'Valor', numeric: true, cell: (row) => formatAmount(row.value) },
+          { header: 'Valor', numeric: true, cell: (row) => amount(row.value) },
         ]}
-        totals={['Total', '', '', '', formatAmount(report.totalValue)]}
+        totals={['Total', '', '', '', amount(report.totalValue)]}
       />
+      <ReportPager page={report.page} params={{ bodega }} testId="report-valuation" />
     </section>
   );
 }

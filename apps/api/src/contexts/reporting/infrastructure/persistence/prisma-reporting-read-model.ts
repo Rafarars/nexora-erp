@@ -51,8 +51,10 @@ export class PrismaReportingReadModel implements ReportingReadModel {
     return rows.map((row) => ({ ...row, creditLimit: row.creditLimit === null ? null : row.creditLimit.toNumber() }));
   }
 
-  async warehouseExists(tenantId: TenantId, warehouseId: string): Promise<boolean> {
-    return (await this.prisma.warehouse.count({ where: { tenantId: tenantId.value, id: warehouseId } })) > 0;
+  async warehouseNamed(tenantId: TenantId, warehouseId: string): Promise<string | null> {
+    const warehouse = await this.prisma.warehouse.findFirst({ where: { tenantId: tenantId.value, id: warehouseId }, select: { name: true } });
+
+    return warehouse?.name ?? null;
   }
 
   async issuedInvoices(tenantId: TenantId, decimals: number, customerId?: string): Promise<ReportInvoice[]> {

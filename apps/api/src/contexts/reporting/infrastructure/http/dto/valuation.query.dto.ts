@@ -4,4 +4,8 @@ import { z } from 'zod';
 // identificador que elige quien llama.
 export const valuationQuerySchema = z.object({ warehouseId: z.string().optional(), format: z.string().optional() });
 
+// La pantalla pagina; la exportacion, no.
+export const pagedValuationQuerySchema = z.object({ warehouseId: z.string().optional(), limit: z.coerce.number().optional(), offset: z.coerce.number().optional() });
+
 export type ValuationQueryDto = z.infer<typeof valuationQuerySchema>;
+export type PagedValuationQueryDto = z.infer<typeof pagedValuationQuerySchema>;

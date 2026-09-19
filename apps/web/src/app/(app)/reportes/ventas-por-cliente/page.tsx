@@ -1,10 +1,10 @@
 import { AccessError } from '@/modules/access/domain/access-error';
 import { can } from '@/modules/access/domain/session';
-import { formatAmount } from '@/modules/purchasing/domain/purchasing';
-import { monthToDate } from '@/modules/reports/domain/reports';
+import { formatReportAmount, monthToDate } from '@/modules/reports/domain/reports';
 import type { SalesByCustomerReport } from '@/modules/reports/domain/reports';
 import { readableReportsError } from '@/modules/reports/domain/reports-error';
 import { DownloadLinks } from '@/sections/reports/download-links';
+import { ReportPager } from '@/sections/reports/report-pager';
 import { ReportTable } from '@/sections/reports/report-table';
 import { FormError } from '@/sections/shared/field';
 import { reportsApi } from '@/shared/session/reports-api';
@@ -13,7 +13,7 @@ import { requireSession } from '@/shared/session/current-session';
 
 export const dynamic = 'force-dynamic';
 
-export default async function SalesByCustomerPage({ searchParams }: { searchParams: Promise<{ desde?: string; hasta?: string }> }) {
+export default async function SalesByCustomerPage({ searchParams }: { searchParams: Promise<{ desde?: string; hasta?: string; desde_fila?: string }> }) {
   const { session, token } = await requireSession();
 
   if (!can(session, 'reports.sales.search')) {
@@ -25,17 +25,20 @@ export default async function SalesByCustomerPage({ searchParams }: { searchPara
   }
 
   const month = monthToDate((await companyApi().settings(token)).today);
-  const { desde = month.from, hasta = month.to } = await searchParams;
+  const { desde = month.from, hasta = month.to, desde_fila } = await searchParams;
+  const offset = Number(desde_fila ?? 0);
   let report: SalesByCustomerReport | null = null;
   let error: string | null = null;
 
   try {
-    report = await reportsApi().salesByCustomer(token, desde, hasta);
+    report = await reportsApi().salesByCustomer(token, desde, hasta, Number.isInteger(offset) && offset > 0 ? offset : 0);
   } catch (caught) {
     if (!(caught instanceof AccessError)) throw caught;
 
     error = readableReportsError(caught, 'No se pudo leer el reporte.');
   }
+
+  const amount = (value: number) => formatReportAmount(value, report?.decimals ?? 2);
 
   return (
     <section className="space-y-4">
@@ -67,6 +70,7 @@ export default async function SalesByCustomerPage({ searchParams }: { searchPara
       <FormError message={error} testId="report-sales-error" />
 
       {report ? (
+        <>
         <ReportTable
           testId="report-sales"
           rows={report.customers}
@@ -75,12 +79,14 @@ export default async function SalesByCustomerPage({ searchParams }: { searchPara
           columns={[
             { header: 'Cliente', cell: (row) => row.customer.name },
             { header: 'Facturas', numeric: true, cell: (row) => row.invoices },
-            { header: 'Subtotal', numeric: true, cell: (row) => formatAmount(row.subtotal) },
-            { header: 'Impuesto', numeric: true, cell: (row) => formatAmount(row.tax) },
-            { header: 'Total', numeric: true, cell: (row) => formatAmount(row.total) },
+            { header: 'Subtotal', numeric: true, cell: (row) => amount(row.subtotal) },
+            { header: 'Impuesto', numeric: true, cell: (row) => amount(row.tax) },
+            { header: 'Total', numeric: true, cell: (row) => amount(row.total) },
           ]}
-          totals={['Total', report.totals.invoices, formatAmount(report.totals.subtotal), formatAmount(report.totals.tax), formatAmount(report.totals.total)]}
+          totals={['Total', report.totals.invoices, amount(report.totals.subtotal), amount(report.totals.tax), amount(report.totals.total)]}
         />
+        <ReportPager page={report.page} params={{ desde, hasta }} testId="report-sales" />
+        </>
       ) : null}
     </section>
   );

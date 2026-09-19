@@ -1,6 +1,7 @@
 import { ReportCompany } from '../../domain/read-model/reporting-read-model.js';
 import { AGING_BUCKETS, AgingBucket } from '../../domain/aging/aging.js';
 import { ReportDocument } from '../../domain/document/report-document.js';
+import { formatAmount } from '../../domain/document/report-format.js';
 import { CustomerStatementResponse } from '../customer-statement/customer-statement-report.js';
 import { InventoryValuationResponse } from '../inventory-valuation/inventory-valuation-report.js';
 import { ReceivablesAgingResponse } from '../receivables-aging/receivables-aging-report.js';
@@ -31,6 +32,7 @@ export function receivablesAgingDocument(report: ReceivablesAgingResponse, compa
     fileName: `antiguedad-de-saldos-${report.asOf}`,
     title: 'Antigüedad de saldos por cobrar',
     subtitle: [company, `Al ${report.asOf} · ${amountsIn(report.currency)}`],
+    decimals: report.decimals,
     columns: [{ key: 'code', label: 'Código', kind: 'text' }, { key: 'customer', label: 'Cliente', kind: 'text' }, ...buckets, { key: 'total', label: 'Saldo', kind: 'amount' }],
     rows: report.customers.map((row) => ({ code: row.customer.code, customer: row.customer.name, ...row.aging })),
     totals: { code: 'Total', customer: null, ...report.totals },
@@ -39,12 +41,14 @@ export function receivablesAgingDocument(report: ReceivablesAgingResponse, compa
 
 export function customerStatementDocument(report: CustomerStatementResponse, company: string): ReportDocument {
   const { customer } = report;
-  const credit = customer.paymentTermDays === 0 ? 'Contado' : `Plazo ${customer.paymentTermDays} días · Límite ${customer.creditLimit === null ? 'sin límite' : customer.creditLimit.toFixed(2)}`;
+  const amount = (value: number) => formatAmount(value, report.decimals);
+  const credit = customer.paymentTermDays === 0 ? 'Contado' : `Plazo ${customer.paymentTermDays} días · Límite ${customer.creditLimit === null ? 'sin límite' : amount(customer.creditLimit)}`;
 
   return {
     fileName: `estado-de-cuenta-${customer.code}-${report.asOf}`,
     title: `Estado de cuenta — ${customer.name}`,
-    subtitle: [company, [customer.code, customer.fiscalId].filter(Boolean).join(' · '), credit, `Al ${report.asOf} · Saldo ${report.balance.toFixed(2)} · Vencido ${report.overdue.toFixed(2)} · ${amountsIn(report.currency)}`],
+    subtitle: [company, [customer.code, customer.fiscalId].filter(Boolean).join(' · '), credit, `Al ${report.asOf} · Saldo ${amount(report.balance)} · Vencido ${amount(report.overdue)} · ${amountsIn(report.currency)}`],
+    decimals: report.decimals,
     columns: [
       { key: 'date', label: 'Fecha', kind: 'date' },
       { key: 'document', label: 'Documento', kind: 'text' },
@@ -68,6 +72,7 @@ export function salesByCustomerDocument(report: SalesByCustomerResponse, company
     fileName: `ventas-por-cliente-${report.period.from}-a-${report.period.to}`,
     title: 'Ventas por cliente',
     subtitle: [company, `Del ${report.period.from} al ${report.period.to} · Facturas emitidas · ${amountsIn(report.currency)}`],
+    decimals: report.decimals,
     columns: [
       { key: 'code', label: 'Código', kind: 'text' },
       { key: 'customer', label: 'Cliente', kind: 'text' },
@@ -81,11 +86,12 @@ export function salesByCustomerDocument(report: SalesByCustomerResponse, company
   };
 }
 
-export function inventoryValuationDocument(report: InventoryValuationResponse, company: string, warehouseName: string | null): ReportDocument {
+export function inventoryValuationDocument(report: InventoryValuationResponse, company: string, asOf: string): ReportDocument {
   return {
-    fileName: 'valuacion-de-inventario',
+    fileName: `valuacion-de-inventario-${report.warehouseName ? `${report.warehouseName.toLowerCase().replace(/[^a-z0-9]+/g, '-')}-` : ''}${asOf}`,
     title: 'Valuación del inventario',
-    subtitle: [company, warehouseName ? `Bodega ${warehouseName}` : 'Todas las bodegas', `Existencia al costo promedio · ${amountsIn(report.currency)}`],
+    subtitle: [company, report.warehouseName ? `Bodega ${report.warehouseName}` : 'Todas las bodegas', `Existencia al costo promedio · ${amountsIn(report.currency)}`],
+    decimals: report.decimals,
     columns: [
       { key: 'warehouse', label: 'Bodega', kind: 'text' },
       { key: 'sku', label: 'SKU', kind: 'text' },

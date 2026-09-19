@@ -1,3 +1,4 @@
+import { BusinessCalendar } from '../../../../shared/domain/ports/business-calendar.js';
 import { ExportFormat, RenderedReport, ReportRenderer, exportFormat } from '../../domain/document/report-document.js';
 import { ReportingReadModel } from '../../domain/read-model/reporting-read-model.js';
 import { TenantId } from '../../domain/shared/tenant-id.vo.js';
@@ -17,6 +18,7 @@ export class ReportExports {
     private readonly valuation: InventoryValuationReport,
     private readonly readModel: ReportingReadModel,
     private readonly renderer: ReportRenderer,
+    private readonly calendar: BusinessCalendar,
   ) {}
 
   async receivablesAging(request: { tenantId: string }, format: string | undefined): Promise<RenderedReport> {
@@ -43,7 +45,7 @@ export class ReportExports {
     return this.write(chosen, request.tenantId, async (company) => {
       const report = await this.valuation.run(request);
 
-      return inventoryValuationDocument(report, company, request.warehouseId ? (report.rows[0]?.warehouse.name ?? null) : null);
+      return inventoryValuationDocument(report, company, await this.calendar.today(request.tenantId));
     });
   }
 

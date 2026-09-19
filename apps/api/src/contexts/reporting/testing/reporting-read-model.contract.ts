@@ -189,8 +189,10 @@ export function describeReportingReadModelContract(implementation: string, creat
         { warehouseId: NORTH, warehouseName: 'Reporte norte', itemId: SOAP, sku: 'REPORTE-JABON', name: 'Reporte jabón', baseUnit: 'rck', quantity: 2.5, averageCost: 3.333333 },
       ]);
       expect((await readModel.stock(tenant, NORTH)).map((row) => row.sku)).toEqual(['REPORTE-JABON']);
-      expect(await readModel.warehouseExists(tenant, NORTH)).toBe(true);
-      expect(await readModel.warehouseExists(tenant, FOREIGN_WAREHOUSE)).toBe(false);
+      // El nombre, no un si o un no: el PDF de una bodega vacia lo necesita, y sin filas de
+      // existencia no hay de donde sacarlo.
+      expect(await readModel.warehouseNamed(tenant, NORTH)).toBe('Reporte norte');
+      expect(await readModel.warehouseNamed(tenant, FOREIGN_WAREHOUSE)).toBe(null);
     });
   });
 }

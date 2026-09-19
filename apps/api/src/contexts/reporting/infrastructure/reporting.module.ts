@@ -65,9 +65,9 @@ import { PdfExcelReportRenderer } from './rendering/report-renderer.js';
     { provide: InventoryValuationReport, useFactory: (r: ReportingReadModel, dr: DocumentRates) => new InventoryValuationReport(r, dr), inject: [REPORTING_READ_MODEL, DOCUMENT_RATES] },
     {
       provide: ReportExports,
-      useFactory: (a: ReceivablesAgingReport, c: CustomerStatementReport, s: SalesByCustomerReport, v: InventoryValuationReport, r: ReportingReadModel, w: ReportRenderer) =>
-        new ReportExports(a, c, s, v, r, w),
-      inject: [ReceivablesAgingReport, CustomerStatementReport, SalesByCustomerReport, InventoryValuationReport, REPORTING_READ_MODEL, REPORT_RENDERER],
+      useFactory: (a: ReceivablesAgingReport, c: CustomerStatementReport, s: SalesByCustomerReport, v: InventoryValuationReport, r: ReportingReadModel, w: ReportRenderer, cal: BusinessCalendar) =>
+        new ReportExports(a, c, s, v, r, w, cal),
+      inject: [ReceivablesAgingReport, CustomerStatementReport, SalesByCustomerReport, InventoryValuationReport, REPORTING_READ_MODEL, REPORT_RENDERER, BUSINESS_CALENDAR],
     },
   ],
 })

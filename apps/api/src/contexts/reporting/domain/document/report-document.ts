@@ -24,6 +24,10 @@ export interface ReportDocument {
   title: string;
   // Lineas bajo el titulo: empresa, fecha de corte, filtros.
   subtitle: string[];
+  // Los decimales que configura la empresa. Viaja con el documento porque el PDF y el Excel tienen
+  // que ensenar los mismos que la pantalla: si el renderizador fija dos por su cuenta, las filas de
+  // una empresa con cuatro dejan de sumar su propio total.
+  decimals: number;
   columns: ReportColumn[];
   rows: Record<string, ReportCell>[];
   totals: Record<string, ReportCell> | null;

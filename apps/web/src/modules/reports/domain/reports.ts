@@ -13,9 +13,19 @@ export interface Dashboard {
   topItems: { item: { id: string; sku: string; name: string }; subtotal: number }[];
 }
 
+// Lo que la pantalla necesita para saber si hay mas filas de las que recibio.
+export interface ReportPage {
+  total: number;
+  limit: number;
+  offset: number;
+  hasMore: boolean;
+}
+
 export interface AgingReport {
   asOf: string;
   currency: string;
+  decimals: number;
+  page: ReportPage;
   customers: { customer: { id: string; code: string; name: string }; aging: AgingTotals }[];
   totals: AgingTotals;
 }
@@ -23,6 +33,8 @@ export interface AgingReport {
 export interface StatementReport {
   asOf: string;
   currency: string;
+  decimals: number;
+  page: ReportPage;
   customer: { id: string; code: string; name: string; fiscalId: string | null; paymentTermDays: number; creditLimit: number | null };
   balance: number;
   overdue: number;
@@ -32,15 +44,26 @@ export interface StatementReport {
 export interface SalesByCustomerReport {
   period: { from: string; to: string };
   currency: string;
+  decimals: number;
+  page: ReportPage;
   customers: { customer: { id: string; code: string; name: string }; invoices: number; subtotal: number; tax: number; total: number }[];
   totals: { invoices: number; subtotal: number; tax: number; total: number };
 }
 
 export interface ValuationReport {
   warehouse: string | null;
+  warehouseName: string | null;
   currency: string;
+  decimals: number;
+  page: ReportPage;
   rows: { warehouse: { id: string; name: string }; item: { id: string; sku: string; name: string }; baseUnit: string; quantity: number; averageCost: number; value: number }[];
   totalValue: number;
+}
+
+// Los decimales que configura la empresa, los mismos que escriben el PDF y el Excel: antes la
+// pantalla usaba el formateador de compras, con un minimo de dos y un maximo de cuatro fijos.
+export function formatReportAmount(value: number, decimals: number): string {
+  return value.toLocaleString('es-VE', { minimumFractionDigits: decimals, maximumFractionDigits: decimals });
 }
 
 export type ReportName = 'antiguedad' | 'estado-de-cuenta' | 'ventas-por-cliente' | 'valuacion-inventario';

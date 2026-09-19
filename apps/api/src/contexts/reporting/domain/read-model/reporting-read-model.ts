@@ -71,7 +71,8 @@ export interface ReportCompany {
 export interface ReportingReadModel {
   company(tenantId: TenantId): Promise<ReportCompany>;
   customers(tenantId: TenantId): Promise<ReportCustomer[]>;
-  warehouseExists(tenantId: TenantId, warehouseId: string): Promise<boolean>;
+  // El nombre, no un si o un no: el PDF lo necesita aunque la bodega este vacia.
+  warehouseNamed(tenantId: TenantId, warehouseId: string): Promise<string | null>;
   // Emitidas, con saldo o sin el; filtro opcional por cliente.
   issuedInvoices(tenantId: TenantId, decimals: number, customerId?: string): Promise<ReportInvoice[]>;
   statementEntries(tenantId: TenantId, customerId: string, decimals: number): Promise<ReportStatementEntry[]>;

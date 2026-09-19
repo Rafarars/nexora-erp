@@ -3,6 +3,16 @@ import type { AgingReport, Dashboard, SalesByCustomerReport, StatementReport, Va
 
 const BASE = '/api/v1/reports';
 
+// El desplazamiento solo viaja cuando no es el principio: asi la primera pagina de cada reporte
+// tiene una direccion limpia.
+function paged(params: Record<string, string>, offset: number): string {
+  const query = new URLSearchParams(params);
+
+  if (offset > 0) query.set('offset', String(offset));
+
+  return query.size > 0 ? `?${query}` : '';
+}
+
 export class HttpReportsApi {
   constructor(private readonly baseUrl: string) {}
 
@@ -10,20 +20,20 @@ export class HttpReportsApi {
     return this.json(`${BASE}/dashboard`, token);
   }
 
-  aging(token: string): Promise<AgingReport> {
-    return this.json(`${BASE}/receivables-aging`, token);
+  aging(token: string, offset = 0): Promise<AgingReport> {
+    return this.json(`${BASE}/receivables-aging${paged({}, offset)}`, token);
   }
 
-  statement(token: string, customerId: string): Promise<StatementReport> {
-    return this.json(`${BASE}/customers/${encodeURIComponent(customerId)}/statement`, token);
+  statement(token: string, customerId: string, offset = 0): Promise<StatementReport> {
+    return this.json(`${BASE}/customers/${encodeURIComponent(customerId)}/statement${paged({}, offset)}`, token);
   }
 
-  salesByCustomer(token: string, from: string, to: string): Promise<SalesByCustomerReport> {
-    return this.json(`${BASE}/sales-by-customer?${new URLSearchParams({ from, to })}`, token);
+  salesByCustomer(token: string, from: string, to: string, offset = 0): Promise<SalesByCustomerReport> {
+    return this.json(`${BASE}/sales-by-customer${paged({ from, to }, offset)}`, token);
   }
 
-  valuation(token: string, warehouseId?: string): Promise<ValuationReport> {
-    return this.json(`${BASE}/inventory-valuation${warehouseId ? `?warehouseId=${encodeURIComponent(warehouseId)}` : ''}`, token);
+  valuation(token: string, warehouseId?: string, offset = 0): Promise<ValuationReport> {
+    return this.json(`${BASE}/inventory-valuation${paged(warehouseId ? { warehouseId } : {}, offset)}`, token);
   }
 
   // La descarga se reenvia tal cual: cabeceras de tipo y nombre de archivo incluidas.

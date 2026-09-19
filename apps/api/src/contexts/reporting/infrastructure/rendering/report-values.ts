@@ -1,24 +1,11 @@
-import { ColumnKind, ReportCell } from '../../domain/document/report-document.js';
+import { ColumnKind } from '../../domain/document/report-document.js';
 
-const DIGITS: Record<ColumnKind, [number, number] | null> = {
-  text: null,
-  date: null,
-  integer: [0, 0],
-  amount: [2, 2],
-  quantity: [0, 4],
-  cost: [2, 6],
-};
+export { formatCell, formatAmount, isNumeric } from '../../domain/document/report-format.js';
 
-// Como se lee un valor en papel: coma decimal y miles agrupados, como en la pantalla.
-export function formatCell(value: ReportCell, kind: ColumnKind): string {
-  if (value === null) return '';
-  if (typeof value === 'string') return value;
+// El formato de celda de Excel: el numero se ve con los decimales de la empresa y sigue siendo un
+// numero, para que quien abra el archivo pueda sumarlo y filtrarlo.
+export function excelFormat(kind: ColumnKind, decimals: number): string | undefined {
+  if (kind === 'amount') return decimals === 0 ? '#,##0' : `#,##0.${'0'.repeat(decimals)}`;
 
-  const digits = DIGITS[kind];
-
-  if (!digits) return String(value);
-
-  return value.toLocaleString('es-VE', { minimumFractionDigits: digits[0], maximumFractionDigits: digits[1] });
+  return { integer: '0', quantity: '#,##0.####', cost: '#,##0.00####' }[kind as 'integer' | 'quantity' | 'cost'];
 }
-
-export const isNumeric = (kind: ColumnKind) => DIGITS[kind] !== null;

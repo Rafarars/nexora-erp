@@ -1,6 +1,7 @@
 import { BusinessCalendar } from '../../../../shared/domain/ports/business-calendar.js';
 import { DocumentRates } from '../../../../shared/domain/ports/document-rates.js';
 import { ReportCustomerNotFoundError } from '../../domain/errors/reporting.errors.js';
+import { ReportPage, pageOf } from '../../domain/page/report-page.js';
 import { ReportCustomer, ReportingReadModel } from '../../domain/read-model/reporting-read-model.js';
 import { amountUnits, unitsToNumber } from '../../domain/shared/money.js';
 import { ReportDate } from '../../domain/shared/report-date.vo.js';
@@ -10,8 +11,13 @@ export interface CustomerStatementResponse {
   asOf: string;
   // La moneda de la empresa: cada documento llega convertido a ella con sus propias tasas.
   currency: string;
+  // Los decimales de la empresa: la pantalla y el PDF escriben el importe igual.
+  decimals: number;
+
+  page: ReportPage;
 
   customer: ReportCustomer;
+  // Cubren TODAS las facturas del cliente, no solo la pagina de movimientos enviada.
   balance: number;
   overdue: number;
   movements: { date: string; type: 'invoice' | 'payment'; code: string; debit: number; credit: number; balance: number }[];
@@ -26,7 +32,7 @@ export class CustomerStatementReport {
     private readonly rates: DocumentRates,
   ) {}
 
-  async run(request: { tenantId: string; customerId: string }): Promise<CustomerStatementResponse> {
+  async run(request: { tenantId: string; customerId: string; limit?: number; offset?: number }): Promise<CustomerStatementResponse> {
     const tenantId = TenantId.of(request.tenantId);
     const [today, decimals, currency] = await Promise.all([
       this.calendar.today(request.tenantId).then((day) => ReportDate.of(day)),
@@ -62,13 +68,19 @@ export class CustomerStatementReport {
 
     const owed = invoices.map((invoice) => ({ dueDate: invoice.dueDate, units: amountUnits(invoice.balance) })).filter((row) => row.units > 0n);
 
+    // Se pagina el final, no el principio: el saldo corrido se lee de arriba abajo y lo ultimo es
+    // lo que importa, asi que la primera pagina ensena los movimientos mas recientes.
+    const shown = pageOf([...movements].reverse(), request.limit, request.offset);
+
     return {
       asOf: today.value,
       currency,
+      decimals,
+      page: shown.page,
       customer,
       balance: unitsToNumber(owed.reduce((sum, row) => sum + row.units, 0n)),
       overdue: unitsToNumber(owed.filter((row) => row.dueDate < today.value).reduce((sum, row) => sum + row.units, 0n)),
-      movements,
+      movements: [...shown.rows].reverse(),
     };
   }
 }

@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { InvalidUuidError } from '../../../shared/domain/uuid.vo.js';
-import { ReportCustomerNotFoundError, ReportPeriodTooLongError, ReportWarehouseNotFoundError } from '../domain/errors/reporting.errors.js';
-import { DELTA, MAIN, NORTH, OMEGA, TENANT_A, TENANT_B, aCustomer, aStock, anInvoice } from '../domain/testing/reporting.mother.js';
+import { InvalidPageError, ReportCustomerNotFoundError, ReportPeriodTooLongError, ReportWarehouseNotFoundError } from '../domain/errors/reporting.errors.js';
+import { DELTA, EMPTY, MAIN, NORTH, OMEGA, TENANT_A, TENANT_B, aCustomer, aStock, anInvoice } from '../domain/testing/reporting.mother.js';
 import { InMemoryInvoice } from '../infrastructure/testing/in-memory-reporting-read-model.js';
 import { companyHeader, customerStatementDocument, inventoryValuationDocument, receivablesAgingDocument, salesByCustomerDocument } from './documents/report-documents.js';
 import { stockValueUnits } from '../domain/shared/money.js';
@@ -107,7 +107,9 @@ describe('customer statement report', () => {
       ['FAC000002', 50.5, 0, 110.5],
     ]);
     expect([report.balance, report.overdue]).toEqual([110.5, 60]);
-    expect(customerStatementDocument(report, 'Acme Industrial').subtitle).toContain('Plazo 15 días · Límite 1000.00');
+    // La cabecera escribe el importe como la tabla de abajo: antes usaba toFixed y salia
+    // "1000.00" con punto, frente al "1.000,00" de la columna Saldo del mismo papel.
+    expect(customerStatementDocument(report, 'Acme Industrial').subtitle).toContain('Plazo 15 días · Límite 1.000,00');
   });
 
   it('does not exist for another company', async () => {
@@ -145,7 +147,27 @@ describe('inventory valuation report', () => {
     expect(all.totalValue).toBe(152.33);
 
     const main = await s.inventoryValuation.run({ tenantId: TENANT_A, warehouseId: MAIN });
-    expect(inventoryValuationDocument(main, 'Acme', 'Principal').totals).toMatchObject({ value: 144 });
+    expect(inventoryValuationDocument(main, 'Acme', '2026-03-15').totals).toMatchObject({ value: 144 });
+  });
+
+  // El nombre de la bodega salia de la primera fila. Una bodega vacia no tiene filas, asi que el
+  // documento decia "Todas las bodegas" con el total en cero: un papel que niega el inventario de
+  // toda la empresa cuando solo se pregunto por una bodega.
+  it('names the warehouse in the document even when it holds nothing', async () => {
+    const s = world();
+    s.readModel.warehouse(TENANT_A, EMPTY, 'Sin nada');
+
+    const report = await s.inventoryValuation.run({ tenantId: TENANT_A, warehouseId: EMPTY });
+
+    expect([report.rows.length, report.warehouseName]).toEqual([0, 'Sin nada']);
+
+    const document = inventoryValuationDocument(report, 'Acme', '2026-03-15');
+
+    expect(document.subtitle).toContain('Bodega Sin nada');
+    expect(document.subtitle).not.toContain('Todas las bodegas');
+    // Y el archivo distingue de que bodega y de que dia es: antes las cuatro descargas se
+    // llamaban igual y la ultima pisaba a las anteriores.
+    expect(document.fileName).toBe('valuacion-de-inventario-sin-nada-2026-03-15');
   });
 
   it('answers as missing a warehouse of another company', async () => {
@@ -156,6 +178,55 @@ describe('inventory valuation report', () => {
   // guarda llegaba crudo a la consulta y PostgreSQL lo devolvia como error interno.
   it('refuses a malformed warehouse identifier instead of failing inside', async () => {
     await expect(world().inventoryValuation.run({ tenantId: TENANT_A, warehouseId: 'undefined' })).rejects.toThrow(InvalidUuidError);
+  });
+});
+
+describe('report pages', () => {
+  // La regla que puede romperse sin que se note: si los totales se calcularan sobre la pagina, el
+  // reporte diria una cifra distinta en cada pantalla y no serviria para cuadrar nada.
+  it('sends one page of rows while the totals keep covering every row', async () => {
+    const s = world();
+
+    const whole = await s.salesByCustomer.run({ tenantId: TENANT_A, from: '2026-02-01', to: '2026-03-31' });
+    const first = await s.salesByCustomer.run({ tenantId: TENANT_A, from: '2026-02-01', to: '2026-03-31', limit: 1 });
+
+    expect(whole.customers.length).toBeGreaterThan(1);
+    expect(first.customers).toHaveLength(1);
+    expect(first.page).toMatchObject({ total: whole.customers.length, limit: 1, offset: 0, hasMore: true });
+    expect(first.totals).toEqual(whole.totals);
+  });
+
+  it('walks the pages without repeating or losing a row', async () => {
+    const s = world();
+    const whole = await s.salesByCustomer.run({ tenantId: TENANT_A, from: '2026-02-01', to: '2026-03-31' });
+    const walked = [];
+
+    for (let offset = 0; offset < whole.customers.length; offset += 1) {
+      const page = await s.salesByCustomer.run({ tenantId: TENANT_A, from: '2026-02-01', to: '2026-03-31', limit: 1, offset });
+
+      walked.push(...page.customers);
+    }
+
+    expect(walked).toEqual(whole.customers);
+  });
+
+  // El saldo corrido se lee de arriba abajo y lo que importa es como acaba.
+  it('shows the latest movements of a statement first, still in date order', async () => {
+    const s = world();
+
+    const whole = await s.customerStatement.run({ tenantId: TENANT_A, customerId: DELTA });
+    const last = await s.customerStatement.run({ tenantId: TENANT_A, customerId: DELTA, limit: 2 });
+
+    expect(last.movements.map((row) => row.code)).toEqual(whole.movements.slice(-2).map((row) => row.code));
+    expect(last.balance).toBe(whole.balance);
+  });
+
+  it('refuses a page it cannot serve instead of guessing one', async () => {
+    const s = world();
+
+    await expect(s.salesByCustomer.run({ tenantId: TENANT_A, from: '2026-02-01', to: '2026-03-31', limit: 0 })).rejects.toThrow(InvalidPageError);
+    await expect(s.salesByCustomer.run({ tenantId: TENANT_A, from: '2026-02-01', to: '2026-03-31', limit: 501 })).rejects.toThrow(InvalidPageError);
+    await expect(s.salesByCustomer.run({ tenantId: TENANT_A, from: '2026-02-01', to: '2026-03-31', offset: -1 })).rejects.toThrow(InvalidPageError);
   });
 });
 

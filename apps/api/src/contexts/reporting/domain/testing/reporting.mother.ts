@@ -11,6 +11,8 @@ export const DELTA = 'c1111111-1111-4111-8111-111111111111';
 export const OMEGA = 'c2222222-2222-4222-8222-222222222222';
 export const MAIN = 'b1111111-1111-4111-8111-111111111111';
 export const NORTH = 'b2222222-2222-4222-8222-222222222222';
+// Existe, y no guarda nada: el reporte tiene que saber nombrarla igual.
+export const EMPTY = 'b3333333-3333-4333-8333-333333333333';
 
 export function aCustomer(overrides: Partial<ReportCustomer> = {}): ReportCustomer {
   return { id: DELTA, code: 'CLI000001', name: 'Comercial Delta', fiscalId: 'J-40123456-7', paymentTermDays: 15, creditLimit: 1000, ...overrides };

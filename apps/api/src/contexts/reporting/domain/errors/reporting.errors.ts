@@ -35,3 +35,9 @@ export class InvalidExportFormatError extends InvalidArgumentError {
     super(`Export format <${value}> is not supported.`, 'The export format is not supported.');
   }
 }
+
+export class InvalidPageError extends InvalidArgumentError {
+  constructor() {
+    super(`Page bounds are out of range.`, 'The page is not valid.');
+  }
+}

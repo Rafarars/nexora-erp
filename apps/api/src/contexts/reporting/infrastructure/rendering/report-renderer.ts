@@ -2,9 +2,7 @@ import { Injectable } from '@nestjs/common';
 import ExcelJS from 'exceljs';
 import PDFDocument from 'pdfkit';
 import { ExportFormat, RenderedReport, ReportDocument, ReportRenderer } from '../../domain/document/report-document.js';
-import { formatCell, isNumeric } from './report-values.js';
-
-const EXCEL_FORMATS: Record<string, string> = { integer: '0', amount: '#,##0.00', quantity: '#,##0.####', cost: '#,##0.00####' };
+import { excelFormat, formatCell, isNumeric } from './report-values.js';
 
 // Escribe un documento como PDF (pdfkit, sin navegador) o Excel (exceljs). No decide contenido:
 // titulo, columnas, filas y totales llegan hechos.
@@ -39,7 +37,9 @@ async function excel(document: ReportDocument): Promise<Uint8Array> {
     const target = sheet.getColumn(index + 1);
 
     target.width = Math.max(12, column.label.length + 4, ...document.rows.map((row) => String(row[column.key] ?? '').length + 2));
-    if (EXCEL_FORMATS[column.kind]) target.numFmt = EXCEL_FORMATS[column.kind];
+    const format = excelFormat(column.kind, document.decimals);
+
+    if (format) target.numFmt = format;
   });
 
   return new Uint8Array(await workbook.xlsx.writeBuffer());
@@ -70,7 +70,7 @@ async function pdf(document: ReportDocument): Promise<Uint8Array> {
 
     doc.font(bold ? 'Helvetica-Bold' : 'Helvetica');
     document.columns.forEach((column, index) => {
-      const text = formatCell((values[column.key] ?? null) as string | number | null, column.kind);
+      const text = formatCell((values[column.key] ?? null) as string | number | null, column.kind, document.decimals);
 
       doc.text(text, left + index * columnWidth, y, { width: columnWidth - 4, align: isNumeric(column.kind) ? 'right' : 'left', lineBreak: false, ellipsis: true });
     });

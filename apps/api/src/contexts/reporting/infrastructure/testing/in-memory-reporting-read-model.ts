@@ -36,7 +36,7 @@ export class InMemoryReportingReadModel implements ReportingReadModel {
   private readonly paymentRows: Tenant<{ code: string; customerId: string; date: string; amount: number; allocations?: { invoiceId: string; amount: number }[] } & WithCurrency>[] = [];
   private readonly receiptRows: Tenant<{ date: string; amount: number } & WithCurrency>[] = [];
   private readonly stockRows: Tenant<ReportStock>[] = [];
-  private readonly warehouseRows: Tenant<{ id: string }>[] = [];
+  private readonly warehouseRows: Tenant<{ id: string; name: string }>[] = [];
 
   async company(tenantId: { value: string }): Promise<{ name: string; fiscalId: string | null }> {
     return { name: `Empresa ${tenantId.value.slice(0, 4)}`, fiscalId: null };
@@ -58,21 +58,21 @@ export class InMemoryReportingReadModel implements ReportingReadModel {
     this.receiptRows.push({ ...row, tenantId });
   }
 
-  warehouse(tenantId: string, id: string): void {
-    if (!this.warehouseRows.some((row) => row.id === id)) this.warehouseRows.push({ id, tenantId });
+  warehouse(tenantId: string, id: string, name = `Bodega ${id.slice(0, 4)}`): void {
+    if (!this.warehouseRows.some((row) => row.id === id)) this.warehouseRows.push({ id, name, tenantId });
   }
 
   stockRow(tenantId: string, row: ReportStock): void {
     this.stockRows.push({ ...row, tenantId });
-    this.warehouse(tenantId, row.warehouseId);
+    this.warehouse(tenantId, row.warehouseId, row.warehouseName);
   }
 
   async customers(tenantId: { value: string }): Promise<ReportCustomer[]> {
     return this.of(this.customerRows, tenantId.value).sort((a, b) => a.name.localeCompare(b.name));
   }
 
-  async warehouseExists(tenantId: { value: string }, warehouseId: string): Promise<boolean> {
-    return this.warehouseRows.some((row) => row.tenantId === tenantId.value && row.id === warehouseId);
+  async warehouseNamed(tenantId: { value: string }, warehouseId: string): Promise<string | null> {
+    return this.warehouseRows.find((row) => row.tenantId === tenantId.value && row.id === warehouseId)?.name ?? null;
   }
 
   async issuedInvoices(tenantId: { value: string }, decimals: number, customerId?: string): Promise<ReportInvoice[]> {

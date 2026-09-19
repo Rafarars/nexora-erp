@@ -11,6 +11,7 @@ const cases: Array<[DomainError, typeof DomainError]> = [
   [new errors.InvalidReportPeriodError('2026-02-01', '2026-01-01'), InvalidArgumentError],
   [new errors.ReportPeriodTooLongError('2026-01-01', '2027-06-01', 366), InvalidArgumentError],
   [new errors.InvalidExportFormatError('doc'), InvalidArgumentError],
+  [new errors.InvalidPageError(), InvalidArgumentError],
 ];
 
 describe('reporting domain errors', () => {
