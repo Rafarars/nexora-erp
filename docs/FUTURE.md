@@ -677,3 +677,41 @@ distinto a una cuenta que existe y a una que no es observable, y lo observable e
 intento** —un retardo creciente por cuenta, o un desafío tras varios fallos— de modo que el dueño
 legítimo siempre pueda entrar aunque otro esté probando. Un desafío trae dependencia externa y hay
 que decidir cuál; el retardo creciente no, y es el primer paso natural.
+
+## Reglas de contraseña al día con NIST
+
+**Qué es.** Una contraseña sólo tiene que medir **8 caracteres** (`plain-password.vo.ts`), y no se
+comprueba contra nada más. NIST SP 800-63B Rev. 4 —la revisión de agosto de 2025— pide **15
+caracteres** como mínimo cuando la contraseña es el único factor, **prohíbe** exigir mezclas de
+tipos de carácter, **prohíbe** la caducidad periódica, y exige contrastar la contraseña nueva
+contra **listas de contraseñas filtradas**.
+
+**Por qué no se hizo** (revisión de Acceso, 19-sep-2026). El contraste con el sector llegó cuando la
+revisión ya estaba construida, así que no guió ninguna decisión. Subir el mínimo a 15 obliga además
+a decidir qué pasa con las contraseñas que ya existen, incluidas las de la semilla y las de toda la
+suite de pruebas.
+
+**Qué haría falta.** Subir el mínimo en el value object y arrastrar el cambio a la semilla y a las
+pruebas —hoy varias usan contraseñas de 8 a 16 caracteres—. Para las filtradas, el camino barato es
+la comprobación por prefijo de hash contra un servicio público, que no envía la contraseña; hay que
+decidir si el sistema puede depender de una llamada externa al cambiarla, y qué hacer si no responde.
+El sistema de referencia resuelve esto sólo a medias: exige 12 con símbolos y contraste en el
+registro, pero **8 pelados en el alta manual**, que es la misma regla escrita dos veces.
+
+## Registrar quién entra y quién cambia permisos
+
+**Qué es.** El sistema no guarda ningún rastro de los accesos: ni inicios de sesión acertados o
+fallidos, ni quién le cambió los roles a quién, ni quién desactivó a alguien. Los errores salen por
+el registro de la aplicación y nada más.
+
+**Por qué no se hizo** (revisión de Acceso, 19-sep-2026). Nadie lo ha pedido, y es una tabla que
+crece sin parar y hay que decidir cuánto se conserva. OWASP ASVS lo pide en su sección de registro,
+y es un control habitual de SOC 2 e ISO 27001, así que importa el día que esto se despliegue de
+verdad.
+
+**Qué haría falta.** Una tabla de eventos con quién, qué, cuándo, desde dónde y el resultado; un
+puerto para escribirla desde el contexto de acceso; una pantalla para consultarla con su permiso; y
+una política de retención. **Ojo con lo que se guarda**: la dirección de red y el correo son datos
+personales, y el propio registro no puede convertirse en la lista de quién tiene cuenta.
+Curiosamente el sistema de referencia tampoco lo hace **en su módulo de acceso**, aunque sí usa
+`created_by` en el resto de sus módulos.

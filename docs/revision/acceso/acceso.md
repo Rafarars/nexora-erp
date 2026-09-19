@@ -348,19 +348,67 @@ Vale la pena escribirlo para no volver a mirarlo, y porque el acierto enseña ta
 
 ---
 
+## Cómo lo resuelve el sistema de referencia, y qué dice el sector
+
+Las dos lecturas llegaron tarde —la revisión ya estaba construida—, así que **no guiaron ninguna
+decisión**. Sirven para contrastar lo que quedó, y en dos puntos señalan trabajo pendiente.
+
+### El sistema de referencia: `verlumyx/erp`
+
+| | Allí | Aquí |
+|---|---|---|
+| **No quedarse sin administrador** | **No existe ninguna guarda.** Nada impide desactivar o degradar a todos los usuarios con rol de administrador | Guarda en los tres caminos, con cerrojo por empresa |
+| **Proteger el rol de administrador** | Por **comparación de nombre exacto**: `$this->name === 'Administrador'` | Por un booleano `grantsAll` de sólo lectura en la entidad |
+| **Rol sin permisos** | Permitido: `'permissions' => ['nullable', 'array']` | Rechazado |
+| **Borrar un rol** | No existe la ruta: sólo activar y desactivar | No existe la ruta |
+| **Bloqueo por intentos** | Web: 5/min por **correo + IP**. API móvil: 10/min **sólo por IP** | 5 por correo, ventana de 15 min |
+| **Revocar sesión** | Sí: el cierre de sesión borra el token de Sanctum **de ese dispositivo** | Fecha de corte por persona: caen todas las anteriores |
+| **Sesiones concurrentes** | Límite de **2 dispositivos**: el tercer inicio se rechaza | Sin límite |
+| **Contraseñas** | En producción: 12 caracteres, mayúsculas, números, símbolos y contraste contra filtradas… **salvo en el alta manual, que exige 8** | 8 caracteres, sin más reglas |
+| **Auditoría del acceso** | No la hay, **aunque el resto del sistema sí usa `created_by`** | No la hay |
+
+Lo que más enseña de esta comparación: **su protección del rol de administrador depende de una
+cadena de texto**. Renombrarlo, o crear otro rol que se llame distinto, la desactiva. La nuestra
+descansa en un booleano que la entidad no deja cambiar — y aun así esta revisión encontró que la
+regla de *no editarlo* vivía sólo en la pantalla. La misma idea, dos formas de fallar.
+
+Y su inconsistencia de contraseñas —fuerte en el registro, floja en el alta manual— es exactamente
+la familia de defecto que esta sesión persiguió: **la misma regla escrita dos veces, y sólo una se
+actualiza**.
+
+### El consenso del sector
+
+Con cita verificable; lo que no se pudo verificar queda dicho como tal.
+
+- **Invalidar la sesión al cambiar la contraseña**: OWASP lo pide — «the session ID must be renewed
+  or regenerated … after any privilege level change». Es justo lo que se construyó.
+- **Contar por cuenta, no por IP**: OWASP lo dice textualmente — «the counter of failed logins
+  should be associated with the account itself, rather than the source IP address». Coincide con
+  donde acabó la decisión, después de tres vueltas.
+- **Mensaje genérico**: OWASP pide la misma respuesta exista o no la cuenta. Cumplido, y también en
+  el tiempo.
+- **El último administrador**: GitHub, Google Workspace y Atlassian lo protegen, cada uno a su
+  manera —GitHub no te deja cambiar tu propio rol, Atlassian exige pasar por su soporte si te
+  quedas sin ninguno—. **Odoo y ERPNext no tienen nada documentado**, igual que la referencia.
+- **Contraseñas**: aquí sí hay una brecha. NIST SP 800-63B Rev. 4 (agosto de 2025) pide **15
+  caracteres** como mínimo para contraseña única, **prohíbe** exigir mezclas de tipos de carácter y
+  **prohíbe** la caducidad periódica, y exige contrastar contra **listas de contraseñas filtradas**.
+  El sistema pide 8 y no contrasta nada. Anotado en [`FUTURE.md`](../../FUTURE.md).
+- **Auditoría de accesos**: ASVS pide registrar autenticaciones y fallos de autorización. El sistema
+  **no registra nada de eso**, y es un requisito habitual de SOC 2 e ISO 27001. También anotado.
+
+---
+
 ## Lo que esta revisión NO hizo
 
 Para que quien la lea sepa dónde están los bordes:
 
-- **No se leyó el sistema de referencia ni el consenso del sector.** Se lanzaron las dos lecturas al
-  empezar y ninguna llegó a tiempo; la revisión siguió sin ellas. Los hallazgos salieron todos de
-  leer el código propio y reproducirlos contra la API, y las decisiones de diseño se tomaron con ese
-  material. Queda pendiente contrastar con `verlumyx/erp` y con OWASP/NIST, sobre todo en tres
-  puntos: cuánto debe durar una sesión, si conviene un desafío tras varios intentos fallidos, y qué
-  reglas de contraseña pedir —hoy sólo se exigen ocho caracteres, sin comprobación contra listas de
-  contraseñas filtradas—.
-- **No se revisó la auditoría de accesos**, que no existe: el sistema no registra quién entró, ni
-  quién cambió permisos a quién. No se miró si eso importa para este proyecto.
+- **La referencia y el sector se leyeron DESPUÉS de construir.** Las dos lecturas llegaron tarde,
+  así que no guiaron ninguna decisión: todos los hallazgos salieron de leer el código propio y
+  reproducirlos contra la API. El contraste está arriba, y deja dos cosas pendientes —las reglas de
+  contraseña y la auditoría de accesos—, ambas anotadas.
+- **La auditoría de accesos no existe** y no se construyó: el sistema no registra quién entró ni
+  quién cambió permisos a quién.
 - **La pasada a mano se hizo sobre lo construido hoy**, no sobre todas las pantallas del módulo: se
   comprobó que el rol de administrador aparece sin botón de editar, que el rol vacío se rechaza con
   su mensaje en español, y que quien cambia su contraseña sigue dentro después.
