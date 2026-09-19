@@ -3,7 +3,19 @@
 Documento de traspaso: contiene lo necesario para continuar el proyecto **sin depender
 de ninguna conversación anterior**.
 
-**Actualizado:** 18 de septiembre de 2026
+**Actualizado:** 19 de septiembre de 2026
+
+---
+
+## Lo siguiente, en una línea
+
+**Revisar el módulo de Acceso** —sesión, roles y permisos, perfil propio—, que son tres de los seis
+submódulos que quedan. Después **Reportes** (tres), después **las cuatro decisiones de Rafael**, y
+sólo entonces las **mejoras de diseño**. El detalle está en
+[«El plan para cerrar el sistema al 100 %»](#el-plan-para-cerrar-el-sistema-al-100--acordado-el-19-sep-2026).
+
+**Veintitrés de veintinueve submódulos están cerrados.** El estado exacto de cada uno, en
+[`revision/README.md`](revision/README.md).
 
 ---
 
@@ -35,7 +47,7 @@ un cambio de API o de web no se ve en el navegador ni en la e2e hasta que se eje
 |---|---|
 | Repositorio | github.com/Rafarars/nexora-erp |
 | Reporte de pruebas | https://rafarars.github.io/nexora-erp/ |
-| Pruebas | 2742 + 184 unitarias · 206 de contrato · 389 end-to-end |
+| Pruebas | 2806 + 193 unitarias · 218 de contrato · 403 end-to-end |
 | **H0 — Fundación** | **Completado** |
 | **H1 — Multiempresa y acceso** | **Completado** y revisado |
 | **H2 — Catálogo** | **Completado** ([`H2-CATALOGO.md`](H2-CATALOGO.md)) |
@@ -570,6 +582,51 @@ cinco unidades y el sistema rechazaba un pedido de cinco.
 cliente—, encontrados con la misma pregunta: *¿qué le pasa a lo que ya lo usa cuando este maestro
 se cierra?* Y tres falsos verdes del mismo tipo, que ahora están escritos en el playbook: **cuando
 el doble en memoria se porta mejor que el adaptador real, el contrato pasa en verde**.
+
+### El plan para cerrar el sistema al 100 % (acordado el 19-sep-2026)
+
+Rafael fijó **este orden, y no se altera**:
+
+| | Qué | Por qué en ese sitio |
+|---|---|---|
+| **1º** | **Acceso** — sesión, roles y permisos, perfil propio | Son los tres que quedan con peso real; un token que no se puede revocar importa si esto se despliega |
+| **2º** | **Reportes** — ventas por cliente, estado de cuenta, valuación del inventario | Más pequeños, y con un hallazgo ya anotado: las exportaciones redondean distinto que la pantalla |
+| **3º** | **Las cuatro decisiones** que esperan a Rafael | Están abajo, cada una con su síntoma, su `archivo:línea` y su coste |
+| **4º** | **Mejoras de diseño del sistema** | **Sólo después de cerrar el 100 %.** Textual: «eso será luego de cerrar al 100 el sistema como tal» |
+
+#### 1º · Acceso — qué falta exactamente
+
+- **Sesión.** Dura **1 h** (`JWT_TTL_SECONDS`, `env.schema.ts:20`) y **no se renueva ni se puede
+  revocar en el servidor**: cerrar sesión sólo borra la cookie del navegador
+  (`apps/web/src/app/(app)/actions.ts:37-40`) y el token sigue siendo válido hasta caducar. No
+  existe «cerrar en todos los dispositivos». El **bloqueo por intentos fallidos** (5 en 900 s) se
+  guarda **en memoria del proceso** (`in-memory-login-attempts.ts:13`), así que con varias
+  instancias el límite se multiplica; y se cuenta **por correo, no por IP**
+  (`login-attempts.ts:5-6`).
+- **Roles y permisos.** Un rol puede quedarse **sin ningún permiso**
+  (`role.request.dto.ts:6`), y un rol **no se puede borrar ni desactivar** —`RoleRepository` no
+  expone `delete` y `model Role` no tiene `isActive`—. Falta revisar el resto.
+- **Perfil propio.** Sin tocar.
+
+**Ya comprobado y correcto**, para no volver a mirarlo: quitar un permiso a un rol surte efecto **en
+la siguiente petición** sin volver a entrar —el guardián ignora los permisos del token y recarga los
+roles de la base (`access.guard.ts:79-80, 102-106`)—; desactivar a una persona corta su sesión
+abierta al instante; no hay superusuario de plataforma; y la empresa activa viaja firmada en el
+token.
+
+#### 2º · Reportes — qué falta exactamente
+
+- **Ventas por cliente**: sin tocar, ni siquiera la auditoría acotada.
+- **Estado de cuenta de Reportes** (distinto del de Cuentas por cobrar): sin revisar a fondo.
+- **Valuación del inventario**: se le corrigió el error interno; falta la revisión completa.
+- **Hallazgo ya anotado, sin construir:** las exportaciones a PDF y Excel **redondean distinto que
+  la pantalla** —fijan 2 decimales (`report-values.ts:3-21`) frente a los 2-4 de la pantalla— y
+  **ninguna de las dos usa los decimales que la empresa configura**. Es la misma familia del
+  defecto que la revisión de Existencias encontró en el valor del inventario.
+
+**Ya comprobado y correcto**: seis de las siete cifras del tablero excluyen anulados y borradores;
+«este mes» usa la zona horaria de la empresa y no la del servidor; y las cuatro exportaciones
+llaman al **mismo caso de uso** que la pantalla, con el mismo objeto de petición.
 
 ### Qué sigue
 
