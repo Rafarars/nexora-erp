@@ -541,13 +541,25 @@ como aviso: una fase cerrada sin lupa propia no está revisada aunque su suite e
 
 **Al arrancar:** invocar la skill `module-review`, decirle qué submódulo se revisa y que el sistema de referencia es
 `verlumyx/erp` (se lee con `gh api repos/verlumyx/erp/contents/<ruta> --jq '.content' | base64 -d`; **leer su código,
-no solo su documentación**).
+no solo su documentación**). La skill ya trae los dos modos: Ajustes es **módulo sin revisar**, así que etapa 2
+completa y matriz.
+
+**La pregunta que más rinde en un maestro**, y que salió del Catálogo: *¿qué le pasa a lo que ya lo usa cuando este
+maestro se cierra o cambia?* El mismo hueco reaparece en unos maestros y no en otros.
 
 **Decisión abierta que no bloquea nada de lo anterior:** la tasa de fines de semana y feriados
 ([`revision/temas/configuracion-empresa.md`](revision/temas/configuracion-empresa.md) §10.3, punto 1).
 
 **Decisiones de Rafael que no hay que volver a discutir:**
 
+- **Retención de impuestos**: se hace **completa y como hito propio**, no como un campo del impuesto. Alcance en
+  [FUTURE.md](FUTURE.md). Se descartó copiar el campo del ERP de referencia: leyendo su código, su retención no
+  descuenta del total, no descuenta del saldo y no emite comprobante, y además la retención depende de **quién
+  compra**, no del impuesto
+- **Categorías**: planas, un solo nivel, con el porqué y las fuentes comparadas escritas en
+  [modulos/catalogo.md](modulos/catalogo.md). No se vuelve a plantear la jerarquía
+- **Campos de la bodega**: ninguno nuevo. Un campo se añade cuando existe el flujo que lo consume, no porque otro
+  sistema lo tenga ([revisión del catálogo §4](revision/catalogo/catalogo.md))
 - Artículos va bajo **Inventario**, también el código («con hexagonal es más sencillo migrar todo»)
 - Listas de precio y configuración de la empresa **se hacen ahora**, investigando antes dónde van
 - **Borradores**: no cuentan como documento abierto; uno cuya caja cambió no se confirma en silencio
@@ -567,6 +579,16 @@ no solo su documentación**).
   por defecto (5 min) se corta sin responder. **Verificar cada punto antes de aceptarlo**: en esta ronda
   cuatro de cinco no se sostuvieron
 - Las pruebas de contrato vacían la base de desarrollo; `make seed` (o la suite e2e) la vuelve a sembrar
+- **Exploraciones en paralelo, una por área**, exigiendo `archivo:línea` en cada afirmación y prohibiendo opinar.
+  Es lo que convierte medio día de lectura en dos minutos. Marca siempre una pregunta como la más importante, con
+  esta forma: *lista todos los caminos que hacen X y di explícitamente cuáles no comprueban Y*
+- **La suite entera cuesta entre cinco y quince minutos**: se corre al terminar todos los hallazgos y antes de
+  commitear, no después de cada arreglo. Para un hallazgo suelto basta su archivo, más el contrato si se tocó un
+  puerto o una consulta
+- **Ante un fallo raro, mira el `load average` antes que el código.** Con la máquina cargada, alguna prueba de
+  aislamiento cae con `socket hang up` en una ruta pesada; con la máquina libre pasan las 377. Comprobado
+- **Al esperar a que algo termine, no uses `until ! pgrep -f "<cadena>"`**: el propio comando de espera contiene
+  esa cadena, se encuentra a sí mismo y el bucle no sale nunca
 
 ## Comandos
 
