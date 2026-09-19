@@ -420,6 +420,44 @@ export function describeAccessRepositoriesContract(
         ).toBe(0);
       });
 
+      // Comprobar y escribir en peticiones distintas dejaba una carrera: dos a la vez
+      // contaban antes de que la otra escribiera. Aqui se exige el turno, y las dos
+      // implementaciones tienen que darlo: si solo lo diera PostgreSQL, el doble pasaria
+      // verde escondiendo el defecto.
+      it('gives one turn at a time within the same tenant', async () => {
+        const steps: string[] = [];
+        const work = (name: string) => async () => {
+          steps.push(`${name} in`);
+          await new Promise((resolve) => setTimeout(resolve, 60));
+          steps.push(`${name} out`);
+        };
+
+        await Promise.all([
+          repos.administration.whileNobodyElseChangesIt(TenantId.of(TENANT_A), work('first')),
+          repos.administration.whileNobodyElseChangesIt(TenantId.of(TENANT_A), work('second')),
+        ]);
+
+        // Sin turno quedaria entrelazado: "first in", "second in", "first out"...
+        expect(steps[1]).toBe(`${steps[0].split(' ')[0]} out`);
+        expect(steps).toHaveLength(4);
+      });
+
+      // Empresas distintas no se estorban: el turno es por empresa, no global.
+      it('lets two different tenants work at the same time', async () => {
+        const started: string[] = [];
+        const work = (name: string) => async () => {
+          started.push(name);
+          await new Promise((resolve) => setTimeout(resolve, 60));
+        };
+
+        await Promise.all([
+          repos.administration.whileNobodyElseChangesIt(TenantId.of(TENANT_A), work('acme')),
+          repos.administration.whileNobodyElseChangesIt(TenantId.of(TENANT_B), work('globex')),
+        ]);
+
+        expect(started).toHaveLength(2);
+      });
+
       // El aislamiento otra vez: quien administra Globex no salva a Acme.
       it('does not count administrators of another tenant', async () => {
         await repos.roles.save(anAdminRole({ id: ADMIN_B, tenantId: TENANT_B }));

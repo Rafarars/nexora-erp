@@ -15,6 +15,21 @@ export class InMemoryTenantAdministration implements TenantAdministration {
     private readonly users: UserRepository,
   ) {}
 
+  // Una cola por empresa. El doble tiene que turnarse igual que PostgreSQL: si aqui se
+  // dejaran solapar, el contrato pasaria contra el doble y fallaria contra la base, que es
+  // justo el falso verde que este proyecto persigue.
+  private readonly turns = new Map<string, Promise<unknown>>();
+
+  async whileNobodyElseChangesIt<T>(tenantId: TenantId, work: () => Promise<T>): Promise<T> {
+    const waiting = this.turns.get(tenantId.value) ?? Promise.resolve();
+    const mine = waiting.then(work, work);
+
+    // Se encola incluso si falla: un error no puede dejar a los siguientes esperando.
+    this.turns.set(tenantId.value, mine.catch(() => undefined));
+
+    return mine;
+  }
+
   async countAdministratorsExcept(tenantId: TenantId, userId: UserId): Promise<number> {
     const all = await this.memberships.searchByTenant(tenantId);
     let administrators = 0;

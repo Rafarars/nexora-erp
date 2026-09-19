@@ -33,7 +33,7 @@ hechas.** La suite seguía verde porque el camino nuevo se las saltaba.
 
 ---
 
-## Los diez hallazgos
+## Los once hallazgos
 
 Todos **reproducidos contra la API local** antes de tocar una línea de código.
 
@@ -49,8 +49,9 @@ Todos **reproducidos contra la API local** antes de tocar una línea de código.
 | **A9** | Se puede dejar fuera a alguien a propósito | Media | **Anotado, no construido** |
 | **A10** | Cambiar la contraseña no cerraba las sesiones abiertas | **Alta** | Construido |
 | **A12** | El rol que lo concede todo sólo estaba protegido **en la pantalla** | **Alta** | Construido |
+| **A13** | Dos peticiones a la vez se saltaban la guarda del último administrador | **Alta** | Construido |
 
-**Ocho construidos y uno anotado**: A9 sigue abierto a propósito, y abajo está el porqué.
+**Diez construidos y uno anotado**: A9 sigue abierto a propósito, y abajo está el porqué.
 
 Y uno descartado: **A11, que los listados de Acceso no paginan.** Ya estaba decidido y razonado en
 la auditoría anterior —los permisos son un catálogo cerrado de 89, los roles son pocos por diseño y
@@ -162,6 +163,48 @@ enumera permisos, aparecía con ninguno marcado.
 
 Lo llamativo es la dirección: la revisión suele encontrar reglas del dominio que la interfaz no
 respeta. Aquí era al revés — **la interfaz protegía algo que el servidor no**.
+
+---
+
+## A13 — La guarda que dos peticiones a la vez se saltaban
+
+Este apareció en la **última pasada**, revisando lo ya construido, y es el mejor argumento a favor de
+que esa pasada exista: la guarda del último administrador comprobaba y escribía en momentos
+distintos, sin nada que los uniera.
+
+Dos peticiones simultáneas, cada una quitando la administración a una de las dos últimas
+administradoras: **ambas cuentan antes de que la otra escriba, ambas ven que queda alguien, y ambas
+se dan por buenas.**
+
+```
+intento 1: 200/409 -> administradores que quedan: 1
+intento 2: 200/200 -> administradores que quedan: 0  <<< CARRERA
+intento 3: 200/200 -> administradores que quedan: 0  <<< CARRERA
+intento 4: 200/200 -> administradores que quedan: 0  <<< CARRERA
+intento 5: 200/200 -> administradores que quedan: 0  <<< CARRERA
+```
+
+**Decisión de Rafael:** un cerrojo por empresa que envuelve comprobar y escribir, que es el patrón
+que Ventas e Inventario ya usan para reservar existencia. Un `pg_advisory_xact_lock` por empresa: no
+bloquea ninguna tabla, sólo hace que dos peticiones **de la misma empresa** se turnen. Las mismas
+cinco vueltas, ahora: `200/409` las cinco veces, y siempre queda alguien administrando.
+
+**Y la prueba costó tres intentos, cada uno enseñando algo.**
+
+1. La primera versión, de extremo a extremo, **pasaba sin el cerrojo**: el cliente HTTP de Playwright
+   reutiliza la conexión y encolaba las dos peticiones, así que nunca llegaban a solaparse.
+2. Reescrita con `fetch`, seguía pasando: una de las dos peticiones era la administradora
+   **quitándoselo a sí misma**, y ese 409 venía de otra guarda, no del cerrojo. La prueba medía otra
+   cosa.
+3. La tercera funcionaba, pero dependía del reloj: una prueba de carrera que a veces reproduce y a
+   veces no es una prueba intermitente, y este proyecto no las quiere.
+
+La que quedó es **determinista y vive en el contrato del puerto**: exige que dos trabajos de la misma
+empresa **se turnen**, y que dos empresas distintas **no se estorben**. Se comprobó quitando el
+cerrojo: contra PostgreSQL falla con `expected 'second in' to be 'first out'`, que es exactamente el
+entrelazado. Y **el doble en memoria también tiene que turnarse**, porque si sólo lo hiciera
+PostgreSQL, el contrato pasaría verde contra el doble escondiendo el defecto — el falso verde que
+esta misma sesión ya encontró una vez.
 
 ---
 

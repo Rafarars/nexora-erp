@@ -31,6 +31,12 @@ export class MembershipStatusChanger {
     }
 
     const tenantId = TenantId.of(request.tenantId);
+
+    // Junto con la comprobacion, por la misma carrera que en los otros dos caminos.
+    await this.administration.whileNobodyElseChangesIt(tenantId, () => this.change(tenantId, request));
+  }
+
+  private async change(tenantId: TenantId, request: MembershipStatusChangerRequest): Promise<void> {
     const userId = UserId.of(request.userId);
     const membership = await this.finder.findByUser(tenantId, userId);
     const now = this.clock.now();

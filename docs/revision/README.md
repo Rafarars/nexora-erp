@@ -116,8 +116,9 @@ no se miró está escrito en el informe.
 
 ### 7. Acceso
 
-**✅ Revisión completa** (19-sep-2026), en modo lote. Diez hallazgos, **nueve construidos** y uno
-anotado con su porqué.
+**✅ Revisión completa** (19-sep-2026), en modo lote. Once hallazgos, **diez construidos** y uno
+anotado con su porqué. El último lo destapó la pasada de revisar lo ya construido: dos peticiones
+simultáneas se saltaban la guarda del último administrador.
 El que resume el módulo: la guarda del administrador que se construyó el día antes protegía una
 puerta y **dejaba abierta la de al lado** — `DELETE /roles/assignments` ni recibía quién actuaba.
 

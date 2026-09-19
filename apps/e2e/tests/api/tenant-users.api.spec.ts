@@ -1,6 +1,7 @@
 import { expect, test } from '@playwright/test';
 import type { APIRequestContext } from '@playwright/test';
 
+const API_URL = process.env.API_URL ?? 'http://localhost:3001';
 const LOGIN = '/api/v1/auth/login';
 const USERS = '/api/v1/users';
 const PASSWORD = 'Nexora-2026!';

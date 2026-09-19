@@ -38,6 +38,12 @@ export class TenantUserUpdater {
 
   async run(request: TenantUserUpdaterRequest): Promise<void> {
     const tenantId = TenantId.of(request.tenantId);
+
+    // Junto con la comprobacion, por la misma carrera que en los otros dos caminos.
+    await this.administration.whileNobodyElseChangesIt(tenantId, () => this.update(tenantId, request));
+  }
+
+  private async update(tenantId: TenantId, request: TenantUserUpdaterRequest): Promise<void> {
     const userId = UserId.of(request.userId);
 
     // Primero la membresia: si la persona no esta en esta empresa, responde como

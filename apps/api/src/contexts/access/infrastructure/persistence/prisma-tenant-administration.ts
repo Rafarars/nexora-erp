@@ -8,6 +8,16 @@ import { UserId } from '../../domain/user/user-id.vo.js';
 export class PrismaTenantAdministration implements TenantAdministration {
   constructor(private readonly prisma: PrismaService) {}
 
+  // Un cerrojo de PostgreSQL por empresa, que dura lo que dura la transaccion. No bloquea
+  // ninguna tabla: solo hace que dos peticiones de la MISMA empresa se turnen.
+  async whileNobodyElseChangesIt<T>(tenantId: TenantId, work: () => Promise<T>): Promise<T> {
+    return this.prisma.$transaction(async (tx) => {
+      await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${tenantId.value}))`;
+
+      return work();
+    });
+  }
+
   async countAdministratorsExcept(tenantId: TenantId, userId: UserId): Promise<number> {
     // Las tres condiciones de SignInPolicy que dependen de la persona: cuenta desactivada
     // o membresia revocada no administran nada, aunque conserven el rol.

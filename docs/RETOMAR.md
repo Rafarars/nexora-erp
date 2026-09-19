@@ -14,7 +14,7 @@ inventario—, que son los tres últimos que quedan. Después **las cuatro decis
 sólo entonces las **mejoras de diseño**. El detalle está en
 [«El plan para cerrar el sistema al 100 %»](#el-plan-para-cerrar-el-sistema-al-100--acordado-el-19-sep-2026).
 
-**Acceso quedó cerrado el 19-sep-2026**: diez hallazgos, nueve construidos y uno anotado
+**Acceso quedó cerrado el 19-sep-2026**: once hallazgos, diez construidos y uno anotado
 ([informe](revision/acceso/acceso.md)).
 
 **Veintiséis de veintinueve submódulos están cerrados.** El estado exacto de cada uno, en
@@ -50,7 +50,7 @@ un cambio de API o de web no se ve en el navegador ni en la e2e hasta que se eje
 |---|---|
 | Repositorio | github.com/Rafarars/nexora-erp |
 | Reporte de pruebas | https://rafarars.github.io/nexora-erp/ |
-| Pruebas | 2873 + 194 unitarias · 224 de contrato · 415 end-to-end |
+| Pruebas | 2873 + 194 unitarias · 226 de contrato · 415 end-to-end |
 | **H0 — Fundación** | **Completado** |
 | **H1 — Multiempresa y acceso** | **Completado** y revisado |
 | **H2 — Catálogo** | **Completado** ([`H2-CATALOGO.md`](H2-CATALOGO.md)) |
@@ -592,14 +592,14 @@ Rafael fijó **este orden, y no se altera**:
 
 | | Qué | Por qué en ese sitio |
 |---|---|---|
-| ~~1º~~ | ~~**Acceso**~~ — **cerrado el 19-sep-2026**, nueve hallazgos construidos de diez | Era el que tenía peso real, y lo confirmó: una empresa podía quedarse sin nadie que la administrara por tres puertas distintas |
+| ~~1º~~ | ~~**Acceso**~~ — **cerrado el 19-sep-2026**, diez hallazgos construidos de once | Era el que tenía peso real, y lo confirmó: una empresa podía quedarse sin nadie que la administrara por tres puertas distintas |
 | **2º** | **Reportes** — ventas por cliente, estado de cuenta, valuación del inventario | Más pequeños, y con un hallazgo ya anotado: las exportaciones redondean distinto que la pantalla |
 | **3º** | **Las cuatro decisiones** que esperan a Rafael | Están abajo, cada una con su síntoma, su `archivo:línea` y su coste |
 | **4º** | **Mejoras de diseño del sistema** | **Sólo después de cerrar el 100 %.** Textual: «eso será luego de cerrar al 100 el sistema como tal» |
 
 #### 1º · Acceso — cerrado el 19-sep-2026
 
-Diez hallazgos, **nueve construidos**. El informe completo está en
+Once hallazgos, **diez construidos**. El informe completo está en
 [`revision/acceso/acceso.md`](revision/acceso/acceso.md). Lo que cambió, en corto:
 
 - **Una empresa ya no se queda sin nadie que la administre**, por ninguna de las tres puertas
@@ -617,6 +617,9 @@ Diez hallazgos, **nueve construidos**. El informe completo está en
 - **El bloqueo por intentos cuenta también cuentas distintas por dirección** —no fallos, que
   bloquearía a una oficina entera— y purga las entradas caducadas.
 - **La cookie dura lo que dice la API**, en vez de un «1 hora» repetido a mano en la interfaz.
+- **Dos peticiones a la vez ya no se saltan la guarda del administrador**: se turnan con un cerrojo
+  por empresa, el mismo patrón que Ventas e Inventario usan para reservar existencia. Sin él, la
+  empresa quedaba sin administrador 4 de cada 5 intentos.
 
 **Ya comprobado y correcto**, para no volver a mirarlo: el tiempo de respuesta del inicio de sesión
 no delata qué correos existen (29 ms con uno registrado contra 28 ms con uno inventado); el

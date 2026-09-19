@@ -23,6 +23,13 @@ export class RoleRevoker {
 
   async run(request: RoleRevokerRequest): Promise<void> {
     const tenantId = TenantId.of(request.tenantId);
+
+    // Comprobar y escribir tienen que ir juntos: dos peticiones a la vez contaban cada una
+    // antes de que la otra escribiera, y entre las dos dejaban la empresa sin gobierno.
+    await this.administration.whileNobodyElseChangesIt(tenantId, () => this.revoke(tenantId, request));
+  }
+
+  private async revoke(tenantId: TenantId, request: RoleRevokerRequest): Promise<void> {
     const userId = UserId.of(request.userId);
     const membership = await this.finder.findByUser(tenantId, userId);
     const role = await this.roles.find(tenantId, RoleId.of(request.roleId));
