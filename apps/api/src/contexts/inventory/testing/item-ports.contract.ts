@@ -2,7 +2,7 @@ import { ItemPrices } from '../domain/item/item-prices.js';
 import { ItemReorderRules } from '../domain/item/item-reorder-rules.js';
 import { afterAll, afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { ItemCommitments } from '../domain/item/commitments/item-commitments.js';
-import { DuplicateSkuError, ItemNotFoundError } from '../domain/errors/item.errors.js';
+import { DuplicateBarcodeError, DuplicateSkuError, ItemNotFoundError } from '../domain/errors/item.errors.js';
 import { Barcode } from '../domain/item/barcode.vo.js';
 import { ItemId } from '../domain/item/item-id.vo.js';
 import { ItemName } from '../domain/item/item-name.vo.js';
@@ -215,6 +215,21 @@ export function describeItemPortsContract(implementation: string, createHarness:
         expect(items.map((item) => item.toPrimitives().units)).toEqual([[{ unitId: UNIT_PIECE, conversionFactor: 1, isBase: true }]]);
       });
 
+      // La comprobacion previa del caso de uso no sirve si dos altas entran a la vez: lo ultimo
+      // que queda es el indice, y su choque tiene que llegar como conflicto, no como un 500.
+      it('refuses a repeated barcode, and lets several items have none', async () => {
+        await seedReferences();
+        await ports.items.save(anItem({ sku: 'AGUA-500', barcode: '7591234567890' }));
+
+        await expect(
+          ports.items.save(anItem({ id: ITEM_B, code: 'ART000002', sku: 'JABON-1KG', barcode: '7591234567890', units: baseUnitOnly(UNIT_BOX) })),
+        ).rejects.toThrow(DuplicateBarcodeError);
+
+        await ports.items.save(anItem({ id: ITEM_B, code: 'ART000002', sku: 'JABON-1KG', barcode: null, units: baseUnitOnly(UNIT_BOX) }));
+
+        expect((await ports.items.search(tenantA, ALL)).total).toBe(2);
+      });
+
       it('lists only the items of the tenant', async () => {
         await seedReferences();
         await ports.items.save(anItem());
@@ -237,6 +252,78 @@ export function describeItemPortsContract(implementation: string, createHarness:
         expect((await ports.items.search(tenantA, { text: 'jab', limit: 10, offset: 0 })).items.map((item) => item.sku().value)).toEqual(['JABON-1KG']);
         expect((await ports.items.search(tenantA, { text: '75912', limit: 10, offset: 0 })).items.map((item) => item.sku().value)).toEqual(['AGUA-500']);
         expect((await ports.items.search(tenantA, { text: 'nada', limit: 10, offset: 0 })).total).toBe(0);
+      });
+
+      // Dos articulos pueden llamarse igual. Si el orden solo mira el nombre, el motor decide
+      // el empate como quiera y una pagina repite lo que la anterior ya trajo: el articulo que
+      // se salta no aparece en ningun sitio, tampoco en los selectores que recorren paginas.
+      it('pages without losing items that share a name', async () => {
+        await seedReferences();
+
+        const skus = ['HOM-1', 'HOM-2', 'HOM-3', 'HOM-4', 'HOM-5'];
+        for (const [index, sku] of skus.entries()) {
+          await ports.items.save(
+            anItem({
+              id: `a0000000-0000-4000-8000-00000000000${index + 1}`,
+              code: `ART00001${index + 1}`,
+              sku,
+              name: 'Tornillo',
+              units: baseUnitOnly(UNIT_PIECE),
+            }),
+          );
+        }
+
+        const seen: string[] = [];
+        for (let offset = 0; offset < skus.length; offset += 1) {
+          seen.push(...(await ports.items.search(tenantA, { text: 'Tornillo', limit: 1, offset })).items.map((item) => item.sku().value));
+        }
+
+        expect([...seen].sort()).toEqual(skus);
+      });
+    });
+
+    // Lo que el aviso de reposicion mira sin que se haya movido nada todavia. La consulta cruza
+    // pedidos y ordenes de otros contextos: si el doble y la base no coinciden, el aviso miente.
+    describe('ExpectedStock', () => {
+      const pendingOf = async () => (await ports.expected.pending(tenantA)).map((row) => ({ ...row, itemId: row.itemId }));
+
+      it('has nothing pending when no document is open', async () => {
+        await seedReferences();
+        await ports.items.save(anItem());
+
+        expect(await pendingOf()).toEqual([]);
+      });
+
+      it('adds up what sales reserved and what purchases are bringing, by item and warehouse', async () => {
+        await seedReferences();
+        await catalog.warehouse({ tenantId: TENANT_A, id: WAREHOUSE_A, name: 'Principal', isActive: true });
+        await ports.items.save(anItem());
+
+        await seed.salesLine({ itemId: ITEM_A, unitId: UNIT_PIECE, status: 'confirmed', quantity: 100, dispatched: 30 });
+        await seed.purchaseLine({ itemId: ITEM_A, unitId: UNIT_PIECE, status: 'partially_received', quantity: 200, received: 50 });
+
+        expect(await pendingOf()).toEqual([{ itemId: ITEM_A, warehouseId: WAREHOUSE_A, reserved: 70, incoming: 150 }]);
+      });
+
+      // Un documento cerrado ya no espera nada: lo suyo esta en la existencia, no en el camino.
+      it('ignores documents with nothing left to move', async () => {
+        await seedReferences();
+        await catalog.warehouse({ tenantId: TENANT_A, id: WAREHOUSE_A, name: 'Principal', isActive: true });
+        await ports.items.save(anItem());
+
+        await seed.salesLine({ itemId: ITEM_A, unitId: UNIT_PIECE, status: 'dispatched', quantity: 100, dispatched: 100 });
+        await seed.purchaseLine({ itemId: ITEM_A, unitId: UNIT_PIECE, status: 'draft', quantity: 200, received: 0 });
+
+        expect(await pendingOf()).toEqual([]);
+      });
+
+      it('never counts the documents of another tenant', async () => {
+        await seedReferences();
+        await catalog.warehouse({ tenantId: TENANT_A, id: WAREHOUSE_A, name: 'Principal', isActive: true });
+        await ports.items.save(anItem());
+        await seed.salesLine({ itemId: ITEM_A, unitId: UNIT_PIECE, status: 'confirmed', quantity: 100, dispatched: 0 });
+
+        expect(await ports.expected.pending(tenantB)).toEqual([]);
       });
     });
 
@@ -267,7 +354,13 @@ export function describeItemPortsContract(implementation: string, createHarness:
         await ports.posting.post(tenantA, itemA, (item) => item.deactivate(LATER));
 
         expect((await ports.items.find(tenantA, itemA))?.isActive()).toBe(false);
-        expect(await commitmentsOf()).toEqual({ hasStock: false, hasMovements: false, openDocumentUnits: [] });
+        expect(await commitmentsOf()).toEqual({
+          hasStock: false,
+          hasMovements: false,
+          openDocumentUnits: [],
+          openPurchaseOrders: false,
+          openSalesOrders: false,
+        });
       });
 
       it('writes nothing when the work throws', async () => {
@@ -287,6 +380,21 @@ export function describeItemPortsContract(implementation: string, createHarness:
         await seedItem();
 
         await expect(ports.posting.post(tenantB, itemA, () => undefined)).rejects.toThrow(ItemNotFoundError);
+      });
+
+      // Dejar de comprar un articulo solo lo impiden las compras: hay que saber de que lado
+      // viene cada documento abierto, no solo que exista alguno.
+      it('tells which side the open documents come from', async () => {
+        await seedItem();
+        expect(await commitmentsOf()).toMatchObject({ openPurchaseOrders: false, openSalesOrders: false });
+
+        await seed.salesLine({ itemId: ITEM_A, unitId: UNIT_PIECE, status: 'confirmed', quantity: 10, dispatched: 0 });
+        expect(await commitmentsOf()).toMatchObject({ openPurchaseOrders: false, openSalesOrders: true });
+
+        await seed.purchaseLine({ itemId: ITEM_A, unitId: UNIT_PIECE, status: 'confirmed', quantity: 10, received: 0 });
+        expect(await commitmentsOf()).toMatchObject({ openPurchaseOrders: true, openSalesOrders: true });
+        // La misma unidad por los dos lados sigue contando una sola vez.
+        expect(await openUnits()).toEqual([UNIT_PIECE]);
       });
 
       it('counts stock only when a warehouse holds a positive quantity', async () => {

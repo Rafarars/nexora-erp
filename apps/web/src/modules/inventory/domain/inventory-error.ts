@@ -12,6 +12,8 @@ const BY_CODE: Record<string, string> = {
   PriceListNotFoundError: 'Una de las listas de precio ya no existe.',
   ItemInOpenDocumentsError:
     'El artículo está en órdenes de compra o pedidos de venta abiertos: recíbelos, despáchalos o anúlalos primero.',
+  ItemStopsBeingTradedError:
+    'Hay órdenes de compra o pedidos de venta abiertos con este artículo: recíbelos, despáchalos o anúlalos antes de dejar de comprarlo o de venderlo.',
   ItemUnitInOpenDocumentsError:
     'Una orden de compra o un pedido de venta abierto usa esa unidad: no se puede quitar ni cambiar su factor hasta cerrarlo.',
   InvalidConversionFactorError: 'Cada factor de conversión debe ser un número mayor que cero.',

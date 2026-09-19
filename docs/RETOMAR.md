@@ -17,6 +17,12 @@ de ninguna conversación anterior**.
 5. **Dónde quedamos y qué sigue**: al final de este archivo, «Revisión módulo por módulo» → «Dónde quedamos» y
    «Plan de las fases que faltan»
 
+**Ojo con la carga de la máquina:** la suite completa lanza los proyectos en paralelo, y con la máquina ocupada
+(load ~7, otros contenedores corriendo) alguna prueba de aislamiento puede caer con `socket hang up` sobre una
+ruta pesada —la valuación del inventario o la disponibilidad—. No es un defecto del sistema: la API sigue sana y
+sin un solo error interno, y `npx playwright test --project=isolation` pasa sus 130 casos. Comprobado el
+18-sep-2026. Si aparece, mirar el `load average` antes que el código.
+
 **Ojo con la base de desarrollo:** las pruebas de contrato la vacían. Después de `make verify`, o de correr contratos
 sueltos, hay que `make seed` antes de la suite end-to-end o de mirar la interfaz. Y `make up` reconstruye las imágenes:
 un cambio de API o de web no se ve en el navegador ni en la e2e hasta que se ejecuta.
@@ -29,7 +35,7 @@ un cambio de API o de web no se ve en el navegador ni en la e2e hasta que se eje
 |---|---|
 | Repositorio | github.com/Rafarars/nexora-erp |
 | Reporte de pruebas | https://rafarars.github.io/nexora-erp/ |
-| Pruebas | 2653 + 182 unitarias · 178 de contrato · 374 end-to-end |
+| Pruebas | 2681 + 183 unitarias · 185 de contrato · 377 end-to-end |
 | **H0 — Fundación** | **Completado** |
 | **H1 — Multiempresa y acceso** | **Completado** y revisado |
 | **H2 — Catálogo** | **Completado** ([`H2-CATALOGO.md`](H2-CATALOGO.md)) |
@@ -514,19 +520,19 @@ cliente, el precio mínimo y el precio sugerido en el pedido. Después, la fase 
 
 ---
 
-### Qué sigue (acordado el 18-sep-2026, antes del compact)
+### Qué sigue
 
 **Continuar la revisión módulo por módulo con la skill `module-review`**, que es justo el método que salió de este
 piloto. El orden y el estado están en [`revision/README.md`](revision/README.md) § Orden y estado.
 
-Dos maneras de empezar, ambas válidas:
+**El siguiente es el Catálogo** (unidades de medida, categorías, impuestos, bodegas): es el siguiente por
+dependencias y del que cuelga todo lo demás.
 
-- **Cerrar el flanco del piloto**: la **fase 4 de Artículos** (artículo completo: código de barras, dos impuestos,
-  factor de ocho decimales, mínimos por bodega, SKU copiado en los documentos, listado paginado) **se cerró sin
-  revisión adversarial propia**. Las fases 5 y 6, al mirarlas de nuevo, soltaron diez cosas; suponer que la 4 está
-  limpia porque las pruebas pasan sería ingenuo. Además estrenaría la skill sobre terreno conocido.
-- **Seguir el checklist**: el siguiente submódulo pendiente según las dependencias es el **Catálogo** (unidades,
-  categorías, impuestos, bodegas), del que depende todo lo demás.
+**Hecho el 18-sep-2026 · la fase 4 de Artículos**, que era el flanco abierto del piloto: se había construido sin
+revisión adversarial propia. La revisión, la primera hecha **con la skill**, encontró seis cosas
+([revisión §12](revision/inventario/articulos.md)), dos de ellas graves: el factor de ocho decimales **no llegaba
+al cálculo** —la fase 4 lo daba por corregido— y la paginación **escondía artículos** con nombres repetidos. Vale
+como aviso: una fase cerrada sin lupa propia no está revisada aunque su suite esté verde.
 
 **Al arrancar:** invocar la skill `module-review`, decirle qué submódulo se revisa y que el sistema de referencia es
 `verlumyx/erp` (se lee con `gh api repos/verlumyx/erp/contents/<ruta> --jq '.content' | base64 -d`; **leer su código,

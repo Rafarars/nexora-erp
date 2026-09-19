@@ -63,15 +63,20 @@ test.describe('The inventory, from the screen', () => {
   });
 });
 
-// El agua tiene 288 y su minimo en Principal es 300: aparece con lo que falta y lo que pedir.
+// El detergente proyecta 60 —50 que hay, 10 vendidos, 20 en camino— contra un minimo de 80.
+// El agua no aparece aunque tenga 288 contra un minimo de 300, porque ya viene en camino.
 test('shows what is below its minimum, with what to order', async ({ page }) => {
   await new LoginPage(page).signIn(ACME_ADMIN);
   const inventory = new InventoryPage(page);
 
   await inventory.open('bajo-minimo');
 
-  await expect(page.getByTestId('low-stock-missing-AGUA-500')).toHaveText('12');
-  await expect(page.getByTestId('low-stock-suggested-AGUA-500')).toHaveText('480');
+  await expect(page.getByTestId('low-stock-missing-DETERGENTE-1KG')).toHaveText('20');
+  await expect(page.getByTestId('low-stock-suggested-DETERGENTE-1KG')).toHaveText('20');
+  // La pantalla explica de donde sale el numero: lo que hay, lo vendido, lo que viene y el total.
+  await expect(page.getByTestId('low-stock-projected-DETERGENTE-1KG')).toHaveText('60');
+  await expect(page.getByTestId('low-stock-incoming-DETERGENTE-1KG')).toHaveText('20');
+  await expect(page.getByTestId('low-stock-row-AGUA-500')).toHaveCount(0);
 });
 
 test('a read-only role sees stock and adjustments but gets no way to change them', async ({ page }) => {

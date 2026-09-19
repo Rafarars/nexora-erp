@@ -496,12 +496,14 @@ async function seedCatalog(prisma: PrismaClient): Promise<void> {
     ],
   });
 
-  // Reglas de reposicion: el agua se vigila en la Principal (hay 288 y el minimo es 300).
+  // Reglas de reposicion, contra la existencia PROYECTADA. El agua ensena por que: hay 288 y el
+  // minimo es 300, pero una orden trae 144 y un pedido reserva 72, asi que proyecta 360 y no hay
+  // que pedir nada. El detergente si falta: 50 menos 10 vendidos mas 20 en camino son 60, bajo 80.
   await prisma.itemReorderRule.deleteMany({ where: { tenantId: { in: [ACME, GLOBEX] } } });
   await prisma.itemReorderRule.createMany({
     data: [
       { tenantId: ACME, itemId: acme.items.water, warehouseId: acme.warehouses.main, minQuantity: 300, maxQuantity: 960, reorderQuantity: 480 },
-      { tenantId: ACME, itemId: acme.items.detergent, warehouseId: acme.warehouses.main, minQuantity: 20, maxQuantity: null, reorderQuantity: 0 },
+      { tenantId: ACME, itemId: acme.items.detergent, warehouseId: acme.warehouses.main, minQuantity: 80, maxQuantity: null, reorderQuantity: 0 },
       { tenantId: GLOBEX, itemId: globex.items.filter, warehouseId: globex.warehouses.main, minQuantity: 10, maxQuantity: null, reorderQuantity: 20 },
     ],
   });

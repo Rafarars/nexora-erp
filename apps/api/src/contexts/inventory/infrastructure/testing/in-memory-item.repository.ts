@@ -1,4 +1,4 @@
-import { DuplicateSkuError } from '../../domain/errors/item.errors.js';
+import { DuplicateBarcodeError, DuplicateSkuError } from '../../domain/errors/item.errors.js';
 import { Barcode } from '../../domain/item/barcode.vo.js';
 import { ItemId } from '../../domain/item/item-id.vo.js';
 import { Item, ItemPrimitives } from '../../domain/item/item.entity.js';
@@ -24,6 +24,12 @@ export class InMemoryItemRepository implements ItemRepository {
     }
 
     if (others.some((other) => other.sku === row.sku)) throw new DuplicateSkuError(row.sku, row.tenantId);
+
+    // Y tampoco dos con el mismo codigo de barras. Varios sin codigo si conviven: en la base,
+    // un nulo no choca con otro nulo.
+    if (row.barcode !== null && others.some((other) => other.barcode === row.barcode)) {
+      throw new DuplicateBarcodeError(row.barcode, row.tenantId);
+    }
 
     this.rows.set(row.id, structuredClone(row));
   }
@@ -69,6 +75,7 @@ export class InMemoryItemRepository implements ItemRepository {
   private ofTenant(tenantId: TenantId): ItemPrimitives[] {
     return [...this.rows.values()]
       .filter((row) => row.tenantId === tenantId.value)
-      .sort((left, right) => left.name.localeCompare(right.name));
+      // Por nombre y, en el empate, por id: el mismo orden que la base, o el contrato mentiria.
+      .sort((left, right) => left.name.localeCompare(right.name) || left.id.localeCompare(right.id));
   }
 }

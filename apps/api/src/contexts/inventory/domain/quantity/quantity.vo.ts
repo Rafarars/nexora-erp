@@ -1,6 +1,7 @@
 import { InvalidQuantityError } from '../errors/inventory.errors.js';
 
-const SCALE = 10_000n;
+// El factor de conversion se guarda con ocho decimales: con menos, la docena no cuadra.
+const FACTOR_SCALE = 100_000_000n;
 const MAX_UNITS = 999_999_999_999_999_999n;
 
 // Una cantidad en su unidad, guardada como entero de diezmilesimas. Con numeros de coma
@@ -40,12 +41,13 @@ export class Quantity {
     return Quantity.fromUnits(this.units - other.units);
   }
 
-  // Convierte a la unidad base: 2 cajas por un factor de 24 son 48 unidades. El producto de
-  // dos valores con cuatro decimales tiene ocho; se redondea a cuatro, mitad hacia arriba.
+  // Convierte a la unidad base: 2 cajas por un factor de 24 son 48 unidades. El factor entra
+  // con sus ocho decimales; recortarlo a cuatro dejaba la docena en 0,9996 y hacia cero un
+  // factor muy fino. El producto se redondea una sola vez, mitad hacia arriba.
   times(factor: number): Quantity {
-    const factorUnits = BigInt(Math.round(factor * 10_000));
+    const factorUnits = BigInt(Math.round(factor * 100_000_000));
 
-    return Quantity.fromUnits((this.units * factorUnits * 2n + SCALE) / (2n * SCALE));
+    return Quantity.fromUnits((this.units * factorUnits * 2n + FACTOR_SCALE) / (2n * FACTOR_SCALE));
   }
 
   isZero(): boolean {

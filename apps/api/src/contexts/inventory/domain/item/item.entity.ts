@@ -157,6 +157,15 @@ export class Item {
     );
   }
 
+  // Cierto si el articulo deja de ofrecerse por ese lado. Volver a ofrecerlo no estorba a nadie.
+  stopsBeingPurchasable(details: ItemDetails): boolean {
+    return this.details.isPurchasable && !details.isPurchasable;
+  }
+
+  stopsBeingSellable(details: ItemDetails): boolean {
+    return this.details.isSellable && !details.isSellable;
+  }
+
   // Cierto si con los datos nuevos la unidad sigue en el articulo y con el mismo factor.
   keepsUnit(details: ItemDetails, unitId: UnitRef): boolean {
     const current = this.details.units.factorOf(unitId);

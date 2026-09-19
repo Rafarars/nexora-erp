@@ -34,6 +34,16 @@ export class DuplicateSkuError extends ConflictError {
   }
 }
 
+// Dejar de comprar o de vender un articulo es, para un documento vivo, lo mismo que darlo de baja.
+export class ItemStopsBeingTradedError extends ConflictError {
+  constructor(itemId: string, side: 'purchase' | 'sales') {
+    super(
+      `Item <${itemId}> still has open ${side} documents.`,
+      'The item cannot stop being traded while it has open documents.',
+    );
+  }
+}
+
 export class DuplicateBarcodeError extends ConflictError {
   constructor(barcode: string, tenantId: string) {
     super(`Barcode <${barcode}> already exists in tenant <${tenantId}>.`, 'An item with that barcode already exists.');

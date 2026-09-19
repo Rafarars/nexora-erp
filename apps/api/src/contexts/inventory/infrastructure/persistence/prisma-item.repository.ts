@@ -2,7 +2,7 @@ import { Injectable } from '@nestjs/common';
 import type { TransactionClient } from '../../../../shared/prisma/document-stock-posting.js';
 import { PrismaService } from '../../../../shared/prisma/prisma.service.js';
 import { violates } from '../../../../shared/prisma/unique-violation.js';
-import { DuplicateSkuError } from '../../domain/errors/item.errors.js';
+import { DuplicateBarcodeError, DuplicateSkuError } from '../../domain/errors/item.errors.js';
 import { Barcode } from '../../domain/item/barcode.vo.js';
 import { ItemId } from '../../domain/item/item-id.vo.js';
 import { Item } from '../../domain/item/item.entity.js';
@@ -62,9 +62,17 @@ export async function writeItem(tx: TransactionClient, item: Item): Promise<void
     await tx.itemPrice.createMany({ data: prices.map((price) => ({ tenantId, itemId: id, ...price, updatedAt })) });
   } catch (error) {
     if (violates(error, 'sku')) throw new DuplicateSkuError(sku, tenantId);
+    // La comprobacion previa tapa el caso normal; en una carrera manda el indice, y su choque
+    // tiene que salir como el mismo 409 que veria la persona, no como un error del motor.
+    if (barcode !== null && violates(error, 'barcode')) throw new DuplicateBarcodeError(barcode, tenantId);
     throw error;
   }
 }
+
+// Dos articulos pueden llamarse igual, y entonces el nombre no basta para ordenar: sin un
+// desempate estable, una pagina repite lo que trajo la anterior y el articulo saltado no
+// aparece en ninguna.
+const ITEM_ORDER = [{ name: 'asc' as const }, { id: 'asc' as const }];
 
 @Injectable()
 export class PrismaItemRepository implements ItemRepository {
@@ -105,7 +113,7 @@ export class PrismaItemRepository implements ItemRepository {
     const rows = await this.prisma.item.findMany({
       where: { tenantId: tenantId.value, reorderRules: { some: {} } },
       include: WITH_UNITS,
-      orderBy: { name: 'asc' },
+      orderBy: ITEM_ORDER,
     });
 
     return rows.map(itemFromRow);
@@ -128,7 +136,7 @@ export class PrismaItemRepository implements ItemRepository {
     };
 
     const [rows, total] = await Promise.all([
-      this.prisma.item.findMany({ where, include: WITH_UNITS, orderBy: { name: 'asc' }, take: criteria.limit, skip: criteria.offset }),
+      this.prisma.item.findMany({ where, include: WITH_UNITS, orderBy: ITEM_ORDER, take: criteria.limit, skip: criteria.offset }),
       this.prisma.item.count({ where }),
     ]);
 

@@ -50,8 +50,8 @@ La categoría, el impuesto y las unidades siguen en el [catálogo](catalogo.md) 
 | `name` | texto(200) | Obligatorio |
 | `description` | texto(1000) | Opcional |
 | `type` | `inventoried` \| `service` | Inventariado tiene existencia; **un servicio se compra y se vende pero nunca tiene stock**: su línea no se recibe ni se despacha, y no deja el documento abierto ([ventas.md §2.5](ventas.md#25-servicios)) |
-| `is_purchasable` | sí/no | Por defecto sí. En **no**, una orden de compra lo rechaza (`ItemNotPurchasableError`) |
-| `is_sellable` | sí/no | Por defecto sí. En **no**, un pedido de venta lo rechaza (`ItemNotSellableError`) |
+| `is_purchasable` | sí/no | Por defecto sí. En **no**, una orden de compra lo rechaza (`ItemNotPurchasableError`). **No se puede quitar** con órdenes de compra abiertas (`ItemStopsBeingTradedError`) |
+| `is_sellable` | sí/no | Por defecto sí. En **no**, un pedido de venta lo rechaza (`ItemNotSellableError`). **No se puede quitar** con pedidos de venta abiertos |
 | `category_id` | categoría | Opcional |
 | `sales_tax_id` | impuesto | Opcional. **El que se copia a la línea al venderlo** |
 | `purchase_tax_id` | impuesto | Opcional. El que se copia a la línea al comprarlo |
@@ -73,6 +73,25 @@ vigila en esa bodega.
 la Norte. Así lo llevan Odoo (`stock.warehouse.orderpoint`), ERPNext (`Item Reorder`) y Business Central
 (en el SKU, artículo + ubicación). El compañero los tiene planos en el artículo y **nadie los lee**; aquí
 los consume el listado de bajo mínimo.
+
+**Contra qué se compara el mínimo:** contra la existencia **proyectada**, no contra la física.
+
+```
+proyectada = existencia − reservado + en camino
+```
+
+- **Reservado**: lo pendiente de despachar de los pedidos de venta confirmados de esa bodega.
+- **En camino**: lo pendiente de recibir de las órdenes de compra confirmadas para esa bodega.
+
+Ambas cifras en unidad base, y solo de las líneas que mueven existencia: un servicio no reserva ni
+llega. Comparar contra la física haría que el aviso pidiera comprar de nuevo lo que ya viene del
+proveedor, y que callara sobre lo que ya está vendido. Es la cuenta de ERPNext (*Projected Qty =
+Actual + Ordered − Reserved*) y de Odoo (la previsión de sus reglas de reabastecimiento). La
+pantalla muestra las cuatro columnas —existencia, reservado, en camino y proyectada— para que el
+número se pueda explicar.
+
+**Lo que no se vigila:** los artículos inactivos, los **servicios** (no tienen existencia que reponer
+aunque alguien les deje una regla) y las bodegas **desactivadas**.
 
 ### 1.2 Precios por lista — `item_prices`
 
@@ -123,9 +142,16 @@ unidad base.
 0,9996 docenas, no una. Con ocho, 0,08333333 × 12 = 0,99999996, que redondeado a las cuatro
 diezmilésimas de las cantidades es exactamente 1.
 
+**Y el cálculo usa los ocho**, no solo la columna: la conversión a unidad base multiplica por el
+factor completo y redondea **una sola vez** al final. Recortar el factor a cuatro decimales antes de
+multiplicar devolvía el mismo 0,9996 que se quería evitar, y convertía en **cero** un factor más fino
+que 0,00005 —un gramo de un saco de 25 kg—, de modo que el documento entraba sin mover nada.
+
 **El listado va por páginas.** `GET /api/v1/inventory/items` devuelve 20 por defecto (`limit` hasta 50,
 `offset` desde 0) y, junto a los artículos, `total`, `limit`, `offset` y `hasMore`. `q` filtra por
-código, SKU, nombre y código de barras, sin distinguir mayúsculas. La pantalla busca y pasa de página
+código, SKU, nombre y código de barras, sin distinguir mayúsculas. **Ordena por nombre y, en el
+empate, por identificador**: dos artículos pueden llamarse igual, y sin ese desempate una página
+repetía lo que traía la anterior y el artículo saltado no aparecía en ninguna. La pantalla busca y pasa de página
 por la URL, así que un listado se puede compartir tal como se ve. Los selectores de otros módulos
 piden 50; con un maestro mayor harán falta selectores que busquen contra el servidor
 ([FUTURE.md](../FUTURE.md)).
@@ -165,6 +191,11 @@ que hacen el compañero y SAP Business One.
   factor** (`ItemUnitInOpenDocumentsError`), y el artículo no cambia de tipo
   (`ItemInOpenDocumentsError`). La orden guardó 10 cajas como 240 unidades: con una caja de 12
   anunciaría en camino otra cosa. Recibida o anulada la orden, la unidad vuelve a quedar libre.
+- **Dejar de comprarlo o de venderlo es, para un documento vivo, lo mismo que darlo de baja**
+  (`ItemStopsBeingTradedError`): quitar «se compra» con órdenes de compra abiertas se rechaza, y
+  quitar «se vende» con pedidos de venta abiertos, también. **Cada lado mira los suyos**: un pedido
+  de venta no impide dejar de comprarlo. Los borradores no cuentan —no prometieron nada y se
+  revalidan al confirmarse— y volver a ofrecerlo nunca estorba a nadie.
 - **Editar y desactivar bloquean la fila del artículo** mientras miran su existencia, su kardex y
   sus documentos abiertos. Quien confirma un documento o mueve existencia la bloquea en modo
   compartido: el cambio y el documento van en fila, y el segundo ve lo que dejó el primero. Así
@@ -437,7 +468,7 @@ Las del artículo se explican en [§1](#1-artículos); la de la bodega vive en e
 |---|---|
 | `/inventario` | Redirige a la primera sección que el rol puede ver |
 | `/inventario/articulos` | Tabla con SKU, tipo, categoría, **para qué se usa** (comprar, vender), **impuestos de venta y de compra** y unidades («un · 1 cja = 24 un»); **buscador y paginación**; panel con código de barras, editor de unidades y **mínimos por bodega** |
-| `/inventario/bajo-minimo` | Lo que hay que reponer: existencia, mínimo, cuánto falta y cuánto pedir, con filtro por bodega |
+| `/inventario/bajo-minimo` | Lo que hay que reponer: **existencia, reservado, en camino y proyectada**, mínimo, cuánto falta y cuánto pedir, con filtro por bodega |
 | `/inventario/existencias` | Artículo, bodega, existencia en unidad base, costo promedio, valor y total; filtro por bodega en la dirección |
 | `/inventario/ajustes` | Código, fecha, bodega, resumen de líneas («+2 cja (48 un) AGUA-500»), estado y Opciones según el estado |
 | `/inventario/kardex` | Elige artículo y bodega; cada movimiento con documento, cantidad, costo, saldo y promedio, y las anulaciones marcadas |
@@ -458,8 +489,13 @@ Las del artículo se explican en [§1](#1-artículos); la de la bodega vive en e
 **Artículos**: Acme — Agua mineral 500 ml (caja de 24, IVA al vender y al comprar), Detergente 1 kg (**IVA al vender,
 exento al comprar**), Servicio de entrega (exento, solo se vende); Globex — Filtro de aceite.
 
-**Mínimos**: el agua se vigila en Principal (mínimo 300, máximo 960, pedir 480) y hay 288, así que aparece
-en **Bajo mínimo** con 12 de falta; el detergente tiene mínimo 20 y hay 50.
+**Mínimos**: los dos casos que hay que entender.
+
+- **El agua** se vigila en Principal (mínimo 300, máximo 960, pedir 480) y hay 288, pero una orden de compra ya
+  trae 144 y un pedido reserva 72: su proyectada es **360** y **no aparece** en Bajo mínimo. Pedirla otra vez
+  sería comprar dos veces lo mismo.
+- **El detergente** sí aparece: hay 50, un pedido reserva 10 y una orden trae 20, así que proyecta **60** contra
+  un mínimo de 80. Faltan 20.
 
 | Empresa | Ajuste | Estado | Contenido | Existencia resultante |
 |---|---|---|---|---|

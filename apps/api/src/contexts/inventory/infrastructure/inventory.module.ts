@@ -40,6 +40,7 @@ import { AdjustmentConfirmation } from '../domain/adjustment/posting/adjustment-
 import { ADJUSTMENT_POSTING } from '../domain/adjustment/posting/adjustment-posting.js';
 import type { AdjustmentPosting } from '../domain/adjustment/posting/adjustment-posting.js';
 import { MOVEMENT_DOCUMENTS } from '../domain/documents/movement-documents.js';
+import { EXPECTED_STOCK, ExpectedStock } from '../domain/stock/expected-stock.js';
 import type { MovementDocuments } from '../domain/documents/movement-documents.js';
 import { StockMovements } from '../domain/stock/posting/stock-movements.js';
 import { INVENTORY_CATALOG } from '../domain/catalog/inventory-catalog.js';
@@ -61,6 +62,7 @@ import { SearchLowStockGetController } from './http/search-low-stock-get.control
 import { SearchStockGetController } from './http/search-stock-get.controller.js';
 import { UpdateAdjustmentPutController } from './http/update-adjustment-put.controller.js';
 import { PrismaDocumentStockPosting } from './persistence/prisma-document-stock-posting.js';
+import { PrismaExpectedStock } from './persistence/prisma-expected-stock.js';
 import { PrismaMovementDocuments } from './persistence/prisma-movement-documents.js';
 import { PrismaAdjustmentPosting } from './persistence/prisma-adjustment-posting.js';
 import { PrismaAdjustmentRepository } from './persistence/prisma-adjustment.repository.js';
@@ -97,6 +99,7 @@ import { PrismaStockRepository } from './persistence/prisma-stock.repository.js'
     { provide: INVENTORY_CATALOG, useClass: PrismaInventoryCatalog },
     { provide: INVENTORY_CODE_SEQUENCE, useClass: PrismaInventoryCodeSequence },
     { provide: MOVEMENT_DOCUMENTS, useClass: PrismaMovementDocuments },
+    { provide: EXPECTED_STOCK, useClass: PrismaExpectedStock },
     { provide: DOCUMENT_STOCK_POSTING, useClass: PrismaDocumentStockPosting },
     { provide: ITEM_REPOSITORY, useClass: PrismaItemRepository },
     { provide: ITEM_POSTING, useClass: PrismaItemPosting },
@@ -181,8 +184,8 @@ import { PrismaStockRepository } from './persistence/prisma-stock.repository.js'
     },
     {
       provide: LowStockSearcher,
-      useFactory: (i: ItemRepository, s: StockRepository, c: InventoryCatalog) => new LowStockSearcher(i, s, c),
-      inject: [ITEM_REPOSITORY, STOCK_REPOSITORY, INVENTORY_CATALOG],
+      useFactory: (i: ItemRepository, s: StockRepository, c: InventoryCatalog, e: ExpectedStock) => new LowStockSearcher(i, s, c, e),
+      inject: [ITEM_REPOSITORY, STOCK_REPOSITORY, INVENTORY_CATALOG, EXPECTED_STOCK],
     },
     {
       provide: MovementSearcher,

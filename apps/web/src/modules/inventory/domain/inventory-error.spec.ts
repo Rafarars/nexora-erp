@@ -23,6 +23,7 @@ describe('readableInventoryError', () => {
     ['ItemWithStockError', 'existencia'],
     ['ItemWithMovementsError', 'movimientos'],
     ['ItemInOpenDocumentsError', 'abiertos'],
+    ['ItemStopsBeingTradedError', 'antes de dejar de comprarlo'],
     ['ItemUnitInOpenDocumentsError', 'factor'],
     ['DuplicateSkuError', 'SKU'],
   ])('explains %s as a rule of the item', (code, words) => {

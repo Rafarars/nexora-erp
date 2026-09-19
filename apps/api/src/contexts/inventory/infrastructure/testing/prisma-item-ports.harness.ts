@@ -4,6 +4,7 @@ import type { Env } from '../../../../shared/config/env.schema.js';
 import { PrismaService } from '../../../../shared/prisma/prisma.service.js';
 import { NOW, TENANT_A, TENANT_B, WAREHOUSE_A } from '../../domain/testing/item.mother.js';
 import { CatalogSeeder, ItemCommitmentsSeeder, ItemPorts, ItemPortsHarness } from '../../testing/item-ports.harness.js';
+import { PrismaExpectedStock } from '../persistence/prisma-expected-stock.js';
 import { PrismaCatalogReferences } from '../persistence/prisma-catalog-references.js';
 import { PrismaItemPosting } from '../persistence/prisma-item-posting.js';
 import { PrismaItemRepository } from '../persistence/prisma-item.repository.js';
@@ -28,6 +29,7 @@ export class PrismaItemPortsHarness implements ItemPortsHarness {
       items: new PrismaItemRepository(this.prisma),
       posting: new PrismaItemPosting(this.prisma),
       catalog: new PrismaCatalogReferences(this.prisma),
+      expected: new PrismaExpectedStock(this.prisma),
     };
   }
 

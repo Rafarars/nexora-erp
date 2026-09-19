@@ -1,5 +1,6 @@
 import {
   ItemInOpenDocumentsError,
+  ItemStopsBeingTradedError,
   ItemUnitInOpenDocumentsError,
   ItemWithMovementsError,
   ItemWithStockError,
@@ -14,6 +15,9 @@ export interface ItemCommitments {
   // Las unidades de las lineas con pendiente de ordenes de compra y pedidos confirmados. Un
   // borrador no cuenta: todavia no prometio nada y se revalida al confirmarlo.
   openDocumentUnits: UnitRef[];
+  // De que lado vienen esos documentos: dejar de comprar solo lo impiden las compras.
+  openPurchaseOrders: boolean;
+  openSalesOrders: boolean;
 }
 
 // Editar: el kardex no tolera otra base ni otro tipo, y un documento abierto no tolera que su
@@ -33,6 +37,14 @@ export function ensureCanChange(item: Item, details: ItemDetails, commitments: I
 
   if (changesIdentity && commitments.openDocumentUnits.length > 0) {
     throw new ItemInOpenDocumentsError(item.id.value);
+  }
+
+  if (item.stopsBeingPurchasable(details) && commitments.openPurchaseOrders) {
+    throw new ItemStopsBeingTradedError(item.id.value, 'purchase');
+  }
+
+  if (item.stopsBeingSellable(details) && commitments.openSalesOrders) {
+    throw new ItemStopsBeingTradedError(item.id.value, 'sales');
   }
 }
 

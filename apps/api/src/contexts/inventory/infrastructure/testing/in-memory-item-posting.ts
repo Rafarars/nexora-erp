@@ -12,8 +12,10 @@ import { TenantId } from '../../domain/shared/tenant-id.vo.js';
 export class InMemoryItemPosting implements ItemPosting {
   readonly itemsWithStock = new Set<string>();
   readonly itemsWithMovements = new Set<string>();
-  // Por articulo, las unidades de sus lineas en ordenes y pedidos abiertos.
+  // Por articulo, las unidades de sus lineas en ordenes y pedidos abiertos, y de que lado vienen.
   readonly openDocumentUnits = new Map<string, string[]>();
+  readonly itemsWithOpenPurchases = new Set<string>();
+  readonly itemsWithOpenSales = new Set<string>();
   private queue: Promise<unknown> = Promise.resolve();
 
   constructor(private readonly items: ItemRepository) {}
@@ -35,6 +37,8 @@ export class InMemoryItemPosting implements ItemPosting {
       hasStock: this.itemsWithStock.has(itemId.value),
       hasMovements: this.itemsWithMovements.has(itemId.value),
       openDocumentUnits: [...new Set(this.openDocumentUnits.get(itemId.value) ?? [])].sort().map((unitId) => UnitRef.of(unitId)),
+      openPurchaseOrders: this.itemsWithOpenPurchases.has(itemId.value),
+      openSalesOrders: this.itemsWithOpenSales.has(itemId.value),
     });
 
     await this.items.save(item);

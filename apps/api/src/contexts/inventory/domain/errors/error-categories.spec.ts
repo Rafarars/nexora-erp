@@ -55,6 +55,7 @@ const itemCases: Array<[DomainError, typeof DomainError]> = [
   [new itemErrors.ItemWithStockError(ID), ConflictError],
   [new itemErrors.ItemWithMovementsError(ID), ConflictError],
   [new itemErrors.ItemInOpenDocumentsError(ID), ConflictError],
+  [new itemErrors.ItemStopsBeingTradedError(ID, 'sales'), ConflictError],
   [new itemErrors.ItemUnitInOpenDocumentsError(ID, ID), ConflictError],
   [new itemErrors.InvalidConversionFactorError(-1), InvalidArgumentError],
   [new itemErrors.InvalidSkuError('A B'), InvalidArgumentError],

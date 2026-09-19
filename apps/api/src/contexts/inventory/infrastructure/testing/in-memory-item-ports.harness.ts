@@ -1,5 +1,7 @@
 import { CatalogSeeder, ItemCommitmentsSeeder, ItemPorts, ItemPortsHarness } from '../../testing/item-ports.harness.js';
+import { TENANT_A, WAREHOUSE_A } from '../../domain/testing/item.mother.js';
 import { InMemoryCatalogReferences } from './in-memory-catalog-references.js';
+import { InMemoryExpectedStock } from './in-memory-expected-stock.js';
 import { InMemoryItemPosting } from './in-memory-item-posting.js';
 import { InMemoryItemRepository } from './in-memory-item.repository.js';
 
@@ -37,10 +39,18 @@ export class InMemoryItemPortsHarness implements ItemPortsHarness {
         posting().itemsWithMovements.add(itemId);
       },
       purchaseLine: async ({ itemId, unitId, status, quantity, received }) => {
-        if ((status === 'confirmed' || status === 'partially_received') && quantity > received) open(itemId, unitId);
+        if ((status === 'confirmed' || status === 'partially_received') && quantity > received) {
+          open(itemId, unitId);
+          posting().itemsWithOpenPurchases.add(itemId);
+          this.current.expected.add({ tenantId: TENANT_A, itemId, warehouseId: WAREHOUSE_A, reserved: 0, incoming: quantity - received });
+        }
       },
       salesLine: async ({ itemId, unitId, status, quantity, dispatched }) => {
-        if ((status === 'confirmed' || status === 'partially_dispatched') && quantity > dispatched) open(itemId, unitId);
+        if ((status === 'confirmed' || status === 'partially_dispatched') && quantity > dispatched) {
+          open(itemId, unitId);
+          posting().itemsWithOpenSales.add(itemId);
+          this.current.expected.add({ tenantId: TENANT_A, itemId, warehouseId: WAREHOUSE_A, reserved: quantity - dispatched, incoming: 0 });
+        }
       },
     };
   }
@@ -51,9 +61,9 @@ export class InMemoryItemPortsHarness implements ItemPortsHarness {
 
   async close(): Promise<void> {}
 
-  private build(): ItemPorts & { posting: InMemoryItemPosting; catalog: InMemoryCatalogReferences } {
+  private build(): ItemPorts & { posting: InMemoryItemPosting; catalog: InMemoryCatalogReferences; expected: InMemoryExpectedStock } {
     const items = new InMemoryItemRepository();
 
-    return { items, posting: new InMemoryItemPosting(items), catalog: new InMemoryCatalogReferences() };
+    return { items, posting: new InMemoryItemPosting(items), catalog: new InMemoryCatalogReferences(), expected: new InMemoryExpectedStock() };
   }
 }

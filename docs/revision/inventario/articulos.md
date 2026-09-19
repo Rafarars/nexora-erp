@@ -555,3 +555,130 @@ recibía exactamente lo que el formulario mandaba. **Recorrer la interfaz a mano
 del método**, no un extra.
 
 **Estado: ✅ cerrado y revisado.** El siguiente paso es escribir el método como skill reutilizable.
+
+---
+
+## 12. Revisión de la fase 4 (18-sep-2026)
+
+La fase 4 —artículo completo— se construyó y se cerró **sin revisión adversarial propia**. Las
+fases 5 y 6, al mirarlas de nuevo, soltaron diez cosas; suponer que la 4 estaba limpia porque las
+pruebas pasaban habría sido ingenuo. Es también la primera revisión hecha **con la skill
+`module-review`** que salió de este piloto.
+
+Alcance: las seis piezas de la fase 4 —factor de ocho decimales, dos impuestos, código de barras y
+banderas de compra y venta, SKU y nombre copiados en las líneas, listado paginado y mínimos por
+bodega.
+
+### 12.1 Lo que estaba bien
+
+Se verificó y **no** se tocó:
+
+- **Los dos impuestos**: compras lee `purchase_tax_id` y ventas `sales_tax_id`, sin un solo cruce.
+  Sin impuesto se asume 0 %, no se rechaza la línea. `ItemUsage` mira los dos campos, así que un
+  impuesto que solo se usa para comprar tampoco se puede liberar. La migración copió el `tax_id`
+  viejo a ambas columnas.
+- **La copia del SKU y el nombre**: las seis tablas de línea la escriben, y cada documento hijo
+  copia **de la línea de origen**, nunca del maestro. La factura directa desde el pedido —el camino
+  que abrió la fase 6— también copia.
+- **El código de barras**: varios artículos pueden no tener ninguno, porque en la base un nulo no
+  choca con otro nulo.
+
+**Una objeción descartada tras comprobarla:** el informe de ventas por artículo lee el nombre del
+maestro en vez de la copia de la línea. Es correcto: agrupa **por artículo**, no reproduce un
+documento. La factura sigue mostrando el nombre con que se emitió.
+
+### 12.2 Los seis hallazgos
+
+| # | Gravedad | Qué | Cómo se encontró |
+|---|---|---|---|
+| 1 | **Alta** | **El factor de ocho decimales no llegaba al cálculo.** `Quantity.times()` hacía `Math.round(factor * 10_000)` en los tres contextos: recortaba el factor a **cuatro** decimales antes de multiplicar | Leyendo el código y reproduciéndolo contra la API |
+| 2 | **Alta** | **La paginación escondía artículos.** Orden por nombre sin desempate, y el nombre no es único | Reproducido: cinco homónimos, uno nunca aparecía |
+| 3 | Media | **Quitar «se vende» o «se compra» no miraba los documentos abiertos**, al contrario que desactivar | Leyendo `ensureCanChange` |
+| 4 | Media | **El choque de código de barras no se traducía**: en carrera salía el error crudo del motor, no un 409 | Leyendo el repositorio |
+| 5 | Decisión | **El bajo mínimo comparaba contra la existencia física**, ignorando lo reservado y lo que ya viene en camino | Comparando con ERPNext y Odoo |
+| 6 | Baja | El bajo mínimo listaba **bodegas desactivadas y servicios** | Leyendo el buscador |
+
+**El 1 es el que justifica esta revisión entera.** La fase 4 cerró H4 diciendo «ocho decimales: una
+docena da 0,08333333 por pieza y doce piezas suman 1». Se amplió la columna a `decimal(18,8)` y el
+value object aceptaba ocho decimales, pero **la multiplicación seguía en cuatro**. Reproducido
+contra la API local: artículo con la caja como base y la pieza a 0,08333333, doce piezas daban
+**0,9996 cajas**. Y un factor más fino que 0,00005 —un gramo de un saco de 25 kg— se recortaba a
+**cero**: veinticinco mil gramos entraban como nada.
+
+Dato incómodo y útil: el sistema de referencia, que calcula en coma flotante con
+`round($cantidad * $factor, 4)`, **acierta** en este caso. No recortaba el factor, solo el
+resultado. Aquí se recortaban los dos.
+
+El 2 se reprodujo creando cinco artículos llamados igual y recorriendo el listado de uno en uno:
+el primero salía **dos veces** y el segundo **ninguna**, igual en la segunda vuelta. Ese artículo
+era invisible también en los selectores de pedidos, órdenes, ajustes y kardex, que recorren páginas.
+
+### 12.3 Decisiones de Rafael
+
+**El aviso de reposición compara contra la existencia proyectada** (`existencia − reservado + en
+camino`), no contra la física. Es la cuenta de ERPNext (*Projected Qty = Actual + Ordered −
+Reserved*) y de Odoo. El motivo: comparar contra lo físico manda a comprar otra vez lo que ya viene
+del proveedor, y calla sobre lo que ya está vendido. Se descartó quedarse en lo físico —el aviso
+seguiría mintiendo— y quedarse a medias con el disponible, que arregla la mitad barata y deja la
+cara.
+
+**Quitar «se compra» o «se vende» se rechaza con documentos abiertos de ese lado**, igual que
+desactivar. Los borradores no cuentan, coherente con la decisión ya tomada de que un borrador no
+compromete nada. Se descartó dejarlo pasar —un borrador quedaba sin poder confirmarse— y también
+bloquear por borradores, que contradecía esa decisión.
+
+### 12.4 Qué cambió
+
+| Hallazgo | Qué cambió | Dónde se prueba |
+|---|---|---|
+| 1 | Los tres `Quantity.times()` escalan el factor a ocho decimales y redondean **una sola vez** al final | `quantity.vo.spec.ts` de inventario, ventas y compras: doce piezas de una docena dan 1, y veinticinco mil gramos de un saco dan 1 |
+| 2 | El orden del listado desempata por identificador, en la base **y** en el doble en memoria | Contrato de puerto: cinco homónimos, paginados de uno en uno, salen los cinco |
+| 3 | `ItemStopsBeingTradedError`: `ensureCanChange` mira las banderas, y **cada lado mira sus propios documentos** | `item-commitments.spec.ts` (5 casos) y contrato: el puerto dice de qué lado viene cada documento abierto |
+| 4 | El repositorio traduce la violación del índice de código de barras a `DuplicateBarcodeError`, como ya hacía con el SKU | Contrato, contra el doble y contra PostgreSQL |
+| 5 | Puerto `ExpectedStock` con adaptador que lee pedidos y órdenes sin importar código de esos contextos, como ya hacía el kardex con los códigos de sus documentos. La pantalla muestra existencia, reservado, en camino y proyectada | `low-stock.spec.ts` (lo que viene no se vuelve a pedir; lo reservado sí resta) y contrato de `ExpectedStock` contra PostgreSQL |
+| 6 | El bajo mínimo salta bodegas desactivadas y servicios | `low-stock.spec.ts` |
+
+De extremo a extremo, en `item-protection.api.spec.ts`: un artículo con una orden de compra abierta
+**no puede dejar de comprarse** y sí de venderse, y vuelve a poder en cuanto la orden se anula; y un
+artículo con mínimo 240 deja de pedirse cuando una orden trae diez cajas de 24, y vuelve a pedirse
+si esa orden se anula.
+
+**Lo que la semilla acabó demostrando sola.** Al cambiar el cálculo, las dos pruebas del bajo mínimo
+fallaron: el agua tenía 288 contra un mínimo de 300, pero la propia semilla ya traía una orden de
+compra con **144 en camino** y un pedido con 72 reservados. Proyectada: 360. **El agua no había que
+pedirla**, y el sistema llevaba desde la fase 4 diciendo que sí.
+
+Los datos de demostración quedan enseñando los dos casos: el agua, que parece faltar y no falta; y el
+detergente, que tiene 50, vende 10 y recibe 20 —proyectada 60— contra un mínimo de 80, y sí falta. Su
+mínimo se subió a propósito, porque con el cálculo nuevo ningún artículo de la empresa de ejemplo
+quedaba bajo mínimo y la pantalla salía vacía.
+
+### 12.5 La interfaz, a mano
+
+Recorrido en Chrome de las dos pantallas que tocó esta revisión, con los datos de demostración.
+
+- **Bajo mínimo** muestra las cuatro columnas y el detergente con sus cifras: 50 de existencia, 10
+  reservados, 20 en camino, 60 proyectada contra un mínimo de 80, faltan 20. El agua no aparece.
+- **Un detalle que ninguna prueba habría visto:** el texto de cabecera seguía diciendo «artículos con
+  menos **existencia** que el mínimo», que dejó de ser verdad en cuanto el cálculo pasó a la
+  proyectada. Corregido para que explique la resta completa.
+- **La regla de las banderas, probada usándola:** quitarle «Vender» al agua —que tiene un pedido
+  abierto— se rechaza en pantalla con «Hay órdenes de compra o pedidos de venta abiertos con este
+  artículo: recíbelos, despáchalos o anúlalos antes de dejar de comprarlo o de venderlo», y el
+  listado sigue diciendo «Comprar · Vender».
+
+### 12.6 Lo que este paso enseñó
+
+1. **Ampliar la columna no es ampliar el cálculo.** Un cambio de precisión hay que perseguirlo por
+   cada multiplicación, no solo por el esquema y el value object que valida la entrada.
+2. **Un contrato de puerto puede dar un falso verde.** El doble en memoria ordenaba estable y no
+   reproducía el defecto de paginación; solo falló contra PostgreSQL. Cuando el doble y la base no
+   ordenan igual, el contrato deja de decir la verdad.
+3. **Comparar con la referencia también sirve cuando la referencia acierta.** Su cálculo del factor
+   es peor de forma y mejor de resultado, y eso fue lo que confirmó que el defecto era nuestro.
+4. **Una guarda que exige clasificar cada error nuevo se gana el sitio**: la suite señaló el error
+   que faltaba por catalogar sin que nadie se acordara de hacerlo.
+5. **Cuando una prueba falla al cambiar una regla, primero hay que preguntarse cuál de las dos está
+   equivocada.** Las dos del bajo mínimo fallaron, y no porque el cálculo nuevo estuviera mal: la
+   semilla llevaba desde la fase 4 pidiendo comprar agua que ya venía en camino. La prueba defendía
+   el defecto.

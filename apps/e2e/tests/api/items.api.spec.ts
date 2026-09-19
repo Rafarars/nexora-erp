@@ -208,19 +208,32 @@ test.describe('inventory: items', () => {
   });
 });
 
-// Lo que hay que reponer sale de las reglas del articulo: el agua tiene 288 y su minimo es 300.
+// Lo que hay que reponer sale de las reglas del articulo, comparadas con la existencia PROYECTADA:
+// lo que hay, menos lo reservado, mas lo que viene en camino.
 test.describe('inventory: what is below its minimum', () => {
   test('lists what is missing in each warehouse, with what to order', async ({ request }) => {
     const token = await tokenFor(request, 'ana@acme.com');
     const { rows } = await (await request.get('/api/v1/inventory/low-stock', { headers: auth(token) })).json();
 
-    expect(rows.find((row: { item: { sku: string } }) => row.item.sku === 'AGUA-500')).toMatchObject({
+    expect(rows.find((row: { item: { sku: string } }) => row.item.sku === 'DETERGENTE-1KG')).toMatchObject({
       warehouse: { name: 'Principal' },
-      quantity: 288,
-      minQuantity: 300,
-      missing: 12,
-      suggested: 480,
+      quantity: 50,
+      reserved: 10,
+      incoming: 20,
+      projected: 60,
+      minQuantity: 80,
+      missing: 20,
+      suggested: 20,
     });
+  });
+
+  // El agua parece faltar —hay 288 y el minimo es 300— pero una orden de compra ya trae lo que
+  // falta: pedir otra vez seria comprar dos veces lo mismo.
+  test('does not ask to replenish what a purchase order is already bringing', async ({ request }) => {
+    const token = await tokenFor(request, 'ana@acme.com');
+    const { rows } = await (await request.get('/api/v1/inventory/low-stock', { headers: auth(token) })).json();
+
+    expect(rows.find((row: { item: { sku: string } }) => row.item.sku === 'AGUA-500')).toBeUndefined();
   });
 
   test('a rule for a warehouse of another company is refused', async ({ request }) => {

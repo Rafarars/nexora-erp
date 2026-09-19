@@ -15,6 +15,11 @@ export interface LowStockRow {
   item: { id: string; sku: string; name: string; baseUnit: string };
   warehouse: { id: string; name: string };
   quantity: number;
+  // Lo vendido y lo que viene del proveedor, y la existencia que resulta: es contra esa, y no
+  // contra la fisica, contra la que se decide reponer.
+  reserved: number;
+  incoming: number;
+  projected: number;
   minQuantity: number;
   maxQuantity: number | null;
   missing: number;

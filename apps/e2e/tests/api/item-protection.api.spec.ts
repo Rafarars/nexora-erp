@@ -185,3 +185,54 @@ test.describe('an item changed while a document is confirmed', () => {
     }
   });
 });
+
+// Lo que el articulo comprometio manda sobre lo que se le quiera cambiar, tambien en las banderas
+// de comprar y vender, y en el aviso de reposicion.
+test.describe('an item with open documents', () => {
+  const trade = (request: APIRequestContext, token: string, item: Item, flags: { isPurchasable?: boolean; isSellable?: boolean }) =>
+    put(request, token, `${ITEMS}/${item.id}`, { sku: item.sku, name: item.name, type: 'inventoried', units: baseAnd(24), ...flags });
+
+  test('cannot stop being bought while a purchase order waits, and can again once it is cancelled', async ({ request }) => {
+    const token = await tokenFor(request, 'ana@acme.com');
+    const item = await aFreshItem(request, token);
+    const order = await confirmedPurchase(request, token, item, 10);
+
+    await expectRefused(await trade(request, token, item, { isPurchasable: false }), 'ItemStopsBeingTradedError');
+    // Cada lado mira los suyos: una orden de compra no impide dejar de venderlo.
+    expect((await trade(request, token, item, { isSellable: false })).status()).toBe(200);
+
+    expect((await put(request, token, `${ORDERS}/${order.id}/cancel`)).status()).toBe(200);
+    expect((await trade(request, token, item, { isPurchasable: false })).status()).toBe(200);
+  });
+
+  // Lo que ya viene del proveedor no hay que volver a pedirlo: sin esto, el aviso manda a comprar
+  // dos veces lo mismo.
+  test('stops asking to replenish what a purchase order is already bringing', async ({ request }) => {
+    const token = await tokenFor(request, 'ana@acme.com');
+    const item = await aFreshItem(request, token);
+
+    await put(request, token, `${ITEMS}/${item.id}`, {
+      sku: item.sku,
+      name: item.name,
+      type: 'inventoried',
+      units: baseAnd(24),
+      reorderRules: [{ warehouseId: mainWarehouse, minQuantity: 240, reorderQuantity: 240 }],
+    });
+
+    const lowStock = async () => {
+      const { rows } = await (await request.get('/api/v1/inventory/low-stock', { headers: auth(token) })).json();
+
+      return rows.find((row: { item: { id: string } }) => row.item.id === item.id);
+    };
+
+    expect(await lowStock()).toMatchObject({ quantity: 0, incoming: 0, projected: 0, missing: 240 });
+
+    // Diez cajas de 24 son 240 en unidad base: justo el minimo, asi que deja de avisar.
+    const order = await confirmedPurchase(request, token, item, 10);
+    expect(await lowStock()).toBeUndefined();
+
+    // Y si la orden se anula, vuelve a faltar todo.
+    expect((await put(request, token, `${ORDERS}/${order.id}/cancel`)).status()).toBe(200);
+    expect(await lowStock()).toMatchObject({ incoming: 0, projected: 0, missing: 240 });
+  });
+});

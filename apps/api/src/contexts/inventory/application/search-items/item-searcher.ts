@@ -96,7 +96,7 @@ export class ItemSearcher {
             isActive: row.isActive,
           };
         })
-        .sort((left, right) => left.name.localeCompare(right.name)),
+        .sort((left, right) => left.name.localeCompare(right.name) || left.id.localeCompare(right.id)),
     };
   }
 }

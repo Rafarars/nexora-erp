@@ -8,11 +8,13 @@ import {
 } from '../domain/catalog/catalog-references.js';
 import { ItemPosting } from '../domain/item/posting/item-posting.js';
 import { ItemRepository } from '../domain/item/item.repository.js';
+import { ExpectedStock } from '../domain/stock/expected-stock.js';
 
 export interface ItemPorts {
   items: ItemRepository;
   posting: ItemPosting;
   catalog: CatalogReferences;
+  expected: ExpectedStock;
 }
 
 type OfTenant<T> = T & { tenantId: string };

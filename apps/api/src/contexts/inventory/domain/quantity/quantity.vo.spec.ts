@@ -26,6 +26,18 @@ describe('Quantity', () => {
     expect(Quantity.of(0.3333).times(0.5).toNumber()).toBe(0.1667);
   });
 
+  // El factor se guarda con ocho decimales, y el calculo tiene que usarlos: si se recorta a
+  // cuatro, la docena vuelve a dar 0,9996 y el articulo nunca cuadra.
+  it('uses the eight decimals of the factor: twelve pieces of a dozen are one dozen', () => {
+    expect(Quantity.of(12).times(0.08333333).toNumber()).toBe(1);
+  });
+
+  // Un gramo de un saco de 25 kg es 0,00004: recortado a cuatro decimales seria cero, y el
+  // documento entraria sin mover nada.
+  it('does not turn a tiny factor into zero', () => {
+    expect(Quantity.of(25_000).times(0.00004).toNumber()).toBe(1);
+  });
+
   it('refuses a subtraction that would go below zero', () => {
     expect(() => Quantity.of(1).minus(Quantity.of(2))).toThrow(InvalidQuantityError);
   });

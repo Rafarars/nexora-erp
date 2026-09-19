@@ -1,6 +1,7 @@
 import { InvalidSalesQuantityError } from '../errors/sales.errors.js';
 
-const SCALE = 10_000n;
+// El factor de conversion se guarda con ocho decimales: con menos, la docena no cuadra.
+const FACTOR_SCALE = 100_000_000n;
 const MAX_UNITS = 999_999_999_999_999_999n;
 
 // Cantidad en diezmilesimas, como entero: lo pedido menos lo recibido tiene que dar
@@ -39,11 +40,12 @@ export class Quantity {
     return Quantity.fromUnits(this.units - other.units);
   }
 
-  // A la unidad base con el factor del articulo, redondeando a cuatro decimales.
+  // A la unidad base con el factor del articulo, que entra con sus ocho decimales: con
+  // cuatro, doce piezas de una docena daban 0,9996. El resultado se redondea una sola vez.
   times(factor: number): Quantity {
-    const factorUnits = BigInt(Math.round(factor * 10_000));
+    const factorUnits = BigInt(Math.round(factor * 100_000_000));
 
-    return Quantity.fromUnits((this.units * factorUnits * 2n + SCALE) / (2n * SCALE));
+    return Quantity.fromUnits((this.units * factorUnits * 2n + FACTOR_SCALE) / (2n * FACTOR_SCALE));
   }
 
   // La parte proporcional: si 2 cajas son 48 unidades, 1,5 cajas son 36.

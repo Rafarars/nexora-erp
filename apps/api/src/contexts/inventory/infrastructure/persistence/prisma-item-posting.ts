@@ -30,15 +30,15 @@ export class PrismaItemPosting implements ItemPosting {
       const item = itemFromRow(await tx.item.findFirstOrThrow({ where: { tenantId: tenant, id }, include: { units: true, reorderRules: true, prices: true } }));
       const stock = await tx.itemStock.findFirst({ where: { tenantId: tenant, itemId: id, quantity: { gt: 0 } }, select: { itemId: true } });
       const movement = await tx.inventoryMovement.findFirst({ where: { tenantId: tenant, itemId: id }, select: { id: true } });
-      const openUnits = await tx.$queryRaw<{ unit_id: string }[]>`
-        SELECT unit_id FROM (
-          SELECT l.unit_id::text AS unit_id
+      const openLines = await tx.$queryRaw<{ unit_id: string; origin: string }[]>`
+        SELECT unit_id, origin FROM (
+          SELECT l.unit_id::text AS unit_id, 'purchase' AS origin
           FROM purchase_order_lines l
           JOIN purchase_orders o ON o.tenant_id = l.tenant_id AND o.id = l.order_id
           WHERE l.tenant_id = ${tenant}::uuid AND l.item_id = ${id}::uuid
             AND o.status IN ('confirmed', 'partially_received') AND l.quantity > l.received_quantity
           UNION
-          SELECT l.unit_id::text
+          SELECT l.unit_id::text, 'sales'
           FROM sales_order_lines l
           JOIN sales_orders o ON o.tenant_id = l.tenant_id AND o.id = l.order_id
           WHERE l.tenant_id = ${tenant}::uuid AND l.item_id = ${id}::uuid
@@ -49,7 +49,10 @@ export class PrismaItemPosting implements ItemPosting {
       work(item, {
         hasStock: stock !== null,
         hasMovements: movement !== null,
-        openDocumentUnits: openUnits.map((row) => UnitRef.of(row.unit_id)),
+        // La misma unidad puede venir de los dos lados: al articulo solo le importa una vez.
+        openDocumentUnits: [...new Set(openLines.map((row) => row.unit_id))].map((unitId) => UnitRef.of(unitId)),
+        openPurchaseOrders: openLines.some((row) => row.origin === 'purchase'),
+        openSalesOrders: openLines.some((row) => row.origin === 'sales'),
       });
 
       await writeItem(tx, item);

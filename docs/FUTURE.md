@@ -417,3 +417,28 @@ completo o de más volumen.
 - **Recibo de cobro** imprimible
 - **Logo y datos fiscales** de la empresa en el encabezado de los PDF
 - **Leer con una réplica** de solo lectura si los reportes cargan la base principal
+
+### Artículos: lo que dejó abierto la revisión de la fase 4
+
+**Por qué:** son detalles que no producen un dato falso hoy, y arreglarlos ahora costaría más de lo
+que evita. Se anotan para no redescubrirlos.
+
+**El buscador no trata el texto como literal.** `q` va a un `contains` de Prisma, así que **no hay
+inyección** —la consulta va parametrizada—, pero `%` y `_` llegan como comodines de `LIKE`: buscar
+`%` devuelve casi todo. Haría falta escapar esos dos caracteres antes de pasarlos, y decidir si `*`
+debería funcionar como comodín explícito.
+
+**El total del listado se cuenta aparte.** `findMany` y `count` corren en paralelo sobre la misma
+condición pero sin transacción: si alguien crea un artículo justo entre las dos, el `total` no
+cuadra con la página. Es cosmético. Haría falta envolver ambas en una transacción de solo lectura, o
+asumirlo y documentarlo en la API.
+
+**La cantidad a pedir no tiene techo.** `reorder_quantity` solo exige ser cero o más: puede ser
+mayor que el máximo de la regla, y entonces el aviso sugiere pedir más de lo que cabe. Ni el `CHECK`
+de la tabla ni la entidad lo relacionan con el mínimo y el máximo. Habría que decidir si es un error
+o una libertad legítima —hay negocios que compran por lotes cerrados— antes de cerrarlo.
+
+**La paginación va por desplazamiento.** Con el desempate por identificador ya no pierde artículos,
+pero pedir la página mil sigue obligando a la base a contar las anteriores. Con un maestro grande
+haría falta paginar por cursor, y selectores que busquen contra el servidor en vez de recorrer
+páginas.

@@ -38,8 +38,9 @@ export default async function LowStockPage({ searchParams }: { searchParams: Pro
         <div>
           <h2 className="text-base font-semibold">Bajo mínimo</h2>
           <p className="text-muted mt-1 text-sm">
-            Artículos con menos existencia que el mínimo que se quiere tener en esa bodega. El mínimo se pone en el
-            artículo.
+            Artículos cuya existencia <strong>proyectada</strong> —lo que hay, menos lo que los pedidos
+            confirmados reservaron, más lo que las órdenes de compra traen en camino— queda por debajo del mínimo
+            de esa bodega. El mínimo se pone en el artículo.
           </p>
         </div>
 
@@ -76,6 +77,9 @@ export default async function LowStockPage({ searchParams }: { searchParams: Pro
               <th className="px-4 py-2 font-medium">Artículo</th>
               <th className="px-4 py-2 font-medium">Bodega</th>
               <th className="px-4 py-2 text-right font-medium">Existencia</th>
+              <th className="px-4 py-2 text-right font-medium">Reservado</th>
+              <th className="px-4 py-2 text-right font-medium">En camino</th>
+              <th className="px-4 py-2 text-right font-medium">Proyectada</th>
               <th className="px-4 py-2 text-right font-medium">Mínimo</th>
               <th className="px-4 py-2 text-right font-medium">Falta</th>
               <th className="px-4 py-2 text-right font-medium">Pedir</th>
@@ -92,6 +96,15 @@ export default async function LowStockPage({ searchParams }: { searchParams: Pro
                 <td className="px-4 py-3 text-right">
                   {formatQuantity(row.quantity)} {row.item.baseUnit}
                 </td>
+                <td className="px-4 py-3 text-muted text-right" data-testid={`low-stock-reserved-${row.item.sku}`}>
+                  {formatQuantity(row.reserved)}
+                </td>
+                <td className="px-4 py-3 text-muted text-right" data-testid={`low-stock-incoming-${row.item.sku}`}>
+                  {formatQuantity(row.incoming)}
+                </td>
+                <td className="px-4 py-3 text-right font-medium" data-testid={`low-stock-projected-${row.item.sku}`}>
+                  {formatQuantity(row.projected)}
+                </td>
                 <td className="px-4 py-3 text-right">{formatQuantity(row.minQuantity)}</td>
                 <td className="px-4 py-3 text-right text-red-600" data-testid={`low-stock-missing-${row.item.sku}`}>
                   {formatQuantity(row.missing)}
@@ -104,7 +117,7 @@ export default async function LowStockPage({ searchParams }: { searchParams: Pro
 
             {rows.length === 0 ? (
               <tr>
-                <td colSpan={6} className="text-muted px-4 py-6 text-center" data-testid="low-stock-empty">
+                <td colSpan={9} className="text-muted px-4 py-6 text-center" data-testid="low-stock-empty">
                   Ningún artículo está por debajo de su mínimo.
                 </td>
               </tr>
