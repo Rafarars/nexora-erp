@@ -409,6 +409,15 @@ el saldo. Pero quien lee el kardex quiere ver la fecha que escribió en el docum
 pantalla muestra `origin_date` y añade «Registrado el …» solo cuando las dos difieren. Las entradas
 de compra y los despachos guardan las suyas igual.
 
+**El kardex se lee del más reciente al más antiguo**, agrupado por bodega. Cada fila lleva su propio
+saldo, así que el orden no le quita sentido a ninguna; y con años de historia, lo que se busca al
+abrirlo está al final, no al principio. Se acota con el rango de fechas, que compara contra
+`origin_date` —la fecha que el documento declara—, no contra el instante de publicación.
+
+**Un solo método de costo: promedio ponderado.** No hay FIFO ni costo estándar, y es una decisión,
+no una carencia: FIFO exige capas por entrada consumidas en orden, que es otro motor. El porqué
+completo, con lo que se encontró en el sistema de referencia, en [FUTURE.md](../FUTURE.md).
+
 **Costo promedio ponderado**
 
 - **Entrada**: `(existencia × promedio + cantidad × costo) / (existencia + cantidad)`. Ejemplo:
@@ -524,7 +533,7 @@ Las del artículo se explican en [§1](#1-artículos); la de la bodega vive en e
 | Confirmar | `PUT /api/v1/inventory/adjustments/:adjustmentId/confirm` | `inventory.adjustments.confirm` |
 | Anular | `PUT /api/v1/inventory/adjustments/:adjustmentId/cancel` | `inventory.adjustments.cancel` |
 | Existencias | `GET /api/v1/inventory/stock?q=&warehouseId=&includeEmpty=&limit=&offset=` | `inventory.stock.search` |
-| Kardex | `GET /api/v1/inventory/items/:itemId/movements?warehouseId=` | `inventory.movements.search` |
+| Kardex | `GET /api/v1/inventory/items/:itemId/movements?warehouseId=&originType=&from=&to=&limit=&offset=` | `inventory.movements.search` |
 
 - Filtrar por **una bodega o un artículo de otra empresa responde 404**, no una lista vacía.
 - El listado de artículos devuelve los **nombres** de categoría, impuesto y unidades: se ve la tabla
@@ -554,7 +563,7 @@ Las del artículo se explican en [§1](#1-artículos); la de la bodega vive en e
 | `/inventario/bajo-minimo` | Lo que hay que reponer: **existencia, reservado, en camino y proyectada**, mínimo, cuánto falta y cuánto pedir, con filtro por bodega |
 | `/inventario/existencias` | Artículo, bodega, **existencia, reservado y disponible** en unidad base, costo promedio y valor; **buscador, filtro por bodega, casilla para ver las agotadas y paginación**, todo en la dirección |
 | `/inventario/ajustes` | Código, fecha, bodega, **motivo**, resumen de líneas («+2 cja (48 un) AGUA-500»), estado con **quién lo registró y quién lo cerró**, y Opciones según el estado; **filtros por texto, bodega, estado, motivo y rango de fechas, y paginación** |
-| `/inventario/kardex` | Elige artículo y bodega; cada movimiento con **la fecha del documento** (y la de registro cuando difieren), documento, cantidad, costo, saldo y promedio, y las anulaciones marcadas |
+| `/inventario/kardex` | Elige artículo y bodega; cada movimiento con **la fecha del documento** (y la de registro cuando difieren), documento, cantidad, costo, saldo y promedio, y las anulaciones marcadas. **Del más reciente al más antiguo**, con filtros por tipo de documento y rango de fechas, y paginación |
 
 - El formulario de artículos se ofrece solo si el rol puede leer categorías, impuestos y unidades.
 - En el editor de unidades, **la primera unidad elegida queda como base**, y la marca sigue a la

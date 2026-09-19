@@ -5,7 +5,7 @@ import { AdjustmentDate } from '../domain/adjustment/adjustment-date.vo.js';
 import { AdjustmentLine, AdjustmentLineId } from '../domain/adjustment/adjustment-line.js';
 import { Adjustment, AdjustmentId } from '../domain/adjustment/adjustment.entity.js';
 import { AdjustmentCriteria } from '../domain/adjustment/adjustment.repository.js';
-import { StockCriteria } from '../domain/stock/stock.repository.js';
+import { MovementCriteria, StockCriteria } from '../domain/stock/stock.repository.js';
 import { AdjustmentCancellation } from '../domain/adjustment/posting/adjustment-cancellation.js';
 import { AdjustmentConfirmation } from '../domain/adjustment/posting/adjustment-confirmation.js';
 import {
@@ -320,6 +320,62 @@ export function describeInventoryPortsContract(implementation: string, createHar
         await confirm(await draft([line('in', 5, 1)]));
 
         expect((await ports.stocks.searchPage(TenantId.of(TENANT_B), stockPage())).stocks).toEqual([]);
+      });
+    });
+
+    // El kardex de la pantalla: filtra por bodega, por tipo de documento y por la fecha que el
+    // documento declara, y pagina del mas reciente al mas antiguo.
+    describe('StockRepository: the page the kardex shows', () => {
+      const kardexPage = (overrides: Partial<MovementCriteria> = {}): MovementCriteria => ({
+        itemId: WATER,
+        warehouseId: null,
+        originType: null,
+        from: null,
+        to: null,
+        limit: 20,
+        offset: 0,
+        ...overrides,
+      });
+
+      it('returns the newest first, one page at a time, with its total', async () => {
+        await confirm(await draft([line('in', 5, 1), line('in', 3, 1), line('in', 2, 1)]));
+
+        const first = await ports.stocks.searchMovementsPage(tenant, kardexPage({ limit: 2 }));
+        const second = await ports.stocks.searchMovementsPage(tenant, kardexPage({ limit: 2, offset: 2 }));
+
+        expect(first.movements.map((movement) => movement.sequence)).toEqual([3, 2]);
+        expect(second.movements.map((movement) => movement.sequence)).toEqual([1]);
+        expect([first.total, second.total]).toEqual([3, 3]);
+      });
+
+      it('filters by warehouse, by document and by the date the document declares', async () => {
+        counter += 1;
+        const old = AdjustmentId.of(`ad000000-0000-4000-8000-${String(counter).padStart(12, '0')}`);
+        await ports.adjustments.save(
+          Adjustment.draft(old, tenant, `AJU${String(counter).padStart(6, '0')}`, {
+            warehouseId: WarehouseRef.of(MAIN),
+            date: AdjustmentDate.of('2025-11-30'),
+            type: 'correction',
+            notes: 'contrato',
+            lines: [line('in', 4, 1)],
+          }, NOW, TODAY, ANA),
+        );
+        await confirm(old);
+        await confirm(await draft([line('in', 6, 1)], NORTH));
+
+        const byWarehouse = await ports.stocks.searchMovementsPage(tenant, kardexPage({ warehouseId: NORTH }));
+        const byDate = await ports.stocks.searchMovementsPage(tenant, kardexPage({ to: '2025-12-31' }));
+        const byOther = await ports.stocks.searchMovementsPage(tenant, kardexPage({ originType: 'receipt' }));
+
+        expect(byWarehouse.movements.map((m) => m.warehouseId.value)).toEqual([NORTH]);
+        expect(byDate.movements.map((m) => m.quantity.toNumber())).toEqual([4]);
+        expect(byOther.movements).toEqual([]);
+      });
+
+      it('never returns the kardex of another tenant', async () => {
+        await confirm(await draft([line('in', 5, 1)]));
+
+        expect((await ports.stocks.searchMovementsPage(TenantId.of(TENANT_B), kardexPage())).movements).toEqual([]);
       });
     });
 

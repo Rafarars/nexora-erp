@@ -225,9 +225,10 @@ describe('cancelling', () => {
     // Al quedar en cero desaparece del listado: la pantalla dice lo que hay, no por donde paso.
     expect((await useCases(s).stock.run({ tenantId: TENANT_A })).stocks).toEqual([]);
     expect((await useCases(s).stock.run({ tenantId: TENANT_A, includeEmpty: true })).stocks[0].quantity).toBe(0);
+    // El kardex se lee del mas reciente al mas antiguo: arriba la contrapartida.
     expect((await useCases(s).kardex.run({ tenantId: TENANT_A, itemId: WATER })).movements.map((m) => [m.direction, m.isReversal])).toEqual([
-      ['in', false],
       ['out', true],
+      ['in', false],
     ]);
   });
 });

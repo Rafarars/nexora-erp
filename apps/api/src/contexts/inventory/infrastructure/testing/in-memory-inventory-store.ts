@@ -14,7 +14,7 @@ import { ItemRef, WarehouseRef } from '../../domain/shared/references.vo.js';
 import { TenantId } from '../../domain/shared/tenant-id.vo.js';
 import { weightedAverageCost } from '../../domain/stock/average-cost.js';
 import { ItemStock, ItemStockPrimitives } from '../../domain/stock/item-stock.entity.js';
-import { StockCriteria, StockRepository } from '../../domain/stock/stock.repository.js';
+import { MovementCriteria, StockCriteria, StockRepository } from '../../domain/stock/stock.repository.js';
 import { InMemoryInventoryCatalog } from './in-memory-inventory-catalog.js';
 
 const stockKey = (tenantId: string, itemId: string, warehouseId: string) => `${tenantId}|${itemId}|${warehouseId}`;
@@ -136,6 +136,26 @@ export class InMemoryInventoryStore implements AdjustmentRepository, StockReposi
       )
       .sort((a, b) => a.warehouseId.localeCompare(b.warehouseId) || a.sequence - b.sequence)
       .map((row) => InventoryMovement.fromPrimitives(row));
+  }
+
+  // Filtra, ordena y pagina igual que la base.
+  async searchMovementsPage(tenantId: TenantId, criteria: MovementCriteria): Promise<{ movements: InventoryMovement[]; total: number }> {
+    const matching = this.movements
+      .filter((row) => row.tenantId === tenantId.value && row.itemId === criteria.itemId)
+      .filter((row) => !criteria.warehouseId || row.warehouseId === criteria.warehouseId)
+      .filter((row) => !criteria.originType || row.originType === criteria.originType)
+      .filter((row) => !criteria.from || row.originDate >= criteria.from)
+      .filter((row) => !criteria.to || row.originDate <= criteria.to)
+      .sort(
+        (a, b) =>
+          this.warehouseName(tenantId.value, a.warehouseId).localeCompare(this.warehouseName(tenantId.value, b.warehouseId)) ||
+          b.sequence - a.sequence,
+      );
+
+    return {
+      movements: matching.slice(criteria.offset, criteria.offset + criteria.limit).map((row) => InventoryMovement.fromPrimitives(row)),
+      total: matching.length,
+    };
   }
 
   // En serie, como el bloqueo de filas de la base.

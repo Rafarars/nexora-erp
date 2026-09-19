@@ -4,9 +4,9 @@ import type { CurrentSession } from '../../../../shared/infrastructure/http/curr
 import { RequirePermission } from '../../../../shared/infrastructure/http/require-permission.decorator.js';
 import { ZodValidationPipe } from '../../../../shared/infrastructure/http/zod-validation.pipe.js';
 import { MovementSearcher } from '../../application/search-movements/movement-searcher.js';
-import type { MovementResponse } from '../../application/search-movements/movement-searcher.js';
-import { stockQuerySchema } from './dto/stock.query.dto.js';
-import type { StockQueryDto } from './dto/stock.query.dto.js';
+import type { MovementSearcherResponse } from '../../application/search-movements/movement-searcher.js';
+import { movementQuerySchema } from './dto/movement.query.dto.js';
+import type { MovementQueryDto } from './dto/movement.query.dto.js';
 
 @Controller('api/v1/inventory/items')
 export class SearchMovementsGetController {
@@ -17,8 +17,8 @@ export class SearchMovementsGetController {
   async run(
     @Session() session: CurrentSession,
     @Param('itemId') itemId: string,
-    @Query(new ZodValidationPipe(stockQuerySchema)) query: StockQueryDto,
-  ): Promise<{ movements: MovementResponse[] }> {
-    return this.searcher.run({ tenantId: session.tenantId, itemId, warehouseId: query.warehouseId });
+    @Query(new ZodValidationPipe(movementQuerySchema)) query: MovementQueryDto,
+  ): Promise<MovementSearcherResponse> {
+    return this.searcher.run({ tenantId: session.tenantId, itemId, ...query });
   }
 }

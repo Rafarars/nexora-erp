@@ -41,6 +41,10 @@ async function stockOf(
   return stocks.find((stock: { item: { id: string } }) => stock.item.id === itemId);
 }
 
+async function kardexPage(request: APIRequestContext, token: string, itemId: string, query: string) {
+  return (await request.get(`/api/v1/inventory/items/${itemId}/movements${query}`, { headers: auth(token) })).json();
+}
+
 async function kardexOf(request: APIRequestContext, token: string, itemId: string) {
   return (await (await request.get(`/api/v1/inventory/items/${itemId}/movements`, { headers: auth(token) })).json()).movements;
 }
@@ -128,9 +132,10 @@ test.describe('inventory adjustments', () => {
     expect((await confirm(request, token, revaluation.id)).status()).toBe(200);
 
     expect(await stockOf(request, token, item.id, item.sku)).toMatchObject({ quantity: 20, averageCost: 3 });
-    expect((await kardexOf(request, token, item.id)).slice(1)).toMatchObject([
-      { direction: 'out', quantity: 20, unitCost: 2 },
+    // Del mas reciente al mas antiguo: primero la entrada al costo nuevo, despues la salida al viejo.
+    expect((await kardexOf(request, token, item.id)).slice(0, 2)).toMatchObject([
       { direction: 'in', quantity: 20, unitCost: 3 },
+      { direction: 'out', quantity: 20, unitCost: 2 },
     ]);
 
     expect((await cancel(request, token, revaluation.id)).status()).toBe(200);
@@ -190,9 +195,10 @@ test.describe('inventory adjustments', () => {
     expect((await cancel(request, token, adjustment.id)).status()).toBe(200);
 
     expect(await stockOf(request, token, item.id, item.sku)).toMatchObject({ quantity: 0 });
+    // El kardex se lee del mas reciente al mas antiguo: arriba la contrapartida.
     expect((await kardexOf(request, token, item.id)).map((m: { direction: string; isReversal: boolean }) => [m.direction, m.isReversal])).toEqual([
-      ['in', false],
       ['out', true],
+      ['in', false],
     ]);
     expect((await cancel(request, token, adjustment.id)).status()).toBe(409);
   });
@@ -283,6 +289,33 @@ test.describe('what the stock screen answers', () => {
     expect(firstPage.stocks).toHaveLength(1);
     expect(firstPage.total).toBeGreaterThan(1);
     expect(firstPage.hasMore).toBe(true);
+  });
+});
+
+// El kardex de un articulo con anos de historia no se devuelve entero.
+test.describe('what the kardex answers', () => {
+  test('returns the newest first, pages, and filters by document and by date', async ({ request }) => {
+    const token = await tokenFor(request, 'ana@acme.com');
+    const item = await aFreshItem(request, token);
+    await confirm(
+      request,
+      token,
+      (await draft(request, token, [
+        { itemId: item.id, unitId: ACME_INVENTORY.piece, direction: 'in', quantity: 5, unitCost: 1 },
+        { itemId: item.id, unitId: ACME_INVENTORY.piece, direction: 'in', quantity: 3, unitCost: 1 },
+      ])).id,
+    );
+
+    const all = await kardexPage(request, token, item.id, '');
+    expect(all.movements.map((m: { sequence: number }) => m.sequence)).toEqual([2, 1]);
+    expect(all.total).toBe(2);
+
+    const first = await kardexPage(request, token, item.id, '?limit=1');
+    expect(first.movements.map((m: { sequence: number }) => m.sequence)).toEqual([2]);
+    expect(first.hasMore).toBe(true);
+
+    expect((await kardexPage(request, token, item.id, '?originType=receipt')).movements).toEqual([]);
+    expect((await kardexPage(request, token, item.id, '?to=2020-01-01')).movements).toEqual([]);
   });
 });
 

@@ -5,7 +5,7 @@ import { InventoryMovement } from '../../domain/movement/inventory-movement.enti
 import { ItemRef, WarehouseRef } from '../../domain/shared/references.vo.js';
 import { TenantId } from '../../domain/shared/tenant-id.vo.js';
 import { ItemStock } from '../../domain/stock/item-stock.entity.js';
-import { StockCriteria, StockRepository } from '../../domain/stock/stock.repository.js';
+import { MovementCriteria, StockCriteria, StockRepository } from '../../domain/stock/stock.repository.js';
 import { movementFromRow, stockFromRow } from './inventory-rows.js';
 
 @Injectable()
@@ -50,6 +50,38 @@ export class PrismaStockRepository implements StockRepository {
     ]);
 
     return { stocks: rows.map(stockFromRow), total };
+  }
+
+  async searchMovementsPage(tenantId: TenantId, criteria: MovementCriteria): Promise<{ movements: InventoryMovement[]; total: number }> {
+    const day = (value: string) => new Date(`${value}T00:00:00.000Z`);
+    const where: Prisma.InventoryMovementWhereInput = {
+      tenantId: tenantId.value,
+      itemId: criteria.itemId,
+      ...(criteria.warehouseId ? { warehouseId: criteria.warehouseId } : {}),
+      ...(criteria.originType ? { originType: criteria.originType } : {}),
+      ...(criteria.from || criteria.to
+        ? {
+            originDate: {
+              ...(criteria.from ? { gte: day(criteria.from) } : {}),
+              ...(criteria.to ? { lte: day(criteria.to) } : {}),
+            },
+          }
+        : {}),
+    };
+
+    const [rows, total] = await Promise.all([
+      this.prisma.inventoryMovement.findMany({
+        where,
+        // Agrupado por bodega, y dentro de cada una del mas reciente al mas antiguo: con
+        // anos de movimientos, lo que se busca al abrir el kardex esta al final, no al principio.
+        orderBy: [{ warehouse: { name: 'asc' } }, { sequence: 'desc' }],
+        take: criteria.limit,
+        skip: criteria.offset,
+      }),
+      this.prisma.inventoryMovement.count({ where }),
+    ]);
+
+    return { movements: rows.map(movementFromRow), total };
   }
 
   async searchMovements(tenantId: TenantId, itemId: ItemRef, warehouseId?: WarehouseRef): Promise<InventoryMovement[]> {

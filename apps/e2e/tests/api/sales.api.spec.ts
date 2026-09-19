@@ -90,7 +90,8 @@ test.describe('dispatches and invoices', () => {
     expect(await find(request, token, SALES_ORDERS, 'orders', order.id)).toMatchObject({ status: 'partially_dispatched', lines: [{ dispatchedQuantity: 15 }] });
 
     const { movements } = await (await request.get(`/api/v1/inventory/items/${item.id}/movements`, { headers: auth(token) })).json();
-    expect(movements.at(-1)).toMatchObject({ direction: 'out', quantity: 15, unitCost: 1, origin: { type: 'dispatch', code: dispatch.code } });
+    // El kardex viene del mas reciente al mas antiguo: el despacho es el primero.
+    expect(movements[0]).toMatchObject({ direction: 'out', quantity: 15, unitCost: 1, origin: { type: 'dispatch', code: dispatch.code } });
   });
 
   test('an invoice charges the dispatch at the order price, does not touch the stock and blocks cancelling the dispatch', async ({ request }) => {

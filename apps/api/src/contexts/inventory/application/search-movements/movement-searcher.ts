@@ -20,7 +20,31 @@ export interface MovementResponse {
   occurredAt: string;
 }
 
-// El kardex de un articulo, por bodega y en orden: cada fila dice que paso y como quedo.
+export interface MovementSearcherRequest {
+  tenantId: string;
+  itemId: string;
+  warehouseId?: string | null;
+  originType?: string | null;
+  from?: string | null;
+  to?: string | null;
+  limit?: number;
+  offset?: number;
+}
+
+export interface MovementSearcherResponse {
+  total: number;
+  limit: number;
+  offset: number;
+  hasMore: boolean;
+  movements: MovementResponse[];
+}
+
+const DEFAULT_PAGE = 20;
+const ORIGIN_TYPES: MovementOriginType[] = ['adjustment', 'receipt', 'dispatch'];
+
+// El kardex de un articulo, por bodega y del mas reciente al mas antiguo: cada fila dice que
+// paso y como quedo. Antes devolvia TODOS los movimientos del articulo: con anos de historia,
+// eso es una pagina que no termina de cargar.
 export class MovementSearcher {
   constructor(
     private readonly stocks: StockRepository,
@@ -28,7 +52,7 @@ export class MovementSearcher {
     private readonly catalog: InventoryCatalog,
   ) {}
 
-  async run(request: { tenantId: string; itemId: string; warehouseId?: string | null }): Promise<{ movements: MovementResponse[] }> {
+  async run(request: MovementSearcherRequest): Promise<MovementSearcherResponse> {
     const tenantId = TenantId.of(request.tenantId);
     const warehouseId = request.warehouseId ? WarehouseRef.of(request.warehouseId) : undefined;
     const itemId = ItemRef.of(request.itemId);
@@ -43,7 +67,18 @@ export class MovementSearcher {
       throw new StockWarehouseNotFoundError(warehouseId.value);
     }
 
-    const movements = await this.stocks.searchMovements(tenantId, itemId, warehouseId);
+    const limit = request.limit ?? DEFAULT_PAGE;
+    const offset = request.offset ?? 0;
+    const page = await this.stocks.searchMovementsPage(tenantId, {
+      itemId: itemId.value,
+      warehouseId: request.warehouseId ?? null,
+      originType: ORIGIN_TYPES.find((candidate) => candidate === request.originType) ?? null,
+      from: request.from ?? null,
+      to: request.to ?? null,
+      limit,
+      offset,
+    });
+    const movements = page.movements;
 
     const [warehouses, codes] = await Promise.all([
       this.catalog.findWarehouses(tenantId, [...new Map(movements.map((m) => [m.warehouseId.value, m.warehouseId])).values()]),
@@ -51,6 +86,10 @@ export class MovementSearcher {
     ]);
 
     return {
+      total: page.total,
+      limit,
+      offset,
+      hasMore: offset + movements.length < page.total,
       movements: movements.map((movement) => {
         const row = movement.toPrimitives();
 

@@ -27,6 +27,24 @@ export interface AdjustmentInput {
   lines: { itemId: string; unitId?: string; direction?: string; quantity?: number; unitCost: number | null }[];
 }
 
+export interface MovementPage {
+  movements: Movement[];
+  total: number;
+  limit: number;
+  offset: number;
+  hasMore: boolean;
+}
+
+// Lo que la pantalla del kardex deja filtrar.
+export interface MovementFilters {
+  warehouseId?: string;
+  originType?: string;
+  from?: string;
+  to?: string;
+  limit?: number;
+  offset?: number;
+}
+
 export interface StockPage {
   stocks: Stock[];
   total: number;
@@ -83,7 +101,7 @@ export interface InventoryApi {
   changeItemStatus(token: string, id: string, active: boolean): Promise<void>;
 
   searchStock(token: string, filters?: StockFilters): Promise<StockPage>;
-  searchMovements(token: string, itemId: string, warehouseId?: string): Promise<Movement[]>;
+  searchMovements(token: string, itemId: string, filters?: MovementFilters): Promise<MovementPage>;
   searchAdjustments(token: string, filters?: AdjustmentFilters): Promise<AdjustmentPage>;
   saveAdjustment(token: string, id: string | null, input: AdjustmentInput): Promise<void>;
   confirmAdjustment(token: string, id: string): Promise<void>;

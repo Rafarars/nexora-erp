@@ -1,12 +1,14 @@
 import { AccessError } from '../../access/domain/access-error';
 import type { AccessErrorBody } from '../../access/domain/access-error';
-import type { LowStockRow, Movement } from '../domain/inventory';
+import type { LowStockRow } from '../domain/inventory';
 import type {
   AdjustmentFilters,
   AdjustmentInput,
   AdjustmentPage,
   InventoryApi,
   ItemInput,
+  MovementFilters,
+  MovementPage,
   ItemPage,
   StockFilters,
   StockPage,
@@ -88,11 +90,16 @@ export class HttpInventoryApi implements InventoryApi {
     return this.request<StockPage>('GET', `${BASE}/stock${suffix}`, token);
   }
 
-  async searchMovements(token: string, itemId: string, warehouseId?: string): Promise<Movement[]> {
-    const query = warehouseId ? `?warehouseId=${encodeURIComponent(warehouseId)}` : '';
+  async searchMovements(token: string, itemId: string, filters: MovementFilters = {}): Promise<MovementPage> {
+    const query = new URLSearchParams();
 
-    return (await this.request<{ movements: Movement[] }>('GET', `${BASE}/items/${encodeURIComponent(itemId)}/movements${query}`, token))
-      .movements;
+    for (const [key, value] of Object.entries(filters)) {
+      if (value !== undefined && value !== '' && value !== 0) query.set(key, String(value));
+    }
+
+    const suffix = query.size > 0 ? `?${query.toString()}` : '';
+
+    return this.request<MovementPage>('GET', `${BASE}/items/${encodeURIComponent(itemId)}/movements${suffix}`, token);
   }
 
   async searchAdjustments(token: string, filters: AdjustmentFilters = {}): Promise<AdjustmentPage> {

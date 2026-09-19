@@ -123,12 +123,38 @@ los proveedores de la empresa para resolver nombres.
 
 **Qué habría que hacer:** paginar por código y resolver solo lo que la página muestra.
 
+### Métodos de costo distintos del promedio ponderado
+
+**Por qué:** el inventario se valora con **promedio ponderado, y solo con ese**. El sector ofrece
+elegir: Odoo tiene estándar, AVCO y FIFO; ERPNext, FIFO, promedio móvil y LIFO.
+
+**Decidido en la revisión del Kardex (19-sep-2026): se queda el promedio.** Dos razones, y la
+segunda salió de leer el código del sistema de referencia:
+
+1. **FIFO no es un campo, es otro motor.** Exige capas: cada entrada es una capa con su costo y su
+   cantidad restante, las salidas consumen capas en orden, y una anulación tiene que *des-consumir*
+   las capas que tocó, en el orden inverso. Nada de eso cabe en el promedio, que es un único número
+   por artículo y bodega.
+2. **La referencia declara tres métodos y tiene uno y medio.** Su artículo lleva
+   `cost_method` con `['average', 'fifo', 'standard']`, pero ese campo **se lee en exactamente dos
+   sitios**, los dos comparándolo con `'standard'` para elegir entre `standard_cost` y
+   `average_cost` al calcular el costo de venta de una factura. **`fifo` no ramifica en ninguna
+   parte**: se puede elegir y el motor sigue calculando promedio ponderado. Ofrecer una opción que
+   no hace lo que promete es peor que no ofrecerla; es el mismo caso que su retención, y se
+   descartó por el mismo motivo.
+
+**Qué haría falta:** una tabla de capas de costo, el consumo en orden con su bloqueo, la reversión
+que devuelve las capas, y decidir si el método se elige por artículo o por categoría. Se construye
+cuando haya una necesidad real, no para igualar una lista de características.
+
 ### Paginación del kardex
 
 **Por qué:** el kardex de un artículo con años de movimientos se devuelve entero.
 
-**Qué habría que hacer:** paginar por `sequence` y añadir la guarda de rendimiento del H7.
-El **listado de ajustes ya está paginado y filtrado** desde la revisión del módulo (19-sep-2026).
+**Hecho el 19-sep-2026**, en la revisión del módulo: el kardex pagina y filtra por bodega, por tipo
+de documento y por rango de fechas, y el listado de ajustes y el de existencias también. Queda
+pendiente **la guarda de rendimiento del H7** sobre un artículo con miles de movimientos: la empresa
+de volumen tiene facturas, no kardex.
 
 ### El buscador queda encima del título en los listados con `CatalogTable`
 

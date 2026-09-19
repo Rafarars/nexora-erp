@@ -1,3 +1,4 @@
+import Link from 'next/link';
 import { can } from '@/modules/access/domain/session';
 import { DIRECTION_LABELS, ORIGIN_LABELS, formatMoney, formatQuantity, registeredOn } from '@/modules/inventory/domain/inventory';
 import { readableInventoryError } from '@/modules/inventory/domain/inventory-error';
@@ -7,7 +8,19 @@ import { requireSession } from '@/shared/session/current-session';
 
 export const dynamic = 'force-dynamic';
 
-export default async function KardexPage({ searchParams }: { searchParams: Promise<{ articulo?: string; bodega?: string }> }) {
+// Lo que cabe de un vistazo; la API no deja pedir mas de 50.
+const PAGE_SIZE = 20;
+
+interface Params {
+  articulo?: string;
+  bodega?: string;
+  documento?: string;
+  desde?: string;
+  hasta?: string;
+  pagina?: string;
+}
+
+export default async function KardexPage({ searchParams }: { searchParams: Promise<Params> }) {
   const { session, token } = await requireSession();
 
   if (!can(session, 'inventory.movements.search')) {
@@ -18,22 +31,43 @@ export default async function KardexPage({ searchParams }: { searchParams: Promi
     );
   }
 
-  const { articulo, bodega } = await searchParams;
+  const { articulo, bodega, documento, desde, hasta, pagina } = await searchParams;
+  const page = Math.max(1, Number(pagina ?? '1') || 1);
   const [items, warehouses] = await Promise.all([
     can(session, 'inventory.items.search') ? inventoryApi().allItems(token) : [],
     can(session, 'catalog.warehouses.search') ? catalogApi().searchWarehouses(token) : [],
   ]);
 
-  let movements = null;
+  let kardex = null;
   let failure = null;
 
   if (articulo) {
     try {
-      movements = await inventoryApi().searchMovements(token, articulo, bodega || undefined);
+      kardex = await inventoryApi().searchMovements(token, articulo, {
+        warehouseId: bodega || undefined,
+        originType: documento || undefined,
+        from: desde || undefined,
+        to: hasta || undefined,
+        limit: PAGE_SIZE,
+        offset: (page - 1) * PAGE_SIZE,
+      });
     } catch (error) {
       failure = readableInventoryError(error, 'No se pudo cargar el kardex.');
     }
   }
+
+  const movements = kardex?.movements ?? null;
+  const from = !kardex || kardex.total === 0 ? 0 : (page - 1) * PAGE_SIZE + 1;
+  const to = (page - 1) * PAGE_SIZE + (movements?.length ?? 0);
+  const hrefFor = (next: number) =>
+    `/inventario/kardex?${new URLSearchParams({
+      ...(articulo ? { articulo } : {}),
+      ...(bodega ? { bodega } : {}),
+      ...(documento ? { documento } : {}),
+      ...(desde ? { desde } : {}),
+      ...(hasta ? { hasta } : {}),
+      ...(next > 1 ? { pagina: String(next) } : {}),
+    }).toString()}`;
 
   const unit = items.find((item) => item.id === articulo)?.units.find((u) => u.isBase)?.abbreviation ?? '';
 
@@ -42,7 +76,8 @@ export default async function KardexPage({ searchParams }: { searchParams: Promi
       <div>
         <h2 className="text-base font-semibold">Kardex</h2>
         <p className="text-muted mt-1 text-sm">
-          Cada movimiento de un artículo, en orden. Nada se borra: una anulación aparece como su contrapartida.
+          Cada movimiento de un artículo, del más reciente al más antiguo. Nada se borra: una anulación aparece como su
+          contrapartida.
         </p>
       </div>
 
@@ -87,9 +122,72 @@ export default async function KardexPage({ searchParams }: { searchParams: Promi
             ))}
           </select>
         </div>
+        <div className="space-y-1">
+          <label htmlFor="documento-kardex" className="block text-sm">
+            Documento
+          </label>
+          <select
+            id="documento-kardex"
+            name="documento"
+            defaultValue={documento ?? ''}
+            data-testid="kardex-origin"
+            className="border-line bg-background rounded-md border px-2 py-1 text-sm"
+          >
+            <option value="">Todos</option>
+            {(Object.keys(ORIGIN_LABELS) as (keyof typeof ORIGIN_LABELS)[]).map((origin) => (
+              <option key={origin} value={origin}>
+                {ORIGIN_LABELS[origin]}
+              </option>
+            ))}
+          </select>
+        </div>
+        <div className="space-y-1">
+          <label htmlFor="desde-kardex" className="block text-sm">
+            Desde
+          </label>
+          <input
+            id="desde-kardex"
+            name="desde"
+            type="date"
+            defaultValue={desde ?? ''}
+            data-testid="kardex-from"
+            className="border-line rounded-md border bg-transparent px-2 py-1 text-sm"
+          />
+        </div>
+        <div className="space-y-1">
+          <label htmlFor="hasta-kardex" className="block text-sm">
+            Hasta
+          </label>
+          <input
+            id="hasta-kardex"
+            name="hasta"
+            type="date"
+            defaultValue={hasta ?? ''}
+            data-testid="kardex-to"
+            className="border-line rounded-md border bg-transparent px-2 py-1 text-sm"
+          />
+        </div>
         <button type="submit" data-testid="kardex-submit" className="border-line rounded-md border px-2 py-1 text-sm">
           Ver kardex
         </button>
+
+        {kardex ? (
+          <div className="ml-auto flex items-center gap-3 text-sm">
+            <span className="text-muted" data-testid="kardex-page-range">
+              {from}–{to} de {kardex.total}
+            </span>
+            {page > 1 ? (
+              <Link href={hrefFor(page - 1)} data-testid="kardex-page-previous" className="border-line hover:bg-surface rounded-md border px-2 py-1">
+                Anterior
+              </Link>
+            ) : null}
+            {kardex.hasMore ? (
+              <Link href={hrefFor(page + 1)} data-testid="kardex-page-next" className="border-line hover:bg-surface rounded-md border px-2 py-1">
+                Siguiente
+              </Link>
+            ) : null}
+          </div>
+        ) : null}
       </form>
 
       {failure ? (

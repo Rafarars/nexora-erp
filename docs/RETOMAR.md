@@ -35,7 +35,7 @@ un cambio de API o de web no se ve en el navegador ni en la e2e hasta que se eje
 |---|---|
 | Repositorio | github.com/Rafarars/nexora-erp |
 | Reporte de pruebas | https://rafarars.github.io/nexora-erp/ |
-| Pruebas | 2739 + 184 unitarias · 203 de contrato · 388 end-to-end |
+| Pruebas | 2748 + 184 unitarias · 206 de contrato · 389 end-to-end |
 | **H0 — Fundación** | **Completado** |
 | **H1 — Multiempresa y acceso** | **Completado** y revisado |
 | **H2 — Catálogo** | **Completado** ([`H2-CATALOGO.md`](H2-CATALOGO.md)) |
@@ -525,7 +525,13 @@ cliente, el precio mínimo y el precio sugerido en el pedido. Después, la fase 
 **Continuar la revisión módulo por módulo con la skill `module-review`**, que es justo el método que salió de este
 piloto. El orden y el estado están en [`revision/README.md`](revision/README.md) § Orden y estado.
 
-**El siguiente es Inventario › Kardex.** El Catálogo, Ajustes y Existencias ya están cerrados.
+**Inventario está cerrado entero.** El siguiente módulo es **Compras**, empezando por Proveedores.
+
+**Hecho el 19-sep-2026 · Inventario › Kardex** ([revisión](revision/inventario/kardex.md)): cuatro hallazgos. El kardex
+se devolvía entero, sin filtros: ahora pagina, filtra por bodega, por tipo de documento y por rango de fechas, y se lee
+**del más reciente al más antiguo**. Y se cerró el tema del **método de costo**: sigue el promedio ponderado y sólo ese,
+porque FIFO no es un campo sino otro motor, y porque el sistema de referencia declara tres métodos y su `cost_method`
+sólo se lee en dos sitios, los dos comparando con `'standard'` — **su FIFO es una etiqueta que no hace nada**.
 
 **Hecho el 19-sep-2026 · Inventario › Existencias** ([revisión](revision/inventario/existencias.md)): cinco hallazgos.
 El de fondo: la pantalla decía **cuánto hay, no cuánto se puede prometer** —288 unidades de agua, 72 comprometidas en

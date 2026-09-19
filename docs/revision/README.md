@@ -69,7 +69,7 @@ Estados: ⬜ pendiente · 🔍 revisado, esperando decisiones · ✅ cerrado (de
 | Artículos (piloto; empezó en Catálogo) | ✅ Cerrado: las seis fases, con sus temas, pruebas y documentación, **más la revisión adversarial de la fase 4** (§12), que era el único flanco sin lupa propia | [inventario/articulos.md](inventario/articulos.md) |
 | Ajustes | ✅ Cerrado. Ocho hallazgos: el costo cero, la fecha del kardex, el motivo, la revaluación, la paginación, el rastro de autor, las etiquetas de los filtros y las citas al sistema privado | [inventario/ajustes.md](inventario/ajustes.md) |
 | Existencias | ✅ Cerrado. Cinco hallazgos: el reservado que no se veía, el valor con dos reglas de redondeo, la paginación, la moneda y un choque de nombres | [inventario/existencias.md](inventario/existencias.md) |
-| Kardex | ⬜ | |
+| Kardex | ✅ Cerrado. Cuatro hallazgos: el listado sin paginar ni filtrar, el orden por identificador, la fecha del documento como filtro y el DTO compartido | [inventario/kardex.md](inventario/kardex.md) |
 
 ### 3. Compras
 
@@ -132,6 +132,6 @@ decidir **en qué módulo viven** y **qué reglas llevan**. Cada una se resuelve
 | Adjuntos e imágenes | Módulo genérico de archivos: tabla, relación con cada registro y almacenamiento en el despliegue | Artículos (imagen del artículo) | ⬜ |
 | Tipo no inventariado | Si se agrega y qué documentos lo aceptan | Inventario › Existencias | ✅ **No se agrega**: ninguna regla distingue hoy bien de servicio, y un servicio ya no mueve existencia. Porqué en [FUTURE.md](../FUTURE.md) |
 | Lotes y series | Qué submódulo son y qué documentos los exigen | Inventario | ⬜ |
-| Método de costo | Promedio, FIFO o estándar; por artículo o por categoría | Inventario › Kardex | ⬜ |
+| Método de costo | Promedio, FIFO o estándar; por artículo o por categoría | Inventario › Kardex | ✅ **Sigue el promedio ponderado, y solo ese**. El porqué, con lo que se encontró en el sistema de referencia, en [inventario/kardex.md](inventario/kardex.md) y en [FUTURE.md](../FUTURE.md) |
 | Servicios en documentos | Comprar y vender servicios si la factura nace del despacho | Compras › Órdenes y Ventas › Facturas | ✅ Fase 6 · [temas/servicios.md](temas/servicios.md) |
 | Contexto del despacho | ¿Ventas o Inventario? | Ventas › Despachos | ⬜ |
