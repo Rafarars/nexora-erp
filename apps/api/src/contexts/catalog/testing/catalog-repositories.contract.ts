@@ -46,7 +46,7 @@ import {
 } from '../domain/testing/catalog.mother.js';
 import { WarehouseId } from '../domain/warehouse/warehouse-id.vo.js';
 import { WarehouseName } from '../domain/warehouse/warehouse-name.vo.js';
-import { CatalogRepositories, CatalogRepositoriesHarness, ItemSeeder } from './catalog-repositories.harness.js';
+import { CatalogRepositories, CatalogRepositoriesHarness, ItemSeeder, WarehouseSeeder } from './catalog-repositories.harness.js';
 
 const tenantA = TenantId.of(TENANT_A);
 const tenantB = TenantId.of(TENANT_B);
@@ -61,11 +61,13 @@ export function describeCatalogRepositoriesContract(
     const harness = createHarness();
     let repos: CatalogRepositories;
     let items: ItemSeeder;
+    let warehouseUsage: WarehouseSeeder;
 
     beforeEach(async () => {
       await harness.reset();
       repos = harness.repositories();
       items = harness.items();
+      warehouseUsage = harness.warehouseUsage();
     });
 
     afterEach(async () => {
@@ -408,6 +410,60 @@ export function describeCatalogRepositoriesContract(
         }
 
         expect(await repos.currencies.isUsable(CurrencyCode.of('EUR'))).toBe(true);
+      });
+    });
+
+    // Lo que el inventario y los documentos dicen de una bodega antes de dejarla cerrar.
+    describe('StockUsage', () => {
+      // La existencia y los documentos apuntan a la bodega: sin ella, la base los rechaza.
+      const seedWarehouse = async () => {
+        await seedReferences();
+        await repos.warehouses.save(aWarehouse());
+      };
+
+      it('answers whether a warehouse still holds stock', async () => {
+        await seedWarehouse();
+        expect(await repos.stockUsage.warehouseHasStock(tenantA, WarehouseId.of(WAREHOUSE_A))).toBe(false);
+
+        await warehouseUsage.stock(WAREHOUSE_A, 5);
+
+        expect(await repos.stockUsage.warehouseHasStock(tenantA, WarehouseId.of(WAREHOUSE_A))).toBe(true);
+      });
+
+      // Una bodega vacia puede estar esperando mercancia o teniendo que despacharla.
+      it('answers whether an open purchase order or sales order still needs the warehouse', async () => {
+        await seedWarehouse();
+        const stillNeeded = () => repos.stockUsage.warehouseHasOpenDocuments(tenantA, WarehouseId.of(WAREHOUSE_A));
+        expect(await stillNeeded()).toBe(false);
+
+        await warehouseUsage.purchaseOrder(WAREHOUSE_A, 'confirmed');
+        expect(await stillNeeded()).toBe(true);
+      });
+
+      it('counts a sales order that is half dispatched', async () => {
+        await seedWarehouse();
+        await warehouseUsage.salesOrder(WAREHOUSE_A, 'partially_dispatched');
+
+        expect(await repos.stockUsage.warehouseHasOpenDocuments(tenantA, WarehouseId.of(WAREHOUSE_A))).toBe(true);
+      });
+
+      // Un borrador todavia no prometio nada, y uno terminado o anulado ya no espera nada.
+      it('ignores drafts, finished and cancelled documents', async () => {
+        await seedWarehouse();
+        await warehouseUsage.purchaseOrder(WAREHOUSE_A, 'draft');
+        await warehouseUsage.purchaseOrder(WAREHOUSE_A, 'received');
+        await warehouseUsage.salesOrder(WAREHOUSE_A, 'draft');
+        await warehouseUsage.salesOrder(WAREHOUSE_A, 'cancelled');
+
+        expect(await repos.stockUsage.warehouseHasOpenDocuments(tenantA, WarehouseId.of(WAREHOUSE_A))).toBe(false);
+      });
+
+      it('never looks at the documents of another tenant', async () => {
+        await seedWarehouse();
+        await warehouseUsage.purchaseOrder(WAREHOUSE_A, 'confirmed');
+
+        expect(await repos.stockUsage.warehouseHasOpenDocuments(tenantB, WarehouseId.of(WAREHOUSE_A))).toBe(false);
+        expect(await repos.stockUsage.warehouseHasStock(tenantB, WarehouseId.of(WAREHOUSE_A))).toBe(false);
       });
     });
 

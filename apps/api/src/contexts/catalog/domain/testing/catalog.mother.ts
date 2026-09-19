@@ -63,6 +63,7 @@ export function aUnit(
     code?: string;
     name?: string;
     abbreviation?: string;
+    mustBeWhole?: boolean;
     active?: boolean;
   } = {},
 ): MeasurementUnit {
@@ -72,6 +73,7 @@ export function aUnit(
     CatalogCode.of(overrides.code ?? 'UOM000001'),
     MeasurementUnitName.of(overrides.name ?? 'Unidad'),
     UnitAbbreviation.of(overrides.abbreviation ?? 'un'),
+    overrides.mustBeWhole ?? false,
     NOW,
   );
 

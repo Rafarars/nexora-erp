@@ -13,6 +13,8 @@ export interface Category extends CatalogRecord {
 
 export interface MeasurementUnit extends CatalogRecord {
   abbreviation: string;
+  // Media pieza no significa nada; medio kilo si.
+  mustBeWhole: boolean;
 }
 
 export interface Tax extends CatalogRecord {

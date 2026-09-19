@@ -114,6 +114,16 @@ export class SalesUnitNotOfItemError extends InvalidArgumentError {
   }
 }
 
+// Media pieza no significa nada: si la unidad no admite fracciones, la linea tampoco.
+export class SalesFractionalQuantityError extends InvalidArgumentError {
+  constructor(quantity: number, abbreviation: string) {
+    super(
+      `Quantity <${quantity}> is not whole and unit <${abbreviation}> does not admit fractions.`,
+      'That unit does not admit fractions: write a whole quantity.',
+    );
+  }
+}
+
 export class InvalidSalesQuantityError extends InvalidArgumentError {
   constructor(value: number) {
     super(`A quantity must be greater than zero with at most four decimals, received <${value}>.`, 'Quantities must be greater than zero with at most four decimals.');

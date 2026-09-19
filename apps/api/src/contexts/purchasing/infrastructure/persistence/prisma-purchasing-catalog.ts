@@ -31,6 +31,7 @@ export class PrismaPurchasingCatalog implements PurchasingCatalog {
         abbreviation: unit.unit.abbreviation,
         conversionFactor: unit.conversionFactor.toNumber(),
         isBase: unit.isBase,
+        mustBeWhole: unit.unit.mustBeWhole,
       })),
     }));
   }

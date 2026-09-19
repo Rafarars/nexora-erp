@@ -53,6 +53,11 @@ export class Quantity {
     return Quantity.fromUnits(roundedDivision(this.units * part.units, whole.units));
   }
 
+  // Una unidad que no admite fracciones exige diezmilesimas exactas de unidad entera.
+  isWhole(): boolean {
+    return this.units % 10_000n === 0n;
+  }
+
   isZero(): boolean {
     return this.units === 0n;
   }

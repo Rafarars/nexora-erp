@@ -7,7 +7,7 @@ export interface CatalogApi {
   changeCategoryStatus(token: string, id: string, active: boolean): Promise<void>;
 
   searchUnits(token: string): Promise<MeasurementUnit[]>;
-  saveUnit(token: string, id: string | null, input: { name: string; abbreviation: string }): Promise<void>;
+  saveUnit(token: string, id: string | null, input: { name: string; abbreviation: string; mustBeWhole: boolean }): Promise<void>;
   changeUnitStatus(token: string, id: string, active: boolean): Promise<void>;
 
   searchTaxes(token: string): Promise<Tax[]>;

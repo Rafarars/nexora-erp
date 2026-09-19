@@ -14,7 +14,7 @@ export interface PurchasableItem {
   isPurchasable: boolean;
   // El porcentaje del impuesto del articulo; cero si no tiene.
   taxRate: number;
-  units: { unitId: string; abbreviation: string; conversionFactor: number; isBase: boolean }[];
+  units: { unitId: string; abbreviation: string; conversionFactor: number; isBase: boolean; mustBeWhole: boolean }[];
 }
 
 export interface PurchaseWarehouse {

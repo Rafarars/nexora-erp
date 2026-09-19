@@ -11,7 +11,7 @@ export interface MeasurementUnitUpdaterRequest {
   tenantId: string;
   unitId: string;
   name: string;
-  abbreviation: string;
+  abbreviation: string;  mustBeWhole?: boolean;
 }
 
 export class MeasurementUnitUpdater {
@@ -30,7 +30,7 @@ export class MeasurementUnitUpdater {
 
     await this.uniqueness.ensureIsFree(tenantId, name, abbreviation, unit.id);
 
-    unit.update(name, abbreviation, this.clock.now());
+    unit.update(name, abbreviation, request.mustBeWhole ?? false, this.clock.now());
 
     await this.units.save(unit);
   }

@@ -16,6 +16,7 @@ import {
   SalesOrderWithDispatchesError,
   SalesWarehouseNotFoundError,
   ItemNotSellableError,
+  SalesFractionalQuantityError,
 } from '../domain/errors/sales.errors.js';
 import { BOX, FOREIGN_WAREHOUSE, KILO, MAIN, NORTH, PIECE, SOAP, TENANT_A, TENANT_B, WATER, NOT_TRADED_ITEM } from '../domain/testing/sales.mother.js';
 import { SalesOrderCreatorRequest } from './create-order/sales-order-creator.js';
@@ -92,6 +93,8 @@ describe('sales orders', () => {
       return {};
     }, InactiveCustomerError],
     ['an item that is not sold', async () => ({ lines: [{ itemId: NOT_TRADED_ITEM, unitId: PIECE, quantity: 1, unitPrice: 1 }] }), ItemNotSellableError],
+    // Media caja no significa nada: la unidad lo dice y la linea lo respeta.
+    ['half a box of a unit that does not admit fractions', async () => ({ lines: [{ itemId: WATER, unitId: BOX, quantity: 2.5, unitPrice: 1 }] }), SalesFractionalQuantityError],
     ['a warehouse of another tenant', async () => ({ warehouseId: FOREIGN_WAREHOUSE }), SalesWarehouseNotFoundError],
   ] as const)('refuses an order with %s', async (_case, arrange, error) => {
     const { s, customerId } = await world();

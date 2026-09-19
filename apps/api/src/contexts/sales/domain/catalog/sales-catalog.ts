@@ -14,7 +14,7 @@ export interface SellableItem {
   isSellable: boolean;
   // El porcentaje del impuesto del articulo; cero si no tiene.
   taxRate: number;
-  units: { unitId: string; abbreviation: string; conversionFactor: number; isBase: boolean }[];
+  units: { unitId: string; abbreviation: string; conversionFactor: number; isBase: boolean; mustBeWhole: boolean }[];
   // Lo que cuesta en cada lista, en la unidad base. Vacio: no hay precio que sugerir.
   prices: { priceListId: string; price: number }[];
   // Piso de venta en la moneda de la empresa; nulo, no hay piso.

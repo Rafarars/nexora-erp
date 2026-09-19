@@ -35,7 +35,7 @@ módulo**, cuyo estado vive en [`../revision/README.md`](../revision/README.md).
 
 | | |
 |---|---|
-| **Revisado y cerrado** | Inventario › **Artículos** (el piloto del método), y con él la configuración de la empresa y la multimoneda, las listas de precio y los servicios en los documentos |
+| **Revisado y cerrado** | Inventario › **Artículos** (el piloto del método), y con él la configuración de la empresa y la multimoneda, las listas de precio y los servicios en los documentos. Y el **Catálogo** entero: unidades, categorías, impuestos y bodegas |
 | **Documentado pero sin revisar** | Todo lo demás. Funciona y está probado, pero sus reglas **no se han contrastado** con un ERP de referencia |
 | **Lo que falta a propósito** | [`../FUTURE.md`](../FUTURE.md), con qué es, por qué se dejó fuera y qué haría falta |
 

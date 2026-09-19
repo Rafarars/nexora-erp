@@ -8,4 +8,7 @@ export const STOCK_USAGE = Symbol('StockUsage');
 // ItemPosting con la fila del articulo bloqueada.
 export interface StockUsage {
   warehouseHasStock(tenantId: TenantId, warehouseId: WarehouseId): Promise<boolean>;
+  // Ordenes de compra y pedidos de venta confirmados con pendiente. Un borrador no cuenta:
+  // todavia no prometio nada y se revalida al confirmarlo, como con el articulo.
+  warehouseHasOpenDocuments(tenantId: TenantId, warehouseId: WarehouseId): Promise<boolean>;
 }

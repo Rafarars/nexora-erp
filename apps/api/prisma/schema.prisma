@@ -284,6 +284,8 @@ model MeasurementUnit {
   code         String   @db.VarChar(12)
   name         String   @db.VarChar(100)
   abbreviation String   @db.VarChar(10)
+  /// Media pieza no significa nada; medio kilo si. Lo decide la unidad, y la linea lo respeta.
+  mustBeWhole  Boolean  @default(false) @map("must_be_whole")
   isActive     Boolean  @default(true) @map("is_active")
   createdAt    DateTime @default(now()) @map("created_at")
   updatedAt    DateTime @updatedAt @map("updated_at")

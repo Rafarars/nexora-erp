@@ -1,6 +1,6 @@
 import { Clock } from '../../../../shared/domain/ports/clock.js';
 import { TenantId } from '../../domain/shared/tenant-id.vo.js';
-import { WarehouseWithStockError } from '../../domain/errors/in-use.errors.js';
+import { WarehouseWithOpenDocumentsError, WarehouseWithStockError } from '../../domain/errors/in-use.errors.js';
 import { StockUsage } from '../../domain/stock/stock-usage.js';
 import { WarehouseFinder } from '../../domain/warehouse/find/warehouse-finder.js';
 import { WarehouseId } from '../../domain/warehouse/warehouse-id.vo.js';
@@ -35,6 +35,12 @@ export class WarehouseStatusChanger {
 
       if (await this.stock.warehouseHasStock(tenantId, warehouse.id)) {
         throw new WarehouseWithStockError(warehouse.id.value);
+      }
+
+      // Y aunque este vacia: si una orden espera entrar aqui o un pedido tiene que salir de
+      // aqui, cerrarla deja ese documento sin salida.
+      if (await this.stock.warehouseHasOpenDocuments(tenantId, warehouse.id)) {
+        throw new WarehouseWithOpenDocumentsError(warehouse.id.value);
       }
     }
 

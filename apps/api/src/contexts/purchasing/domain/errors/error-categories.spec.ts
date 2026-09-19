@@ -20,6 +20,7 @@ const cases: Array<[DomainError, typeof DomainError]> = [
   [new errors.ServiceNotReceivableError(ID), InvalidArgumentError],
   [new errors.ItemNotPurchasableError(ID), ConflictError],
   [new errors.PurchaseUnitNotOfItemError(ID, ID), InvalidArgumentError],
+  [new errors.PurchaseFractionalQuantityError(2.5, 'cja'), InvalidArgumentError],
   [new errors.PurchaseItemChangedError(ID), ConflictError],
   [new errors.InvalidPurchaseQuantityError(-1), InvalidArgumentError],
   [new errors.InvalidPurchaseCostError(-1), InvalidArgumentError],

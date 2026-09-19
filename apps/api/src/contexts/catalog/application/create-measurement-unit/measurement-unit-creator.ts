@@ -13,7 +13,7 @@ import { TenantId } from '../../domain/shared/tenant-id.vo.js';
 export interface MeasurementUnitCreatorRequest {
   tenantId: string;
   name: string;
-  abbreviation: string;
+  abbreviation: string;  mustBeWhole?: boolean;
 }
 
 export class MeasurementUnitCreator {
@@ -36,7 +36,7 @@ export class MeasurementUnitCreator {
     const code = CatalogCode.fromSequence(prefix, await this.codes.next(tenantId, prefix));
 
     await this.units.save(
-      MeasurementUnit.create(MeasurementUnitId.of(this.ids.next()), tenantId, code, name, abbreviation, this.clock.now()),
+      MeasurementUnit.create(MeasurementUnitId.of(this.ids.next()), tenantId, code, name, abbreviation, request.mustBeWhole ?? false, this.clock.now()),
     );
   }
 }

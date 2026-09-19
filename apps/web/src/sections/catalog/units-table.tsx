@@ -24,11 +24,22 @@ export function UnitsTable({
       columns={[
         { header: 'Nombre', cell: (unit) => <span className="font-medium">{unit.name}</span> },
         { header: 'Abreviatura', cell: (unit) => <span className="font-mono text-xs">{unit.abbreviation}</span> },
+        {
+          header: 'Cantidades',
+          cell: (unit) => (
+            <span data-testid={`unit-whole-${unit.abbreviation}`}>{unit.mustBeWhole ? 'Solo enteras' : 'Admite decimales'}</span>
+          ),
+        },
       ]}
       renderFields={(unit) => (
         <>
           <Field label="Nombre" name="name" testId="unit-name" defaultValue={unit?.name} autoComplete="off" />
           <Field label="Abreviatura" name="abbreviation" testId="unit-abbreviation" defaultValue={unit?.abbreviation} autoComplete="off" />
+          {/* Media pieza no significa nada; medio kilo si. */}
+          <label className="flex items-center gap-2 text-sm">
+            <input type="checkbox" name="mustBeWhole" defaultChecked={unit?.mustBeWhole ?? false} data-testid="unit-must-be-whole" />
+            No admite cantidades con decimales
+          </label>
         </>
       )}
       save={saveUnit}

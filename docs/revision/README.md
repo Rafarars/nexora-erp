@@ -56,10 +56,11 @@ Estados: ⬜ pendiente · 🔍 revisado, esperando decisiones · ✅ cerrado (de
 
 | Submódulo | Estado | Informe |
 |---|---|---|
-| Unidades de medida | ⬜ | |
-| Categorías | ⬜ | |
-| Impuestos | ⬜ | |
-| Bodegas | ⬜ | |
+| Unidades de medida | ✅ Cerrado. Gana la marca de «no admite decimales» | [catalogo/catalogo.md](catalogo/catalogo.md) |
+| Categorías | ✅ Cerrado. Siguen planas, con el porqué escrito | [catalogo/catalogo.md](catalogo/catalogo.md) |
+| Impuestos | ✅ Cerrado. La retención sale como hito propio | [catalogo/catalogo.md](catalogo/catalogo.md) |
+| Bodegas | ✅ Cerrado. Ya no se cierran con documentos abiertos | [catalogo/catalogo.md](catalogo/catalogo.md) |
+| Listas de precio | ✅ Cerrado en la fase 5 de Artículos | [temas/listas-de-precio.md](temas/listas-de-precio.md) |
 
 ### 2. Inventario
 

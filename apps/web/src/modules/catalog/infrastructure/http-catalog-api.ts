@@ -25,7 +25,7 @@ export class HttpCatalogApi implements CatalogApi {
     return (await this.request<{ units: MeasurementUnit[] }>('GET', `${BASE}/units`, token)).units;
   }
 
-  async saveUnit(token: string, id: string | null, input: { name: string; abbreviation: string }) {
+  async saveUnit(token: string, id: string | null, input: { name: string; abbreviation: string; mustBeWhole: boolean }) {
     await this.save(token, 'units', id, input);
   }
 

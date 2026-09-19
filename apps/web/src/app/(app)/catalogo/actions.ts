@@ -44,7 +44,7 @@ export async function changeCategoryStatus(_state: FormState, form: FormData): P
 
 export async function saveUnit(_state: FormState, form: FormData): Promise<FormState> {
   return attempt('/catalogo/unidades', 'No se pudo guardar la unidad.', (token) =>
-    catalogApi().saveUnit(token, idOf(form), { name: text(form, 'name'), abbreviation: text(form, 'abbreviation') }),
+    catalogApi().saveUnit(token, idOf(form), { name: text(form, 'name'), abbreviation: text(form, 'abbreviation'), mustBeWhole: form.get('mustBeWhole') !== null }),
   );
 }
 

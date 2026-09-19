@@ -11,6 +11,15 @@ describe('readableCatalogError', () => {
     expect(readableCatalogError(error, FALLBACK)).toBe('No se puede desactivar: hay artículos activos en esta categoría.');
   });
 
+  // Los dos motivos por los que una bodega no se deja cerrar se explican cada uno por su lado.
+  it('explains each reason a warehouse cannot be deactivated', () => {
+    const withStock = AccessError.fromStatus(409, { code: 'WarehouseWithStockError', message: 'Warehouse <x> still has stock.' });
+    const withOrders = AccessError.fromStatus(409, { code: 'WarehouseWithOpenDocumentsError', message: 'Warehouse <x> is used.' });
+
+    expect(readableCatalogError(withStock, FALLBACK)).toContain('existencia');
+    expect(readableCatalogError(withOrders, FALLBACK)).toContain('abiertos');
+  });
+
   it('explains a rate that is not a number', () => {
     const error = AccessError.fromStatus(400, { code: 'ValidationError', fields: ['rate'] });
 

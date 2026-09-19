@@ -17,4 +17,21 @@ export class PrismaStockUsage implements StockUsage {
 
     return row !== null;
   }
+
+  // Confirmados y a medias, con pendiente: un borrador todavia no prometio nada.
+  async warehouseHasOpenDocuments(tenantId: TenantId, warehouseId: WarehouseId): Promise<boolean> {
+    const where = { tenantId: tenantId.value, warehouseId: warehouseId.value };
+    const [purchase, sales] = await Promise.all([
+      this.prisma.purchaseOrder.findFirst({
+        where: { ...where, status: { in: ['confirmed', 'partially_received'] } },
+        select: { id: true },
+      }),
+      this.prisma.salesOrder.findFirst({
+        where: { ...where, status: { in: ['confirmed', 'partially_dispatched'] } },
+        select: { id: true },
+      }),
+    ]);
+
+    return purchase !== null || sales !== null;
+  }
 }

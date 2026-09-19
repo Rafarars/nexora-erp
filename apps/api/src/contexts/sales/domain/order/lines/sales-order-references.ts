@@ -8,6 +8,7 @@ import {
   InactiveSalesWarehouseError,
   InvalidSalesQuantityError,
   SalesItemNotFoundError,
+  SalesFractionalQuantityError,
   SalesUnitNotOfItemError,
   SalesWarehouseNotFoundError,
   ItemNotSellableError,
@@ -77,6 +78,9 @@ export class SalesOrderReferences {
       if (!unit) throw new SalesUnitNotOfItemError(unitId.value, item.id);
 
       const quantity = Quantity.of(input.quantity);
+
+      if (unit.mustBeWhole && !quantity.isWhole()) throw new SalesFractionalQuantityError(input.quantity, unit.abbreviation);
+
       const baseQuantity = quantity.times(unit.conversionFactor);
       const listPrice = pricing.suggest(item, unit.conversionFactor);
       const unitPrice = input.unitPrice === null || input.unitPrice === undefined ? listPrice : UnitPrice.of(input.unitPrice);

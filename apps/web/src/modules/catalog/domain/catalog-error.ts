@@ -13,6 +13,9 @@ const BY_CODE: Record<string, string> = {
   MeasurementUnitInUseError: 'No se puede desactivar: hay artículos activos que usan esta unidad.',
   TaxInUseError: 'No se puede desactivar: hay artículos activos con este impuesto.',
   DefaultWarehouseDeactivationError: 'No se puede desactivar la bodega por defecto. Elige otra por defecto primero.',
+  WarehouseWithStockError: 'La bodega todavía tiene existencia: sácala o muévela antes de desactivarla.',
+  WarehouseWithOpenDocumentsError:
+    'Hay órdenes de compra o pedidos de venta abiertos que cuentan con esta bodega: recíbelos, despáchalos o anúlalos primero.',
   InactiveDefaultWarehouseError: 'Una bodega inactiva no puede ser la bodega por defecto.',
   ConcurrentDefaultWarehouseError: 'Otra persona cambió la bodega por defecto al mismo tiempo. Vuelve a intentarlo.',
   DuplicatePriceListNameError: 'Ya existe una lista de precio con ese nombre.',
@@ -22,6 +25,9 @@ const BY_CODE: Record<string, string> = {
   UnknownPriceListCurrencyError: 'Esa moneda no está disponible.',
   InvalidTaxRateError: 'El porcentaje debe estar entre 0 y 100, con hasta cuatro decimales.',
   InvalidAbbreviationError: 'La abreviatura no puede tener espacios.',
+  FractionalQuantityError: 'Esa unidad no admite decimales: escribe una cantidad entera.',
+  PurchaseFractionalQuantityError: 'Esa unidad no admite decimales: escribe una cantidad entera.',
+  SalesFractionalQuantityError: 'Esa unidad no admite decimales: escribe una cantidad entera.',
   TextTooLongError: 'Uno de los textos es demasiado largo.',
 };
 

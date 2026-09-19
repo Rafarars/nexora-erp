@@ -8,6 +8,8 @@ import { UnitAbbreviation } from './unit-abbreviation.vo.js';
 export interface MeasurementUnitPrimitives extends CatalogRecordPrimitives {
   name: string;
   abbreviation: string;
+  // Media pieza no significa nada; medio kilo si. Lo decide la unidad, no el articulo.
+  mustBeWhole: boolean;
 }
 
 // Sin factor de conversion: cuantas unidades trae una caja depende del articulo, asi
@@ -21,6 +23,7 @@ export class MeasurementUnit extends CatalogRecord<MeasurementUnitId> {
     code: CatalogCode,
     private name: MeasurementUnitName,
     private abbreviation: UnitAbbreviation,
+    private wholeOnly: boolean,
     active: boolean,
     createdAt: Date,
     updatedAt: Date,
@@ -34,9 +37,10 @@ export class MeasurementUnit extends CatalogRecord<MeasurementUnitId> {
     code: CatalogCode,
     name: MeasurementUnitName,
     abbreviation: UnitAbbreviation,
+    mustBeWhole: boolean,
     now: Date,
   ): MeasurementUnit {
-    return new MeasurementUnit(id, tenantId, code, name, abbreviation, true, now, now);
+    return new MeasurementUnit(id, tenantId, code, name, abbreviation, mustBeWhole, true, now, now);
   }
 
   static fromPrimitives(row: MeasurementUnitPrimitives): MeasurementUnit {
@@ -46,6 +50,7 @@ export class MeasurementUnit extends CatalogRecord<MeasurementUnitId> {
       CatalogCode.of(row.code),
       MeasurementUnitName.of(row.name),
       UnitAbbreviation.of(row.abbreviation),
+      row.mustBeWhole,
       row.isActive,
       row.createdAt,
       row.updatedAt,
@@ -57,12 +62,14 @@ export class MeasurementUnit extends CatalogRecord<MeasurementUnitId> {
       ...this.recordPrimitives(),
       name: this.name.value,
       abbreviation: this.abbreviation.value,
+      mustBeWhole: this.wholeOnly,
     };
   }
 
-  update(name: MeasurementUnitName, abbreviation: UnitAbbreviation, now: Date): void {
+  update(name: MeasurementUnitName, abbreviation: UnitAbbreviation, mustBeWhole: boolean, now: Date): void {
     this.name = name;
     this.abbreviation = abbreviation;
+    this.wholeOnly = mustBeWhole;
     this.touch(now);
   }
 }

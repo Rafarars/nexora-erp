@@ -3,11 +3,12 @@ import { ConfigService } from '@nestjs/config';
 import type { Env } from '../../../../shared/config/env.schema.js';
 import { PrismaService } from '../../../../shared/prisma/prisma.service.js';
 import { TENANT_A, TENANT_B } from '../../domain/testing/catalog.mother.js';
-import { CatalogRepositories, CatalogRepositoriesHarness, ItemSeeder } from '../../testing/catalog-repositories.harness.js';
+import { CatalogRepositories, CatalogRepositoriesHarness, ItemSeeder, WarehouseSeeder } from '../../testing/catalog-repositories.harness.js';
 import { PrismaCategoryRepository } from '../persistence/prisma-category.repository.js';
 import { PrismaCodeSequence } from '../persistence/prisma-code-sequence.js';
 import { PrismaItemUsage } from '../persistence/prisma-item-usage.js';
 import { PrismaMeasurementUnitRepository } from '../persistence/prisma-measurement-unit.repository.js';
+import { PrismaStockUsage } from '../persistence/prisma-stock-usage.js';
 import { PrismaTaxRepository } from '../persistence/prisma-tax.repository.js';
 import { PrismaPriceListCurrencies } from '../persistence/prisma-price-list-currencies.js';
 import { PrismaPriceListRepository } from '../persistence/prisma-price-list.repository.js';
@@ -36,6 +37,7 @@ export class PrismaCatalogRepositoriesHarness implements CatalogRepositoriesHarn
       priceLists: new PrismaPriceListRepository(this.prisma),
       currencies: new PrismaPriceListCurrencies(this.prisma),
       itemUsage: new PrismaItemUsage(this.prisma),
+      stockUsage: new PrismaStockUsage(this.prisma),
       codes: new PrismaCodeSequence(this.prisma),
     };
   }
@@ -55,6 +57,50 @@ export class PrismaCatalogRepositoriesHarness implements CatalogRepositoriesHarn
         });
         await prisma.itemUnit.createMany({
           data: unitIds.map((unitId, index) => ({ tenantId: TENANT_A, itemId: id, unitId, conversionFactor: index === 0 ? 1 : 24, isBase: index === 0 })),
+        });
+      },
+    };
+  }
+
+  // Filas reales de existencia y de documentos: la consulta que protege la bodega cruza las
+  // tablas de compras y de ventas, asi que el contrato tiene que darle documentos de verdad.
+  warehouseUsage(): WarehouseSeeder {
+    const prisma = this.prisma;
+    const party = async (kind: 'supplier' | 'customer'): Promise<string> => {
+      const id = randomUUID();
+      const number = ++this.sequence;
+      const data = { id, tenantId: TENANT_A, code: `${kind === 'supplier' ? 'PRV' : 'CLI'}${900000 + number}`, name: `Contrato ${number}` };
+
+      if (kind === 'supplier') await prisma.supplier.create({ data });
+      else await prisma.customer.create({ data });
+
+      return id;
+    };
+
+    return {
+      stock: async (warehouseId, quantity) => {
+        const item = randomUUID();
+        const number = ++this.sequence;
+
+        await prisma.item.create({
+          data: { id: item, tenantId: TENANT_A, code: `ART${800000 + number}`, sku: `STOCK-${number}`, name: `Existencia ${number}`, type: 'inventoried' },
+        });
+        await prisma.itemStock.create({
+          data: { tenantId: TENANT_A, itemId: item, warehouseId, quantity, averageCost: 1, lastSequence: 0, updatedAt: new Date('2026-01-01T00:00:00.000Z') },
+        });
+      },
+      purchaseOrder: async (warehouseId, status) => {
+        const number = ++this.sequence;
+
+        await prisma.purchaseOrder.create({
+          data: { id: randomUUID(), tenantId: TENANT_A, code: `OC${900000 + number}`, supplierId: await party('supplier'), warehouseId, orderDate: new Date('2026-01-01T00:00:00.000Z'), status, currency: 'USD', baseCurrency: 'USD' },
+        });
+      },
+      salesOrder: async (warehouseId, status) => {
+        const number = ++this.sequence;
+
+        await prisma.salesOrder.create({
+          data: { id: randomUUID(), tenantId: TENANT_A, code: `PED${900000 + number}`, customerId: await party('customer'), warehouseId, orderDate: new Date('2026-01-01T00:00:00.000Z'), status, currency: 'USD', baseCurrency: 'USD' },
         });
       },
     };

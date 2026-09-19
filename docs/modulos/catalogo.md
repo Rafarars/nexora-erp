@@ -36,6 +36,13 @@ Todas las tablas llevan `id`, `tenant_id`, `code`, `is_active`, `created_at` y `
 
 Clasificación de los artículos. **Un solo nivel**: no hay subcategorías.
 
+**Por qué plana, habiéndolo comparado:** Odoo y ERPNext usan jerarquía —`parent_id` y un árbol de
+grupos de artículo, con informes que acumulan por rama—; el ERP de referencia, en cambio, también es
+plano y solo añade un campo de orden. Se eligió plano a propósito: una jerarquía obliga a cada
+filtro y cada informe a decidir si acumula o no, y hay que impedir ciclos y acotar la profundidad.
+Para un catálogo de este tamaño, el coste es mayor que el beneficio. Queda como decisión conocida,
+no como carencia.
+
 | Campo | Tipo | Regla |
 |---|---|---|
 | `name` | texto(150) | Obligatorio, único por empresa |
@@ -57,11 +64,16 @@ una caja depende del artículo, y se define en cada uno.
 |---|---|---|
 | `name` | texto(100) | Obligatorio, único por empresa |
 | `abbreviation` | texto(10) | Obligatoria, única por empresa, **sin espacios** (se imprime pegada a la cantidad: «12 cja») |
+| `must_be_whole` | sí/no | Si la unidad **no admite decimales**. Por defecto los admite |
 
 **Reglas**
 
 - **No se desactiva una unidad que usa algún artículo activo**, sea como base o como secundaria
   (`MeasurementUnitInUseError`).
+- **Una unidad marcada como entera rechaza cualquier cantidad con decimales** en ajustes, órdenes de
+  compra y pedidos de venta (`FractionalQuantityError` y sus equivalentes en compras y ventas).
+  Media pieza y media caja no significan nada; medio kilo sí, y por eso lo decide la unidad y no el
+  artículo. Es lo que hace ERPNext con su marca *must be whole number*.
 
 ---
 
@@ -101,6 +113,11 @@ Donde se guarda la existencia.
   otra. Esta regla se comprueba antes que la de existencia.
 - **Una bodega inactiva no puede ser la de por defecto** (`InactiveDefaultWarehouseError`).
 - **No se desactiva una bodega con existencia** (`WarehouseWithStockError`, desde el H3).
+- **Ni una bodega que espera un documento abierto** (`WarehouseWithOpenDocumentsError`): una orden de
+  compra confirmada que va a entrar aquí, o un pedido confirmado que tiene que salir de aquí. Una
+  bodega vacía puede estar esperando mercancía, y cerrarla dejaba la orden sin dónde entrar: se
+  confirmaba, y al recibirla el sistema la rechazaba por bodega inactiva. Los borradores no cuentan,
+  igual que con el artículo.
 - Si dos personas eligen a la vez bodegas por defecto distintas, un índice único parcial en la base
   deja pasar una y la otra recibe `ConcurrentDefaultWarehouseError` (409).
 

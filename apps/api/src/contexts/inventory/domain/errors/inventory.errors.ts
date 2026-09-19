@@ -59,6 +59,16 @@ export class UnitNotOfItemError extends InvalidArgumentError {
   }
 }
 
+// Media pieza no significa nada: si la unidad no admite fracciones, la linea tampoco.
+export class FractionalQuantityError extends InvalidArgumentError {
+  constructor(quantity: number, abbreviation: string) {
+    super(
+      `Quantity <${quantity}> is not whole and unit <${abbreviation}> does not admit fractions.`,
+      'That unit does not admit fractions: write a whole quantity.',
+    );
+  }
+}
+
 // La regla central del inventario: no se saca lo que no hay.
 export class InsufficientStockError extends ConflictError {
   constructor(itemId: string, warehouseId: string, available: number, requested: number) {

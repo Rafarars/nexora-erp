@@ -4,6 +4,7 @@ import {
   CostOnOutgoingLineError,
   InvalidDirectionError,
   InactiveStockItemError,
+  FractionalQuantityError,
   InactiveStockWarehouseError,
   InvalidQuantityError,
   ServiceHasNoStockError,
@@ -64,6 +65,9 @@ export class AdjustmentLineFactory {
       if (!unit) throw new UnitNotOfItemError(unitId.value, item.id);
 
       const quantity = Quantity.of(input.quantity);
+
+      if (unit.mustBeWhole && !quantity.isWhole()) throw new FractionalQuantityError(input.quantity, unit.abbreviation);
+
       const baseQuantity = quantity.times(unit.conversionFactor);
 
       // Cero, o tan pequeno que al convertir se redondea a cero, no mueve nada.

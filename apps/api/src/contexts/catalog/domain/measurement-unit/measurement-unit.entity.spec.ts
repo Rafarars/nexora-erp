@@ -14,9 +14,25 @@ describe('MeasurementUnit', () => {
   it('updates its name and abbreviation', () => {
     const unit = aUnit();
 
-    unit.update(MeasurementUnitName.of('Pieza'), UnitAbbreviation.of('pz'), LATER);
+    unit.update(MeasurementUnitName.of('Pieza'), UnitAbbreviation.of('pz'), false, LATER);
 
     expect(unit.toPrimitives()).toMatchObject({ name: 'Pieza', abbreviation: 'pz', updatedAt: LATER });
+  });
+
+  // Una unidad nace admitiendo fracciones, que es lo que hacian todas antes de la marca.
+  it('admits fractions unless it is told otherwise', () => {
+    expect(aUnit().toPrimitives().mustBeWhole).toBe(false);
+    expect(aUnit({ mustBeWhole: true }).toPrimitives().mustBeWhole).toBe(true);
+  });
+
+  it('can start and stop demanding whole numbers', () => {
+    const unit = aUnit();
+
+    unit.update(MeasurementUnitName.of('Unidad'), UnitAbbreviation.of('un'), true, LATER);
+    expect(unit.toPrimitives().mustBeWhole).toBe(true);
+
+    unit.update(MeasurementUnitName.of('Unidad'), UnitAbbreviation.of('un'), false, LATER);
+    expect(unit.toPrimitives().mustBeWhole).toBe(false);
   });
 });
 

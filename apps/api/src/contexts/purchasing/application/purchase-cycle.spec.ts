@@ -14,6 +14,7 @@ import {
   ReceiptExceedsPendingError,
   ReceivedGoodsAlreadyUsedError,
   ItemNotPurchasableError,
+  PurchaseFractionalQuantityError,
 } from '../domain/errors/purchasing.errors.js';
 import { BOX, CLOSED, FOREIGN_ITEM, FOREIGN_WAREHOUSE, MAIN, NORTH, PIECE, SERVICE, SOAP, KILO, TENANT_A, TENANT_B, WATER, NOT_TRADED_ITEM } from '../domain/testing/purchasing.mother.js';
 import { PurchaseOrderCreatorRequest } from './create-order/purchase-order-creator.js';
@@ -99,6 +100,8 @@ describe('purchase orders', () => {
     ['a warehouse of another tenant', async () => ({ warehouseId: FOREIGN_WAREHOUSE }), PurchaseWarehouseNotFoundError],
     ['an item of another tenant', async () => ({ lines: [{ itemId: FOREIGN_ITEM, unitId: PIECE, quantity: 1, unitCost: 1 }] }), PurchaseItemNotFoundError],
     ['an item that is not bought', async () => ({ lines: [{ itemId: NOT_TRADED_ITEM, unitId: PIECE, quantity: 1, unitCost: 1 }] }), ItemNotPurchasableError],
+    // Media caja no significa nada: la unidad lo dice y la linea lo respeta.
+    ['half a box of a unit that does not admit fractions', async () => ({ lines: [{ itemId: WATER, unitId: BOX, quantity: 2.5, unitCost: 1 }] }), PurchaseFractionalQuantityError],
   ] as const)('refuses an order with %s', async (_case, arrange, error) => {
     const { s, supplierId } = await world();
     const overrides = await arrange(s, supplierId);

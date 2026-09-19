@@ -50,6 +50,11 @@ export class Quantity {
     return Quantity.fromUnits((this.units * factorUnits * 2n + FACTOR_SCALE) / (2n * FACTOR_SCALE));
   }
 
+  // Una unidad que no admite fracciones exige diezmilesimas exactas de unidad entera.
+  isWhole(): boolean {
+    return this.units % 10_000n === 0n;
+  }
+
   isZero(): boolean {
     return this.units === 0n;
   }

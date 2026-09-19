@@ -12,7 +12,7 @@ export interface StockableItem {
   name: string;
   type: 'inventoried' | 'service';
   isActive: boolean;
-  units: { unitId: string; abbreviation: string; conversionFactor: number; isBase: boolean }[];
+  units: { unitId: string; abbreviation: string; conversionFactor: number; isBase: boolean; mustBeWhole: boolean }[];
 }
 
 export interface StockWarehouse {

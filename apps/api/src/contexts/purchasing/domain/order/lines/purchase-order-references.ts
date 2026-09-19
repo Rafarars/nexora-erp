@@ -6,6 +6,7 @@ import {
   InactiveSupplierError,
   InvalidPurchaseQuantityError,
   PurchaseItemNotFoundError,
+  PurchaseFractionalQuantityError,
   PurchaseUnitNotOfItemError,
   PurchaseWarehouseNotFoundError,
   ItemNotPurchasableError,
@@ -72,6 +73,9 @@ export class PurchaseOrderReferences {
       if (!unit) throw new PurchaseUnitNotOfItemError(unitId.value, item.id);
 
       const quantity = Quantity.of(input.quantity);
+
+      if (unit.mustBeWhole && !quantity.isWhole()) throw new PurchaseFractionalQuantityError(input.quantity, unit.abbreviation);
+
       const baseQuantity = quantity.times(unit.conversionFactor);
 
       // Cero, o tan pequeno que al convertir se redondea a cero, no pide nada.

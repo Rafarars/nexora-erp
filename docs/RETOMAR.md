@@ -35,7 +35,7 @@ un cambio de API o de web no se ve en el navegador ni en la e2e hasta que se eje
 |---|---|
 | Repositorio | github.com/Rafarars/nexora-erp |
 | Reporte de pruebas | https://rafarars.github.io/nexora-erp/ |
-| Pruebas | 2681 + 183 unitarias · 185 de contrato · 377 end-to-end |
+| Pruebas | 2700 + 184 unitarias · 190 de contrato · 377 end-to-end |
 | **H0 — Fundación** | **Completado** |
 | **H1 — Multiempresa y acceso** | **Completado** y revisado |
 | **H2 — Catálogo** | **Completado** ([`H2-CATALOGO.md`](H2-CATALOGO.md)) |
@@ -525,8 +525,13 @@ cliente, el precio mínimo y el precio sugerido en el pedido. Después, la fase 
 **Continuar la revisión módulo por módulo con la skill `module-review`**, que es justo el método que salió de este
 piloto. El orden y el estado están en [`revision/README.md`](revision/README.md) § Orden y estado.
 
-**El siguiente es el Catálogo** (unidades de medida, categorías, impuestos, bodegas): es el siguiente por
-dependencias y del que cuelga todo lo demás.
+**El siguiente es Inventario › Ajustes**, y después Existencias y Kardex. El Catálogo ya está cerrado.
+
+**Hecho el 18-sep-2026 · el Catálogo entero** ([revisión](revision/catalogo/catalogo.md)): cuatro hallazgos, el
+grave que una bodega se podía cerrar con una orden de compra esperando entrar en ella. Se decidió dejar las
+categorías planas con el porqué escrito, marcar las unidades que no admiten decimales, y sacar la **retención de
+impuestos como hito propio** —el ERP de referencia la tiene a medias: no descuenta del total, no descuenta del
+saldo y no emite comprobante— con su alcance en [FUTURE.md](FUTURE.md).
 
 **Hecho el 18-sep-2026 · la fase 4 de Artículos**, que era el flanco abierto del piloto: se había construido sin
 revisión adversarial propia. La revisión, la primera hecha **con la skill**, encontró seis cosas

@@ -30,6 +30,7 @@ export class PrismaInventoryCatalog implements InventoryCatalog {
         abbreviation: unit.unit.abbreviation,
         conversionFactor: toNumber(unit.conversionFactor),
         isBase: unit.isBase,
+        mustBeWhole: unit.unit.mustBeWhole,
       })),
     }));
   }

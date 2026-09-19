@@ -397,13 +397,13 @@ async function seedCatalog(prisma: PrismaClient): Promise<void> {
   const { acme, globex, initech } = CATALOG;
 
   const units = [
-    { id: acme.units.piece, tenantId: ACME, code: 'UOM000001', name: 'Unidad', abbreviation: 'un' },
-    { id: acme.units.box, tenantId: ACME, code: 'UOM000002', name: 'Caja', abbreviation: 'cja' },
+    { id: acme.units.piece, tenantId: ACME, code: 'UOM000001', name: 'Unidad', abbreviation: 'un', mustBeWhole: true },
+    { id: acme.units.box, tenantId: ACME, code: 'UOM000002', name: 'Caja', abbreviation: 'cja', mustBeWhole: true },
     { id: acme.units.kilo, tenantId: ACME, code: 'UOM000003', name: 'Kilogramo', abbreviation: 'kg' },
-    { id: globex.units.piece, tenantId: GLOBEX, code: 'UOM000001', name: 'Unidad', abbreviation: 'un' },
-    { id: globex.units.box, tenantId: GLOBEX, code: 'UOM000002', name: 'Caja', abbreviation: 'cja' },
+    { id: globex.units.piece, tenantId: GLOBEX, code: 'UOM000001', name: 'Unidad', abbreviation: 'un', mustBeWhole: true },
+    { id: globex.units.box, tenantId: GLOBEX, code: 'UOM000002', name: 'Caja', abbreviation: 'cja', mustBeWhole: true },
     { id: globex.units.kilo, tenantId: GLOBEX, code: 'UOM000003', name: 'Kilogramo', abbreviation: 'kg' },
-    { id: initech.units.piece, tenantId: INITECH, code: 'UOM000001', name: 'Unidad', abbreviation: 'un' },
+    { id: initech.units.piece, tenantId: INITECH, code: 'UOM000001', name: 'Unidad', abbreviation: 'un', mustBeWhole: true },
   ];
   const categories = [
     { id: acme.categories.drinks, tenantId: ACME, code: 'CAT000001', name: 'Bebidas', description: null },

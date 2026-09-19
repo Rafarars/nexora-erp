@@ -22,6 +22,7 @@ const cases: Array<[DomainError, typeof DomainError]> = [
   [new errors.ServiceNotSellableError(ID), InvalidArgumentError],
   [new errors.ItemNotSellableError(ID), ConflictError],
   [new errors.SalesUnitNotOfItemError(ID, ID), InvalidArgumentError],
+  [new errors.SalesFractionalQuantityError(2.5, 'cja'), InvalidArgumentError],
   [new errors.InvalidSalesQuantityError(-1), InvalidArgumentError],
   [new errors.InvalidSalesPriceError(-1), InvalidArgumentError],
   [new errors.InvoiceExceedsPendingError(ID), ConflictError],

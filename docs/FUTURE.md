@@ -442,3 +442,34 @@ o una libertad legítima —hay negocios que compran por lotes cerrados— antes
 pero pedir la página mil sigue obligando a la base a contar las anteriores. Con un maestro grande
 haría falta paginar por cursor, y selectores que busquen contra el servidor en vez de recorrer
 páginas.
+
+### Retención de impuestos: un hito propio, no un campo
+
+**Decidido el 18-sep-2026.** Se construye, pero **completo y como hito aparte**, no como un campo
+suelto dentro del catálogo.
+
+**Por qué no basta con el campo.** El ERP de referencia guarda `has_withholding` y
+`withholding_percentage` en el impuesto, los copia a la línea y los suma en la cabecera. Leyendo su
+código, ahí se detiene: **no descuenta del total, no descuenta del saldo por cobrar y no emite
+comprobante** —en compras, además, un comentario promete que la retención baja lo pagadero y el
+código nunca hace esa resta—. Un contribuyente especial que use eso no puede justificar nada ante el
+fisco, y su cuenta por cobrar queda mal, porque el cliente paga menos de lo que la factura dice.
+
+**Dónde vive de verdad la retención.** No en el impuesto: el IVA es el mismo para todos. Depende de
+**quién compra** —si es agente de retención y con qué porcentaje—, así que es una propiedad del
+cliente y del proveedor. Modelarla en el impuesto es ponerla en el sitio equivocado.
+
+**Qué haría falta, en orden:**
+
+1. **El cliente y el proveedor** dicen si son agentes de retención y con qué porcentaje (75 % o
+   100 % del impuesto, que es lo que fija la providencia vigente).
+2. **El cálculo** al emitir la factura: la retención se practica **sobre el impuesto**, no sobre la
+   base imponible, y se congela en el documento como todo lo demás.
+3. **El comprobante de retención** como documento propio, con su correlativo y su fecha. Es lo que
+   permite al proveedor justificar que ese impuesto ya se enteró; sin él, la retención no sirve.
+4. **El efecto en la cobranza**: el saldo de la factura baja con el comprobante, no con un cobro.
+   Eso toca cuentas por cobrar y el estado de cuenta.
+5. **Distinguir el tipo** (IVA e ISLR tienen bases y porcentajes distintos).
+
+Mientras no exista, el sistema no contempla retenciones y los documentos cobran el impuesto
+completo, que es coherente para una empresa que no es agente de retención ni le retienen.

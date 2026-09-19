@@ -39,10 +39,10 @@ export const SUPPLIER = 'f1111111-1111-4111-8111-111111111111';
 // Agua: se cuenta en unidades, se compra en cajas de 24 y paga 16 % de impuesto.
 export function purchasableItems(): (PurchasableItem & { tenantId: string })[] {
   const water = [
-    { unitId: PIECE, abbreviation: 'un', conversionFactor: 1, isBase: true },
-    { unitId: BOX, abbreviation: 'cja', conversionFactor: 24, isBase: false },
+    { unitId: PIECE, abbreviation: 'un', conversionFactor: 1, isBase: true, mustBeWhole: false },
+    { unitId: BOX, abbreviation: 'cja', conversionFactor: 24, isBase: false, mustBeWhole: true },
   ];
-  const kilo = [{ unitId: KILO, abbreviation: 'kg', conversionFactor: 1, isBase: true }];
+  const kilo = [{ unitId: KILO, abbreviation: 'kg', conversionFactor: 1, isBase: true, mustBeWhole: false }];
 
   return [
     { tenantId: TENANT_A, id: WATER, sku: 'AGUA-500', name: 'Agua', type: 'inventoried', isActive: true, isPurchasable: true, taxRate: 16, units: water },

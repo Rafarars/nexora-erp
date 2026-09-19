@@ -30,6 +30,7 @@ export class PrismaSalesCatalog implements SalesCatalog {
         abbreviation: unit.unit.abbreviation,
         conversionFactor: unit.conversionFactor.toNumber(),
         isBase: unit.isBase,
+        mustBeWhole: unit.unit.mustBeWhole,
       })),
       prices: row.prices.map((price) => ({ priceListId: price.priceListId, price: price.price.toNumber() })),
       minPrice: row.minPrice === null ? null : row.minPrice.toNumber(),

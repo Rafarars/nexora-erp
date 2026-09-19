@@ -24,8 +24,8 @@ export const FOREIGN_WAREHOUSE = 'b4444444-4444-4444-8444-444444444444';
 // Agua: se cuenta en unidades y se compra en cajas de 24.
 export function stockableItems(): (StockableItem & { tenantId: string })[] {
   const water = [
-    { unitId: PIECE, abbreviation: 'un', conversionFactor: 1, isBase: true },
-    { unitId: BOX, abbreviation: 'cja', conversionFactor: 24, isBase: false },
+    { unitId: PIECE, abbreviation: 'un', conversionFactor: 1, isBase: true, mustBeWhole: false },
+    { unitId: BOX, abbreviation: 'cja', conversionFactor: 24, isBase: false, mustBeWhole: true },
   ];
 
   return [

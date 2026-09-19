@@ -103,6 +103,16 @@ export class PurchaseUnitNotOfItemError extends InvalidArgumentError {
   }
 }
 
+// Media pieza no significa nada: si la unidad no admite fracciones, la linea tampoco.
+export class PurchaseFractionalQuantityError extends InvalidArgumentError {
+  constructor(quantity: number, abbreviation: string) {
+    super(
+      `Quantity <${quantity}> is not whole and unit <${abbreviation}> does not admit fractions.`,
+      'That unit does not admit fractions: write a whole quantity.',
+    );
+  }
+}
+
 export class InvalidPurchaseQuantityError extends InvalidArgumentError {
   constructor(value: number) {
     super(

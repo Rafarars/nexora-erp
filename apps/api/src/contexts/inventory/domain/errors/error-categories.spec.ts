@@ -18,6 +18,7 @@ const cases: Array<[DomainError, typeof DomainError]> = [
   [new errors.ServiceHasNoStockError(ID), InvalidArgumentError],
   [new errors.StockItemChangedError(ID), ConflictError],
   [new errors.UnitNotOfItemError(ID, ID), InvalidArgumentError],
+  [new errors.FractionalQuantityError(2.5, 'cja'), InvalidArgumentError],
   [new errors.EmptyAdjustmentError(), InvalidArgumentError],
   [new errors.InvalidQuantityError(-1), InvalidArgumentError],
   [new errors.InvalidUnitCostError(-1), InvalidArgumentError],

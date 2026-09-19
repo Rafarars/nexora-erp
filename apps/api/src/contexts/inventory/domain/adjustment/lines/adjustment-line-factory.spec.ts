@@ -10,6 +10,7 @@ import {
   ServiceHasNoStockError,
   StockItemNotFoundError,
   StockWarehouseNotFoundError,
+  FractionalQuantityError,
   UnitNotOfItemError,
 } from '../../errors/inventory.errors.js';
 import { TenantId } from '../../shared/tenant-id.vo.js';
@@ -71,6 +72,15 @@ describe('AdjustmentLineFactory', () => {
 
   it('refuses a unit the item does not have', async () => {
     await expect(factory().lines(tenant, [line({ unitId: KILO })])).rejects.toThrow(UnitNotOfItemError);
+  });
+
+  // Media caja no significa nada, y la unidad es quien lo dice.
+  it('refuses half a box when the unit does not admit fractions', async () => {
+    await expect(factory().lines(tenant, [line({ unitId: BOX, quantity: 2.5 })])).rejects.toThrow(FractionalQuantityError);
+  });
+
+  it('still admits a whole number of boxes', async () => {
+    await expect(factory().lines(tenant, [line({ unitId: BOX, quantity: 2 })])).resolves.toHaveLength(1);
   });
 
   it.each([0, -1, 0.00001])('refuses a quantity of %d', async (quantity) => {

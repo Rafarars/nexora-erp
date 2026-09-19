@@ -33,3 +33,13 @@ export class WarehouseWithStockError extends ConflictError {
     super(`Warehouse <${id}> still has stock.`, 'The warehouse still has stock and cannot be deactivated.');
   }
 }
+
+// Una bodega vacia puede estar esperando mercancia o teniendo que despacharla.
+export class WarehouseWithOpenDocumentsError extends ConflictError {
+  constructor(id: string) {
+    super(
+      `Warehouse <${id}> is still used by open documents.`,
+      'The warehouse is used by open orders and cannot be deactivated.',
+    );
+  }
+}
