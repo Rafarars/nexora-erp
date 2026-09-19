@@ -3,6 +3,7 @@ import { ReportWarehouseNotFoundError } from '../../domain/errors/reporting.erro
 import { ReportingReadModel } from '../../domain/read-model/reporting-read-model.js';
 import { stockValueUnits, unitsToNumber } from '../../domain/shared/money.js';
 import { TenantId } from '../../domain/shared/tenant-id.vo.js';
+import { WarehouseRef } from '../../domain/shared/references.vo.js';
 
 export interface InventoryValuationResponse {
   warehouse: string | null;
@@ -24,10 +25,14 @@ export class InventoryValuationReport {
   async run(request: { tenantId: string; warehouseId?: string }): Promise<InventoryValuationResponse> {
     const tenantId = TenantId.of(request.tenantId);
 
-    if (request.warehouseId && !(await this.readModel.warehouseExists(tenantId, request.warehouseId))) throw new ReportWarehouseNotFoundError(request.warehouseId);
+    // Se valida el formato antes de consultar: un identificador malo es una peticion incorrecta,
+    // no un fallo del servidor.
+    const warehouseId = request.warehouseId ? WarehouseRef.of(request.warehouseId).value : undefined;
+
+    if (warehouseId && !(await this.readModel.warehouseExists(tenantId, warehouseId))) throw new ReportWarehouseNotFoundError(warehouseId);
 
     const [decimals, currency] = await Promise.all([this.rates.amountDecimals(request.tenantId), this.rates.companyCurrency(request.tenantId)]);
-    const stock = await this.readModel.stock(tenantId, request.warehouseId);
+    const stock = await this.readModel.stock(tenantId, warehouseId);
     const rows = stock
       .map((row) => ({
         warehouse: { id: row.warehouseId, name: row.warehouseName },
@@ -40,7 +45,7 @@ export class InventoryValuationReport {
       .sort((a, b) => a.warehouse.name.localeCompare(b.warehouse.name) || a.item.sku.localeCompare(b.item.sku));
 
     return {
-      warehouse: request.warehouseId ?? null,
+      warehouse: warehouseId ?? null,
       currency,
       rows: rows.map(({ units, ...row }) => ({ ...row, value: unitsToNumber(units) })),
       totalValue: unitsToNumber(rows.reduce((sum, row) => sum + row.units, 0n)),

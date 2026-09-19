@@ -49,19 +49,28 @@ separaría de su gemela.
 
 ---
 
-## C1 · MEDIA · El estado de cuenta devolvía un error interno por una entrada inválida
+## C1 · MEDIA · Tres rutas devolvían un error interno por una entrada inválida
 
-**Reproducido**, y contrastado con el resto del sistema:
+**El hallazgo empezó por accidente:** un script mío mandó `undefined` como identificador por un
+error al leer la respuesta. En vez de corregir el script y seguir, se comparó ese `500` con lo que
+hacen las demás rutas del sistema. El error del script era mío; el `500` no.
+
+**Barrido de las catorce rutas que aceptan un identificador**, con la misma entrada inválida:
 
 ```
-GET /receivables/customers/undefined/statement   -> 500 Internal server error
-GET /inventory/items/undefined/movements         -> 400
-PUT /purchasing/suppliers/undefined/status       -> 400
-PUT /sales/customers/undefined/status            -> 400
-PUT /receivables/payments/undefined/confirm      -> 400
+500  /receivables/customers/undefined/statement          <-- error interno
+500  /receivables/invoices?customerId=undefined          <-- error interno
+500  /reports/inventory-valuation?warehouseId=undefined  <-- error interno
+400  /inventory/stock?warehouseId=undefined              (lo correcto)
+400  /purchasing/orders?supplierId=undefined
+400  /sales/availability?warehouseId=undefined
+400  /receivables/payments/undefined/confirm
+400  /reports/customers/undefined/statement/export
+404  /users/undefined · /roles/undefined · /reports/customers/undefined/statement
 ```
 
-**Una sola ruta en todo el sistema se comporta así**, y los registros de la API dicen por qué:
+**Tres rutas de tres contextos distintos** devuelven un error interno donde las demás responden
+`400`. Los registros de la API dicen por qué:
 
 ```
 invalid input syntax for type uuid: "undefined"
@@ -69,15 +78,21 @@ invalid input syntax for type uuid: "undefined"
   at CustomerStatementSearcher.run
 ```
 
-El identificador viajaba como `string` crudo hasta la consulta. Los demás contextos lo envuelven en
-un objeto de valor —`ItemRef`, `SupplierId`, `CustomerId`— que valida el formato y responde `400`;
-`receivables` no tenía ninguno para el cliente.
+El identificador viajaba como `string` crudo hasta la consulta. Los contextos que responden bien lo
+envuelven en un objeto de valor —`ItemRef`, `SupplierId`, `CustomerId`— que valida el formato antes
+de tocar la base; **`receivables` no tenía ninguno para el cliente, ni `reporting` para la bodega**.
 
 **Por qué importa más de lo que parece.** Un `500` no distingue «te equivocaste» de «me rompí»: en
 producción ensucia el registro de errores con fallos que no lo son, y esconde los que sí. Y es la
 única ruta que se salta la convención del proyecto.
 
-**Construido:** `CustomerRef` en `receivables/domain/shared/references.vo.ts`, con su prueba.
+**Construido:** `CustomerRef` en `receivables/domain/shared/references.vo.ts` y `WarehouseRef` en
+`reporting/domain/shared/references.vo.ts`, cada uno con su prueba, y las dos comprobadas quitando
+la guarda para ver que fallan sin ella.
+
+**Los `404` se dejan como están.** Un identificador mal formado que responde «no existe» es
+impreciso pero no miente, y no es un fallo del servidor. Cambiarlo tocaría el módulo de Acceso
+entero para ganar exactitud en un caso que nadie encuentra usando el sistema.
 
 ## C2 · MEDIA · Los listados no paginan
 

@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { InvalidUuidError } from '../../../shared/domain/uuid.vo.js';
 import { ReportCustomerNotFoundError, ReportPeriodTooLongError, ReportWarehouseNotFoundError } from '../domain/errors/reporting.errors.js';
 import { DELTA, MAIN, NORTH, OMEGA, TENANT_A, TENANT_B, aCustomer, aStock, anInvoice } from '../domain/testing/reporting.mother.js';
 import { InMemoryInvoice } from '../infrastructure/testing/in-memory-reporting-read-model.js';
@@ -149,6 +150,12 @@ describe('inventory valuation report', () => {
 
   it('answers as missing a warehouse of another company', async () => {
     await expect(world().inventoryValuation.run({ tenantId: TENANT_B, warehouseId: MAIN })).rejects.toThrow(ReportWarehouseNotFoundError);
+  });
+
+  // Un identificador mal escrito es una peticion incorrecta, no un fallo del servidor: sin la
+  // guarda llegaba crudo a la consulta y PostgreSQL lo devolvia como error interno.
+  it('refuses a malformed warehouse identifier instead of failing inside', async () => {
+    await expect(world().inventoryValuation.run({ tenantId: TENANT_A, warehouseId: 'undefined' })).rejects.toThrow(InvalidUuidError);
   });
 });
 
