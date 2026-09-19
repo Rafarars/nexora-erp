@@ -4,10 +4,12 @@ import type { AccessApi } from '../domain/access-api';
 import type { Person } from '../domain/person';
 import type { Permission, Role } from '../domain/role';
 import type { Session } from '../domain/session';
+import type { IssuedSession } from '../domain/access-api';
 
 // Lo que devuelven login y switch-tenant: la sesion anidada, con su token.
 interface SessionPayload {
   token: string;
+  expiresInSeconds: number;
   user: { id: string; name: string; email: string };
   tenant: { id: string; name: string };
   permissions: string[];
@@ -44,8 +46,10 @@ export class HttpAccessApi implements AccessApi {
     await this.request('PUT', '/api/v1/auth/profile', { name }, token);
   }
 
-  async changePassword(token: string, current: string, next: string): Promise<void> {
-    await this.request('PUT', '/api/v1/auth/password', { current, next }, token);
+  async changePassword(token: string, current: string, next: string): Promise<IssuedSession> {
+    return this.toSession(
+      await this.request<SessionPayload>('PUT', '/api/v1/auth/password', { current, next }, token),
+    );
   }
 
   async changeEmail(token: string, current: string, email: string): Promise<void> {
@@ -114,9 +118,10 @@ export class HttpAccessApi implements AccessApi {
     await this.request('DELETE', '/api/v1/roles/assignments', { userId, roleId }, token);
   }
 
-  private toSession(payload: SessionPayload): { session: Session; token: string } {
+  private toSession(payload: SessionPayload): IssuedSession {
     return {
       token: payload.token,
+      expiresInSeconds: payload.expiresInSeconds,
       session: {
         userId: payload.user.id,
         name: payload.user.name,

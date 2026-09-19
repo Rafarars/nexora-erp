@@ -19,6 +19,11 @@ import {
 } from '../domain/membership/membership.repository.js';
 import { RoleFinder } from '../domain/role/find/role-finder.js';
 import { ROLE_REPOSITORY, RoleRepository } from '../domain/role/role.repository.js';
+import {
+  TENANT_ADMINISTRATION,
+  TenantAdministration,
+} from '../domain/membership/administration/tenant-administration.js';
+import { PrismaTenantAdministration } from './persistence/prisma-tenant-administration.js';
 import { TenantFinder } from '../domain/tenant/find/tenant-finder.js';
 import { TENANT_REPOSITORY, TenantRepository } from '../domain/tenant/tenant.repository.js';
 import { UserFinder } from '../domain/user/find/user-finder.js';
@@ -97,6 +102,7 @@ import { TOKEN_ISSUER } from './security/token-issuer.js';
     { provide: USER_REPOSITORY, useClass: PrismaUserRepository },
     { provide: MEMBERSHIP_REPOSITORY, useClass: PrismaMembershipRepository },
     { provide: ROLE_REPOSITORY, useClass: PrismaRoleRepository },
+    { provide: TENANT_ADMINISTRATION, useClass: PrismaTenantAdministration },
     { provide: PASSWORD_HASHER, useClass: Argon2PasswordHasher },
     { provide: TOKEN_ISSUER, useClass: JoseTokenIssuer },
     {
@@ -104,6 +110,7 @@ import { TOKEN_ISSUER } from './security/token-issuer.js';
       useFactory: (config: ConfigService<Env, true>, clock: Clock) =>
         new InMemoryLoginAttempts(
           config.get('LOGIN_MAX_FAILED_ATTEMPTS', { infer: true }),
+          config.get('LOGIN_MAX_UNKNOWN_ACCOUNTS_PER_IP', { infer: true }),
           config.get('LOGIN_LOCKOUT_SECONDS', { infer: true }),
           clock,
         ),
@@ -228,15 +235,38 @@ import { TOKEN_ISSUER } from './security/token-issuer.js';
         roles: RoleFinder,
         userRepository: UserRepository,
         membershipRepository: MembershipRepository,
+        administration: TenantAdministration,
         clock: Clock,
-      ) => new TenantUserUpdater(memberships, users, roles, userRepository, membershipRepository, clock),
-      inject: [MembershipFinder, UserFinder, RoleFinder, USER_REPOSITORY, MEMBERSHIP_REPOSITORY, CLOCK],
+      ) =>
+        new TenantUserUpdater(
+          memberships,
+          users,
+          roles,
+          userRepository,
+          membershipRepository,
+          administration,
+          clock,
+        ),
+      inject: [
+        MembershipFinder,
+        UserFinder,
+        RoleFinder,
+        USER_REPOSITORY,
+        MEMBERSHIP_REPOSITORY,
+        TENANT_ADMINISTRATION,
+        CLOCK,
+      ],
     },
     {
       provide: MembershipStatusChanger,
-      useFactory: (finder: MembershipFinder, memberships: MembershipRepository, clock: Clock) =>
-        new MembershipStatusChanger(finder, memberships, clock),
-      inject: [MembershipFinder, MEMBERSHIP_REPOSITORY, CLOCK],
+      useFactory: (
+        finder: MembershipFinder,
+        roles: RoleFinder,
+        memberships: MembershipRepository,
+        administration: TenantAdministration,
+        clock: Clock,
+      ) => new MembershipStatusChanger(finder, roles, memberships, administration, clock),
+      inject: [MembershipFinder, RoleFinder, MEMBERSHIP_REPOSITORY, TENANT_ADMINISTRATION, CLOCK],
     },
     {
       provide: ProfileUpdater,
@@ -250,9 +280,20 @@ import { TOKEN_ISSUER } from './security/token-issuer.js';
         finder: UserFinder,
         users: UserRepository,
         hasher: PasswordHasher,
+        tenants: TenantFinder,
+        memberships: MembershipFinder,
+        sessions: AccessSessionBuilder,
         clock: Clock,
-      ) => new PasswordChanger(finder, users, hasher, clock),
-      inject: [UserFinder, USER_REPOSITORY, PASSWORD_HASHER, CLOCK],
+      ) => new PasswordChanger(finder, users, hasher, tenants, memberships, sessions, clock),
+      inject: [
+        UserFinder,
+        USER_REPOSITORY,
+        PASSWORD_HASHER,
+        TenantFinder,
+        MembershipFinder,
+        AccessSessionBuilder,
+        CLOCK,
+      ],
     },
     {
       provide: SessionFinder,
@@ -300,9 +341,10 @@ import { TOKEN_ISSUER } from './security/token-issuer.js';
         finder: MembershipFinder,
         roles: RoleFinder,
         memberships: MembershipRepository,
+        administration: TenantAdministration,
         clock: Clock,
-      ) => new RoleRevoker(finder, roles, memberships, clock),
-      inject: [MembershipFinder, RoleFinder, MEMBERSHIP_REPOSITORY, CLOCK],
+      ) => new RoleRevoker(finder, roles, memberships, administration, clock),
+      inject: [MembershipFinder, RoleFinder, MEMBERSHIP_REPOSITORY, TENANT_ADMINISTRATION, CLOCK],
     },
     {
       provide: UserSearcher,

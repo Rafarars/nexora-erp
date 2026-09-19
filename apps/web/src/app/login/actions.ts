@@ -9,8 +9,6 @@ export interface LoginState {
   error: string | null;
 }
 
-const SESSION_HOURS = 1;
-
 // El token se pone en una cookie httpOnly DESDE EL SERVIDOR: el navegador nunca lo
 // ve, asi que ningun script de la pagina puede leerlo ni llevarselo.
 export async function login(_state: LoginState, form: FormData): Promise<LoginState> {
@@ -22,9 +20,9 @@ export async function login(_state: LoginState, form: FormData): Promise<LoginSt
   }
 
   try {
-    const { token } = await accessApi().login(email, password);
+    const { token, expiresInSeconds } = await accessApi().login(email, password);
 
-    await storeToken(token, SESSION_HOURS * 3600);
+    await storeToken(token, expiresInSeconds);
   } catch (error) {
     return {
       error: readableError(error, 'No se pudo contactar con el servidor. Inténtalo de nuevo.'),

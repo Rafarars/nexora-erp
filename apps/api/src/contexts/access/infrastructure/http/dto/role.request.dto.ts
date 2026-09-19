@@ -4,6 +4,7 @@ import { z } from 'zod';
 export const roleRequestSchema = z.object({
   name: z.string().min(1),
   permissions: z.array(z.string()).default([]),
-});
+})
+  .strict();
 
 export type RoleRequestDto = z.infer<typeof roleRequestSchema>;

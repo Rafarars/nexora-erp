@@ -19,6 +19,6 @@ export class RevokeRoleDeleteController {
     @Session() session: CurrentSession,
     @Body(new ZodValidationPipe(revokeRoleRequestSchema)) body: RevokeRoleRequestDto,
   ): Promise<void> {
-    await this.revoker.run({ ...body, tenantId: session.tenantId });
+    await this.revoker.run({ ...body, tenantId: session.tenantId, actorId: session.userId });
   }
 }

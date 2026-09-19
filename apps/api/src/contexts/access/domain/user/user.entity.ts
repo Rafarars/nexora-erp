@@ -9,6 +9,9 @@ export interface UserPrimitives {
   passwordHash: string;
   name: string;
   isActive: boolean;
+  // Las sesiones emitidas ANTES de esta fecha no valen. Es lo que permite echar a quien
+  // se llevo una sesion sin esperar a que caduque el token.
+  sessionsValidFrom: Date;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -22,6 +25,7 @@ export class User {
     private passwordHash: PasswordHash,
     private name: UserName,
     private active: boolean,
+    private sessionsValidFrom: Date,
     private readonly createdAt: Date,
     private updatedAt: Date,
   ) {}
@@ -33,7 +37,7 @@ export class User {
     name: UserName,
     now: Date,
   ): User {
-    return new User(id, email, passwordHash, name, true, now, now);
+    return new User(id, email, passwordHash, name, true, now, now, now);
   }
 
   static fromPrimitives(row: UserPrimitives): User {
@@ -43,6 +47,7 @@ export class User {
       PasswordHash.of(row.passwordHash),
       UserName.of(row.name),
       row.isActive,
+      row.sessionsValidFrom,
       row.createdAt,
       row.updatedAt,
     );
@@ -55,6 +60,7 @@ export class User {
       passwordHash: this.passwordHash.value,
       name: this.name.value,
       isActive: this.active,
+      sessionsValidFrom: this.sessionsValidFrom,
       createdAt: this.createdAt,
       updatedAt: this.updatedAt,
     };
@@ -77,8 +83,21 @@ export class User {
     this.updatedAt = now;
   }
 
+  // Cambiar la contrasena cierra las sesiones abiertas: quien se llevo una deja de entrar
+  // ahora y no cuando caduque su token. Va AQUI y no en el caso de uso para que ninguna
+  // forma de cambiarla se olvide de hacerlo.
   changePassword(passwordHash: PasswordHash, now: Date): void {
     this.passwordHash = passwordHash;
+    this.sessionsValidFrom = now;
+    this.updatedAt = now;
+  }
+
+  acceptsSessionIssuedAt(issuedAtMs: number): boolean {
+    return issuedAtMs >= this.sessionsValidFrom.getTime();
+  }
+
+  closeOpenSessions(now: Date): void {
+    this.sessionsValidFrom = now;
     this.updatedAt = now;
   }
 

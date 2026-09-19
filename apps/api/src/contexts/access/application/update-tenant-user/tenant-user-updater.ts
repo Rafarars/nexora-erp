@@ -1,5 +1,8 @@
 import { Clock } from '../../../../shared/domain/ports/clock.js';
 import { CannotDropOwnAdminRoleError } from '../../domain/errors/cannot-drop-own-admin-role.error.js';
+import { SelfEscalationPolicy } from '../../domain/authorize/self-escalation-policy.js';
+import { AdministrationPolicy } from '../../domain/membership/administration/administration-policy.js';
+import { TenantAdministration } from '../../domain/membership/administration/tenant-administration.js';
 import { MembershipFinder } from '../../domain/membership/find/membership-finder.js';
 import { MembershipRepository } from '../../domain/membership/membership.repository.js';
 import { RoleFinder } from '../../domain/role/find/role-finder.js';
@@ -29,6 +32,7 @@ export class TenantUserUpdater {
     private readonly roles: RoleFinder,
     private readonly userRepository: UserRepository,
     private readonly membershipRepository: MembershipRepository,
+    private readonly administration: TenantAdministration,
     private readonly clock: Clock,
   ) {}
 
@@ -43,12 +47,30 @@ export class TenantUserUpdater {
     const user = await this.users.find(userId);
     const now = this.clock.now();
 
-    // Desactivarse ya esta impedido; quitarse la administracion dejaria igual de fuera, y sin
-    // nadie que pueda devolver el acceso si era el unico administrador.
-    if (request.actorId === request.userId && !roles.some((role) => role.grantsEverything())) {
+    if (request.actorId === request.userId) {
+      SelfEscalationPolicy.ensureGrantsNothingNew(
+        tenantId,
+        await this.roles.findAll(tenantId, membership.roles()),
+        roles,
+      );
+    }
+
+    // Solo importa si la persona administraba y deja de hacerlo.
+    if (!roles.some((role) => role.grantsEverything())) {
       const current = await this.roles.findAll(tenantId, membership.roles());
 
-      if (current.some((role) => role.grantsEverything())) throw new CannotDropOwnAdminRoleError();
+      if (current.some((role) => role.grantsEverything())) {
+        // Quitarselo a uno mismo tiene su propio porque; quitarselo al ultimo que queda
+        // deja a la empresa sin gobierno lo haga quien lo haga.
+        if (request.actorId === request.userId) throw new CannotDropOwnAdminRoleError();
+
+        await AdministrationPolicy.ensureTenantKeepsAnAdministrator(
+          this.administration,
+          tenantId,
+          userId,
+          false,
+        );
+      }
     }
 
     user.rename(UserName.of(request.name), now);

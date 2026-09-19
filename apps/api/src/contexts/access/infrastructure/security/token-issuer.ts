@@ -9,6 +9,12 @@ export interface AccessTokenPayload {
   grantsAll: boolean;
 }
 
+// Lo mismo mas cuando se firmo. En MILISEGUNDOS y en un campo propio: el `iat` estandar
+// va en segundos, y dos sesiones del mismo segundo no se distinguirian entre si.
+export interface VerifiedToken extends AccessTokenPayload {
+  issuedAtMs: number;
+}
+
 export interface IssuedToken {
   token: string;
   expiresInSeconds: number;
@@ -16,5 +22,5 @@ export interface IssuedToken {
 
 export interface TokenIssuer {
   issue(payload: AccessTokenPayload): Promise<IssuedToken>;
-  verify(token: string): Promise<AccessTokenPayload>;
+  verify(token: string): Promise<VerifiedToken>;
 }

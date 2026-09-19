@@ -619,3 +619,53 @@ puerto, y el contrato de puerto comprueba que los dos dicen lo mismo.
 **Por qué importa.** Son dos escrituras de la misma regla, y sólo una se actualiza cuando la regla
 cambia. Es exactamente la forma del defecto que la revisión de Ventas encontró en el reservado:
 tres cálculos que coincidían en todo menos en una palabra.
+
+## El bloqueo por intentos, fuera de la memoria del proceso
+
+**Qué es.** El contador de intentos fallidos vive en dos `Map` dentro del proceso de la API
+(`in-memory-login-attempts.ts`). Con una sola instancia funciona; con varias, cada una cuenta por su
+lado y el límite se multiplica por el número de instancias. Y un despliegue borra los bloqueos: se
+comprobó con `docker compose restart api`, y la cuenta bloqueada entró de inmediato.
+
+**Por qué no se hizo** (revisión de Acceso, 19-sep-2026). El sistema corre en una sola instancia, y
+lo que hacía daño de verdad —que bastaran cinco intentos ajenos para dejar fuera a un compañero, y
+que el mapa creciera sin límite con correos inventados— sí se arregló: ahora se cuenta también por
+dirección de red y las entradas caducadas se barren.
+
+**Qué haría falta.** Otra implementación del mismo puerto `LoginAttempts` contra Redis o contra una
+tabla, y su prueba de contrato corriendo contra las dos, como el resto de puertos del proyecto. No
+hay que tocar ni el dominio ni el caso de uso: el puerto ya existe y no sabe dónde se guarda.
+
+## Revocar una sesión concreta, no todas
+
+**Qué es.** Hoy la revocación es una fecha de corte por persona (`users.sessions_valid_from`): al
+cambiar la contraseña caen **todas** las sesiones anteriores. No se puede ver qué sesiones hay
+abiertas ni cerrar una sola, «este portátil sí, el teléfono no».
+
+**Por qué no se hizo** (revisión de Acceso, 19-sep-2026). Rafael eligió la fecha de corte frente a
+una tabla de sesiones: resuelve lo que hacía daño —que quien se llevara una sesión siguiera dentro
+tras cambiar la contraseña— con una columna y una comprobación, y regala «cerrar en todos los
+dispositivos». Una tabla de sesiones añade una consulta a cada petición y una limpieza periódica.
+
+**Qué haría falta.** Una tabla `sessions` con su identificador dentro del token, su fecha de
+revocación, el agente y la última actividad; una pantalla que las liste; y decidir qué hacer con las
+filas viejas. La fecha de corte actual seguiría valiendo para «cerrarlas todas».
+
+## Que nadie pueda dejar fuera a otro a propósito
+
+**Qué es.** Cinco intentos fallidos contra un correo real lo bloquean quince minutos. Quien conozca
+el correo de un compañero puede dejarlo fuera a voluntad, repitiéndolo cada quince minutos.
+Comprobado contra la API: cinco intentos ajenos, y después la contraseña **correcta** responde
+`429`.
+
+**Por qué no se hizo** (revisión de Acceso, 19-sep-2026). El intento de cerrarlo contando también
+por dirección tumbó la suite dos veces, porque una suite de pruebas **es** un barrido de cuentas
+desde una sola dirección. La regla que quedó —contar sólo los correos **inexistentes** que se
+prueban desde una dirección— frena la enumeración, que es el ataque real, pero deja este caso
+abierto a propósito: contar los fallos sobre cuentas reales dejaría fuera a una oficina entera
+detrás de una misma salida a internet, que es un daño mayor y más probable.
+
+**Qué haría falta.** Lo que hacen los productos maduros: no bloquear la cuenta, sino **encarecer el
+intento** —un retardo creciente por cuenta, o un desafío tras varios fallos— de modo que el dueño
+legítimo siempre pueda entrar aunque otro esté probando. Un desafío trae dependencia externa y hay
+que decidir cuál; el retardo creciente no, y es el primer paso natural.

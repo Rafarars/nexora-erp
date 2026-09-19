@@ -123,7 +123,9 @@ test.describe('PUT /api/v1/auth/email', () => {
 
     expect(response.status()).toBe(200);
     expect((await request.post(LOGIN, { data: { email: newEmail, password: account.password } })).status()).toBe(200);
-    expect((await request.post(LOGIN, { data: account })).status()).toBe(401);
+    expect(
+      (await request.post(LOGIN, { data: { email: account.email, password: account.password } })).status(),
+    ).toBe(401);
   });
 
   test('refuses without the current password', async ({ request }) => {

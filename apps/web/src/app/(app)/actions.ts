@@ -6,8 +6,6 @@ import { AccessError } from '@/modules/access/domain/access-error';
 import { accessApi } from '@/shared/session/access-api';
 import { clearToken, readToken, storeToken } from '@/shared/session/session-cookie';
 
-const SESSION_HOURS = 1;
-
 // Cambiar de empresa reemite el token: la empresa activa la firma el servidor, no
 // la elige el navegador mandando una cabecera.
 export async function switchTenant(form: FormData): Promise<void> {
@@ -19,9 +17,9 @@ export async function switchTenant(form: FormData): Promise<void> {
   }
 
   try {
-    const { token: reissued } = await accessApi().switchTenant(token, tenantId);
+    const { token: reissued, expiresInSeconds } = await accessApi().switchTenant(token, tenantId);
 
-    await storeToken(reissued, SESSION_HOURS * 3600);
+    await storeToken(reissued, expiresInSeconds);
   } catch (error) {
     if (error instanceof AccessError) {
       await clearToken();

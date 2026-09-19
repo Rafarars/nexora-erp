@@ -4,6 +4,7 @@ import { revalidatePath } from 'next/cache';
 import { readableError } from '@/modules/access/domain/access-error';
 import { accessApi } from '@/shared/session/access-api';
 import { requireSession } from '@/shared/session/current-session';
+import { storeToken } from '@/shared/session/session-cookie';
 import type { FormState } from '@/shared/forms/form-state';
 
 export async function updateProfile(_state: FormState, form: FormData): Promise<FormState> {
@@ -48,7 +49,11 @@ export async function changePassword(_state: FormState, form: FormData): Promise
   }
 
   try {
-    await accessApi().changePassword(token, String(form.get('current') ?? ''), next);
+    // La sesion vieja dejo de valer en el mismo instante: se guarda la nueva para que
+    // quien acaba de cambiar la contrasena siga dentro y caigan solo los demas.
+    const reissued = await accessApi().changePassword(token, String(form.get('current') ?? ''), next);
+
+    await storeToken(reissued.token, reissued.expiresInSeconds);
   } catch (error) {
     // Una contrasena actual incorrecta llega con su propio codigo, no como un login fallido.
     return { error: readableError(error, 'No se pudo cambiar la contraseña.'), done: false };

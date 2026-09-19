@@ -132,7 +132,9 @@ test.describe('the tenant comes from the token, never from the request', () => {
 
   // La defensa esta en que el DTO no acepta tenantId y el controlador lo toma de la
   // sesion. Sin esta prueba, quitar cualquiera de las dos cosas pasaria inadvertido.
-  test('ignores a tenantId sent in the body', async ({ request }) => {
+  // Antes se ignoraba en silencio, que dejaba creer a quien lo mandaba que habia surtido
+  // efecto. Ahora se rechaza: la empresa sale del token y el cuerpo no la discute.
+  test('refuses a tenantId sent in the body', async ({ request }) => {
     const email = `colado-${Date.now()}@acme.com`;
 
     const created = await request.post(USERS, {
@@ -145,12 +147,12 @@ test.describe('the tenant comes from the token, never from the request', () => {
       },
     });
 
-    expect(created.status()).toBe(201);
+    expect(created.status()).toBe(400);
 
-    // Si el cuerpo hubiera mandado, esta persona no estaria en Acme.
+    // Y no se creo a medias en ninguna de las dos empresas.
     const listed = await request.get(USERS, { headers: auth(await tokenFor(request, ACME_ADMIN)) });
 
-    expect((await listed.json()).users.map((user: { email: string }) => user.email)).toContain(
+    expect((await listed.json()).users.map((user: { email: string }) => user.email)).not.toContain(
       email,
     );
   });

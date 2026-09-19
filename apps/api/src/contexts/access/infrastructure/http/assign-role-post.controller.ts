@@ -19,6 +19,6 @@ export class AssignRolePostController {
     @Body(new ZodValidationPipe(assignRoleRequestSchema))
     body: AssignRoleRequestDto,
   ): Promise<void> {
-    await this.assigner.run({ ...body, tenantId: session.tenantId });
+    await this.assigner.run({ ...body, tenantId: session.tenantId, actorId: session.userId });
   }
 }

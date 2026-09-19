@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { RoleCreator } from './role-creator.js';
 import { DuplicateRoleNameError } from '../../domain/errors/duplicate-role-name.error.js';
+import { RoleWithoutPermissionsError } from '../../domain/errors/role-without-permissions.error.js';
 import { UnknownPermissionError } from '../../domain/errors/unknown-permission.error.js';
 import { PermissionCode } from '../../domain/role/permission-code.vo.js';
 import { TenantId } from '../../domain/tenant/tenant-id.vo.js';
@@ -27,14 +28,16 @@ describe('RoleCreator', () => {
     expect(role.grants(PermissionCode.of('access.users.search'))).toBe(true);
   });
 
-  it('creates a role with no permissions at all', async () => {
+  // Esta prueba defendia lo contrario: daba por bueno el rol vacio. Un rol sin nada
+  // marcado no da acceso a nada, y quien lo asigna cree estar dando algo.
+  it('refuses to create a role with no permissions at all', async () => {
     const scenario = anAccessScenario({ tenants: [aTenant()] });
 
-    await creatorFor(scenario).run({ tenantId: TENANT_A, name: 'Sin permisos', permissions: [] });
+    await expect(
+      creatorFor(scenario).run({ tenantId: TENANT_A, name: 'Sin permisos', permissions: [] }),
+    ).rejects.toThrow(RoleWithoutPermissionsError);
 
-    const [role] = await scenario.roles.searchByTenant(TenantId.of(TENANT_A));
-
-    expect(role.permissionCodes()).toEqual([]);
+    expect(await scenario.roles.searchByTenant(TenantId.of(TENANT_A))).toEqual([]);
   });
 
   // Dos roles homonimos en una empresa harian imposible saber cual se asigna.
@@ -42,7 +45,7 @@ describe('RoleCreator', () => {
     const scenario = anAccessScenario({ tenants: [aTenant()], roles: [aRole({ name: 'Ventas' })] });
 
     await expect(
-      creatorFor(scenario).run({ tenantId: TENANT_A, name: 'Ventas', permissions: [] }),
+      creatorFor(scenario).run({ tenantId: TENANT_A, name: 'Ventas', permissions: ['access.users.search'] }),
     ).rejects.toThrow(DuplicateRoleNameError);
   });
 

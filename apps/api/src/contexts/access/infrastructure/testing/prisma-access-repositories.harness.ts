@@ -8,6 +8,7 @@ import {
 } from '../../testing/access-repositories.harness.js';
 import { PrismaMembershipRepository } from '../persistence/prisma-membership.repository.js';
 import { PrismaRoleRepository } from '../persistence/prisma-role.repository.js';
+import { PrismaTenantAdministration } from '../persistence/prisma-tenant-administration.js';
 import { PrismaTenantRepository } from '../persistence/prisma-tenant.repository.js';
 import { PrismaUserRepository } from '../persistence/prisma-user.repository.js';
 
@@ -34,6 +35,7 @@ export class PrismaAccessRepositoriesHarness implements AccessRepositoriesHarnes
       users: new PrismaUserRepository(this.prisma),
       memberships: new PrismaMembershipRepository(this.prisma),
       roles: new PrismaRoleRepository(this.prisma),
+      administration: new PrismaTenantAdministration(this.prisma),
     };
   }
 

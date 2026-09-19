@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { TenantUserUpdater } from './tenant-user-updater.js';
 import { MembershipNotFoundError } from '../../domain/errors/membership-not-found.error.js';
 import { CannotDropOwnAdminRoleError } from '../../domain/errors/cannot-drop-own-admin-role.error.js';
+import { LastAdministratorError } from '../../domain/errors/last-administrator.error.js';
 import { RoleNotFoundError } from '../../domain/errors/role-not-found.error.js';
 import { TenantId } from '../../domain/tenant/tenant-id.vo.js';
 import { UserId } from '../../domain/user/user-id.vo.js';
@@ -29,6 +30,7 @@ function updaterFor(scenario: ReturnType<typeof anAccessScenario>) {
     scenario.roleFinder,
     scenario.users,
     scenario.memberships,
+    scenario.administration,
     scenario.clock,
   );
 }
@@ -147,5 +149,57 @@ describe('TenantUserUpdater', () => {
     ).rejects.toThrow(RoleNotFoundError);
 
     expect((await scenario.users.find(UserId.of(USER_A)))!.toPrimitives().name).toBe('Ana');
+  });
+
+  // La guarda de arriba solo miraba el caso propio: otra persona podia quitarle la
+  // administracion al ultimo que quedaba y dejar a la empresa sin gobierno.
+  describe('the last administrator', () => {
+    const SECOND_ADMIN = 'cccccccc-cccc-4ccc-8ccc-cccccccccccc';
+    const SECOND_MEMBERSHIP = '77777777-7777-4777-8777-777777777777';
+
+    it('refuses to let anyone take it from the only one left', async () => {
+      const scenario = anAccessScenario({
+        users: [aUser()],
+        tenants: [aTenant()],
+        roles: [anAdminRole(), aRole({ id: OTHER_ROLE, name: 'Compras' })],
+        memberships: [aMembership({ roleIds: [ROLE_A] })],
+      });
+
+      await expect(
+        updaterFor(scenario).run({
+          tenantId: TENANT_A,
+          actorId: OTHER_USER,
+          userId: USER_A,
+          name: 'Ana',
+          roleIds: [OTHER_ROLE],
+        }),
+      ).rejects.toThrow(LastAdministratorError);
+
+      const membership = await scenario.memberships.findByUser(TenantId.of(TENANT_A), UserId.of(USER_A));
+      expect(membership!.roles().map((role) => role.value)).toEqual([ROLE_A]);
+    });
+
+    it('allows it while somebody else still administers', async () => {
+      const scenario = anAccessScenario({
+        users: [aUser(), aUser({ id: SECOND_ADMIN, email: 'beto@acme.com' })],
+        tenants: [aTenant()],
+        roles: [anAdminRole(), aRole({ id: OTHER_ROLE, name: 'Compras' })],
+        memberships: [
+          aMembership({ roleIds: [ROLE_A] }),
+          aMembership({ id: SECOND_MEMBERSHIP, userId: SECOND_ADMIN, roleIds: [ROLE_A] }),
+        ],
+      });
+
+      await updaterFor(scenario).run({
+        tenantId: TENANT_A,
+        actorId: OTHER_USER,
+        userId: USER_A,
+        name: 'Ana',
+        roleIds: [OTHER_ROLE],
+      });
+
+      const membership = await scenario.memberships.findByUser(TenantId.of(TENANT_A), UserId.of(USER_A));
+      expect(membership!.roles().map((role) => role.value)).toEqual([OTHER_ROLE]);
+    });
   });
 });

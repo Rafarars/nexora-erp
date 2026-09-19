@@ -7,6 +7,7 @@ export const createUserRequestSchema = z.object({
   password: z.string().min(8),
   name: z.string().min(1),
   roleIds: z.array(z.string()).optional(),
-});
+})
+  .strict();
 
 export type CreateUserRequestDto = z.infer<typeof createUserRequestSchema>;

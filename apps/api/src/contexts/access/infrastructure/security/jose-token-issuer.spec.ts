@@ -26,7 +26,16 @@ describe('JoseTokenIssuer', () => {
     const issuer = issuerWith();
     const { token } = await issuer.issue(payload);
 
-    expect(await issuer.verify(token)).toEqual(payload);
+    expect(await issuer.verify(token)).toMatchObject(payload);
+  });
+
+  // Cuando se firmo, al milisegundo: es lo que permite rechazar una sesion anterior al
+  // ultimo cambio de contrasena, y no puede venir de quien llama.
+  it('reports when it was signed', async () => {
+    const before = Date.now();
+    const { token } = await issuerWith().issue(payload);
+
+    expect((await issuerWith().verify(token)).issuedAtMs).toBeGreaterThanOrEqual(before);
   });
 
   it('reports how long the session lasts', async () => {

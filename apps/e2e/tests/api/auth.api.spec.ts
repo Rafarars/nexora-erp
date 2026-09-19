@@ -217,3 +217,62 @@ test.describe('POST /api/v1/auth/switch-tenant', () => {
     expect(response.status()).toBe(404);
   });
 });
+
+// Antes, cambiar la contrasena no tocaba las sesiones abiertas: quien se hubiera llevado
+// una seguia dentro hasta una hora despues. Ahora caen todas menos la que la cambio.
+test.describe('changing the password closes the open sessions', () => {
+  const USERS = '/api/v1/users';
+  const ME = '/api/v1/auth/me';
+  const CHANGE = '/api/v1/auth/password';
+  const FIRST = 'a-long-first-password';
+  const SECOND = 'a-long-second-password';
+
+  async function aFreshPerson(request: APIRequestContext) {
+    const admin = (await (await request.post(LOGIN, { data: ACME_ADMIN })).json()).token as string;
+    const email = `sessions-${Date.now()}-${Math.random().toString(36).slice(2, 6)}@acme.com`;
+
+    await request.post(USERS, {
+      headers: { authorization: `Bearer ${admin}` },
+      data: { email, password: FIRST, name: 'Sesiones' },
+    });
+
+    return { email, password: FIRST };
+  }
+
+  test('the other device stops working and this one keeps going', async ({ request }) => {
+    const person = await aFreshPerson(request);
+
+    // Dos sesiones de la misma persona: el otro dispositivo y este.
+    const otherDevice = (await (await request.post(LOGIN, { data: person })).json()).token as string;
+    const thisDevice = (await (await request.post(LOGIN, { data: person })).json()).token as string;
+
+    expect((await request.get(ME, { headers: { authorization: `Bearer ${otherDevice}` } })).status()).toBe(200);
+
+    const changed = await request.put(CHANGE, {
+      headers: { authorization: `Bearer ${thisDevice}` },
+      data: { current: FIRST, next: SECOND },
+    });
+
+    expect(changed.status()).toBe(200);
+
+    // La sesion que venia de antes deja de valer AHORA, sin esperar a que caduque.
+    expect((await request.get(ME, { headers: { authorization: `Bearer ${otherDevice}` } })).status()).toBe(401);
+
+    // Y quien la cambio sigue dentro, con el token que le devolvio la peticion.
+    const reissued = (await changed.json()).token as string;
+    expect((await request.get(ME, { headers: { authorization: `Bearer ${reissued}` } })).status()).toBe(200);
+  });
+
+  test('the old password stops working and the new one enters', async ({ request }) => {
+    const person = await aFreshPerson(request);
+    const token = (await (await request.post(LOGIN, { data: person })).json()).token as string;
+
+    await request.put(CHANGE, {
+      headers: { authorization: `Bearer ${token}` },
+      data: { current: FIRST, next: SECOND },
+    });
+
+    expect((await request.post(LOGIN, { data: person })).status()).toBe(401);
+    expect((await request.post(LOGIN, { data: { email: person.email, password: SECOND } })).status()).toBe(200);
+  });
+});

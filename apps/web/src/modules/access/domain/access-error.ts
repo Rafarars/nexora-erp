@@ -60,6 +60,15 @@ const BY_CODE: Record<string, string> = {
   DuplicateRoleNameError: 'Ya existe un rol con ese nombre.',
   DuplicateMembershipError: 'Esa persona ya pertenece a esta empresa.',
   CannotDeactivateSelfError: 'No puedes desactivarte a ti mismo.',
+  CannotDropOwnAdminRoleError:
+    'No puedes quitarte tu propio rol de administrador: alguien tiene que poder devolver el acceso.',
+  LastAdministratorError:
+    'La empresa se quedaría sin nadie que pueda administrarla. Nombra antes a otro administrador.',
+  CannotEditAdminRoleError:
+    'El rol de administrador no se edita: siempre concede todos los permisos de la empresa.',
+  RoleWithoutPermissionsError: 'Marca al menos un permiso: un rol sin permisos no da acceso a nada.',
+  CannotGrantSelfMoreAccessError:
+    'No puedes darte a ti mismo permisos que no tienes. Pídeselo a un administrador.',
   UnknownPermissionError: 'Uno de los permisos marcados no existe.',
   PermissionDeniedError: 'Tu rol no te permite hacer esto.',
 };

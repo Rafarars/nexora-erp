@@ -87,6 +87,12 @@ export class AccessGuard implements CanActivate {
     // filtraria identificadores internos en el mensaje.
     const { user, tenant, membership } = await this.resolveIdentity(userId, tenantId);
 
+    // Cambiar la contrasena mueve la fecha de corte: la sesion que alguien se llevo deja
+    // de valer ahora, sin esperar a que caduque el token.
+    if (!user.acceptsSessionIssuedAt(claims.issuedAtMs)) {
+      throw new InvalidTokenError();
+    }
+
     // Una cuenta, empresa o membresia inactiva invalida la sesion igual que una borrada:
     // se responde lo mismo y no se le cuenta a quien llama que parte fallo.
     try {

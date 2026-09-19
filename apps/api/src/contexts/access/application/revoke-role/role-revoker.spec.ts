@@ -4,6 +4,8 @@ import { MembershipNotFoundError } from '../../domain/errors/membership-not-foun
 import { RoleNotFoundError } from '../../domain/errors/role-not-found.error.js';
 import { TenantId } from '../../domain/tenant/tenant-id.vo.js';
 import { UserId } from '../../domain/user/user-id.vo.js';
+import { CannotDropOwnAdminRoleError } from '../../domain/errors/cannot-drop-own-admin-role.error.js';
+import { LastAdministratorError } from '../../domain/errors/last-administrator.error.js';
 import {
   ROLE_A,
   TENANT_A,
@@ -11,16 +13,21 @@ import {
   aMembership,
   aRole,
   aTenant,
+  aUser,
+  anAdminRole,
 } from '../../domain/testing/access.mother.js';
 import { anAccessScenario } from '../testing/access-scenario.js';
 
 const OTHER_ROLE = '88888888-8888-4888-8888-888888888888';
+// Quien revoca: un administrador actuando sobre otra persona.
+const ACTOR = 'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb';
 
 function revokerFor(scenario: ReturnType<typeof anAccessScenario>) {
   return new RoleRevoker(
     scenario.membershipFinder,
     scenario.roleFinder,
     scenario.memberships,
+    scenario.administration,
     scenario.clock,
   );
 }
@@ -42,7 +49,7 @@ describe('RoleRevoker', () => {
       memberships: [aMembership({ roleIds: [ROLE_A] })],
     });
 
-    await revokerFor(scenario).run({ tenantId: TENANT_A, userId: USER_A, roleId: ROLE_A });
+    await revokerFor(scenario).run({ tenantId: TENANT_A, actorId: ACTOR, userId: USER_A, roleId: ROLE_A });
 
     expect(await rolesOf(scenario)).toEqual([]);
   });
@@ -54,7 +61,7 @@ describe('RoleRevoker', () => {
       memberships: [aMembership({ roleIds: [ROLE_A, OTHER_ROLE] })],
     });
 
-    await revokerFor(scenario).run({ tenantId: TENANT_A, userId: USER_A, roleId: ROLE_A });
+    await revokerFor(scenario).run({ tenantId: TENANT_A, actorId: ACTOR, userId: USER_A, roleId: ROLE_A });
 
     expect(await rolesOf(scenario)).toEqual([OTHER_ROLE]);
   });
@@ -68,8 +75,8 @@ describe('RoleRevoker', () => {
     });
     const revoker = revokerFor(scenario);
 
-    await revoker.run({ tenantId: TENANT_A, userId: USER_A, roleId: ROLE_A });
-    await revoker.run({ tenantId: TENANT_A, userId: USER_A, roleId: ROLE_A });
+    await revoker.run({ tenantId: TENANT_A, actorId: ACTOR, userId: USER_A, roleId: ROLE_A });
+    await revoker.run({ tenantId: TENANT_A, actorId: ACTOR, userId: USER_A, roleId: ROLE_A });
 
     expect(await rolesOf(scenario)).toEqual([]);
   });
@@ -78,7 +85,7 @@ describe('RoleRevoker', () => {
     const scenario = anAccessScenario({ tenants: [aTenant()], roles: [aRole()] });
 
     await expect(
-      revokerFor(scenario).run({ tenantId: TENANT_A, userId: USER_A, roleId: ROLE_A }),
+      revokerFor(scenario).run({ tenantId: TENANT_A, actorId: ACTOR, userId: USER_A, roleId: ROLE_A }),
     ).rejects.toThrow(MembershipNotFoundError);
   });
 
@@ -89,7 +96,75 @@ describe('RoleRevoker', () => {
     });
 
     await expect(
-      revokerFor(scenario).run({ tenantId: TENANT_A, userId: USER_A, roleId: ROLE_A }),
+      revokerFor(scenario).run({ tenantId: TENANT_A, actorId: ACTOR, userId: USER_A, roleId: ROLE_A }),
     ).rejects.toThrow(RoleNotFoundError);
+  });
+
+  // Esta ruta hacia lo mismo que editar a la persona y no comprobaba nada: se podia quitar
+  // por aqui la administracion que por la otra puerta estaba protegida.
+  describe('the last administrator', () => {
+    const OTHER_USER = 'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb';
+    const OTHER_MEMBERSHIP = '77777777-7777-4777-8777-777777777777';
+
+    function withAdministrators(count: number) {
+      return anAccessScenario({
+        users: count > 1 ? [aUser(), aUser({ id: OTHER_USER, email: 'beto@acme.com' })] : [aUser()],
+        tenants: [aTenant()],
+        roles: [anAdminRole(), aRole({ id: OTHER_ROLE, name: 'Compras' })],
+        memberships:
+          count > 1
+            ? [
+                aMembership({ roleIds: [ROLE_A] }),
+                aMembership({ id: OTHER_MEMBERSHIP, userId: OTHER_USER, roleIds: [ROLE_A] }),
+              ]
+            : [aMembership({ roleIds: [ROLE_A] })],
+      });
+    }
+
+    it('refuses to take the administrator role from the only one left', async () => {
+      const scenario = withAdministrators(1);
+
+      await expect(
+        revokerFor(scenario).run({ tenantId: TENANT_A, actorId: ACTOR, userId: USER_A, roleId: ROLE_A }),
+      ).rejects.toThrow(LastAdministratorError);
+
+      expect(await rolesOf(scenario)).toEqual([ROLE_A]);
+    });
+
+    it('allows it while somebody else still administers', async () => {
+      const scenario = withAdministrators(2);
+
+      await revokerFor(scenario).run({ tenantId: TENANT_A, actorId: ACTOR, userId: USER_A, roleId: ROLE_A });
+
+      expect(await rolesOf(scenario)).toEqual([]);
+    });
+
+    // La misma razon que por la otra puerta, y merece el mismo mensaje.
+    it('refuses to let someone take away their own administrator role', async () => {
+      const scenario = withAdministrators(2);
+
+      await expect(
+        revokerFor(scenario).run({ tenantId: TENANT_A, actorId: USER_A, userId: USER_A, roleId: ROLE_A }),
+      ).rejects.toThrow(CannotDropOwnAdminRoleError);
+    });
+
+    // Un rol que no administra no deja hueco, aunque sea el unico administrador.
+    it('does not get in the way of revoking an ordinary role', async () => {
+      const scenario = anAccessScenario({
+        users: [aUser()],
+        tenants: [aTenant()],
+        roles: [anAdminRole(), aRole({ id: OTHER_ROLE, name: 'Compras' })],
+        memberships: [aMembership({ roleIds: [ROLE_A, OTHER_ROLE] })],
+      });
+
+      await revokerFor(scenario).run({
+        tenantId: TENANT_A,
+        actorId: ACTOR,
+        userId: USER_A,
+        roleId: OTHER_ROLE,
+      });
+
+      expect(await rolesOf(scenario)).toEqual([ROLE_A]);
+    });
   });
 });

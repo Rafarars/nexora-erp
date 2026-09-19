@@ -5,6 +5,7 @@ import {
 import { InMemoryMembershipRepository } from './in-memory-membership.repository.js';
 import { InMemoryRoleRepository } from './in-memory-role.repository.js';
 import { InMemoryTenantRepository } from './in-memory-tenant.repository.js';
+import { InMemoryTenantAdministration } from './in-memory-tenant-administration.js';
 import { InMemoryUserRepository } from './in-memory-user.repository.js';
 
 // Vaciar es tirar los Map y empezar de cero.
@@ -22,11 +23,16 @@ export class InMemoryAccessRepositoriesHarness implements AccessRepositoriesHarn
   async close(): Promise<void> {}
 
   private build(): AccessRepositories {
+    const users = new InMemoryUserRepository();
+    const memberships = new InMemoryMembershipRepository();
+    const roles = new InMemoryRoleRepository();
+
     return {
       tenants: new InMemoryTenantRepository(),
-      users: new InMemoryUserRepository(),
-      memberships: new InMemoryMembershipRepository(),
-      roles: new InMemoryRoleRepository(),
+      users,
+      memberships,
+      roles,
+      administration: new InMemoryTenantAdministration(memberships, roles, users),
     };
   }
 }

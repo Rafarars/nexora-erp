@@ -1,4 +1,5 @@
 import { Clock } from '../../../../shared/domain/ports/clock.js';
+import { SelfEscalationPolicy } from '../../domain/authorize/self-escalation-policy.js';
 import { MembershipFinder } from '../../domain/membership/find/membership-finder.js';
 import { MembershipRepository } from '../../domain/membership/membership.repository.js';
 import { RoleFinder } from '../../domain/role/find/role-finder.js';
@@ -19,6 +20,12 @@ export class RoleAssigner {
     const tenantId = TenantId.of(request.tenantId);
     const membership = await this.finder.findByUser(tenantId, UserId.of(request.userId));
     const role = await this.roles.find(tenantId, RoleId.of(request.roleId));
+
+    if (request.actorId === request.userId) {
+      const current = await this.roles.findAll(tenantId, membership.roles());
+
+      SelfEscalationPolicy.ensureGrantsNothingNew(tenantId, current, [...current, role]);
+    }
 
     membership.assignRole(role.id, this.clock.now());
 

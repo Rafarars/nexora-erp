@@ -5,6 +5,7 @@ import { z } from 'zod';
 export const passwordRequestSchema = z.object({
   current: z.string().min(1),
   next: z.string().min(8),
-});
+})
+  .strict();
 
 export type PasswordRequestDto = z.infer<typeof passwordRequestSchema>;

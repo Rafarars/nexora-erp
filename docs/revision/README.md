@@ -116,15 +116,17 @@ no se miró está escrito en el informe.
 
 ### 7. Acceso
 
-**🔶 Auditoría acotada, no revisión completa** — pero encontró un defecto grave: una empresa podía
-quedarse **sin nadie capaz de administrarla**. Lo que no se miró está escrito en el informe.
+**✅ Revisión completa** (19-sep-2026), en modo lote. Diez hallazgos, **nueve construidos** y uno
+anotado con su porqué.
+El que resume el módulo: la guarda del administrador que se construyó el día antes protegía una
+puerta y **dejaba abierta la de al lado** — `DELETE /roles/assignments` ni recibía quién actuaba.
 
 | Submódulo | Estado | Informe |
 |---|---|---|
-| Sesión | 🔶 Se comprobó que desactivar a alguien corta su sesión al instante; falta revisar caducidad y revocación | [reportes/reportes-y-acceso.md](reportes/reportes-y-acceso.md) |
-| Personas de la empresa | ✅ **Ya no se puede uno quitar su propia administración.** Sin paginar, con el porqué escrito | [reportes/reportes-y-acceso.md](reportes/reportes-y-acceso.md) |
-| Roles y permisos | 🔶 Quitar un permiso surte efecto en la siguiente petición, comprobado; falta el resto | [reportes/reportes-y-acceso.md](reportes/reportes-y-acceso.md) |
-| Perfil propio | ⬜ | |
+| Sesión | ✅ **Cambiar la contraseña cierra las sesiones abiertas.** El bloqueo cuenta también cuentas distintas por dirección, y la cookie dura lo que dice la API | [acceso/acceso.md](acceso/acceso.md) |
+| Personas de la empresa | ✅ **Una empresa nunca se queda sin quien la administre**, por ninguna de las tres puertas ni a manos de nadie | [acceso/acceso.md](acceso/acceso.md) |
+| Roles y permisos | ✅ Un rol concede al menos un permiso, el de administrador no se edita, y **nadie se asciende a sí mismo** | [acceso/acceso.md](acceso/acceso.md) |
+| Perfil propio | ✅ Cambiar el correo y la contraseña piden la actual; ningún administrador toca la llave de una cuenta ajena | [acceso/acceso.md](acceso/acceso.md) |
 
 ## Temas por investigar y ubicar
 

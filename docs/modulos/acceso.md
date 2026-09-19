@@ -41,8 +41,14 @@ Contexto: `apps/api/src/contexts/access` · Pantallas: `/login`, `/perfil`, `/ad
 - Reglas:
   - Correo inexistente o contraseña incorrecta: siempre `InvalidCredentialsError` (401), con el
     **mismo tiempo de respuesta**, para no revelar qué correos existen.
-  - **5 fallos por correo bloquean 15 minutos** (`TooManyLoginAttemptsError`, 429), también
-    para correos inexistentes.
+  - **5 fallos sobre un mismo correo bloquean ese correo 15 minutos**
+    (`TooManyLoginAttemptsError`, 429), también si el correo no existe.
+  - **20 cuentas distintas fallando desde una misma dirección bloquean esa dirección** otros 15
+    minutos. Se cuentan **cuentas, no fallos**: equivocarse muchas veces con la propia contraseña
+    ya lo frena el límite de arriba, y contar fallos aquí castigaría a una oficina entera detrás
+    de una misma salida a internet. Lo que la dirección frena es el **barrido de cuentas ajenas**.
+  - Acertar limpia el contador del correo, **pero no el de la dirección**: a quien lleva rato
+    barriendo no le basta acertar una para empezar de cero.
   - Contraseña correcta pero ninguna membresía activa: `NoActiveMembershipError` (401). A esa
     rama solo llega el dueño de la cuenta, así que decírselo no da pistas.
   - Persona, empresa o membresía inactivas no entran.
@@ -57,8 +63,18 @@ Contexto: `apps/api/src/contexts/access` · Pantallas: `/login`, `/perfil`, `/ad
 - La interfaz lo pide en cada navegación: si a alguien le quitan un rol, la siguiente pantalla ya
   lo refleja.
 
-**Token**: JWT firmado con `JWT_SECRET`, algoritmo fijo, una hora. En el navegador vive en una
-**cookie `httpOnly`**; ningún JavaScript de la página puede leerlo.
+**Cambiar la contraseña** (`PUT /api/v1/auth/password`, autenticado)
+
+- Pide la contraseña actual, y **cierra todas las sesiones abiertas de esa persona**: quien se
+  hubiera llevado una deja de entrar en ese instante, sin esperar a que caduque su token.
+- Devuelve **una sesión nueva**, que la interfaz guarda: caen los demás dispositivos, no el suyo.
+- Por debajo es una fecha de corte por persona (`users.sessions_valid_from`): el guardián rechaza
+  todo token firmado antes de ella. Eso da también «cerrar sesión en todos los dispositivos».
+
+**Token**: JWT firmado con `JWT_SECRET`, algoritmo fijo, una hora. Lleva **cuándo se firmó, al
+milisegundo**, que es lo que permite rechazar una sesión anterior al último cambio de contraseña.
+En el navegador vive en una **cookie `httpOnly`** —ningún JavaScript de la página puede leerla—
+cuya duración es **la que dice la API**, no un número repetido en la interfaz.
 
 ---
 
@@ -79,6 +95,13 @@ Contexto: `apps/api/src/contexts/access` · Pantallas: `/login`, `/perfil`, `/ad
 - Un administrador **nunca cambia el correo ni la contraseña de otra persona**: la cuenta abre
   todas sus empresas, y cambiarle la llave daría acceso a las otras.
 - **Nadie se desactiva a sí mismo.**
+- **Una empresa nunca se queda sin nadie que la administre.** Da igual por qué puerta se intente
+  —editar los roles de la persona, retirarle el rol o desactivarla— y da igual quién lo intente:
+  si quien pierde la administración es el último que queda, la operación se rechaza
+  (`LastAdministratorError`, 409). Si alguien se lo hace a sí mismo, recibe el porqué de su caso
+  (`CannotDropOwnAdminRoleError` o `CannotDeactivateSelfError`).
+  Importa porque **no habría vuelta atrás**: ninguna pantalla crea un rol que lo conceda todo, así
+  que nadie podría devolver el acceso desde dentro.
 - Desactivar revoca la **membresía** en esa empresa, no la cuenta.
 
 ---
@@ -98,12 +121,21 @@ Contexto: `apps/api/src/contexts/access` · Pantallas: `/login`, `/perfil`, `/ad
 
 - Nombre de rol único por empresa.
 - Solo se conceden permisos **que existen en el catálogo**.
+- **Un rol concede al menos un permiso** (`RoleWithoutPermissionsError`, 400). Uno sin nada marcado
+  no da acceso a nada, y quien lo asignara creería estar dando algo.
 - Editar un rol reemplaza el **conjunto entero** de permisos (la pantalla manda las casillas
   marcadas).
+- **El rol de administrador no se edita** (`CannotEditAdminRoleError`, 409). No enumera permisos
+  —los concede todos, incluidos los que aún no existen—, así que editarlo sólo serviría para
+  disfrazarlo: un rol llamado «Consulta» que abre la empresa entera es peor que no tener la regla.
+- **Nadie se concede a sí mismo permisos que no tiene** (`CannotGrantSelfMoreAccessError`, 409). Al
+  cambiar sus **propios** roles, lo que le queda tiene que caber en lo que ya tenía. Repartir roles
+  a **otra** persona sigue siendo lo normal, y quien ya administra no se ve afectado porque no hay
+  a qué ascenderlo.
 - El cambio tiene **efecto inmediato**: con el mismo token, la persona pierde el acceso en su
   siguiente petición.
 
-**Catálogo de permisos** (79): 8 de acceso, 20 de catálogo, 7 de inventario, 15 de compras, 18 de ventas, 7 de cuentas por cobrar y 4 de reportes. Se listan en cada
+**Catálogo de permisos** (89): 8 de acceso, 6 de empresa, 20 de catálogo, 11 de inventario, 15 de compras, 18 de ventas, 7 de cuentas por cobrar y 4 de reportes. Se listan en cada
 documento de módulo.
 
 | Código | Qué permite |
@@ -155,8 +187,13 @@ empresa aparece solo a quien tiene más de una.
 | Prueba | Qué garantiza |
 |---|---|
 | `route-declaration.spec.ts` | Toda ruta de toda la API declara quién la alcanza, y decoradores y catálogo cuadran en ambas direcciones |
-| `access-repositories.contract.ts` | Los dobles en memoria y PostgreSQL se comportan igual |
-| `tests/api/auth.api.spec.ts` | Login, tiempos iguales, bloqueo tras 5 fallos |
-| `tests/api/roles.api.spec.ts` | Quitar un permiso corta el acceso con el mismo token |
+| `access-repositories.contract.ts` | Los dobles en memoria y PostgreSQL se comportan igual, incluido **quién cuenta como administrador** |
+| `error-categories.spec.ts` | Cada error tiene su categoría, y **la lista se compara con el directorio**: uno nuevo no puede colarse sin decidirla |
+| `access-error.coverage.spec.ts` | Cada error que la API puede mandar **tiene su texto en español** |
+| `administration-policy` en sus tres casos de uso | Ninguna de las tres puertas deja a una empresa sin administrador |
+| `self-escalation-policy.spec.ts` | Nadie se concede a sí mismo permisos que no tiene |
+| `tests/api/auth.api.spec.ts` | Login, tiempos iguales, bloqueo tras 5 fallos, y **cambiar la contraseña cierra el otro dispositivo sin cerrar este** |
+| `tests/api/roles.api.spec.ts` | Quitar un permiso corta el acceso con el mismo token, y deja intacto el que conserva |
+| `tests/api/tenant-users.api.spec.ts` | La última administradora no puede quedarse fuera por ninguna ruta |
 | `tests/isolation/*` | Cada ruta con identificador, atacada desde Acme contra Globex: 404 y Globex idéntica |
 | `tests/resilience/*` | Apagar PostgreSQL: el sistema lo detecta y se recupera |

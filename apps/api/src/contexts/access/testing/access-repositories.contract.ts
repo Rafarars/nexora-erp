@@ -26,6 +26,7 @@ import { AccessRepositories, AccessRepositoriesHarness } from './access-reposito
 const USER_B = 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa';
 const ROLE_B = '88888888-8888-4888-8888-888888888888';
 const MEMBERSHIP_B = '77777777-7777-4777-8777-777777777777';
+const ADMIN_B = '66666666-6666-4666-8666-666666666666';
 const ABSENT = '99999999-9999-4999-8999-999999999999';
 
 
@@ -348,6 +349,90 @@ export function describeAccessRepositoriesContract(
 
       it('returns an empty list for a person with no memberships', async () => {
         expect(await repos.memberships.searchByUser(UserId.of(USER_B))).toEqual([]);
+      });
+    });
+
+    // Contar mal aqui deja a una empresa sin nadie capaz de devolverle el acceso, asi que
+    // el doble y PostgreSQL tienen que coincidir en QUIEN cuenta como administrador.
+    describe('TenantAdministration', () => {
+      beforeEach(async () => {
+        await seedTenantsAndUsers();
+        await repos.roles.save(anAdminRole());
+        await repos.roles.save(aRole({ id: ROLE_B, name: 'Sales' }));
+      });
+
+      it('counts another person who administers the tenant', async () => {
+        await repos.memberships.save(aMembership({ userId: USER_B, roleIds: [ROLE_A] }));
+
+        expect(
+          await repos.administration.countAdministratorsExcept(
+            TenantId.of(TENANT_A),
+            UserId.of(USER_A),
+          ),
+        ).toBe(1);
+      });
+
+      it('never counts the person being excluded', async () => {
+        await repos.memberships.save(aMembership({ roleIds: [ROLE_A] }));
+
+        expect(
+          await repos.administration.countAdministratorsExcept(
+            TenantId.of(TENANT_A),
+            UserId.of(USER_A),
+          ),
+        ).toBe(0);
+      });
+
+      // Conserva el rol, pero no puede entrar: no administra nada.
+      it('does not count a revoked membership', async () => {
+        await repos.memberships.save(
+          aMembership({ userId: USER_B, roleIds: [ROLE_A], active: false }),
+        );
+
+        expect(
+          await repos.administration.countAdministratorsExcept(
+            TenantId.of(TENANT_A),
+            UserId.of(USER_A),
+          ),
+        ).toBe(0);
+      });
+
+      it('does not count a deactivated account', async () => {
+        await repos.users.save(aUser({ id: USER_B, email: 'beto@globex.com', active: false }));
+        await repos.memberships.save(aMembership({ userId: USER_B, roleIds: [ROLE_A] }));
+
+        expect(
+          await repos.administration.countAdministratorsExcept(
+            TenantId.of(TENANT_A),
+            UserId.of(USER_A),
+          ),
+        ).toBe(0);
+      });
+
+      it('does not count a role that grants only some permissions', async () => {
+        await repos.memberships.save(aMembership({ userId: USER_B, roleIds: [ROLE_B] }));
+
+        expect(
+          await repos.administration.countAdministratorsExcept(
+            TenantId.of(TENANT_A),
+            UserId.of(USER_A),
+          ),
+        ).toBe(0);
+      });
+
+      // El aislamiento otra vez: quien administra Globex no salva a Acme.
+      it('does not count administrators of another tenant', async () => {
+        await repos.roles.save(anAdminRole({ id: ADMIN_B, tenantId: TENANT_B }));
+        await repos.memberships.save(
+          aMembership({ id: MEMBERSHIP_B, tenantId: TENANT_B, userId: USER_B, roleIds: [ADMIN_B] }),
+        );
+
+        expect(
+          await repos.administration.countAdministratorsExcept(
+            TenantId.of(TENANT_A),
+            UserId.of(USER_A),
+          ),
+        ).toBe(0);
       });
     });
   });

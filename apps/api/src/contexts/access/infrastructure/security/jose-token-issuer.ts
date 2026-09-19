@@ -7,6 +7,7 @@ import {
   AccessTokenPayload,
   IssuedToken,
   TokenIssuer,
+  VerifiedToken,
 } from './token-issuer.js';
 
 const ALGORITHM = 'HS256';
@@ -28,7 +29,7 @@ export class JoseTokenIssuer implements TokenIssuer {
   }
 
   async issue(payload: AccessTokenPayload): Promise<IssuedToken> {
-    const token = await new SignJWT({ ...payload })
+    const token = await new SignJWT({ ...payload, issuedAtMs: Date.now() })
       .setProtectedHeader({ alg: ALGORITHM })
       .setIssuedAt()
       .setExpirationTime(Math.floor(Date.now() / 1000) + this.ttl)
@@ -37,7 +38,7 @@ export class JoseTokenIssuer implements TokenIssuer {
     return { token, expiresInSeconds: this.ttl };
   }
 
-  async verify(token: string): Promise<AccessTokenPayload> {
+  async verify(token: string): Promise<VerifiedToken> {
     try {
       // Fijar el algoritmo es obligatorio: sin esto, un token firmado con `alg: none`
       // o con un algoritmo mas debil pasaria la verificacion.
@@ -46,6 +47,9 @@ export class JoseTokenIssuer implements TokenIssuer {
       });
 
       return {
+        // Sin la marca no se puede saber si la sesion es anterior al ultimo cambio de
+        // contrasena: se trata como la mas vieja posible y el guardian la rechaza.
+        issuedAtMs: typeof payload.issuedAtMs === 'number' ? payload.issuedAtMs : 0,
         userId: String(payload.userId),
         tenantId: String(payload.tenantId),
         permissions: Array.isArray(payload.permissions) ? payload.permissions.map(String) : [],

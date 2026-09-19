@@ -74,7 +74,7 @@ test.describe('managing roles', () => {
 
     const response = await request.post(ROLES, {
       headers: auth(token),
-      data: { name: 'Administrador', permissions: [] },
+      data: { name: 'Administrador', permissions: ['access.users.search'] },
     });
 
     expect(response.status()).toBe(409);
@@ -107,9 +107,11 @@ test.describe('changing a role takes effect immediately', () => {
     const admin = await tokenFor(request, ACME_ADMIN);
     const name = `Temporal ${Date.now()}`;
 
+    // Dos permisos a proposito: se desmarca uno y el rol sigue existiendo, que es lo que
+    // pasa de verdad al editar. Un rol no puede quedarse sin ninguno.
     await request.post(ROLES, {
       headers: auth(admin),
-      data: { name, permissions: ['access.users.search'] },
+      data: { name, permissions: ['access.users.search', 'access.roles.search'] },
     });
     const role = await roleNamed(request, admin, name);
 
@@ -123,23 +125,31 @@ test.describe('changing a role takes effect immediately', () => {
     const token = await tokenFor(request, { email, password: 'a-long-password' });
     expect((await request.get(USERS, { headers: auth(token) })).status()).toBe(200);
 
-    // El administrador desmarca la casilla.
-    await request.put(`${ROLES}/${role.id}`, {
-      headers: auth(admin),
-      data: { name, permissions: [] },
-    });
+    // El administrador desmarca la casilla de los usuarios y deja la otra.
+    expect(
+      (
+        await request.put(`${ROLES}/${role.id}`, {
+          headers: auth(admin),
+          data: { name, permissions: ['access.roles.search'] },
+        })
+      ).status(),
+    ).toBe(200);
 
-    // MISMO token, sin volver a entrar: ya no puede.
+    // MISMO token, sin volver a entrar: ya no puede. Y lo que conservo sigue abierto, asi
+    // que lo que cambio fue el permiso y no la sesion entera.
     expect((await request.get(USERS, { headers: auth(token) })).status()).toBe(403);
+    expect((await request.get(ROLES, { headers: auth(token) })).status()).toBe(200);
   });
 
   test('taking the role away also takes the access away', async ({ request }) => {
     const admin = await tokenFor(request, ACME_ADMIN);
     const name = `Retirable ${Date.now()}`;
 
+    // Dos permisos a proposito: se desmarca uno y el rol sigue existiendo, que es lo que
+    // pasa de verdad al editar. Un rol no puede quedarse sin ninguno.
     await request.post(ROLES, {
       headers: auth(admin),
-      data: { name, permissions: ['access.users.search'] },
+      data: { name, permissions: ['access.users.search', 'access.roles.search'] },
     });
     const role = await roleNamed(request, admin, name);
 

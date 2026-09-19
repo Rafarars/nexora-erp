@@ -26,6 +26,7 @@ Validadas en `src/shared/config/env.schema.ts`.
 | `JWT_SECRET` | **En producción** | Uno de desarrollo | Firma los tokens de sesión |
 | `JWT_TTL_SECONDS` | No | `3600` | Cuánto dura una sesión |
 | `LOGIN_MAX_FAILED_ATTEMPTS` | No | `5` | Intentos fallidos por correo antes de bloquear |
+| `LOGIN_MAX_UNKNOWN_ACCOUNTS_PER_IP` | No | `20` | Correos **que no existen** que pueden probarse desde una misma dirección antes de bloquearla. Equivocarse de contraseña en cuentas reales **no cuenta aquí**: eso es un despiste, y castigarlo dejaría fuera a una oficina entera detrás de una misma salida a internet. Lo que esto frena es adivinar a quién hay |
 | `LOGIN_LOCKOUT_SECONDS` | No | `900` | Cuánto dura el bloqueo, y la ventana en que se cuentan los fallos |
 
 **Guardas adicionales** cuando `NODE_ENV=production`, todas verifican al arrancar:

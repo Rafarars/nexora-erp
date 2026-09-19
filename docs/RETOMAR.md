@@ -9,12 +9,15 @@ de ninguna conversación anterior**.
 
 ## Lo siguiente, en una línea
 
-**Revisar el módulo de Acceso** —sesión, roles y permisos, perfil propio—, que son tres de los seis
-submódulos que quedan. Después **Reportes** (tres), después **las cuatro decisiones de Rafael**, y
+**Revisar los tres submódulos de Reportes** —ventas por cliente, estado de cuenta y valuación del
+inventario—, que son los tres últimos que quedan. Después **las cuatro decisiones de Rafael**, y
 sólo entonces las **mejoras de diseño**. El detalle está en
 [«El plan para cerrar el sistema al 100 %»](#el-plan-para-cerrar-el-sistema-al-100--acordado-el-19-sep-2026).
 
-**Veintitrés de veintinueve submódulos están cerrados.** El estado exacto de cada uno, en
+**Acceso quedó cerrado el 19-sep-2026**: diez hallazgos, nueve construidos y uno anotado
+([informe](revision/acceso/acceso.md)).
+
+**Veintiséis de veintinueve submódulos están cerrados.** El estado exacto de cada uno, en
 [`revision/README.md`](revision/README.md).
 
 ---
@@ -47,7 +50,7 @@ un cambio de API o de web no se ve en el navegador ni en la e2e hasta que se eje
 |---|---|
 | Repositorio | github.com/Rafarars/nexora-erp |
 | Reporte de pruebas | https://rafarars.github.io/nexora-erp/ |
-| Pruebas | 2806 + 193 unitarias · 218 de contrato · 403 end-to-end |
+| Pruebas | 2873 + 194 unitarias · 224 de contrato · 415 end-to-end |
 | **H0 — Fundación** | **Completado** |
 | **H1 — Multiempresa y acceso** | **Completado** y revisado |
 | **H2 — Catálogo** | **Completado** ([`H2-CATALOGO.md`](H2-CATALOGO.md)) |
@@ -589,30 +592,42 @@ Rafael fijó **este orden, y no se altera**:
 
 | | Qué | Por qué en ese sitio |
 |---|---|---|
-| **1º** | **Acceso** — sesión, roles y permisos, perfil propio | Son los tres que quedan con peso real; un token que no se puede revocar importa si esto se despliega |
+| ~~1º~~ | ~~**Acceso**~~ — **cerrado el 19-sep-2026**, nueve hallazgos construidos de diez | Era el que tenía peso real, y lo confirmó: una empresa podía quedarse sin nadie que la administrara por tres puertas distintas |
 | **2º** | **Reportes** — ventas por cliente, estado de cuenta, valuación del inventario | Más pequeños, y con un hallazgo ya anotado: las exportaciones redondean distinto que la pantalla |
 | **3º** | **Las cuatro decisiones** que esperan a Rafael | Están abajo, cada una con su síntoma, su `archivo:línea` y su coste |
 | **4º** | **Mejoras de diseño del sistema** | **Sólo después de cerrar el 100 %.** Textual: «eso será luego de cerrar al 100 el sistema como tal» |
 
-#### 1º · Acceso — qué falta exactamente
+#### 1º · Acceso — cerrado el 19-sep-2026
 
-- **Sesión.** Dura **1 h** (`JWT_TTL_SECONDS`, `env.schema.ts:20`) y **no se renueva ni se puede
-  revocar en el servidor**: cerrar sesión sólo borra la cookie del navegador
-  (`apps/web/src/app/(app)/actions.ts:37-40`) y el token sigue siendo válido hasta caducar. No
-  existe «cerrar en todos los dispositivos». El **bloqueo por intentos fallidos** (5 en 900 s) se
-  guarda **en memoria del proceso** (`in-memory-login-attempts.ts:13`), así que con varias
-  instancias el límite se multiplica; y se cuenta **por correo, no por IP**
-  (`login-attempts.ts:5-6`).
-- **Roles y permisos.** Un rol puede quedarse **sin ningún permiso**
-  (`role.request.dto.ts:6`), y un rol **no se puede borrar ni desactivar** —`RoleRepository` no
-  expone `delete` y `model Role` no tiene `isActive`—. Falta revisar el resto.
-- **Perfil propio.** Sin tocar.
+Diez hallazgos, **nueve construidos**. El informe completo está en
+[`revision/acceso/acceso.md`](revision/acceso/acceso.md). Lo que cambió, en corto:
 
-**Ya comprobado y correcto**, para no volver a mirarlo: quitar un permiso a un rol surte efecto **en
-la siguiente petición** sin volver a entrar —el guardián ignora los permisos del token y recarga los
-roles de la base (`access.guard.ts:79-80, 102-106`)—; desactivar a una persona corta su sesión
-abierta al instante; no hay superusuario de plataforma; y la empresa activa viaja firmada en el
-token.
+- **Una empresa ya no se queda sin nadie que la administre**, por ninguna de las tres puertas
+  —editar sus roles, retirarle el rol, desactivarla— ni a manos de nadie. Antes bastaba una cuenta
+  que **nunca fue administradora** para dejar Acme con cero administradores, y era irreversible.
+- **`DELETE /roles/assignments` se saltaba entera** la guarda construida el día antes: el mismo acto
+  daba 409 por una ruta y 200 por la otra. Ahora la regla vive en una política, en un solo sitio.
+- **Nadie se concede a sí mismo permisos que no tiene.** Antes, quien podía repartir roles se daba
+  el de administrador en una petición.
+- **Cambiar la contraseña cierra las sesiones abiertas**, con una fecha de corte por persona
+  (`users.sessions_valid_from`), y devuelve una sesión nueva para que quien la cambió siga dentro.
+- **El rol de administrador no se edita**: se le podía poner el nombre «Consulta basica» y seguía
+  concediendo la empresa entera. Esa regla sólo existía en la pantalla.
+- **Un rol concede al menos un permiso**, y los DTO de Acceso rechazan campos que antes ignoraban.
+- **El bloqueo por intentos cuenta también cuentas distintas por dirección** —no fallos, que
+  bloquearía a una oficina entera— y purga las entradas caducadas.
+- **La cookie dura lo que dice la API**, en vez de un «1 hora» repetido a mano en la interfaz.
+
+**Ya comprobado y correcto**, para no volver a mirarlo: el tiempo de respuesta del inicio de sesión
+no delata qué correos existen (29 ms con uno registrado contra 28 ms con uno inventado); el
+aislamiento entre empresas responde 404 en los cinco caminos; `grantsAll` no se puede quitar
+editando un rol; quitar un permiso surte efecto en la siguiente petición; ninguna ruta llega sin
+declarar qué pide; y el cuerpo nunca acepta `tenantId`.
+
+**Lo anotado sin construir**, en [`FUTURE.md`](FUTURE.md): que nadie pueda dejar fuera a otro a
+propósito —bloquear su correo con cinco intentos sigue siendo posible, y cerrarlo del todo pide un
+retardo creciente en vez de un bloqueo—, llevar el conteo fuera de la memoria del proceso, y poder
+revocar una sesión concreta en vez de todas.
 
 #### 2º · Reportes — qué falta exactamente
 

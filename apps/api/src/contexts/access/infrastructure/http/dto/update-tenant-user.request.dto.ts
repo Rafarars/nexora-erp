@@ -5,6 +5,7 @@ import { z } from 'zod';
 export const updateTenantUserRequestSchema = z.object({
   name: z.string().min(1),
   roleIds: z.array(z.string()).default([]),
-});
+})
+  .strict();
 
 export type UpdateTenantUserRequestDto = z.infer<typeof updateTenantUserRequestSchema>;

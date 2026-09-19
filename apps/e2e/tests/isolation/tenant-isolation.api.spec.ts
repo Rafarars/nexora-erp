@@ -93,7 +93,7 @@ test.describe('Tenant isolation: Acme cannot reach Globex', () => {
 
     const inAcme = await request.post('/api/v1/roles', {
       headers: auth(token),
-      data: { name: `Colado ${Date.now()}`, permissions: [] },
+      data: { name: `Colado ${Date.now()}`, permissions: ['access.users.search'] },
     });
     expect(inAcme.status()).toBe(403);
 
@@ -105,7 +105,7 @@ test.describe('Tenant isolation: Acme cannot reach Globex', () => {
 
     const inGlobex = await request.post('/api/v1/roles', {
       headers: auth(globexToken),
-      data: { name: `Propio ${Date.now()}`, permissions: [] },
+      data: { name: `Propio ${Date.now()}`, permissions: ['access.users.search'] },
     });
     expect(inGlobex.status()).toBe(201);
   });

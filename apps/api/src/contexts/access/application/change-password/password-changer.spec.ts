@@ -4,7 +4,7 @@ import { WrongCurrentPasswordError } from '../../domain/errors/wrong-current-pas
 import { WeakPasswordError } from '../../domain/user/plain-password.vo.js';
 import { PasswordHash } from '../../domain/user/password-hash.vo.js';
 import { UserId } from '../../domain/user/user-id.vo.js';
-import { USER_A, aUser } from '../../domain/testing/access.mother.js';
+import { ROLE_A, TENANT_A, USER_A, aMembership, aRole, aTenant, aUser } from '../../domain/testing/access.mother.js';
 import { FakePasswordHasher } from '../../infrastructure/testing/fake-password-hasher.js';
 import { anAccessScenario } from '../testing/access-scenario.js';
 
@@ -14,11 +14,26 @@ async function aScenarioWithPassword() {
   const user = aUser();
   user.changePassword(PasswordHash.of(await new FakePasswordHasher().hash(CURRENT)), new Date());
 
-  return anAccessScenario({ users: [user] });
+  // La empresa y la membresia hacen falta porque al cambiar la contrasena se reemite la
+  // sesion: sin ellas no habria a donde devolver a quien la cambio.
+  return anAccessScenario({
+    users: [user],
+    tenants: [aTenant()],
+    roles: [aRole()],
+    memberships: [aMembership({ roleIds: [ROLE_A] })],
+  });
 }
 
 function changerFor(scenario: ReturnType<typeof anAccessScenario>) {
-  return new PasswordChanger(scenario.userFinder, scenario.users, scenario.hasher, scenario.clock);
+  return new PasswordChanger(
+    scenario.userFinder,
+    scenario.users,
+    scenario.hasher,
+    scenario.tenantFinder,
+    scenario.membershipFinder,
+    scenario.session,
+    scenario.clock,
+  );
 }
 
 describe('PasswordChanger', () => {
@@ -27,6 +42,7 @@ describe('PasswordChanger', () => {
 
     await changerFor(scenario).run({
       userId: USER_A,
+      tenantId: TENANT_A,
       current: CURRENT,
       next: 'a-brand-new-password',
     });
@@ -40,7 +56,7 @@ describe('PasswordChanger', () => {
     const scenario = await aScenarioWithPassword();
 
     await expect(
-      changerFor(scenario).run({ userId: USER_A, current: 'wrong', next: 'a-brand-new-password' }),
+      changerFor(scenario).run({ userId: USER_A, tenantId: TENANT_A, current: 'wrong', next: 'a-brand-new-password' }),
     ).rejects.toThrow(WrongCurrentPasswordError);
   });
 
@@ -49,7 +65,7 @@ describe('PasswordChanger', () => {
     const before = (await scenario.users.find(UserId.of(USER_A)))!.currentPasswordHash().value;
 
     await expect(
-      changerFor(scenario).run({ userId: USER_A, current: 'wrong', next: 'a-brand-new-password' }),
+      changerFor(scenario).run({ userId: USER_A, tenantId: TENANT_A, current: 'wrong', next: 'a-brand-new-password' }),
     ).rejects.toThrow();
 
     const after = (await scenario.users.find(UserId.of(USER_A)))!.currentPasswordHash().value;
@@ -60,7 +76,7 @@ describe('PasswordChanger', () => {
     const scenario = await aScenarioWithPassword();
 
     await expect(
-      changerFor(scenario).run({ userId: USER_A, current: CURRENT, next: 'short' }),
+      changerFor(scenario).run({ userId: USER_A, tenantId: TENANT_A, current: CURRENT, next: 'short' }),
     ).rejects.toThrow(WeakPasswordError);
   });
 });

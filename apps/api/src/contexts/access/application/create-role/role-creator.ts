@@ -1,6 +1,7 @@
 import { Clock } from '../../../../shared/domain/ports/clock.js';
 import { IdGenerator } from '../../../../shared/domain/ports/id-generator.js';
 import { DuplicateRoleNameError } from '../../domain/errors/duplicate-role-name.error.js';
+import { RoleWithoutPermissionsError } from '../../domain/errors/role-without-permissions.error.js';
 import { PermissionCode } from '../../domain/role/permission-code.vo.js';
 import { RoleId } from '../../domain/role/role-id.vo.js';
 import { RoleName } from '../../domain/role/role-name.vo.js';
@@ -20,6 +21,11 @@ export class RoleCreator {
 
   async run(request: RoleCreatorRequest): Promise<void> {
     const tenantId = TenantId.of(request.tenantId);
+
+    if (request.permissions.length === 0) {
+      throw new RoleWithoutPermissionsError();
+    }
+
     const name = RoleName.of(request.name);
 
     // Dos roles con el mismo nombre en una empresa harian imposible saber cual se

@@ -10,12 +10,12 @@ export class PrismaUserRepository implements UserRepository {
   constructor(private readonly prisma: PrismaService) {}
 
   async save(user: User): Promise<void> {
-    const { id, email, passwordHash, name, isActive } = user.toPrimitives();
+    const { id, email, passwordHash, name, isActive, sessionsValidFrom } = user.toPrimitives();
 
     await this.prisma.user.upsert({
       where: { id },
-      create: { id, email, passwordHash, name, isActive },
-      update: { email, passwordHash, name, isActive },
+      create: { id, email, passwordHash, name, isActive, sessionsValidFrom },
+      update: { email, passwordHash, name, isActive, sessionsValidFrom },
     });
   }
 

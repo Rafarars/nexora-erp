@@ -1,5 +1,7 @@
 import { Clock } from '../../../../shared/domain/ports/clock.js';
+import { CannotEditAdminRoleError } from '../../domain/errors/cannot-edit-admin-role.error.js';
 import { DuplicateRoleNameError } from '../../domain/errors/duplicate-role-name.error.js';
+import { RoleWithoutPermissionsError } from '../../domain/errors/role-without-permissions.error.js';
 import { CatalogPermissions } from '../../domain/role/catalog-permissions.js';
 import { RoleFinder } from '../../domain/role/find/role-finder.js';
 import { PermissionCode } from '../../domain/role/permission-code.vo.js';
@@ -22,6 +24,15 @@ export class RoleUpdater {
   async run(request: RoleUpdaterRequest): Promise<void> {
     const tenantId = TenantId.of(request.tenantId);
     const role = await this.finder.find(tenantId, RoleId.of(request.roleId));
+
+    // No enumera permisos y los concede todos: renombrarlo solo sirve para disfrazarlo.
+    if (role.grantsEverything()) {
+      throw new CannotEditAdminRoleError();
+    }
+
+    if (request.permissions.length === 0) {
+      throw new RoleWithoutPermissionsError();
+    }
 
     const name = RoleName.of(request.name);
     const withSameName = await this.roles.findByName(tenantId, name);

@@ -10,6 +10,7 @@ import { FixedClock } from '../../../../shared/infrastructure/testing/fixed-cloc
 import { InMemoryMembershipRepository } from '../../infrastructure/testing/in-memory-membership.repository.js';
 import { InMemoryRoleRepository } from '../../infrastructure/testing/in-memory-role.repository.js';
 import { InMemoryTenantRepository } from '../../infrastructure/testing/in-memory-tenant.repository.js';
+import { InMemoryTenantAdministration } from '../../infrastructure/testing/in-memory-tenant-administration.js';
 import { InMemoryUserRepository } from '../../infrastructure/testing/in-memory-user.repository.js';
 import { SequentialIdGenerator } from '../../../../shared/infrastructure/testing/sequential-id-generator.js';
 import { MemberEnroller } from '../../domain/membership/enroll/member-enroller.js';
@@ -41,6 +42,7 @@ export interface AccessScenario {
   enroller: MemberEnroller;
   catalog: CatalogPermissions;
   attempts: InMemoryLoginAttempts;
+  administration: InMemoryTenantAdministration;
 }
 
 // Monta el mundo de una prueba de aplicacion en una linea. Sin base de datos, sin
@@ -77,6 +79,7 @@ export function anAccessScenario(
     registrar: new UserRegistrar(users, hasher, ids, clock),
     enroller: new MemberEnroller(memberships, ids, clock),
     catalog: new CatalogPermissions(),
-    attempts: new InMemoryLoginAttempts(5, 900, clock),
+    attempts: new InMemoryLoginAttempts(5, 20, 900, clock),
+    administration: new InMemoryTenantAdministration(memberships, roles, users),
   };
 }
