@@ -41,9 +41,10 @@ export class InventoryPage {
     return this.page.locator('[data-testid^="adjustment-row-"]').filter({ hasText: text });
   }
 
-  async createAdjustment(lines: LineInput[], notes: string): Promise<void> {
+  async createAdjustment(lines: LineInput[], notes: string, reason = 'Corrección'): Promise<void> {
     await this.page.getByTestId('new-adjustment').click();
     await expect(this.page.getByTestId('adjustment-panel')).toBeVisible();
+    await this.page.getByTestId('adjustment-type').selectOption({ label: reason });
     await this.page.getByTestId('adjustment-notes').fill(notes);
 
     for (const [index, line] of lines.entries()) {
@@ -56,6 +57,18 @@ export class InventoryPage {
       if (line.cost) await this.page.getByTestId(`adjustment-line-cost-${index}`).fill(line.cost);
     }
 
+    await this.page.getByTestId('adjustment-submit').click();
+    await expect(this.page.getByTestId('adjustment-panel')).toBeHidden();
+  }
+
+  // Revaluar no pide cantidad ni unidad: solo el articulo y el costo nuevo.
+  async createRevaluation(item: string, newCost: string, notes: string): Promise<void> {
+    await this.page.getByTestId('new-adjustment').click();
+    await expect(this.page.getByTestId('adjustment-panel')).toBeVisible();
+    await this.page.getByTestId('adjustment-type').selectOption({ label: 'Revaluación' });
+    await this.page.getByTestId('adjustment-notes').fill(notes);
+    await this.page.getByTestId('adjustment-line-item-0').selectOption({ label: item });
+    await this.page.getByTestId('adjustment-line-new-cost-0').fill(newCost);
     await this.page.getByTestId('adjustment-submit').click();
     await expect(this.page.getByTestId('adjustment-panel')).toBeHidden();
   }

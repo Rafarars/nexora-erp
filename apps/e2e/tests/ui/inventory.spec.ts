@@ -44,6 +44,52 @@ test.describe('The inventory, from the screen', () => {
     await expect(page.getByTestId('kardex-balance-Principal-2')).toHaveText('0 un');
   });
 
+  // Lo que la revision de Ajustes construyo: el motivo, quien lo hizo, los filtros y la
+  // revaluacion, que cambia el costo sin tocar la cantidad.
+  test('records the reason and who did it, filters the list, and revalues without moving quantity', async ({ page, request }) => {
+    const item = await aFreshItem(request, await tokenFor(request, ACME_ADMIN.email, API), API);
+    const label = `${item.sku} — ${item.name}`;
+    const inventory = new InventoryPage(page);
+
+    await new LoginPage(page).signIn(ACME_ADMIN);
+    await inventory.open('ajustes');
+    await inventory.createAdjustment(
+      [{ item: label, direction: 'Entrada', quantity: '20', unit: 'un', cost: '2' }],
+      `Conteo ${item.sku}`,
+      'Conteo físico',
+    );
+
+    const row = inventory.adjustmentWith(item.sku);
+    await expect(row.getByTestId(/adjustment-type-/)).toHaveText('Conteo físico');
+    await expect(row.getByTestId(/adjustment-author-/)).toContainText('Registró');
+
+    await inventory.act(row, 'Confirmar');
+    await expect(inventory.adjustmentWith(item.sku).getByTestId(/adjustment-author-/)).toContainText('Confirmó');
+
+    // El filtro por motivo deja fuera lo que no lo cumple.
+    await page.getByTestId('adjustment-filter-type').selectOption({ label: 'Merma' });
+    await page.getByTestId('adjustment-search-submit').click();
+    await expect(inventory.adjustmentWith(item.sku)).toHaveCount(0);
+
+    await page.getByTestId('adjustment-filter-type').selectOption({ label: 'Conteo físico' });
+    await page.getByTestId('adjustment-search-submit').click();
+    await expect(inventory.adjustmentWith(item.sku)).toHaveCount(1);
+
+    await inventory.open('ajustes');
+    await inventory.createRevaluation(label, '3', `Revaluar ${item.sku}`);
+    await inventory.act(page.getByTestId(/adjustment-row-/).filter({ hasText: 'Revaluación' }).first(), 'Confirmar');
+
+    // La cantidad no cambia; el promedio, si.
+    await inventory.open('existencias');
+    await expect(inventory.stockOf(item.sku, 'Principal')).toHaveText('20 un');
+
+    await inventory.open('kardex');
+    await page.getByTestId('kardex-item').selectOption({ label });
+    await page.getByTestId('kardex-submit').click();
+    await expect(page.getByTestId('kardex-balance-Principal-3')).toHaveText('20 un');
+    await expect(page.getByTestId('kardex-row-Principal-3')).toContainText('3,00');
+  });
+
   test('explains in Spanish that there is not enough stock and keeps the draft', async ({ page, request }) => {
     const item = await aFreshItem(request, await tokenFor(request, ACME_ADMIN.email, API), API);
     const inventory = new InventoryPage(page);
@@ -86,7 +132,11 @@ test('a read-only role sees stock and adjustments but gets no way to change them
   await inventory.open('existencias');
   await expect(inventory.stockOf('DETERGENTE-1KG', 'Principal')).toHaveText('50 kg');
 
+  // El listado pagina, asi que los ajustes de la semilla se buscan. Filtrar tambien es leer:
+  // un rol de solo lectura puede hacerlo.
   await inventory.open('ajustes');
+  await page.getByTestId('adjustment-search').fill('AJU00000');
+  await page.getByTestId('adjustment-search-submit').click();
   await expect(page.getByTestId('adjustment-row-AJU000001')).toBeVisible();
   await expect(page.getByTestId('new-adjustment')).toHaveCount(0);
   await expect(page.getByTestId('adjustment-options-AJU000002')).toHaveCount(0);

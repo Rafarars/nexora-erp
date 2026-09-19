@@ -2,6 +2,7 @@ import { AdjustmentStatus, AdjustmentType, adjustmentTypeOf } from '../../domain
 import { AdjustmentRepository } from '../../domain/adjustment/adjustment.repository.js';
 import { InventoryCatalog } from '../../domain/catalog/inventory-catalog.js';
 import { DocumentAuthors } from '../../domain/documents/document-authors.js';
+import { StockWarehouseNotFoundError } from '../../domain/errors/inventory.errors.js';
 import { ItemRef, WarehouseRef } from '../../domain/shared/references.vo.js';
 import { TenantId } from '../../domain/shared/tenant-id.vo.js';
 
@@ -69,6 +70,17 @@ export class AdjustmentSearcher {
 
   async run(request: AdjustmentSearcherRequest): Promise<AdjustmentSearcherResponse> {
     const tenantId = TenantId.of(request.tenantId);
+
+    // Filtrar por una bodega de otra empresa responde 404, no una lista vacia: tratar lo
+    // ajeno como inexistente es lo mismo que hacen existencias y bajo minimo.
+    if (request.warehouseId) {
+      const warehouse = WarehouseRef.of(request.warehouseId);
+
+      if ((await this.catalog.findWarehouses(tenantId, [warehouse])).length === 0) {
+        throw new StockWarehouseNotFoundError(warehouse.value);
+      }
+    }
+
     const limit = request.limit ?? DEFAULT_PAGE;
     const offset = request.offset ?? 0;
     const page = await this.adjustments.search(tenantId, {

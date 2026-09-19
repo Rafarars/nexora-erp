@@ -214,7 +214,7 @@ test.describe('inventory adjustments', () => {
 
     const response = await request.put(`${ADJUSTMENTS}/${adjustment.id}`, {
       headers: auth(token),
-      data: { warehouseId: ACME_INVENTORY.mainWarehouse, lines },
+      data: { warehouseId: ACME_INVENTORY.mainWarehouse, type: 'correction', lines },
     });
 
     expect(response.status()).toBe(409);
@@ -225,14 +225,14 @@ test.describe('inventory adjustments', () => {
     const token = await tokenFor(request, 'ana@acme.com');
     const item = await aFreshItem(request, token);
     const post = (line: Record<string, unknown>) =>
-      request.post(ADJUSTMENTS, { headers: auth(token), data: { warehouseId: ACME_INVENTORY.mainWarehouse, lines: [line] } });
+      request.post(ADJUSTMENTS, { headers: auth(token), data: { warehouseId: ACME_INVENTORY.mainWarehouse, type: 'correction', lines: [line] } });
 
     const service = await post({ itemId: 'e4000000-0000-4000-8000-000000000003', unitId: ACME_INVENTORY.piece, direction: 'in', quantity: 1 });
     const costOnExit = await post({ itemId: item.id, unitId: ACME_INVENTORY.piece, direction: 'out', quantity: 1, unitCost: 3 });
     const zero = await post({ itemId: item.id, unitId: ACME_INVENTORY.piece, direction: 'in', quantity: 0 });
     const future = await request.post(ADJUSTMENTS, {
       headers: auth(token),
-      data: { warehouseId: ACME_INVENTORY.mainWarehouse, date: '2999-01-01', lines: [{ itemId: item.id, unitId: ACME_INVENTORY.piece, direction: 'in', quantity: 1 }] },
+      data: { warehouseId: ACME_INVENTORY.mainWarehouse, type: 'correction', date: '2999-01-01', lines: [{ itemId: item.id, unitId: ACME_INVENTORY.piece, direction: 'in', quantity: 1 }] },
     });
 
     expect([(await service.json()).error, (await costOnExit.json()).error, (await zero.json()).error, (await future.json()).error]).toEqual([

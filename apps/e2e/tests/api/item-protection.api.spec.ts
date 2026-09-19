@@ -143,7 +143,7 @@ test.describe('a draft whose box changed', () => {
     await expectRefused(await put(request, token, `${ADJUSTMENTS}/${draft.id}/confirm`), 'StockItemChangedError');
     expect(await stockOf(request, token, item.id)).toBe(0);
 
-    expect((await put(request, token, `${ADJUSTMENTS}/${draft.id}`, { warehouseId: mainWarehouse, notes, lines })).status()).toBe(200);
+    expect((await put(request, token, `${ADJUSTMENTS}/${draft.id}`, { warehouseId: mainWarehouse, type: 'correction', notes, lines })).status()).toBe(200);
     expect((await put(request, token, `${ADJUSTMENTS}/${draft.id}/confirm`)).status()).toBe(200);
     expect(await stockOf(request, token, item.id)).toBe(12);
   });

@@ -27,7 +27,7 @@ export class PrismaAdjustmentRepository implements AdjustmentRepository {
       } else {
         const { count } = await tx.adjustment.updateMany({
           where: { tenantId: row.tenantId, id: row.id, status: 'draft', updatedAt: adjustment.version() ?? undefined },
-          data: { warehouseId: row.warehouseId, adjustmentDate: date, notes: row.notes, updatedAt: row.updatedAt },
+          data: { warehouseId: row.warehouseId, adjustmentDate: date, type: row.type, notes: row.notes, updatedAt: row.updatedAt },
         });
 
         if (count === 0) {

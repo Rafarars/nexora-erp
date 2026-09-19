@@ -138,8 +138,8 @@ export function AdjustmentsBoard({
                     <p data-testid={`adjustment-lines-${adjustment.code}`}>{summarizeLines(adjustment.lines, baseUnitOf)}</p>
                     {adjustment.notes ? <p className="text-muted text-xs">{adjustment.notes}</p> : null}
                   </td>
-                  <td className="px-4 py-3" data-testid={`adjustment-status-${adjustment.code}`}>
-                    <p>{STATUS_LABELS[adjustment.status]}</p>
+                  <td className="px-4 py-3">
+                    <p data-testid={`adjustment-status-${adjustment.code}`}>{STATUS_LABELS[adjustment.status]}</p>
                     <p className="text-muted text-xs" data-testid={`adjustment-author-${adjustment.code}`}>
                       {authorLine(adjustment)}
                     </p>

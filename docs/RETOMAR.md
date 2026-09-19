@@ -35,7 +35,7 @@ un cambio de API o de web no se ve en el navegador ni en la e2e hasta que se eje
 |---|---|
 | Repositorio | github.com/Rafarars/nexora-erp |
 | Reporte de pruebas | https://rafarars.github.io/nexora-erp/ |
-| Pruebas | 2700 + 184 unitarias · 190 de contrato · 377 end-to-end |
+| Pruebas | 2730 + 184 unitarias · 199 de contrato · 386 end-to-end |
 | **H0 — Fundación** | **Completado** |
 | **H1 — Multiempresa y acceso** | **Completado** y revisado |
 | **H2 — Catálogo** | **Completado** ([`H2-CATALOGO.md`](H2-CATALOGO.md)) |
@@ -525,7 +525,15 @@ cliente, el precio mínimo y el precio sugerido en el pedido. Después, la fase 
 **Continuar la revisión módulo por módulo con la skill `module-review`**, que es justo el método que salió de este
 piloto. El orden y el estado están en [`revision/README.md`](revision/README.md) § Orden y estado.
 
-**El siguiente es Inventario › Ajustes**, y después Existencias y Kardex. El Catálogo ya está cerrado.
+**El siguiente es Inventario › Existencias**, y después Kardex. El Catálogo y Ajustes ya están cerrados.
+
+**Hecho el 19-sep-2026 · Inventario › Ajustes** ([revisión](revision/inventario/ajustes.md)): siete hallazgos, el
+grave que **una entrada sin costo en una bodega vacía entraba valorada en cero** —y ese cero se quedaba, así que toda
+salida posterior salía gratis—. La referencia lo resuelve con el promedio del maestro de artículos y nosotros no.
+También: la **fecha del documento no llegaba al kardex** (transversal a los tres documentos que mueven existencia), el
+ajuste **no decía por qué se hacía**, no había forma de **corregir un costo equivocado**, el listado traía todos los
+ajustes de la empresa, y **ningún documento guardaba quién lo hizo**. Se construyeron los seis, más la limpieza de
+seis citas por nombre al sistema privado del empleo que estaban en documentación pública.
 
 **Hecho el 18-sep-2026 · el Catálogo entero** ([revisión](revision/catalogo/catalogo.md)): cuatro hallazgos, el
 grave que una bodega se podía cerrar con una orden de compra esperando entrar en ella. Se decidió dejar las

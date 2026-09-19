@@ -67,7 +67,7 @@ Estados: ⬜ pendiente · 🔍 revisado, esperando decisiones · ✅ cerrado (de
 | Submódulo | Estado | Informe |
 |---|---|---|
 | Artículos (piloto; empezó en Catálogo) | ✅ Cerrado: las seis fases, con sus temas, pruebas y documentación, **más la revisión adversarial de la fase 4** (§12), que era el único flanco sin lupa propia | [inventario/articulos.md](inventario/articulos.md) |
-| Ajustes | ⬜ | |
+| Ajustes | ✅ Cerrado. Siete hallazgos: el costo cero, la fecha del kardex, el motivo, la revaluación, la paginación, el rastro de autor y las citas al sistema privado | [inventario/ajustes.md](inventario/ajustes.md) |
 | Existencias | ⬜ | |
 | Kardex | ⬜ | |
 

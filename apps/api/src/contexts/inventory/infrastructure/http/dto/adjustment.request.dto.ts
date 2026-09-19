@@ -10,7 +10,7 @@ export const adjustmentRequestSchema = z.object({
   lines: z.array(
     z.object({
       itemId: z.string(),
-      unitId: z.string(),
+      unitId: z.string().optional(),
       // La revaluacion no mueve cantidad: sus lineas solo traen articulo y costo nuevo.
       direction: z.string().optional(),
       quantity: z.number().optional(),

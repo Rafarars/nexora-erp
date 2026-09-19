@@ -209,13 +209,16 @@ test.describe('goods receipts', () => {
     const { token, item, order } = await aConfirmedOrder(request);
     const receipt = await aDraftReceipt(request, token, order.id, [{ orderLineId: order.lines[0].id, quantity: 1 }]);
     await put(request, token, `${RECEIPTS}/${receipt.id}/confirm`);
+    const notes = `salida ${Date.now()}`;
     const exit = await request.post('/api/v1/inventory/adjustments', {
       headers: auth(token),
-      data: { warehouseId: ACME_INVENTORY.mainWarehouse, notes: `salida ${Date.now()}`, lines: [{ itemId: item.id, unitId: ACME_INVENTORY.piece, direction: 'out', quantity: 20 }] },
+      data: { warehouseId: ACME_INVENTORY.mainWarehouse, type: 'loss', notes, lines: [{ itemId: item.id, unitId: ACME_INVENTORY.piece, direction: 'out', quantity: 20 }] },
     });
     expect(exit.status()).toBe(201);
-    const { adjustments } = await (await request.get('/api/v1/inventory/adjustments', { headers: auth(token) })).json();
-    await put(request, token, `/api/v1/inventory/adjustments/${adjustments.find((a: { lines: { itemId: string }[] }) => a.lines[0]?.itemId === item.id).id}/confirm`);
+    const { adjustments } = await (
+      await request.get(`/api/v1/inventory/adjustments?q=${encodeURIComponent(notes)}`, { headers: auth(token) })
+    ).json();
+    await put(request, token, `/api/v1/inventory/adjustments/${adjustments[0].id}/confirm`);
 
     const response = await put(request, token, `${RECEIPTS}/${receipt.id}/cancel`);
 

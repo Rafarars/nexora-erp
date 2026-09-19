@@ -65,10 +65,13 @@ export class AdjustmentLineFactory {
       if (isRevaluation(type)) return this.revaluationLine(lineNumber, item, input);
 
       const direction = directionOf(input.direction ?? '');
-      const unitId = UnitRef.of(input.unitId ?? '');
-      const unit = item.units.find((candidate) => candidate.unitId === unitId.value);
+      // Se busca por el texto antes de construir la referencia: una unidad que el articulo no
+      // tiene se explica mejor asi que con un error de formato de identificador.
+      const unit = item.units.find((candidate) => candidate.unitId === input.unitId);
 
-      if (!unit) throw new UnitNotOfItemError(unitId.value, item.id);
+      if (!unit) throw new UnitNotOfItemError(input.unitId ?? '', item.id);
+
+      const unitId = UnitRef.of(unit.unitId);
 
       const quantity = Quantity.of(input.quantity ?? 0);
 

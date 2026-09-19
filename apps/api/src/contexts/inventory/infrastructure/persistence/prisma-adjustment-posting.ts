@@ -49,7 +49,9 @@ export class PrismaAdjustmentPosting implements AdjustmentPosting {
         data: {
           status: header.status,
           confirmedAt: header.confirmedAt,
+          confirmedBy: header.confirmedBy,
           cancelledAt: header.cancelledAt,
+          cancelledBy: header.cancelledBy,
           updatedAt: header.updatedAt,
         },
       });

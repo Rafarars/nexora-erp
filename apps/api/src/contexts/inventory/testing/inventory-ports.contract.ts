@@ -78,7 +78,7 @@ export function describeInventoryPortsContract(implementation: string, createHar
           type: 'correction',
           notes: 'contrato',
           lines,
-        }, NOW, TODAY),
+        }, NOW, TODAY, ANA),
       );
 
       return id;
@@ -143,18 +143,38 @@ export function describeInventoryPortsContract(implementation: string, createHar
         expect(await ports.adjustments.find(TenantId.of(TENANT_B), id)).toBeNull();
       });
 
-      it('replaces the lines of a draft on save', async () => {
+      it('replaces the lines of a draft on save, and its reason with them', async () => {
         const id = await draft([line('in', 1), line('in', 2)]);
         const adjustment = (await ports.adjustments.find(tenant, id))!;
 
-        adjustment.update({ warehouseId: WarehouseRef.of(NORTH), date: AdjustmentDate.of(TODAY), type: 'correction', notes: null, lines: [line('in', 7)] }, NOW, TODAY);
+        adjustment.update({ warehouseId: WarehouseRef.of(NORTH), date: AdjustmentDate.of(TODAY), type: 'theft', notes: null, lines: [line('in', 7)] }, NOW, TODAY);
         await ports.adjustments.save(adjustment);
 
         expect((await ports.adjustments.find(tenant, id))?.toPrimitives()).toMatchObject({
           warehouseId: NORTH,
+          type: 'theft',
           notes: null,
           lines: [{ quantity: 7 }],
         });
+      });
+
+      // Quien registro se guarda al crear; quien confirmo o anulo, al publicar.
+      it('keeps who registered the draft and who closed it', async () => {
+        const id = await draft([line('in', 5, 1)]);
+
+        expect((await ports.adjustments.find(tenant, id))?.toPrimitives()).toMatchObject({ createdBy: ANA, confirmedBy: null });
+
+        await ports.posting.post(tenant, id, (adjustment, ledger) =>
+          new AdjustmentConfirmation(new StockMovements(ids)).apply(adjustment, ledger, NOW, ANA),
+        );
+
+        expect((await ports.adjustments.find(tenant, id))?.toPrimitives()).toMatchObject({ confirmedBy: ANA, cancelledBy: null });
+
+        await ports.posting.post(tenant, id, (adjustment, ledger) =>
+          new AdjustmentCancellation(new StockMovements(ids)).apply(adjustment, ledger, NOW, ANA),
+        );
+
+        expect((await ports.adjustments.find(tenant, id))?.toPrimitives()).toMatchObject({ cancelledBy: ANA });
       });
 
       // Dos personas con el mismo borrador: la segunda que guarda no borra lo que guardo la primera.

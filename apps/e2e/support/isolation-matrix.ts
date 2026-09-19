@@ -224,7 +224,7 @@ export const ISOLATION_CASES: IsolationCase[] = [
     title: 'rewrite a draft adjustment of another tenant',
     method: 'put',
     path: `/api/v1/inventory/adjustments/${GLOBEX.draftAdjustmentId}`,
-    body: { warehouseId: GLOBEX.warehouseId, lines: [{ itemId: GLOBEX.itemId, unitId: GLOBEX.unitId, direction: 'in', quantity: 999 }] },
+    body: { warehouseId: GLOBEX.warehouseId, type: 'correction', lines: [{ itemId: GLOBEX.itemId, unitId: GLOBEX.unitId, direction: 'in', quantity: 999 }] },
   },
   {
     route: 'PUT /api/v1/inventory/adjustments/:adjustmentId/confirm',
@@ -250,6 +250,12 @@ export const ISOLATION_CASES: IsolationCase[] = [
     title: 'read the kardex of an item of another tenant',
     method: 'get',
     path: `/api/v1/inventory/items/${GLOBEX.itemId}/movements`,
+  },
+  {
+    route: 'GET /api/v1/inventory/adjustments',
+    title: 'filter the adjustments by a warehouse of another tenant',
+    method: 'get',
+    path: `/api/v1/inventory/adjustments?warehouseId=${GLOBEX.warehouseId}`,
   },
   {
     route: 'GET /api/v1/inventory/stock',
