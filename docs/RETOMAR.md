@@ -527,6 +527,22 @@ piloto. El orden y el estado están en [`revision/README.md`](revision/README.md
 
 **Inventario está cerrado entero.** El siguiente módulo es **Compras**, empezando por Proveedores.
 
+**Cómo arrancar el siguiente:** invocar la skill `module-review`, decirle qué submódulo se revisa y que el sistema de
+referencia es `verlumyx/erp`. Para leerlo, **clonarlo es mucho más rápido que ir archivo por archivo**:
+`gh repo clone verlumyx/erp /tmp/verlumyx --  --depth 1`, y después `grep -rn` sobre `app/Modules/`. Así se encontró en
+un minuto que su FIFO no existe. Su búsqueda de código por API (`gh api search/code`) **no funciona** en ese repositorio.
+Proveedores es **módulo sin revisar**: etapa 2 completa y matriz.
+
+**Tres cosas que esta tanda de revisiones dejó como costumbre:**
+
+- **La lupa de la interfaz.** Para la pasada de «recorrer las pantallas», escribir una prueba desechable de Playwright
+  que inicie sesión con la cuenta de demostración, navegue y **guarde capturas**, y después mirarlas. Encontró dos
+  defectos de presentación que ninguna prueba podía. Se borra al terminar.
+- **Al paginar un listado, las pruebas que daban por hecho verlo todo fallan, y está bien.** No subir el límite para
+  que vuelvan a pasar: cambiarlas para que **busquen su registro**. Los ayudantes de e2e ya lo hacen con `q=<sku>`.
+- **Reconstruir los contenedores (`make up`) tras tocar código, y esperar a que termine** antes de correr end-to-end.
+  Tres veces en esta sesión corrí contra la imagen vieja y el fallo no tenía sentido.
+
 **Hecho el 19-sep-2026 · Inventario › Kardex** ([revisión](revision/inventario/kardex.md)): cuatro hallazgos. El kardex
 se devolvía entero, sin filtros: ahora pagina, filtra por bodega, por tipo de documento y por rango de fechas, y se lee
 **del más reciente al más antiguo**. Y se cerró el tema del **método de costo**: sigue el promedio ponderado y sólo ese,
@@ -567,8 +583,53 @@ completa y matriz.
 **La pregunta que más rinde en un maestro**, y que salió del Catálogo: *¿qué le pasa a lo que ya lo usa cuando este
 maestro se cierra o cambia?* El mismo hueco reaparece en unos maestros y no en otros.
 
-**Decisión abierta que no bloquea nada de lo anterior:** la tasa de fines de semana y feriados
-([`revision/temas/configuracion-empresa.md`](revision/temas/configuracion-empresa.md) §10.3, punto 1).
+**Hecho el 19-sep-2026 · las tres revisiones de Inventario, en una sesión autónoma.** Rafael pidió aplicar todo lo
+recomendado sin preguntar. Se cerraron **Ajustes** (8 hallazgos), **Existencias** (5) y **Kardex** (4), más la
+limpieza de seis citas por nombre al sistema privado del empleo que estaban en documentación pública. Cada decisión
+tomada sin él está escrita con su porqué en el informe de su submódulo, incluidas las de **no construir**: FIFO y costo
+estándar, el tipo «no inventariado», la aprobación por umbral, el conteo físico como documento propio y el rastro de
+autor en los otros seis documentos.
+
+### Decisiones esperando a Rafael
+
+Ninguna bloquea el trabajo. Cada una trae lo que hace falta para decidirla sin releer nada más.
+
+**1. La carrera entre desactivar una bodega y publicar en ella.** *(abierta el 19-sep-2026, en la revisión de Ajustes)*
+
+El Catálogo construyó la regla «una bodega no se desactiva si tiene existencia o documentos abiertos». Bajo
+concurrencia se rompe: `WarehouseStatusChanger` pregunta por la existencia **fuera de toda transacción y sin bloquear
+la bodega** (`change-warehouse-status/warehouse-status-changer.ts:36-44`), y la publicación de un ajuste, una entrada o
+un despacho **no bloquea ni revisa la bodega** dentro de la suya —la comprueba antes, al revalidar el borrador—.
+Interleadas, una bodega vacía se desactiva mientras un ajuste le mete mercancía: queda **existencia en una bodega
+inactiva**, que es el estado que la regla existe para impedir.
+
+- **Por qué no se construyó:** es transversal —toca Catálogo e Inventario— y reabre dos módulos ya cerrados. Ventana
+  estrecha y sin impacto conocido, pero es una invariante que el sistema dice mantener.
+- **Qué costaría:** dos mitades. En el inventario, bloquear la bodega en modo compartido dentro de `lockedLedger`
+  —donde ya se bloquean los artículos— y comprobar ahí que sigue activa; es **un solo sitio**, porque los tres
+  documentos que mueven existencia pasan por él. En el catálogo, envolver la desactivación en una transacción que
+  bloquee la bodega con `FOR UPDATE` antes de preguntar. **Con una sola mitad la ventana se estrecha pero no se cierra.**
+- Alcance completo en [FUTURE.md](FUTURE.md) § «Cerrar la carrera entre desactivar una bodega y publicar en ella».
+
+**2. La tasa de fines de semana y feriados.** *(abierta desde la fase 3)*
+
+[`revision/temas/configuracion-empresa.md`](revision/temas/configuracion-empresa.md) §10.3, punto 1.
+
+**3. Revisar, si quieres, el motivo obligatorio del ajuste.** *(construido; el dato que lo sostenía era falso)*
+
+Se construyó con los ocho tipos del sistema de referencia y **está funcionando**. Pero la cifra del sector que lo
+justificaba en parte era mía y estaba mal: escribí «3 de 4 lo exigen» tras mirar tres productos por encima. La
+investigación a fondo sobre **seis** productos dice que **sólo uno lo exige** (Zoho), dos tienen catálogo (Zoho y
+Business Central) y tres —ERPNext, SAP y NetSuite— **no tienen ni el campo**. Lo que cinco de seis sí exigen es la
+**cuenta contable de contrapartida**, que aquí no aplica porque no llevamos contabilidad.
+
+- **La decisión sigue siendo defendible** por dos razones que no dependen del sector: el sistema de referencia lo pide
+  por partida doble —un `type` tipificado y un `reason` de texto obligatorio, con el comentario «un ajuste sin motivo
+  no se registra»—, y sin él ningún informe puede separar cuánto se perdió por merma de cuánto se corrigió por conteo.
+- La cifra ya está **corregida donde se escribió** ([revisión de Ajustes §2](revision/inventario/ajustes.md)), y el
+  informe dice ahora que es una decisión tomada **a pesar** del consenso, no gracias a él.
+- **Deshacerla costaría poco** si prefieres: quitar la obligatoriedad es relajar una columna; quitar los tipos ya no,
+  porque la revaluación cuelga de ellos.
 
 **Decisiones de Rafael que no hay que volver a discutir:**
 
