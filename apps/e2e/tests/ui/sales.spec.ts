@@ -54,7 +54,7 @@ test('the whole cycle from the screen: buy, receive, sell, dispatch and invoice'
     await sales.open('disponibilidad');
     await expect(sales.reservedOf(item.sku, 'Principal')).toHaveText('96 un');
     await expect(sales.availableOf(item.sku, 'Principal')).toHaveText('144 un');
-    await inventory.open('existencias');
+    await inventory.openStock(item.sku);
     await expect(inventory.stockOf(item.sku, 'Principal')).toHaveText('240 un');
   });
 
@@ -68,7 +68,7 @@ test('the whole cycle from the screen: buy, receive, sell, dispatch and invoice'
   });
 
   await test.step('Entonces la existencia baja a 144 y el kardex muestra la compra y el despacho', async () => {
-    await inventory.open('existencias');
+    await inventory.openStock(item.sku);
     await expect(inventory.stockOf(item.sku, 'Principal')).toHaveText('144 un');
     await inventory.open('kardex');
     await page.getByTestId('kardex-item').selectOption({ label });
@@ -87,7 +87,7 @@ test('the whole cycle from the screen: buy, receive, sell, dispatch and invoice'
     await sales.open('facturas');
     await expect(sales.invoiceOf(customer.name).getByTestId(/invoice-status-/)).toHaveText('Emitida');
     await expect(sales.invoiceOf(customer.name).getByTestId(/invoice-total-/)).toContainText('120,00');
-    await inventory.open('existencias');
+    await inventory.openStock(item.sku);
     await expect(inventory.stockOf(item.sku, 'Principal')).toHaveText('144 un');
   });
 });

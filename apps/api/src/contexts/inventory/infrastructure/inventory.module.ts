@@ -42,6 +42,8 @@ import type { AdjustmentPosting } from '../domain/adjustment/posting/adjustment-
 import { DOCUMENT_AUTHORS } from '../domain/documents/document-authors.js';
 import type { DocumentAuthors } from '../domain/documents/document-authors.js';
 import { MOVEMENT_DOCUMENTS } from '../domain/documents/movement-documents.js';
+import { DOCUMENT_RATES } from '../../../shared/domain/ports/document-rates.js';
+import type { DocumentRates } from '../../../shared/domain/ports/document-rates.js';
 import { EXPECTED_STOCK, ExpectedStock } from '../domain/stock/expected-stock.js';
 import type { MovementDocuments } from '../domain/documents/movement-documents.js';
 import { StockMovements } from '../domain/stock/posting/stock-movements.js';
@@ -183,8 +185,8 @@ import { PrismaStockRepository } from './persistence/prisma-stock.repository.js'
     },
     {
       provide: StockSearcher,
-      useFactory: (s: StockRepository, c: InventoryCatalog) => new StockSearcher(s, c),
-      inject: [STOCK_REPOSITORY, INVENTORY_CATALOG],
+      useFactory: (s: StockRepository, c: InventoryCatalog, e: ExpectedStock, r: DocumentRates) => new StockSearcher(s, c, e, r),
+      inject: [STOCK_REPOSITORY, INVENTORY_CATALOG, EXPECTED_STOCK, DOCUMENT_RATES],
     },
     {
       provide: LowStockSearcher,

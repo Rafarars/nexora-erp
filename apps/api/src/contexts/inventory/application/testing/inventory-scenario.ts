@@ -10,7 +10,9 @@ import { NOW, TENANT_A, stockWarehouses, stockableItems } from '../../domain/tes
 import { InMemoryInventoryCatalog } from '../../infrastructure/testing/in-memory-inventory-catalog.js';
 import { InMemoryInventoryCodeSequence } from '../../infrastructure/testing/in-memory-inventory-code-sequence.js';
 import { InMemoryInventoryStore } from '../../infrastructure/testing/in-memory-inventory-store.js';
+import { FixedDocumentRates } from '../../../../shared/infrastructure/testing/fixed-document-rates.js';
 import { InMemoryDocumentAuthors } from '../../infrastructure/testing/in-memory-document-authors.js';
+import { InMemoryExpectedStock } from '../../infrastructure/testing/in-memory-expected-stock.js';
 import { InMemoryMovementDocuments } from '../../infrastructure/testing/in-memory-movement-documents.js';
 
 // Quien registra en las pruebas de aplicacion.
@@ -32,6 +34,8 @@ export function anInventoryScenario() {
     store,
     catalog,
     documents: new InMemoryMovementDocuments(store),
+    expected: new InMemoryExpectedStock(),
+    rates: new FixedDocumentRates(),
     authors: new InMemoryDocumentAuthors([{ tenantId: TENANT_A, id: ANA, name: 'Ana Rivas' }]),
     codes: new InMemoryInventoryCodeSequence(),
     finder: new AdjustmentFinder(store),

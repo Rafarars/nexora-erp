@@ -34,7 +34,9 @@ async function orderById(request: APIRequestContext, token: string, id: string) 
 }
 
 async function stockOf(request: APIRequestContext, token: string, itemId: string): Promise<number> {
-  const { stocks } = await (await request.get(`/api/v1/inventory/stock?warehouseId=${mainWarehouse}`, { headers: auth(token) })).json();
+  const { stocks } = await (
+    await request.get(`/api/v1/inventory/stock?includeEmpty=1&limit=50&warehouseId=${mainWarehouse}`, { headers: auth(token) })
+  ).json();
 
   return stocks.find((stock: { item: { id: string } }) => stock.item.id === itemId)?.quantity ?? 0;
 }

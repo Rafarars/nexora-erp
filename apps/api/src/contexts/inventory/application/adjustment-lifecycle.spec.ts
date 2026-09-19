@@ -31,7 +31,7 @@ function useCases(s: InventoryScenario) {
     confirm: new AdjustmentConfirmer(s.finder, s.factory, s.store, s.store, s.confirmation, s.clock, s.calendar),
     cancel: new AdjustmentCanceller(s.store, s.cancellation, s.clock),
     adjustments: new AdjustmentSearcher(s.store, s.catalog, s.authors),
-    stock: new StockSearcher(s.store, s.catalog),
+    stock: new StockSearcher(s.store, s.catalog, s.expected, s.rates),
     kardex: new MovementSearcher(s.store, s.documents, s.catalog),
   };
 }
@@ -77,7 +77,7 @@ describe('creating and editing a draft', () => {
     const s = anInventoryScenario();
     await created(s);
 
-    expect(await useCases(s).stock.run({ tenantId: TENANT_A })).toEqual({ stocks: [] });
+    expect((await useCases(s).stock.run({ tenantId: TENANT_A })).stocks).toEqual([]);
   });
 
   it('does not consume a code when the draft is invalid', async () => {
@@ -150,6 +150,8 @@ describe('confirming', () => {
         item: { id: WATER, sku: 'AGUA-500', name: 'Agua', baseUnit: 'un' },
         warehouse: { id: MAIN, name: 'Principal' },
         quantity: 240,
+        reserved: 0,
+        available: 240,
         averageCost: 0.5,
         totalValue: 120,
       },
@@ -220,7 +222,9 @@ describe('cancelling', () => {
 
     await useCases(s).cancel.run({ tenantId: TENANT_A, userId: ANA, adjustmentId: id });
 
-    expect((await useCases(s).stock.run({ tenantId: TENANT_A })).stocks[0].quantity).toBe(0);
+    // Al quedar en cero desaparece del listado: la pantalla dice lo que hay, no por donde paso.
+    expect((await useCases(s).stock.run({ tenantId: TENANT_A })).stocks).toEqual([]);
+    expect((await useCases(s).stock.run({ tenantId: TENANT_A, includeEmpty: true })).stocks[0].quantity).toBe(0);
     expect((await useCases(s).kardex.run({ tenantId: TENANT_A, itemId: WATER })).movements.map((m) => [m.direction, m.isReversal])).toEqual([
       ['in', false],
       ['out', true],
@@ -239,11 +243,70 @@ describe('queries', () => {
     expect(stocks.map((stock) => stock.warehouse.name)).toEqual(['Norte']);
   });
 
+  // Lo que se puede prometer no es lo que hay: un pedido confirmado ya comprometio parte.
+  it('separates what is there from what is reserved and what can still be promised', async () => {
+    const s = anInventoryScenario();
+    await useCases(s).confirm.run({ tenantId: TENANT_A, userId: ANA, adjustmentId: await created(s) });
+    s.expected.add({ tenantId: TENANT_A, itemId: WATER, warehouseId: MAIN, reserved: 90, incoming: 500 });
+
+    const [stock] = (await useCases(s).stock.run({ tenantId: TENANT_A })).stocks;
+
+    expect(stock).toMatchObject({ quantity: 240, reserved: 90, available: 150 });
+  });
+
+  // Un ajuste de salida puede llevarse mercancia ya comprometida: no queda nada que prometer,
+  // pero tampoco se promete en negativo.
+  it('never promises a negative quantity when what is reserved exceeds what is there', async () => {
+    const s = anInventoryScenario();
+    await useCases(s).confirm.run({ tenantId: TENANT_A, userId: ANA, adjustmentId: await created(s) });
+    s.expected.add({ tenantId: TENANT_A, itemId: WATER, warehouseId: MAIN, reserved: 300, incoming: 0 });
+
+    const [stock] = (await useCases(s).stock.run({ tenantId: TENANT_A })).stocks;
+
+    expect(stock).toMatchObject({ quantity: 240, reserved: 300, available: 0 });
+  });
+
+  it('values what is there with the decimals the company uses, and says in which currency', async () => {
+    const s = anInventoryScenario();
+    s.rates.decimals = 4;
+    await useCases(s).confirm.run({
+      tenantId: TENANT_A,
+      userId: ANA,
+      adjustmentId: await created(s, { lines: [{ itemId: WATER, unitId: PIECE, direction: 'in', quantity: 3, unitCost: 0.12345 }] }),
+    });
+
+    const page = await useCases(s).stock.run({ tenantId: TENANT_A });
+
+    expect(page.currency).toBe('USD');
+    expect(page.stocks[0].totalValue).toBe(0.3704);
+  });
+
+  it('returns one page at a time and says how many match in total', async () => {
+    const s = anInventoryScenario();
+    await useCases(s).confirm.run({ tenantId: TENANT_A, userId: ANA, adjustmentId: await created(s) });
+    await useCases(s).confirm.run({ tenantId: TENANT_A, userId: ANA, adjustmentId: await created(s, { warehouseId: NORTH }) });
+
+    const first = await useCases(s).stock.run({ tenantId: TENANT_A, limit: 1 });
+
+    expect(first.stocks).toHaveLength(1);
+    expect(first).toMatchObject({ total: 2, hasMore: true });
+    expect((await useCases(s).stock.run({ tenantId: TENANT_A, limit: 1, offset: 1 })).hasMore).toBe(false);
+  });
+
+  it('searches by sku and by name', async () => {
+    const s = anInventoryScenario();
+    await useCases(s).confirm.run({ tenantId: TENANT_A, userId: ANA, adjustmentId: await created(s) });
+
+    expect((await useCases(s).stock.run({ tenantId: TENANT_A, q: 'agua-5' })).stocks).toHaveLength(1);
+    expect((await useCases(s).stock.run({ tenantId: TENANT_A, q: 'Agua' })).stocks).toHaveLength(1);
+    expect((await useCases(s).stock.run({ tenantId: TENANT_A, q: 'jabon' })).stocks).toEqual([]);
+  });
+
   it('never shows the stock of another tenant', async () => {
     const s = anInventoryScenario();
     await useCases(s).confirm.run({ tenantId: TENANT_A, userId: ANA, adjustmentId: await created(s) });
 
-    expect(await useCases(s).stock.run({ tenantId: TENANT_B })).toEqual({ stocks: [] });
+    expect((await useCases(s).stock.run({ tenantId: TENANT_B })).stocks).toEqual([]);
     await expect(useCases(s).kardex.run({ tenantId: TENANT_B, itemId: WATER })).rejects.toThrow(StockItemNotFoundError);
   });
 

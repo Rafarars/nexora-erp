@@ -14,7 +14,7 @@ import { ItemRef, WarehouseRef } from '../../domain/shared/references.vo.js';
 import { TenantId } from '../../domain/shared/tenant-id.vo.js';
 import { weightedAverageCost } from '../../domain/stock/average-cost.js';
 import { ItemStock, ItemStockPrimitives } from '../../domain/stock/item-stock.entity.js';
-import { StockRepository } from '../../domain/stock/stock.repository.js';
+import { StockCriteria, StockRepository } from '../../domain/stock/stock.repository.js';
 import { InMemoryInventoryCatalog } from './in-memory-inventory-catalog.js';
 
 const stockKey = (tenantId: string, itemId: string, warehouseId: string) => `${tenantId}|${itemId}|${warehouseId}`;
@@ -91,6 +91,39 @@ export class InMemoryInventoryStore implements AdjustmentRepository, StockReposi
     return [...this.stocks.values()]
       .filter((row) => row.tenantId === tenantId.value && (!warehouseId || row.warehouseId === warehouseId.value))
       .map((row) => ItemStock.fromPrimitives(row));
+  }
+
+  // Filtra, ordena y pagina igual que la base: un doble mas permisivo da por buena una
+  // consulta que PostgreSQL responde de otra forma.
+  async searchPage(tenantId: TenantId, criteria: StockCriteria): Promise<{ stocks: ItemStock[]; total: number }> {
+    const text = criteria.text?.toLowerCase() ?? null;
+    const nameOf = (itemId: string) => this.catalog.itemOf(tenantId.value, itemId);
+    const matching = [...this.stocks.values()]
+      .filter((row) => row.tenantId === tenantId.value)
+      .filter((row) => !criteria.warehouseId || row.warehouseId === criteria.warehouseId)
+      .filter((row) => criteria.includeEmpty || row.quantity > 0)
+      .filter((row) => {
+        if (!text) return true;
+
+        const item = nameOf(row.itemId);
+
+        return (item?.sku.toLowerCase().includes(text) ?? false) || (item?.name.toLowerCase().includes(text) ?? false);
+      })
+      .sort(
+        (a, b) =>
+          this.warehouseName(tenantId.value, a.warehouseId).localeCompare(this.warehouseName(tenantId.value, b.warehouseId)) ||
+          (nameOf(a.itemId)?.name ?? '').localeCompare(nameOf(b.itemId)?.name ?? '') ||
+          a.itemId.localeCompare(b.itemId),
+      );
+
+    return {
+      stocks: matching.slice(criteria.offset, criteria.offset + criteria.limit).map((row) => ItemStock.fromPrimitives(row)),
+      total: matching.length,
+    };
+  }
+
+  private warehouseName(tenantId: string, warehouseId: string): string {
+    return this.catalog.warehouseOf(tenantId, warehouseId)?.name ?? '';
   }
 
   async searchMovements(tenantId: TenantId, itemId: ItemRef, warehouseId?: WarehouseRef): Promise<InventoryMovement[]> {

@@ -78,6 +78,16 @@ export class InventoryPage {
     await this.page.getByRole('menuitem', { name: action, exact: true }).click();
   }
 
+  // Las existencias paginan y esconden lo agotado: se llega buscando el articulo y pidiendo
+  // ver tambien las agotadas, porque una prueba quiere el estado real, no el resumen.
+  async openStock(sku: string): Promise<void> {
+    await this.open('existencias');
+    await this.page.getByTestId('stock-search').fill(sku);
+    await this.page.getByTestId('stock-include-empty').check();
+    await this.page.getByTestId('stock-filter-submit').click();
+    await expect(this.page).toHaveURL(new RegExp(`q=${encodeURIComponent(sku)}`));
+  }
+
   stockOf(sku: string, warehouse: string): Locator {
     return this.page.getByTestId(`stock-quantity-${sku}-${warehouse}`);
   }

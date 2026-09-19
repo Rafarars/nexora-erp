@@ -25,13 +25,19 @@ test.describe('The inventory, from the screen', () => {
     await inventory.act(row, 'Confirmar');
     await expect(row.getByTestId(/adjustment-status-/)).toHaveText('Confirmado');
 
-    await inventory.open('existencias');
+    await inventory.openStock(item.sku);
     await expect(inventory.stockOf(item.sku, 'Principal')).toHaveText('48 un');
 
     await inventory.open('kardex');
     await page.getByTestId('kardex-item').selectOption({ label });
     await page.getByTestId('kardex-submit').click();
     await expect(page.getByTestId('kardex-balance-Principal-1')).toHaveText('48 un');
+
+    // Lo que queda en cero desaparece del listado: la pantalla dice lo que hay.
+    await inventory.open('existencias');
+    await page.getByTestId('stock-search').fill(item.sku);
+    await page.getByTestId('stock-filter-submit').click();
+    await expect(inventory.stockOf(item.sku, 'Principal')).toHaveCount(1);
 
     await inventory.open('ajustes');
     await inventory.act(inventory.adjustmentWith(item.sku), 'Anular (revierte la existencia)');
@@ -80,7 +86,7 @@ test.describe('The inventory, from the screen', () => {
     await inventory.act(page.getByTestId(/adjustment-row-/).filter({ hasText: 'Revaluación' }).first(), 'Confirmar');
 
     // La cantidad no cambia; el promedio, si.
-    await inventory.open('existencias');
+    await inventory.openStock(item.sku);
     await expect(inventory.stockOf(item.sku, 'Principal')).toHaveText('20 un');
 
     await inventory.open('kardex');
@@ -129,7 +135,7 @@ test('a read-only role sees stock and adjustments but gets no way to change them
   await new LoginPage(page).signIn(ACCOUNTANT);
   const inventory = new InventoryPage(page);
 
-  await inventory.open('existencias');
+  await inventory.openStock('DETERGENTE-1KG');
   await expect(inventory.stockOf('DETERGENTE-1KG', 'Principal')).toHaveText('50 kg');
 
   // El listado pagina, asi que los ajustes de la semilla se buscan. Filtrar tambien es leer:

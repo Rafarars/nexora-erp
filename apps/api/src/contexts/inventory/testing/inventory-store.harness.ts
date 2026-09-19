@@ -17,6 +17,9 @@ export interface InventoryPorts {
 // bodegas del object mother: sin ellos la base rechazaria cada fila.
 export interface InventoryPortsHarness {
   ports(): InventoryPorts;
+  // Con que SKU y nombre esta sembrado el articulo: cada arnes usa los suyos para no chocar
+  // con los datos de demostracion, y el contrato busca por texto contra el maestro.
+  seededItem(): { sku: string; name: string };
   // Desactiva un articulo sembrado, como lo haria su maestro.
   deactivateItem(itemId: string): Promise<void>;
   reset(): Promise<void>;

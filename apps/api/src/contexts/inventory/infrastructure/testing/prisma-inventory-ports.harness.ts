@@ -20,6 +20,10 @@ function connectionString(): string {
 export class PrismaInventoryPortsHarness implements InventoryPortsHarness {
   private readonly prisma = new PrismaService(new ConfigService<Env, true>({ DATABASE_URL: connectionString() }));
 
+  seededItem(): { sku: string; name: string } {
+    return { sku: 'CONTRATO-AGUA', name: 'Contrato agua' };
+  }
+
   ports(): InventoryPorts {
     return {
       adjustments: new PrismaAdjustmentRepository(this.prisma),

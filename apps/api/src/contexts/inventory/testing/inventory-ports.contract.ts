@@ -5,6 +5,7 @@ import { AdjustmentDate } from '../domain/adjustment/adjustment-date.vo.js';
 import { AdjustmentLine, AdjustmentLineId } from '../domain/adjustment/adjustment-line.js';
 import { Adjustment, AdjustmentId } from '../domain/adjustment/adjustment.entity.js';
 import { AdjustmentCriteria } from '../domain/adjustment/adjustment.repository.js';
+import { StockCriteria } from '../domain/stock/stock.repository.js';
 import { AdjustmentCancellation } from '../domain/adjustment/posting/adjustment-cancellation.js';
 import { AdjustmentConfirmation } from '../domain/adjustment/posting/adjustment-confirmation.js';
 import {
@@ -265,6 +266,60 @@ export function describeInventoryPortsContract(implementation: string, createHar
 
       it('answers an empty map when nobody is asked for', async () => {
         expect(await ports.authors.namesOf(tenant, [])).toEqual(new Map());
+      });
+    });
+
+    // El listado de la pantalla: filtra por texto contra el maestro de articulos, esconde lo
+    // agotado y pagina. El join y el orden solo los valida la base.
+    describe('StockRepository: the page the screen shows', () => {
+      const stockPage = (overrides: Partial<StockCriteria> = {}): StockCriteria => ({
+        text: null,
+        warehouseId: null,
+        includeEmpty: false,
+        limit: 20,
+        offset: 0,
+        ...overrides,
+      });
+
+      it('hides what is at zero, and shows it when asked', async () => {
+        const id = await draft([line('in', 5, 1)]);
+        await confirm(id);
+        await cancel(id);
+
+        expect((await ports.stocks.searchPage(tenant, stockPage())).stocks).toEqual([]);
+
+        const withEmpty = await ports.stocks.searchPage(tenant, stockPage({ includeEmpty: true }));
+        expect(withEmpty.stocks.map((stock) => stock.available().toNumber())).toEqual([0]);
+        expect(withEmpty.total).toBe(1);
+      });
+
+      it('searches by sku and by name of the item, ignoring case', async () => {
+        await confirm(await draft([line('in', 5, 1)]));
+        const { sku, name } = harness.seededItem();
+
+        expect((await ports.stocks.searchPage(tenant, stockPage({ text: sku.toLowerCase() }))).total).toBe(1);
+        expect((await ports.stocks.searchPage(tenant, stockPage({ text: name.toUpperCase() }))).total).toBe(1);
+        expect((await ports.stocks.searchPage(tenant, stockPage({ text: 'jabon' }))).stocks).toEqual([]);
+      });
+
+      it('filters by warehouse and pages with its total', async () => {
+        await confirm(await draft([line('in', 5, 1)]));
+        await confirm(await draft([line('in', 3, 1)], NORTH));
+
+        const all = await ports.stocks.searchPage(tenant, stockPage({ limit: 1 }));
+        const north = await ports.stocks.searchPage(tenant, stockPage({ warehouseId: NORTH }));
+
+        expect(all.stocks).toHaveLength(1);
+        expect(all.total).toBe(2);
+        expect(north.stocks.map((stock) => stock.warehouseId.value)).toEqual([NORTH]);
+        // Por nombre de bodega: "Contrato norte" va antes que "Contrato principal".
+        expect(all.stocks[0].warehouseId.value).toBe(NORTH);
+      });
+
+      it('never returns the stock of another tenant', async () => {
+        await confirm(await draft([line('in', 5, 1)]));
+
+        expect((await ports.stocks.searchPage(TenantId.of(TENANT_B), stockPage())).stocks).toEqual([]);
       });
     });
 

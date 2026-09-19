@@ -31,6 +31,11 @@ export class InMemoryInventoryCatalog implements InventoryCatalog {
     return item ?? null;
   }
 
+  // Como itemOf: el orden del listado de existencias es por nombre de bodega.
+  warehouseOf(tenantId: string, warehouseId: string): StockWarehouse | null {
+    return this.warehouses.find((candidate) => candidate.tenantId === tenantId && candidate.id === warehouseId) ?? null;
+  }
+
   async findWarehouses(tenantId: TenantId, ids: WarehouseRef[]): Promise<StockWarehouse[]> {
     const wanted = new Set(ids.map((id) => id.value));
 

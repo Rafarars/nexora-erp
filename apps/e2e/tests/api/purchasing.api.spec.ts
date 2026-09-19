@@ -11,8 +11,11 @@ async function orderById(request: APIRequestContext, token: string, id: string) 
   return orders.find((order: { id: string }) => order.id === id);
 }
 
-async function stockOf(request: APIRequestContext, token: string, itemId: string) {
-  const { stocks } = await (await request.get(`/api/v1/inventory/stock?warehouseId=${ACME_INVENTORY.mainWarehouse}`, { headers: auth(token) })).json();
+// Busca por SKU: el listado pagina, y con pruebas en paralelo el articulo no tiene por que
+// estar en la primera pagina.
+async function stockOf(request: APIRequestContext, token: string, itemId: string, sku?: string) {
+  const query = `includeEmpty=1&warehouseId=${ACME_INVENTORY.mainWarehouse}${sku ? `&q=${encodeURIComponent(sku)}` : ''}`;
+  const { stocks } = await (await request.get(`/api/v1/inventory/stock?${query}`, { headers: auth(token) })).json();
 
   return stocks.find((stock: { item: { id: string } }) => stock.item.id === itemId);
 }
@@ -108,7 +111,7 @@ test.describe('purchase orders', () => {
     expect((await put(request, token, `${ORDERS}/${order.id}/confirm`)).status()).toBe(200);
 
     expect(await incomingOf(request, token, item.id)).toMatchObject({ quantity: 240, orders: [{ code: order.code, pendingQuantity: 240 }] });
-    expect(await stockOf(request, token, item.id)).toBeUndefined();
+    expect(await stockOf(request, token, item.id, item.sku)).toBeUndefined();
   });
 
   test('a confirmed order can no longer be edited', async ({ request }) => {
@@ -145,11 +148,11 @@ test.describe('goods receipts', () => {
     const receipt = await aDraftReceipt(request, token, order.id, [{ orderLineId: order.lines[0].id, quantity: 4 }]);
 
     expect(receipt).toMatchObject({ code: expect.stringMatching(/^ENT\d{6}$/), status: 'draft', order: { code: order.code } });
-    expect(await stockOf(request, token, item.id)).toBeUndefined();
+    expect(await stockOf(request, token, item.id, item.sku)).toBeUndefined();
 
     expect((await put(request, token, `${RECEIPTS}/${receipt.id}/confirm`)).status()).toBe(200);
 
-    expect(await stockOf(request, token, item.id)).toMatchObject({ quantity: 96, averageCost: 0.5 });
+    expect(await stockOf(request, token, item.id, item.sku)).toMatchObject({ quantity: 96, averageCost: 0.5 });
     expect(await orderById(request, token, order.id)).toMatchObject({ status: 'partially_received', lines: [{ receivedQuantity: 4, pendingQuantity: 6 }] });
     expect(await incomingOf(request, token, item.id)).toMatchObject({ quantity: 144 });
 
@@ -172,7 +175,7 @@ test.describe('goods receipts', () => {
     await put(request, token, `${ORDERS}/${cheaper.id}/confirm`);
     await put(request, token, `${RECEIPTS}/${(await aDraftReceipt(request, token, cheaper.id, [{ orderLineId: cheaper.lines[0].id, quantity: 240 }])).id}/confirm`);
 
-    expect(await stockOf(request, token, item.id)).toMatchObject({ quantity: 480, averageCost: 0.75 });
+    expect(await stockOf(request, token, item.id, item.sku)).toMatchObject({ quantity: 480, averageCost: 0.75 });
   });
 
   // La guarda de la recepcion a traves de toda la pila: nunca entra mas de lo pedido.
@@ -184,7 +187,7 @@ test.describe('goods receipts', () => {
     const responses = await Promise.all([put(request, token, `${RECEIPTS}/${first.id}/confirm`), put(request, token, `${RECEIPTS}/${second.id}/confirm`)]);
 
     expect(responses.map((response) => response.status()).sort()).toEqual([200, 409]);
-    expect(await stockOf(request, token, item.id)).toMatchObject({ quantity: 144 });
+    expect(await stockOf(request, token, item.id, item.sku)).toMatchObject({ quantity: 144 });
     expect((await orderById(request, token, order.id)).lines[0].receivedQuantity).toBe(6);
   });
 
@@ -196,7 +199,7 @@ test.describe('goods receipts', () => {
     expect((await put(request, token, `${ORDERS}/${order.id}/cancel`)).status()).toBe(409);
     expect((await put(request, token, `${RECEIPTS}/${receipt.id}/cancel`)).status()).toBe(200);
 
-    expect(await stockOf(request, token, item.id)).toMatchObject({ quantity: 0 });
+    expect(await stockOf(request, token, item.id, item.sku)).toMatchObject({ quantity: 0 });
     expect((await orderById(request, token, order.id)).status).toBe('confirmed');
     expect(await incomingOf(request, token, item.id)).toMatchObject({ quantity: 240 });
 
@@ -224,7 +227,7 @@ test.describe('goods receipts', () => {
 
     expect(response.status()).toBe(409);
     expect((await response.json()).error).toBe('ReceivedGoodsAlreadyUsedError');
-    expect(await stockOf(request, token, item.id)).toMatchObject({ quantity: 4 });
+    expect(await stockOf(request, token, item.id, item.sku)).toMatchObject({ quantity: 4 });
   });
 
   test('refuses a receipt larger than what is pending', async ({ request }) => {
@@ -301,7 +304,7 @@ test.describe('currency and exchange rates of purchases', () => {
 
     expect(receipt).toMatchObject({ currency: 'EUR', exchangeRate: 175.05, baseExchangeRate: 153.1, manualExchangeRate: false });
     expect((await put(request, token, `${RECEIPTS}/${receipt.id}/confirm`)).status()).toBe(200);
-    expect(await stockOf(request, token, item.id)).toMatchObject({ quantity: 240, averageCost: 0.571685 });
+    expect(await stockOf(request, token, item.id, item.sku)).toMatchObject({ quantity: 240, averageCost: 0.571685 });
   });
 
   test('a rate written by hand is kept through the confirmation, but not for the company currency', async ({ request }) => {

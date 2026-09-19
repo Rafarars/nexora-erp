@@ -429,8 +429,29 @@ de compra y los despachos guardan las suyas igual.
 | `average_cost` | Costo promedio vigente |
 | `last_sequence` | Último número de movimiento |
 
-**Solo la escribe quien escribe el kardex**, en la misma transacción. La valoración de la pantalla
-es `cantidad × costo promedio`, redondeada a céntimos.
+**Lo que hay, lo comprometido y lo que se puede prometer.** La tabla guarda solo `quantity`: lo
+**reservado** no se denormaliza, se calcula al consultar a partir de los pedidos de venta
+confirmados con pendiente (el puerto `ExpectedStock`, el mismo que usa Bajo mínimo). Así no hay dos
+verdades que puedan separarse.
+
+- **Existencia**: lo que hay físicamente.
+- **Reservado**: lo que los pedidos confirmados ya comprometieron.
+- **Disponible** = existencia − reservado, **nunca negativo**: un ajuste de salida puede llevarse
+  mercancía ya comprometida, y entonces no queda nada que prometer, pero tampoco se promete en rojo.
+
+Lo que viene **en camino** no entra aquí: es una pregunta de reposición y vive en
+[Bajo mínimo](#11-bajo-mínimo), que compara contra la existencia proyectada.
+
+**Solo la escribe quien escribe el kardex**, en la misma transacción. La valoración es
+`cantidad × costo promedio`, redondeada **con los decimales que la empresa usa en sus importes** y
+expresada en su moneda: la misma regla que el informe de valuación, para que las dos cifras no se
+contradigan.
+
+**Una existencia en cero no se lista**, salvo que se pida: una fila en cero dice por dónde pasó el
+artículo alguna vez, no que haya algo. El listado pagina y busca por SKU y por nombre.
+
+**El valor total del inventario no está en esta pantalla**: no cabe en una página, y sumar solo lo
+visible sería mentir. Lo suma el [informe de valuación](reportes.md), que además se exporta.
 
 ---
 
@@ -502,7 +523,7 @@ Las del artículo se explican en [§1](#1-artículos); la de la bodega vive en e
 | Editar borrador | `PUT /api/v1/inventory/adjustments/:adjustmentId` | `inventory.adjustments.update` |
 | Confirmar | `PUT /api/v1/inventory/adjustments/:adjustmentId/confirm` | `inventory.adjustments.confirm` |
 | Anular | `PUT /api/v1/inventory/adjustments/:adjustmentId/cancel` | `inventory.adjustments.cancel` |
-| Existencias | `GET /api/v1/inventory/stock?warehouseId=` | `inventory.stock.search` |
+| Existencias | `GET /api/v1/inventory/stock?q=&warehouseId=&includeEmpty=&limit=&offset=` | `inventory.stock.search` |
 | Kardex | `GET /api/v1/inventory/items/:itemId/movements?warehouseId=` | `inventory.movements.search` |
 
 - Filtrar por **una bodega o un artículo de otra empresa responde 404**, no una lista vacía.
@@ -531,7 +552,7 @@ Las del artículo se explican en [§1](#1-artículos); la de la bodega vive en e
 | `/inventario` | Redirige a la primera sección que el rol puede ver |
 | `/inventario/articulos` | Tabla con SKU, tipo, categoría, **para qué se usa** (comprar, vender), **impuestos de venta y de compra** y unidades («un · 1 cja = 24 un»); **buscador y paginación**; panel con código de barras, editor de unidades y **mínimos por bodega** |
 | `/inventario/bajo-minimo` | Lo que hay que reponer: **existencia, reservado, en camino y proyectada**, mínimo, cuánto falta y cuánto pedir, con filtro por bodega |
-| `/inventario/existencias` | Artículo, bodega, existencia en unidad base, costo promedio, valor y total; filtro por bodega en la dirección |
+| `/inventario/existencias` | Artículo, bodega, **existencia, reservado y disponible** en unidad base, costo promedio y valor; **buscador, filtro por bodega, casilla para ver las agotadas y paginación**, todo en la dirección |
 | `/inventario/ajustes` | Código, fecha, bodega, **motivo**, resumen de líneas («+2 cja (48 un) AGUA-500»), estado con **quién lo registró y quién lo cerró**, y Opciones según el estado; **filtros por texto, bodega, estado, motivo y rango de fechas, y paginación** |
 | `/inventario/kardex` | Elige artículo y bodega; cada movimiento con **la fecha del documento** (y la de registro cuando difieren), documento, cantidad, costo, saldo y promedio, y las anulaciones marcadas |
 

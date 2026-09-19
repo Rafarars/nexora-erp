@@ -47,7 +47,7 @@ test.describe('Purchasing, from the screen', () => {
     await expect(purchasing.orderOf(supplier.name).getByTestId(/order-status-/)).toHaveText('Recibida en parte');
     await expect(purchasing.orderOf(supplier.name).getByTestId(/order-lines-/)).toContainText('(4 recibidas)');
 
-    await inventory.open('existencias');
+    await inventory.openStock(item.sku);
     await expect(inventory.stockOf(item.sku, 'Principal')).toHaveText('96 un');
 
     await inventory.open('kardex');
@@ -62,7 +62,7 @@ test.describe('Purchasing, from the screen', () => {
     await purchasing.open('ordenes');
     await expect(purchasing.orderOf(supplier.name).getByTestId(/order-status-/)).toHaveText('Confirmada');
 
-    await inventory.open('existencias');
+    await inventory.openStock(item.sku);
     await expect(inventory.stockOf(item.sku, 'Principal')).toHaveText('0 un');
   });
 

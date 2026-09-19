@@ -27,10 +27,16 @@ async function draft(
   return adjustments.find((adjustment: { notes: string }) => adjustment.notes === notes);
 }
 
-async function stockOf(request: APIRequestContext, token: string, itemId: string): Promise<{ quantity: number; averageCost: number } | undefined> {
-  const { stocks } = await (
-    await request.get(`/api/v1/inventory/stock?warehouseId=${ACME_INVENTORY.mainWarehouse}`, { headers: auth(token) })
-  ).json();
+// Busca por SKU: el listado pagina, y con pruebas en paralelo el articulo no tiene por que
+// estar en la primera pagina.
+async function stockOf(
+  request: APIRequestContext,
+  token: string,
+  itemId: string,
+  sku?: string,
+): Promise<{ quantity: number; reserved: number; available: number; averageCost: number } | undefined> {
+  const query = `includeEmpty=1&warehouseId=${ACME_INVENTORY.mainWarehouse}${sku ? `&q=${encodeURIComponent(sku)}` : ''}`;
+  const { stocks } = await (await request.get(`/api/v1/inventory/stock?${query}`, { headers: auth(token) })).json();
 
   return stocks.find((stock: { item: { id: string } }) => stock.item.id === itemId);
 }
@@ -53,11 +59,11 @@ test.describe('inventory adjustments', () => {
     ]);
 
     expect(adjustment.code).toMatch(/^AJU\d{6}$/);
-    expect(await stockOf(request, token, item.id)).toBeUndefined();
+    expect(await stockOf(request, token, item.id, item.sku)).toBeUndefined();
 
     expect((await confirm(request, token, adjustment.id)).status()).toBe(200);
 
-    expect(await stockOf(request, token, item.id)).toMatchObject({ quantity: 48, averageCost: 0.5 });
+    expect(await stockOf(request, token, item.id, item.sku)).toMatchObject({ quantity: 48, averageCost: 0.5 });
     expect(await kardexOf(request, token, item.id)).toMatchObject([
       { direction: 'in', quantity: 48, unitCost: 0.5, balanceQuantity: 48, origin: { code: adjustment.code }, isReversal: false },
     ]);
@@ -73,7 +79,7 @@ test.describe('inventory adjustments', () => {
     const found = await draft(request, token, [{ itemId: item.id, unitId: ACME_INVENTORY.piece, direction: 'in', quantity: 5 }], 'physical_count');
 
     expect((await confirm(request, token, found.id)).status()).toBe(200);
-    expect(await stockOf(request, token, item.id)).toMatchObject({ quantity: 15, averageCost: 4 });
+    expect(await stockOf(request, token, item.id, item.sku)).toMatchObject({ quantity: 15, averageCost: 4 });
   });
 
   test('refuses an entry without cost when the item has no stock anywhere', async ({ request }) => {
@@ -85,7 +91,7 @@ test.describe('inventory adjustments', () => {
 
     expect(response.status()).toBe(409);
     expect((await response.json()).error).toBe('UnknownEntryCostError');
-    expect(await stockOf(request, token, item.id)).toBeUndefined();
+    expect(await stockOf(request, token, item.id, item.sku)).toBeUndefined();
   });
 
   // La fecha del documento y el instante de la publicacion son dos cosas distintas.
@@ -121,14 +127,14 @@ test.describe('inventory adjustments', () => {
     const revaluation = await draft(request, token, [{ itemId: item.id, unitCost: 3 }], 'revaluation');
     expect((await confirm(request, token, revaluation.id)).status()).toBe(200);
 
-    expect(await stockOf(request, token, item.id)).toMatchObject({ quantity: 20, averageCost: 3 });
+    expect(await stockOf(request, token, item.id, item.sku)).toMatchObject({ quantity: 20, averageCost: 3 });
     expect((await kardexOf(request, token, item.id)).slice(1)).toMatchObject([
       { direction: 'out', quantity: 20, unitCost: 2 },
       { direction: 'in', quantity: 20, unitCost: 3 },
     ]);
 
     expect((await cancel(request, token, revaluation.id)).status()).toBe(200);
-    expect(await stockOf(request, token, item.id)).toMatchObject({ quantity: 20, averageCost: 2 });
+    expect(await stockOf(request, token, item.id, item.sku)).toMatchObject({ quantity: 20, averageCost: 2 });
   });
 
   test('refuses a revaluation of a warehouse with nothing in it', async ({ request }) => {
@@ -169,7 +175,7 @@ test.describe('inventory adjustments', () => {
 
     expect(response.status()).toBe(409);
     expect((await response.json()).error).toBe('InsufficientStockError');
-    expect(await stockOf(request, token, item.id)).toMatchObject({ quantity: 5 });
+    expect(await stockOf(request, token, item.id, item.sku)).toMatchObject({ quantity: 5 });
     expect(await kardexOf(request, token, item.id)).toHaveLength(1);
   });
 
@@ -183,7 +189,7 @@ test.describe('inventory adjustments', () => {
 
     expect((await cancel(request, token, adjustment.id)).status()).toBe(200);
 
-    expect(await stockOf(request, token, item.id)).toMatchObject({ quantity: 0 });
+    expect(await stockOf(request, token, item.id, item.sku)).toMatchObject({ quantity: 0 });
     expect((await kardexOf(request, token, item.id)).map((m: { direction: string; isReversal: boolean }) => [m.direction, m.isReversal])).toEqual([
       ['in', false],
       ['out', true],
@@ -202,7 +208,7 @@ test.describe('inventory adjustments', () => {
     const statuses = (await Promise.all([confirm(request, token, first.id), confirm(request, token, second.id)])).map((r) => r.status());
 
     expect(statuses.sort()).toEqual([200, 409]);
-    expect(await stockOf(request, token, item.id)).toMatchObject({ quantity: 4 });
+    expect(await stockOf(request, token, item.id, item.sku)).toMatchObject({ quantity: 4 });
   });
 
   test('a confirmed adjustment can no longer be edited', async ({ request }) => {
@@ -241,6 +247,42 @@ test.describe('inventory adjustments', () => {
       'InvalidQuantityError',
       'FutureAdjustmentDateError',
     ]);
+  });
+});
+
+// Lo que se puede prometer no es lo que hay: la pantalla de existencias los separa.
+test.describe('what the stock screen answers', () => {
+  test('hides what is at zero unless it is asked for, and says in which currency it values', async ({ request }) => {
+    const token = await tokenFor(request, 'ana@acme.com');
+    const item = await aFreshItem(request, token);
+    const adjustment = await draft(request, token, [{ itemId: item.id, unitId: ACME_INVENTORY.piece, direction: 'in', quantity: 4, unitCost: 1 }]);
+    await confirm(request, token, adjustment.id);
+
+    expect(await stockOf(request, token, item.id, item.sku)).toMatchObject({ quantity: 4, reserved: 0, available: 4 });
+
+    await cancel(request, token, adjustment.id);
+
+    const page = await (await request.get(`/api/v1/inventory/stock?q=${item.sku}`, { headers: auth(token) })).json();
+    expect(page.stocks).toEqual([]);
+    expect(page.currency).toBe('USD');
+
+    const withEmpty = await (await request.get(`/api/v1/inventory/stock?includeEmpty=1&q=${item.sku}`, { headers: auth(token) })).json();
+    expect(withEmpty.stocks).toMatchObject([{ quantity: 0 }]);
+  });
+
+  test('searches by sku and pages with its total', async ({ request }) => {
+    const token = await tokenFor(request, 'ana@acme.com');
+    const item = await aFreshItem(request, token);
+    await confirm(request, token, (await draft(request, token, [{ itemId: item.id, unitId: ACME_INVENTORY.piece, direction: 'in', quantity: 4, unitCost: 1 }])).id);
+
+    const found = await (await request.get(`/api/v1/inventory/stock?q=${item.sku}`, { headers: auth(token) })).json();
+    expect(found).toMatchObject({ total: 1, hasMore: false });
+    expect(found.stocks[0].item.sku).toBe(item.sku);
+
+    const firstPage = await (await request.get('/api/v1/inventory/stock?limit=1', { headers: auth(token) })).json();
+    expect(firstPage.stocks).toHaveLength(1);
+    expect(firstPage.total).toBeGreaterThan(1);
+    expect(firstPage.hasMore).toBe(true);
   });
 });
 

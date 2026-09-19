@@ -27,6 +27,24 @@ export interface AdjustmentInput {
   lines: { itemId: string; unitId?: string; direction?: string; quantity?: number; unitCost: number | null }[];
 }
 
+export interface StockPage {
+  stocks: Stock[];
+  total: number;
+  limit: number;
+  offset: number;
+  hasMore: boolean;
+  currency: string;
+}
+
+// Lo que la pantalla de existencias deja filtrar.
+export interface StockFilters {
+  q?: string;
+  warehouseId?: string;
+  includeEmpty?: boolean;
+  limit?: number;
+  offset?: number;
+}
+
 export interface AdjustmentPage {
   adjustments: Adjustment[];
   total: number;
@@ -64,7 +82,7 @@ export interface InventoryApi {
   saveItem(token: string, id: string | null, input: ItemInput): Promise<void>;
   changeItemStatus(token: string, id: string, active: boolean): Promise<void>;
 
-  searchStock(token: string, warehouseId?: string): Promise<Stock[]>;
+  searchStock(token: string, filters?: StockFilters): Promise<StockPage>;
   searchMovements(token: string, itemId: string, warehouseId?: string): Promise<Movement[]>;
   searchAdjustments(token: string, filters?: AdjustmentFilters): Promise<AdjustmentPage>;
   saveAdjustment(token: string, id: string | null, input: AdjustmentInput): Promise<void>;

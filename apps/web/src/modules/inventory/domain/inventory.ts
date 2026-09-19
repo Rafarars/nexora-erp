@@ -6,6 +6,9 @@ export interface Stock {
   item: { id: string; sku: string; name: string; baseUnit: string };
   warehouse: { id: string; name: string };
   quantity: number;
+  // Lo que los pedidos confirmados ya comprometieron, y lo que queda por prometer.
+  reserved: number;
+  available: number;
   averageCost: number;
   totalValue: number;
 }

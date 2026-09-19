@@ -14,6 +14,10 @@ class InMemoryInventoryPortsHarness implements InventoryPortsHarness {
     return this.current;
   }
 
+  seededItem(): { sku: string; name: string } {
+    return { sku: 'AGUA-500', name: 'Agua' };
+  }
+
   async deactivateItem(itemId: string): Promise<void> {
     this.catalog.deactivate(itemId);
   }
