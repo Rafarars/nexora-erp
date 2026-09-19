@@ -122,7 +122,7 @@ inventory/
 └── infrastructure/   # controladores HTTP, ADAPTADORES Prisma, módulo Nest
 ```
 
-Es la misma organización de `src/Flexio/` que ya se maneja a diario, traducida a TypeScript.
+Es la misma organización que ya se maneja a diario en un proyecto PHP, traducida a TypeScript.
 
 ### Puertos y adaptadores — el mecanismo
 
@@ -409,9 +409,9 @@ No es un instructivo de instalación. Es el argumento. Debe contener:
 Se escriben **al cerrar el H1**, no antes. Una skill se **extrae, no se inventa**: escrita antes,
 codifica suposiciones; escrita después del primer contexto completo (dominio, puertos, adaptadores,
 controlador, migración y sus pruebas), codifica lo que realmente funcionó, con los tropiezos ya
-resueltos. Es como nacieron las skills de Flexio.
+resueltos. Es como nacieron las skills que ya se usan a diario en otro proyecto.
 
-**No se adaptan las skills de Flexio.** Se toma su estructura como referencia porque está bien
+**No se adaptan esas skills.** Se toma su estructura como referencia porque está bien
 armada, pero el contenido se escribe de cero: aquellas codifican Symfony, Eloquent, Phinx y Behat;
 aquí es NestJS, Prisma y Vitest. Adaptarlas sería más lento y arrastraría modismos de PHP.
 

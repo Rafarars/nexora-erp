@@ -254,7 +254,7 @@ Decisiones de interfaz, **tomadas por Rafael**:
   que administrar
 - **Formularios en panel lateral deslizante**: la tabla sigue visible y se comprueba el
   resultado sin recargar
-- **Listados con menú «Opciones» por fila**, como Flexio: Editar abre el mismo panel del
+- **Listados con menú «Opciones» por fila**: Editar abre el mismo panel del
   alta ya relleno
 - `/estado` es **público**: se consulta justo cuando el sistema está mal, y comprobar la
   sesión necesita la base
@@ -319,7 +319,7 @@ Hecha.
   `hexagonal-architecture`, `multi-tenancy`, `authorization` y `testing-architecture`
 - **Las skills quedan para después**, por decisión de Rafael: una skill escrita con un
   solo caso de uso suele quedar atada a él. Se harán cuando haya un segundo proyecto. Ya
-  existe una `hexagonal-architecture` de Flexio (PHP): elegir nombres que no choquen
+  existe una `hexagonal-architecture` escrita para PHP: elegir nombres que no choquen
 
 ## Revisión rigurosa del H0 y el H1 ✅
 

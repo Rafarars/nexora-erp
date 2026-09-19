@@ -226,8 +226,8 @@ meter mercancía comprada.
 real, y actualiza lo que viene en camino. Un ajuste no dice de dónde vino la mercancía: si se usa para
 compras, se pierde esa trazabilidad y lo pendiente de las órdenes nunca se cierra.
 
-Antes del H4 no existía compras, y el ajuste era la única forma de dar existencia a un artículo (así
-se hacía también en Flexio). Desde el H4, lo comprado entra por su entrada.
+Antes del H4 no existía compras, y el ajuste era la única forma de dar existencia a un artículo.
+Desde el H4, lo comprado entra por su entrada.
 
 Referencias: la documentación de [verlumyx/erp](https://github.com/verlumyx/erp/blob/main/docs/inventario.md)
 («cuadres, mermas y hallazgos») y la de
