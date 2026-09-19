@@ -41,10 +41,10 @@ function line(direction: 'in' | 'out', base: number, unitCost: number | null = n
   });
 }
 
-async function draft(store: InMemoryInventoryStore, id: string, lines: AdjustmentLine[], warehouse = MAIN) {
+async function draft(store: InMemoryInventoryStore, id: string, lines: AdjustmentLine[], warehouse = MAIN, day = TODAY) {
   const adjustment = Adjustment.draft(AdjustmentId.of(id), tenant, `AJU${id.slice(-6)}`, {
     warehouseId: WarehouseRef.of(warehouse),
-    date: AdjustmentDate.of(TODAY),
+    date: AdjustmentDate.of(day),
     notes: null,
     lines,
   }, NOW, TODAY);
@@ -127,6 +127,17 @@ describe('confirming an adjustment', () => {
     await w.confirm(await draft(w.store, A2, [line('in', 5)], NORTH));
 
     expect((await w.kardex()).at(-1)).toMatchObject({ warehouseId: NORTH, unitCost: 5, balanceAverageCost: 5 });
+  });
+
+  // El movimiento se publica hoy, pero cita la fecha que el documento declara: el kardex
+  // ensena las dos y el saldo sigue corriendo por el orden de publicacion.
+  it('writes the date the adjustment declares, not the day it was posted', async () => {
+    const w = world();
+    const id = await draft(w.store, A1, [line('in', 10, 2)], MAIN, '2025-11-30');
+
+    await w.confirm(id);
+
+    expect((await w.kardex()).at(-1)).toMatchObject({ originDate: '2025-11-30', occurredAt: NOW });
   });
 
   it('refuses an entry without cost when the item has no stock anywhere', async () => {

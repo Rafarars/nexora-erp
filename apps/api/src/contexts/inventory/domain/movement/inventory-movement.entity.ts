@@ -20,6 +20,9 @@ export interface MovementOrigin {
   type: MovementOriginType;
   id: string;
   lineId: string | null;
+  // El dia que el documento declara. No tiene por que ser el de la publicacion: un ajuste
+  // fechado en agosto puede confirmarse en septiembre.
+  date: string;
 }
 
 export interface InventoryMovementPrimitives {
@@ -36,6 +39,7 @@ export interface InventoryMovementPrimitives {
   originType: MovementOriginType;
   originId: string;
   originLineId: string | null;
+  originDate: string;
   reversalOfId: string | null;
   occurredAt: Date;
 }
@@ -103,7 +107,7 @@ export class InventoryMovement {
       UnitCost.of(row.unitCost),
       Quantity.of(row.balanceQuantity),
       UnitCost.of(row.balanceAverageCost),
-      { type: row.originType, id: row.originId, lineId: row.originLineId },
+      { type: row.originType, id: row.originId, lineId: row.originLineId, date: row.originDate },
       row.reversalOfId ? MovementId.of(row.reversalOfId) : null,
       row.occurredAt,
     );
@@ -124,6 +128,7 @@ export class InventoryMovement {
       originType: this.origin.type,
       originId: this.origin.id,
       originLineId: this.origin.lineId,
+      originDate: this.origin.date,
       reversalOfId: this.reversalOfId?.value ?? null,
       occurredAt: this.occurredAt,
     };

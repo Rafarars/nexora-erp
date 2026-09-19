@@ -7,6 +7,9 @@ import { ItemRef, WarehouseRef } from '../../shared/references.vo.js';
 import { ItemStock } from '../item-stock.entity.js';
 import { Ledger, StockChanges } from './stock-ledger.js';
 
+// El documento que mueve la existencia: que es, cual y que dia declara.
+export type DocumentRef = Omit<MovementOrigin, 'lineId'>;
+
 // Una linea de cualquier documento ya expresada en unidad base. Sin costo, una entrada se
 // valora al promedio vigente.
 export interface StockEntry {
@@ -24,13 +27,13 @@ export interface StockEntry {
 export class StockMovements {
   constructor(private readonly ids: IdGenerator) {}
 
-  record(ledger: Ledger, document: { type: MovementOrigin['type']; id: string }, entries: StockEntry[], now: Date): StockChanges {
+  record(ledger: Ledger, document: DocumentRef, entries: StockEntry[], now: Date): StockChanges {
     const touched = new Map<string, ItemStock>();
     const movements = entries.map((entry) => {
       ensureMovable(ledger, entry.itemId);
 
       const stock = ledger.stock(entry.itemId, entry.warehouseId);
-      const origin = { type: document.type, id: document.id, lineId: entry.lineId };
+      const origin = { ...document, lineId: entry.lineId };
       const id = MovementId.of(this.ids.next());
 
       touched.set(keyOf(stock), stock);
@@ -45,7 +48,7 @@ export class StockMovements {
 
   // Del ultimo al primero, cada movimiento original con otro que lo cita. Si la mercancia
   // que entro ya salio, revertir la entrada dejaria la existencia negativa, y se rechaza.
-  reverse(ledger: Ledger, document: { type: MovementOrigin['type']; id: string }, now: Date): StockChanges {
+  reverse(ledger: Ledger, document: DocumentRef, now: Date): StockChanges {
     const touched = new Map<string, ItemStock>();
     const originals = ledger.movementsOf(document.id).filter((movement) => movement.reversalOfId === null);
     const movements = [...originals]
@@ -58,7 +61,7 @@ export class StockMovements {
 
         return stock.reverse(
           original,
-          { type: document.type, id: document.id, lineId: original.origin.lineId },
+          { ...document, lineId: original.origin.lineId },
           MovementId.of(this.ids.next()),
           now,
         );

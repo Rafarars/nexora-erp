@@ -220,6 +220,26 @@ export function describeInventoryPortsContract(implementation: string, createHar
         await expectStockMatchesKardex();
       });
 
+      // La fecha del documento viaja como dia, sin hora ni zona: escrita en una columna DATE y
+      // leida de vuelta tiene que ser la misma, no la vispera.
+      it('keeps the date the adjustment declares, apart from the instant it was posted', async () => {
+        counter += 1;
+        const id = AdjustmentId.of(`ad000000-0000-4000-8000-${String(counter).padStart(12, '0')}`);
+        await ports.adjustments.save(
+          Adjustment.draft(id, tenant, `AJU${String(counter).padStart(6, '0')}`, {
+            warehouseId: WarehouseRef.of(MAIN),
+            date: AdjustmentDate.of('2025-11-30'),
+            notes: 'contrato',
+            lines: [line('in', 10, 2)],
+          }, NOW, TODAY),
+        );
+
+        await confirm(id);
+
+        const kardex = (await ports.stocks.searchMovements(tenant, ItemRef.of(WATER))).map((m) => m.toPrimitives());
+        expect(kardex.at(-1)).toMatchObject({ originDate: '2025-11-30', occurredAt: NOW });
+      });
+
       it('refuses an entry without cost when the item has no stock in any warehouse', async () => {
         const id = await draft([line('in', 5)]);
 

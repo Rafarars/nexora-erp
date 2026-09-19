@@ -35,7 +35,7 @@ export interface Movement {
   unitCost: number;
   balanceQuantity: number;
   balanceAverageCost: number;
-  origin: { type: MovementOriginType; id: string; code: string };
+  origin: { type: MovementOriginType; id: string; code: string; date: string };
   isReversal: boolean;
   occurredAt: string;
 }
@@ -94,6 +94,11 @@ export function summarizeLines(lines: AdjustmentLine[], baseUnitOf: (itemId: str
       return `${sign}${formatQuantity(line.quantity)} ${line.unitAbbreviation}${base} ${line.sku}`;
     })
     .join(' · ');
+}
+
+// El instante en que se publico, como dia: el kardex solo lo ensena cuando no es el del documento.
+export function registeredOn(occurredAt: string): string {
+  return occurredAt.slice(0, 10);
 }
 
 export function formatQuantity(value: number): string {

@@ -24,6 +24,10 @@ export interface DocumentStockEntry {
 export interface StockDocument {
   type: 'receipt' | 'dispatch';
   id: string;
+  // El dia que el documento declara, "2026-08-10". El kardex lo guarda junto al instante en
+  // que se publico: el saldo corre por el orden de publicacion, pero quien lee quiere ver la
+  // fecha que escribio en el documento.
+  date: string;
 }
 
 // Una salida: el costo no viaja, el inventario la valora al promedio vigente.

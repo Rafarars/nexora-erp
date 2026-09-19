@@ -53,7 +53,7 @@ export class PrismaReceiptPosting implements ReceiptPosting {
       });
       await writeOrderState(tx, result.order);
 
-      const document = { type: 'receipt' as const, id: header.id };
+      const document = { type: 'receipt' as const, id: header.id, date: header.receiptDate };
 
       if (result.stock.kind === 'receive') {
         const entries = result.stock.entries.map((entry) => ({

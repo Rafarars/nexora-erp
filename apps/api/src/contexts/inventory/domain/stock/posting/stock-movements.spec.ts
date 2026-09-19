@@ -6,9 +6,10 @@ import { Quantity } from '../../quantity/quantity.vo.js';
 import { UnitCost } from '../../quantity/unit-cost.vo.js';
 import { ItemRef, WarehouseRef } from '../../shared/references.vo.js';
 import { TenantId } from '../../shared/tenant-id.vo.js';
-import { MAIN, NORTH, NOW, TENANT_A, WATER } from '../../testing/inventory.mother.js';
+import { MAIN, NORTH, NOW, TENANT_A, TODAY, WATER } from '../../testing/inventory.mother.js';
 import { ItemStock } from '../item-stock.entity.js';
 import { Ledger, LedgerItem } from './stock-ledger.js';
+import { weightedAverageCost } from '../average-cost.js';
 import { StockMovements } from './stock-movements.js';
 
 const activeItem: LedgerItem = { isActive: true, type: 'inventoried', factorOf: () => 1 };
@@ -21,6 +22,8 @@ function aLedger(previous: InventoryMovement[] = [], item: LedgerItem = activeIt
   return {
     stocks,
     item: () => item,
+    // Lo que el articulo vale en el resto de la empresa: aqui, la suma de lo que el libro guarda.
+    averageCostOf: () => weightedAverageCost([...stocks.values()].map((stock) => ({ quantity: stock.available(), averageCost: stock.currentAverageCost() }))),
     stock: (itemId, warehouseId) => {
       const key = `${itemId.value}|${warehouseId.value}`;
       const stock = stocks.get(key) ?? ItemStock.empty(TenantId.of(TENANT_A), itemId, warehouseId, NOW);
@@ -49,7 +52,7 @@ describe('StockMovements', () => {
 
     const changes = new StockMovements(new SequentialIdGenerator()).record(
       ledger,
-      { type: 'receipt', id: 'eb000000-0000-4000-8000-000000000001' },
+      { type: 'receipt', id: 'eb000000-0000-4000-8000-000000000001', date: TODAY },
       [entry(MAIN, 'in', 10, 2), entry(NORTH, 'in', 4, 3), entry(MAIN, 'out', 3)],
       NOW,
     );
@@ -68,9 +71,9 @@ describe('StockMovements', () => {
   it('values an entry without cost at the current average', () => {
     const ledger = aLedger();
     const movements = new StockMovements(new SequentialIdGenerator());
-    movements.record(ledger, { type: 'adjustment', id: 'ad000000-0000-4000-8000-000000000001' }, [entry(MAIN, 'in', 10, 2)], NOW);
+    movements.record(ledger, { type: 'adjustment', id: 'ad000000-0000-4000-8000-000000000001', date: TODAY }, [entry(MAIN, 'in', 10, 2)], NOW);
 
-    const { movements: [found] } = movements.record(ledger, { type: 'adjustment', id: 'ad000000-0000-4000-8000-000000000002' }, [entry(MAIN, 'in', 5)], NOW);
+    const { movements: [found] } = movements.record(ledger, { type: 'adjustment', id: 'ad000000-0000-4000-8000-000000000002', date: TODAY }, [entry(MAIN, 'in', 5)], NOW);
 
     expect(found.unitCost.toNumber()).toBe(2);
   });
@@ -78,7 +81,7 @@ describe('StockMovements', () => {
   it('reverses what a document wrote, last first, citing each original and skipping reversals', () => {
     const ledger = aLedger();
     const movements = new StockMovements(new SequentialIdGenerator());
-    const document = { type: 'receipt' as const, id: 'eb000000-0000-4000-8000-000000000001' };
+    const document = { type: 'receipt' as const, id: 'eb000000-0000-4000-8000-000000000001', date: TODAY };
     const written = movements.record(ledger, document, [entry(MAIN, 'in', 10, 2), entry(MAIN, 'out', 4)], NOW).movements;
 
     const { movements: reversals } = movements.reverse(aLedgerSharing(ledger, written), document, NOW);
@@ -93,9 +96,9 @@ describe('StockMovements', () => {
   it('refuses to reverse an entry whose goods already left', () => {
     const ledger = aLedger();
     const movements = new StockMovements(new SequentialIdGenerator());
-    const document = { type: 'receipt' as const, id: 'eb000000-0000-4000-8000-000000000001' };
+    const document = { type: 'receipt' as const, id: 'eb000000-0000-4000-8000-000000000001', date: TODAY };
     const written = movements.record(ledger, document, [entry(MAIN, 'in', 10, 2)], NOW).movements;
-    movements.record(ledger, { type: 'adjustment', id: 'ad000000-0000-4000-8000-000000000009' }, [entry(MAIN, 'out', 6)], NOW);
+    movements.record(ledger, { type: 'adjustment', id: 'ad000000-0000-4000-8000-000000000009', date: TODAY }, [entry(MAIN, 'out', 6)], NOW);
 
     expect(() => movements.reverse(aLedgerSharing(ledger, written), document, NOW)).toThrow(InsufficientStockError);
   });
@@ -104,7 +107,7 @@ describe('StockMovements', () => {
   // ofrecerse o se volvio servicio, no mueve existencia.
   it('moves nothing for an item that became inactive or a service', () => {
     const movements = new StockMovements(new SequentialIdGenerator());
-    const origin = { type: 'adjustment' as const, id: 'ad000000-0000-4000-8000-000000000001' };
+    const origin = { type: 'adjustment' as const, id: 'ad000000-0000-4000-8000-000000000001', date: TODAY };
 
     expect(() => movements.record(aLedger([], { ...activeItem, isActive: false }), origin, [entry(MAIN, 'in', 5, 1)], NOW)).toThrow(
       InactiveStockItemError,
@@ -117,7 +120,7 @@ describe('StockMovements', () => {
   // Anular devolveria mercancia a un articulo que ya no se ofrece.
   it('does not reverse the movements of an item that became inactive', () => {
     const movements = new StockMovements(new SequentialIdGenerator());
-    const origin = { type: 'adjustment' as const, id: 'ad000000-0000-4000-8000-000000000002' };
+    const origin = { type: 'adjustment' as const, id: 'ad000000-0000-4000-8000-000000000002', date: TODAY };
     const ledger = aLedger();
     const { movements: written } = movements.record(ledger, origin, [entry(MAIN, 'in', 5, 1)], NOW);
     const inactive = { ...aLedgerSharing(ledger, written), item: () => ({ ...activeItem, isActive: false }) };
@@ -128,5 +131,5 @@ describe('StockMovements', () => {
 
 // El mismo libro, pero sabiendo que movimientos escribio el documento que se revierte.
 function aLedgerSharing(ledger: ReturnType<typeof aLedger>, previous: InventoryMovement[]): Ledger {
-  return { item: ledger.item, stock: ledger.stock, movementsOf: () => previous };
+  return { item: ledger.item, stock: ledger.stock, averageCostOf: ledger.averageCostOf, movementsOf: () => previous };
 }

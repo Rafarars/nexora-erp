@@ -1,5 +1,5 @@
 import { can } from '@/modules/access/domain/session';
-import { DIRECTION_LABELS, ORIGIN_LABELS, formatMoney, formatQuantity } from '@/modules/inventory/domain/inventory';
+import { DIRECTION_LABELS, ORIGIN_LABELS, formatMoney, formatQuantity, registeredOn } from '@/modules/inventory/domain/inventory';
 import { readableInventoryError } from '@/modules/inventory/domain/inventory-error';
 import { catalogApi } from '@/shared/session/catalog-api';
 import { inventoryApi } from '@/shared/session/inventory-api';
@@ -104,6 +104,7 @@ export default async function KardexPage({ searchParams }: { searchParams: Promi
             <thead className="bg-surface text-muted text-left text-xs uppercase tracking-wide">
               <tr>
                 <th className="px-4 py-2 font-medium">#</th>
+                <th className="px-4 py-2 font-medium">Fecha</th>
                 <th className="px-4 py-2 font-medium">Bodega</th>
                 <th className="px-4 py-2 font-medium">Documento</th>
                 <th className="px-4 py-2 font-medium">Tipo</th>
@@ -121,6 +122,13 @@ export default async function KardexPage({ searchParams }: { searchParams: Promi
                   data-testid={`kardex-row-${movement.warehouse.name}-${movement.sequence}`}
                 >
                   <td className="text-muted px-4 py-3">{movement.sequence}</td>
+                  <td className="px-4 py-3" data-testid={`kardex-date-${movement.warehouse.name}-${movement.sequence}`}>
+                    <p>{movement.origin.date}</p>
+                    {/* El saldo corre por el orden de registro, no por la fecha del documento: se dice cuando difieren. */}
+                    {registeredOn(movement.occurredAt) === movement.origin.date ? null : (
+                      <p className="text-muted text-xs">Registrado el {registeredOn(movement.occurredAt)}</p>
+                    )}
+                  </td>
                   <td className="px-4 py-3">{movement.warehouse.name}</td>
                   <td className="px-4 py-3" data-testid={`kardex-origin-${movement.warehouse.name}-${movement.sequence}`}>
                     <p className="font-mono text-xs">{movement.origin.code}</p>
@@ -144,7 +152,7 @@ export default async function KardexPage({ searchParams }: { searchParams: Promi
 
               {movements.length === 0 ? (
                 <tr>
-                  <td colSpan={8} className="text-muted px-4 py-6 text-center" data-testid="kardex-empty">
+                  <td colSpan={9} className="text-muted px-4 py-6 text-center" data-testid="kardex-empty">
                     Este artículo no tiene movimientos.
                   </td>
                 </tr>

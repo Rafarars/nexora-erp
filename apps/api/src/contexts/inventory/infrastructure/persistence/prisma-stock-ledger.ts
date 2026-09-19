@@ -98,7 +98,13 @@ export async function lockedLedger(
 }
 
 export async function writeChanges(tx: TransactionClient, tenantId: string, changes: StockChanges): Promise<void> {
-  await tx.inventoryMovement.createMany({ data: changes.movements.map((movement) => movement.toPrimitives()) });
+  await tx.inventoryMovement.createMany({
+    data: changes.movements.map((movement) => {
+      const { originDate, ...row } = movement.toPrimitives();
+
+      return { ...row, originDate: new Date(`${originDate}T00:00:00.000Z`) };
+    }),
+  });
 
   for (const stock of changes.stocks) {
     const { quantity, averageCost, lastSequence, updatedAt, itemId, warehouseId } = stock.toPrimitives();

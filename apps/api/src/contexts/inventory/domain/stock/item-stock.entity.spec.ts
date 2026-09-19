@@ -5,10 +5,10 @@ import { Quantity } from '../quantity/quantity.vo.js';
 import { UnitCost } from '../quantity/unit-cost.vo.js';
 import { ItemRef, WarehouseRef } from '../shared/references.vo.js';
 import { TenantId } from '../shared/tenant-id.vo.js';
-import { MAIN, NOW, TENANT_A, WATER } from '../testing/inventory.mother.js';
+import { MAIN, NOW, TENANT_A, TODAY, WATER } from '../testing/inventory.mother.js';
 import { ItemStock } from './item-stock.entity.js';
 
-const origin = { type: 'adjustment' as const, id: '00000000-0000-4000-8000-00000000aaaa', lineId: null };
+const origin = { type: 'adjustment' as const, id: '00000000-0000-4000-8000-00000000aaaa', lineId: null, date: TODAY };
 let issued = 0;
 const nextId = () => MovementId.of(`00000000-0000-4000-8000-${String(++issued).padStart(12, '0')}`);
 const emptyStock = () => ItemStock.empty(TenantId.of(TENANT_A), ItemRef.of(WATER), WarehouseRef.of(MAIN), NOW);

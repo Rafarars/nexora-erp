@@ -71,12 +71,15 @@ export function movementFromRow(row: {
   originType: string;
   originId: string;
   originLineId: string | null;
+  originDate: Date;
   reversalOfId: string | null;
   occurredAt: Date;
 }): InventoryMovement {
   return InventoryMovement.fromPrimitives({
     ...row,
     originType: row.originType as MovementOriginType,
+    // La columna es DATE: el dia sin hora ni zona, como lo escribio el documento.
+    originDate: row.originDate.toISOString().slice(0, 10),
     quantity: toNumber(row.quantity),
     unitCost: toNumber(row.unitCost),
     balanceQuantity: toNumber(row.balanceQuantity),

@@ -17,6 +17,6 @@ export class AdjustmentCancellation {
       return { adjustment, stocks: [], movements: [] };
     }
 
-    return { adjustment, ...this.movements.reverse(ledger, { type: 'adjustment', id: adjustment.id.value }, now) };
+    return { adjustment, ...this.movements.reverse(ledger, { type: 'adjustment', id: adjustment.id.value, date: adjustment.date().value }, now) };
   }
 }

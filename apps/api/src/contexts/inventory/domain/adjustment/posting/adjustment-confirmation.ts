@@ -26,7 +26,7 @@ export class AdjustmentConfirmation {
 
     const changes = this.movements.record(
       ledger,
-      { type: 'adjustment', id: adjustment.id.value },
+      { type: 'adjustment', id: adjustment.id.value, date: adjustment.date().value },
       adjustment.lines().map((line) => ({
         lineId: line.id.value,
         itemId: line.itemId,

@@ -99,6 +99,7 @@ export class PrismaItemPortsHarness implements ItemPortsHarness {
             balanceAverageCost: 1,
             originType: 'adjustment',
             originId: randomUUID(),
+            originDate: NOW,
             occurredAt: NOW,
           },
         });

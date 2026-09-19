@@ -31,7 +31,7 @@ export class PrismaDispatchPosting implements DispatchPosting {
 
       const result = work(dispatch, order, invoiced);
       const now = result.dispatch.toPrimitives().updatedAt;
-      const document = { type: 'dispatch' as const, id: dispatch.id.value };
+      const document = { type: 'dispatch' as const, id: dispatch.id.value, date: result.dispatch.toPrimitives().dispatchDate };
 
       await writeDispatchState(tx, result.dispatch);
       await writeOrderState(tx, result.order);

@@ -592,6 +592,8 @@ model InventoryMovement {
   originType         String         @map("origin_type") @db.VarChar(20)
   originId           String         @map("origin_id") @db.Uuid
   originLineId       String?        @map("origin_line_id") @db.Uuid
+  /// El dia que declara el documento. El saldo corre por `sequence`, no por esta fecha.
+  originDate         DateTime       @map("origin_date") @db.Date
   reversalOfId       String?        @map("reversal_of_id") @db.Uuid
   occurredAt         DateTime       @map("occurred_at")
 

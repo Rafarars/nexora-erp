@@ -626,7 +626,7 @@ async function seedInventory(prisma: PrismaClient): Promise<void> {
         id: stock.movement, tenantId: stock.tenantId, itemId: stock.itemId, warehouseId: stock.warehouseId, sequence: 1,
         direction: 'in', quantity: stock.quantity, unitCost: stock.cost, balanceQuantity: stock.quantity,
         balanceAverageCost: stock.cost, originType: 'adjustment', originId: stock.adjustmentId, originLineId: stock.lineId,
-        occurredAt: confirmedAt,
+        originDate: date, occurredAt: confirmedAt,
       },
     });
     await prisma.itemStock.create({
@@ -736,7 +736,7 @@ async function seedPurchasing(prisma: PrismaClient): Promise<void> {
     data: {
       id: PURCHASING.acme.receiptMovement, tenantId: ACME, itemId: acme.items.water, warehouseId: acme.warehouses.main, sequence: 2,
       direction: 'in', quantity: 96, unitCost: 0.5, balanceQuantity: 336, balanceAverageCost: 0.5, originType: 'receipt',
-      originId: PURCHASING.acme.receipt, originLineId: PURCHASING.acme.receiptWater, occurredAt: at('2026-09-05'),
+      originId: PURCHASING.acme.receipt, originLineId: PURCHASING.acme.receiptWater, originDate: at('2026-09-05'), occurredAt: at('2026-09-05'),
     },
   });
   await prisma.itemStock.update({
@@ -859,7 +859,7 @@ async function seedSales(prisma: PrismaClient): Promise<void> {
       data: {
         id: exit.id, tenantId: exit.tenantId, itemId: exit.itemId, warehouseId: exit.warehouseId, sequence: exit.sequence, direction: 'out',
         quantity: exit.quantity, unitCost: exit.cost, balanceQuantity: exit.balance, balanceAverageCost: exit.cost, originType: 'dispatch',
-        originId: exit.originId, originLineId: exit.lineId, occurredAt: at(exit.day),
+        originId: exit.originId, originLineId: exit.lineId, originDate: at(exit.day), occurredAt: at(exit.day),
       },
     });
     await prisma.itemStock.update({

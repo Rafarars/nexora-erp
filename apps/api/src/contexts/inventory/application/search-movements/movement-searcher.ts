@@ -15,7 +15,7 @@ export interface MovementResponse {
   unitCost: number;
   balanceQuantity: number;
   balanceAverageCost: number;
-  origin: { type: MovementOriginType; id: string; code: string };
+  origin: { type: MovementOriginType; id: string; code: string; date: string };
   isReversal: boolean;
   occurredAt: string;
 }
@@ -67,6 +67,7 @@ export class MovementSearcher {
             type: row.originType,
             id: row.originId,
             code: codes.get(row.originId) ?? '',
+            date: row.originDate,
           },
           isReversal: row.reversalOfId !== null,
           occurredAt: row.occurredAt.toISOString(),
