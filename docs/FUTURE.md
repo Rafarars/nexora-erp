@@ -300,9 +300,16 @@ Detalle y fuentes en [revision/temas/listas-de-precio.md](revision/temas/listas-
 
 ### Servicios: lo que la fase 6 dejó fuera
 
-- **Tipo «no inventariado»**, además de servicio. El compañero tiene cuatro tipos (`inventoried`, `non_inventoried`,
-  `service`, `serialized`) y trata igual al servicio y al no inventariado: ninguno mueve existencia. **Qué haría
-  falta:** un valor más en el tipo del artículo; la regla de `moves_stock` ya cubriría el resto.
+- **Tipo «no inventariado»**, además de servicio. El sistema de referencia tiene cuatro tipos (`inventoried`,
+  `non_inventoried`, `service`, `serialized`) y agrupa los dos que no llevan existencia
+  (`NON_STOCKED_TYPES`). **Qué haría falta:** un valor más en el tipo del artículo; la regla de `moves_stock` ya
+  cubriría el resto.
+  **Decidido en la revisión de Existencias (19-sep-2026): no se agrega todavía.** El comportamiento ya está
+  disponible —un servicio tampoco mueve existencia—, así que lo único que aportaría es una etiqueta más honesta
+  para un bien físico que no se controla (empaques, papelería). Se comprobó que **ninguna regla del sistema
+  distingue hoy un bien de un servicio**, ni siquiera las fiscales. Mismo criterio que con los campos de la bodega
+  en el Catálogo: un campo se añade cuando existe el flujo que lo consume. Se construye el día que una regla —una
+  declaración de IVA que separe bienes de servicios— necesite distinguirlos.
 - **Facturar el pedido por partes sin despacho.** Hoy un pedido de solo servicios se factura entero de una vez. **Qué
   haría falta:** elegir qué líneas y cuánto de cada una entra en la factura, como el `invoiceable-lines` del compañero.
 - **Cerrar el pedido cuando todo está despachado *y* facturado.** El compañero tiene un estado `completed` que exige

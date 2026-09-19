@@ -35,7 +35,7 @@ un cambio de API o de web no se ve en el navegador ni en la e2e hasta que se eje
 |---|---|
 | Repositorio | github.com/Rafarars/nexora-erp |
 | Reporte de pruebas | https://rafarars.github.io/nexora-erp/ |
-| Pruebas | 2730 + 184 unitarias · 199 de contrato · 386 end-to-end |
+| Pruebas | 2739 + 184 unitarias · 203 de contrato · 388 end-to-end |
 | **H0 — Fundación** | **Completado** |
 | **H1 — Multiempresa y acceso** | **Completado** y revisado |
 | **H2 — Catálogo** | **Completado** ([`H2-CATALOGO.md`](H2-CATALOGO.md)) |
@@ -525,7 +525,13 @@ cliente, el precio mínimo y el precio sugerido en el pedido. Después, la fase 
 **Continuar la revisión módulo por módulo con la skill `module-review`**, que es justo el método que salió de este
 piloto. El orden y el estado están en [`revision/README.md`](revision/README.md) § Orden y estado.
 
-**El siguiente es Inventario › Existencias**, y después Kardex. El Catálogo y Ajustes ya están cerrados.
+**El siguiente es Inventario › Kardex.** El Catálogo, Ajustes y Existencias ya están cerrados.
+
+**Hecho el 19-sep-2026 · Inventario › Existencias** ([revisión](revision/inventario/existencias.md)): cinco hallazgos.
+El de fondo: la pantalla decía **cuánto hay, no cuánto se puede prometer** —288 unidades de agua, 72 comprometidas en
+pedidos confirmados, y el dato ya se calculaba para Bajo mínimo desde la fase 4 sin llegar aquí—. También, el mismo
+inventario **valía dos cosas distintas** según se mirara la pantalla (céntimos fijos) o el informe de valuación (los
+decimales de la empresa): reproducido, 0,37 contra 0,3704.
 
 **Hecho el 19-sep-2026 · Inventario › Ajustes** ([revisión](revision/inventario/ajustes.md)): siete hallazgos, el
 grave que **una entrada sin costo en una bodega vacía entraba valorada en cero** —y ese cero se quedaba, así que toda
