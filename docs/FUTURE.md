@@ -130,6 +130,17 @@ los proveedores de la empresa para resolver nombres.
 **Qué habría que hacer:** paginar por `sequence` y añadir la guarda de rendimiento del H7.
 El **listado de ajustes ya está paginado y filtrado** desde la revisión del módulo (19-sep-2026).
 
+### El buscador queda encima del título en los listados con `CatalogTable`
+
+**Por qué:** en Artículos —y en los demás listados que usan `CatalogTable`— el buscador y el contador
+de resultados se pintan **antes** del título de la sección, así que la pantalla empieza por la
+herramienta y no por lo que es. En Ajustes, que no usa ese componente, el orden es el natural:
+título, filtros, tabla. Lo vio la revisión de la interfaz a mano de Ajustes (19-sep-2026).
+
+**Qué haría falta:** que `CatalogTable` acepte una franja de herramientas debajo de su cabecera, y
+mover ahí el buscador de cada listado. Toca Catálogo, Inventario, Compras y Ventas a la vez, que es
+justo por lo que no se hizo sobre la marcha.
+
 ### Aprobación de ajustes por umbral de importe
 
 **Por qué:** un ajuste mueve existencia **sin una operación comercial detrás**, y eso lo convierte

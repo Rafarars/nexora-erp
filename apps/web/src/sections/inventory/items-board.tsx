@@ -109,7 +109,7 @@ function ItemSearch({ search }: { search: { q: string; page: number; pageSize: n
     <div className="flex flex-wrap items-end justify-between gap-3">
       <form method="get" className="flex items-end gap-2">
         <div className="space-y-1.5">
-          <label htmlFor="item-search" className="text-sm font-medium">
+          <label htmlFor="item-search" className="block text-sm font-medium">
             Buscar
           </label>
           <input

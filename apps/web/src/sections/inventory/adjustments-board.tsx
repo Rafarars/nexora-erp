@@ -643,7 +643,7 @@ function AdjustmentFilters({ search, warehouses }: { search: AdjustmentSearch; w
 function Filter({ label, htmlFor, children }: { label: string; htmlFor: string; children: React.ReactNode }) {
   return (
     <div className="space-y-1.5">
-      <label htmlFor={htmlFor} className="text-sm font-medium">
+      <label htmlFor={htmlFor} className="block text-sm font-medium">
         {label}
       </label>
       {children}

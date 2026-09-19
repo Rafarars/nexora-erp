@@ -183,7 +183,18 @@ describe con todas las letras.
 escrito, con el puerto `DocumentAuthors` que resuelve los nombres **por membresía** —quien ya no es
 de la empresa no se nombra en sus documentos— y su contrato de puerto.
 
-### H7 · BAJA · La documentación pública citaba el sistema privado del empleo
+### H7 · BAJA · Las etiquetas de los filtros quedaban pegadas a su control
+
+Encontrado **recorriendo la pantalla**, que es lo único que lo encuentra: la etiqueta de cada filtro
+se pintaba en la misma línea que su control («Bodega[Todas]») porque le faltaba `block`. El mismo
+descuido estaba en el buscador de Artículos, un módulo ya cerrado. **Corregido en los dos.**
+
+Y una tercera cosa que se vio ahí y **no** se corrigió: en los listados que usan `CatalogTable`, el
+buscador se pinta **antes** del título de la sección, así que la pantalla empieza por la herramienta.
+Arreglarlo toca un componente compartido por cuatro módulos, así que quedó anotado en
+[FUTURE.md](../../FUTURE.md) en vez de hacerse sobre la marcha.
+
+### H8 · BAJA · La documentación pública citaba el sistema privado del empleo
 
 Seis menciones por nombre en `docs/PLAN.md`, `docs/RETOMAR.md` y `docs/modulos/inventario.md`, en un
 repositorio público. **Corregido** con redacción neutra, en su propio commit.
@@ -197,8 +208,11 @@ repositorio público. **Corregido** con redacción neutra, en su propio commit.
    habría puesto roja al borrarlas, y aun así pasaron dos defectos: las pruebas que faltaban eran
    justo las del borde —la bodega sin saldo previo y la fecha atrasada—. La prueba de «entrada sin
    costo» existía, pero solo probaba el caso feliz.
-3. **Revisar un módulo encuentra cosas que no son del módulo.** La fecha del kardex resultó
+3. **La interfaz a mano volvió a encontrar lo que ninguna prueba puede.** Dos defectos de
+   presentación, uno de ellos en un módulo ya cerrado. Una prueba comprueba que el filtro filtra; no
+   que la etiqueta esté donde tiene que estar.
+4. **Revisar un módulo encuentra cosas que no son del módulo.** La fecha del kardex resultó
    transversal a tres contextos, el rastro de autor faltaba en los siete, y las menciones al sistema
    privado no tenían nada que ver con Ajustes.
-4. **Cuando la referencia acierta, hay que decirlo.** Su `averageOf` resuelve exactamente el caso
+5. **Cuando la referencia acierta, hay que decirlo.** Su `averageOf` resuelve exactamente el caso
    que aquí entraba en cero. Leer su código, y no su documentación, es lo que lo hizo visible.
