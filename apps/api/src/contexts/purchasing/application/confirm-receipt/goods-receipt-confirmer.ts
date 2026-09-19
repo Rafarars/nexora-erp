@@ -50,6 +50,7 @@ export class GoodsReceiptConfirmer {
         },
         now,
         today,
+        order.orderDate(),
       );
       await this.receipts.save(receipt);
     }

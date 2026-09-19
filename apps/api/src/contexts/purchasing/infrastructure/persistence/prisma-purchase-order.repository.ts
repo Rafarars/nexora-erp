@@ -2,7 +2,7 @@ import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../../../../shared/prisma/prisma.service.js';
 import { PurchaseOrderNotEditableError } from '../../domain/errors/purchasing.errors.js';
 import { PurchaseOrder, PurchaseOrderId } from '../../domain/order/purchase-order.entity.js';
-import { PurchaseOrderRepository } from '../../domain/order/purchase-order.repository.js';
+import { PurchaseOrderCriteria, PurchaseOrderPage, PurchaseOrderRepository } from '../../domain/order/purchase-order.repository.js';
 import { ConcurrentModificationError } from '../../../../shared/domain/concurrent-modification.error.js';
 import { TenantId } from '../../domain/shared/tenant-id.vo.js';
 import { asDate, orderFromRow } from './purchasing-rows.js';
@@ -30,6 +30,7 @@ export class PrismaPurchaseOrderRepository implements PurchaseOrderRepository {
             warehouseId: row.warehouseId,
             ...dates,
             notes: row.notes,
+            paymentTermDays: row.paymentTermDays,
             currency: row.currency,
             exchangeRate: row.exchangeRate,
             baseCurrency: row.baseCurrency,
@@ -64,6 +65,53 @@ export class PrismaPurchaseOrderRepository implements PurchaseOrderRepository {
       where: { tenantId: tenantId.value },
       include: { lines: true },
       orderBy: { code: 'desc' },
+    });
+
+    return rows.map(orderFromRow);
+  }
+
+  async searchPage(tenantId: TenantId, criteria: PurchaseOrderCriteria): Promise<PurchaseOrderPage> {
+    const text = criteria.text;
+    const where = {
+      tenantId: tenantId.value,
+      ...(criteria.supplierId ? { supplierId: criteria.supplierId } : {}),
+      ...(criteria.warehouseId ? { warehouseId: criteria.warehouseId } : {}),
+      ...(criteria.status ? { status: criteria.status } : {}),
+      ...(criteria.from || criteria.to
+        ? {
+            orderDate: {
+              ...(criteria.from ? { gte: new Date(`${criteria.from}T00:00:00.000Z`) } : {}),
+              ...(criteria.to ? { lte: new Date(`${criteria.to}T00:00:00.000Z`) } : {}),
+            },
+          }
+        : {}),
+      ...(text
+        ? {
+            OR: [
+              { code: { contains: text, mode: 'insensitive' as const } },
+              { lines: { some: { itemSku: { contains: text, mode: 'insensitive' as const } } } },
+              { lines: { some: { itemName: { contains: text, mode: 'insensitive' as const } } } },
+            ],
+          }
+        : {}),
+    };
+    const [rows, total] = await Promise.all([
+      this.prisma.purchaseOrder.findMany({ where, include: { lines: true }, orderBy: { code: 'desc' }, take: criteria.limit, skip: criteria.offset }),
+      this.prisma.purchaseOrder.count({ where }),
+    ]);
+
+    return { orders: rows.map(orderFromRow), total };
+  }
+
+  async searchOpen(tenantId: TenantId, warehouseId: string | null): Promise<PurchaseOrder[]> {
+    const rows = await this.prisma.purchaseOrder.findMany({
+      where: {
+        tenantId: tenantId.value,
+        status: { in: ['confirmed', 'partially_received'] },
+        ...(warehouseId ? { warehouseId } : {}),
+      },
+      include: { lines: true },
+      orderBy: { code: 'asc' },
     });
 
     return rows.map(orderFromRow);

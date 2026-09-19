@@ -6,9 +6,12 @@ const api = new HttpPurchasingApi('http://api');
 
 function respond(status: number, body?: unknown) {
   // Una respuesta nueva en cada llamada: el cuerpo de un Response solo se lee una vez.
-  const fetchMock = vi.fn().mockImplementation(async () =>
-    new Response(body === undefined ? null : JSON.stringify(body), { status, headers: { 'Content-Type': 'application/json' } }),
-  );
+  const fetchMock = vi
+    .fn()
+    .mockImplementation(
+      async () =>
+        new Response(body === undefined ? null : JSON.stringify(body), { status, headers: { 'Content-Type': 'application/json' } }),
+    );
   vi.stubGlobal('fetch', fetchMock);
 
   return fetchMock;
@@ -45,7 +48,11 @@ describe('HttpPurchasingApi', () => {
       lines: [{ itemId: 'i', unitId: 'u', quantity: Number.NaN, unitCost: 1 }],
     });
 
-    expect(JSON.parse(fetchMock.mock.calls[0][1].body)).toMatchObject({ currency: 'EUR', exchangeRate: 'NaN', lines: [{ quantity: 'NaN' }] });
+    expect(JSON.parse(fetchMock.mock.calls[0][1].body)).toMatchObject({
+      currency: 'EUR',
+      exchangeRate: 'NaN',
+      lines: [{ quantity: 'NaN' }],
+    });
   });
 
   it('turns an API failure into an error with its code, never its text', async () => {
@@ -57,11 +64,40 @@ describe('HttpPurchasingApi', () => {
     expect(failure).toMatchObject({ kind: 'conflict', code: 'ReceiptExceedsPendingError' });
   });
 
-  it('filters the goods in transit by warehouse', async () => {
-    const fetchMock = respond(200, { incoming: [] });
+  // Los esquemas de consulta son estrictos: un filtro vacio seria un 400.
+  it('sends only the filters that carry a value', async () => {
+    const fetchMock = respond(200, { incoming: [], total: 0, limit: 20, offset: 0, hasMore: false });
 
-    await api.searchIncoming('t', 'w 1');
+    await api.searchIncoming('t', { q: '', warehouseId: 'w 1', limit: 20, offset: 0 });
 
-    expect(fetchMock.mock.calls[0][0]).toBe('http://api/api/v1/purchasing/incoming?warehouseId=w%201');
+    expect(fetchMock.mock.calls[0][0]).toBe('http://api/api/v1/purchasing/incoming?warehouseId=w+1&limit=20&offset=0');
+  });
+
+  it('walks every page to fill a selector with all the suppliers', async () => {
+    const supplier = (id: string) => ({
+      id,
+      code: id,
+      name: id,
+      fiscalId: null,
+      email: null,
+      phone: null,
+      address: null,
+      paymentTermDays: 0,
+      isActive: true,
+    });
+    const pages = [
+      { suppliers: [supplier('s1')], total: 2, limit: 50, offset: 0, hasMore: true },
+      { suppliers: [supplier('s2')], total: 2, limit: 50, offset: 1, hasMore: false },
+    ];
+    const fetchMock = vi.fn().mockImplementation(async () => new Response(JSON.stringify(pages.shift()), { status: 200 }));
+    vi.stubGlobal('fetch', fetchMock);
+
+    const suppliers = await api.allSuppliers('t');
+
+    expect(suppliers.map((row) => row.id)).toEqual(['s1', 's2']);
+    expect(fetchMock.mock.calls.map(([url]) => url)).toEqual([
+      'http://api/api/v1/purchasing/suppliers?limit=50&offset=0',
+      'http://api/api/v1/purchasing/suppliers?limit=50&offset=1',
+    ]);
   });
 });

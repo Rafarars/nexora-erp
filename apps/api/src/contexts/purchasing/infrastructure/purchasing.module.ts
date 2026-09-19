@@ -14,6 +14,8 @@ import { InventoryModule } from '../../inventory/infrastructure/inventory.module
 import { PurchaseOrderCanceller } from '../application/cancel-order/purchase-order-canceller.js';
 import { GoodsReceiptCanceller } from '../application/cancel-receipt/goods-receipt-canceller.js';
 import { SupplierStatusChanger } from '../application/change-supplier-status/supplier-status-changer.js';
+import { SUPPLIER_USAGE, SupplierUsage } from '../domain/supplier/usage/supplier-usage.js';
+import { PrismaSupplierUsage } from './persistence/prisma-supplier-usage.js';
 import { PurchaseOrderConfirmer } from '../application/confirm-order/purchase-order-confirmer.js';
 import { GoodsReceiptConfirmer } from '../application/confirm-receipt/goods-receipt-confirmer.js';
 import { PurchaseOrderCreator } from '../application/create-order/purchase-order-creator.js';
@@ -95,6 +97,7 @@ import { PrismaSupplierRepository } from './persistence/prisma-supplier.reposito
   ],
   providers: [
     { provide: SUPPLIER_REPOSITORY, useClass: PrismaSupplierRepository },
+    { provide: SUPPLIER_USAGE, useClass: PrismaSupplierUsage },
     { provide: PURCHASE_ORDER_REPOSITORY, useClass: PrismaPurchaseOrderRepository },
     { provide: GOODS_RECEIPT_REPOSITORY, useClass: PrismaGoodsReceiptRepository },
     { provide: PURCHASE_ORDER_POSTING, useClass: PrismaPurchaseOrderPosting },
@@ -132,8 +135,8 @@ import { PrismaSupplierRepository } from './persistence/prisma-supplier.reposito
     },
     {
       provide: SupplierStatusChanger,
-      useFactory: (f: SupplierFinder, r: SupplierRepository, k: Clock) => new SupplierStatusChanger(f, r, k),
-      inject: [SupplierFinder, SUPPLIER_REPOSITORY, CLOCK],
+      useFactory: (f: SupplierFinder, u: SupplierUsage, r: SupplierRepository, k: Clock) => new SupplierStatusChanger(f, u, r, k),
+      inject: [SupplierFinder, SUPPLIER_USAGE, SUPPLIER_REPOSITORY, CLOCK],
     },
     { provide: SupplierSearcher, useFactory: (r: SupplierRepository) => new SupplierSearcher(r), inject: [SUPPLIER_REPOSITORY] },
 
@@ -162,8 +165,9 @@ import { PrismaSupplierRepository } from './persistence/prisma-supplier.reposito
     },
     {
       provide: PurchaseOrderSearcher,
-      useFactory: (o: PurchaseOrderRepository, s: SupplierRepository, c: PurchasingCatalog, dr: DocumentRates) => new PurchaseOrderSearcher(o, s, c, dr),
-      inject: [PURCHASE_ORDER_REPOSITORY, SUPPLIER_REPOSITORY, PURCHASING_CATALOG, DOCUMENT_RATES],
+      useFactory: (o: PurchaseOrderRepository, s: SupplierRepository, c: PurchasingCatalog, dr: DocumentRates, cal: BusinessCalendar) =>
+        new PurchaseOrderSearcher(o, s, c, dr, cal),
+      inject: [PURCHASE_ORDER_REPOSITORY, SUPPLIER_REPOSITORY, PURCHASING_CATALOG, DOCUMENT_RATES, BUSINESS_CALENDAR],
     },
 
     {
@@ -206,8 +210,8 @@ import { PrismaSupplierRepository } from './persistence/prisma-supplier.reposito
     },
     {
       provide: IncomingStockSearcher,
-      useFactory: (o: PurchaseOrderRepository, c: PurchasingCatalog) => new IncomingStockSearcher(o, c),
-      inject: [PURCHASE_ORDER_REPOSITORY, PURCHASING_CATALOG],
+      useFactory: (o: PurchaseOrderRepository, c: PurchasingCatalog, cal: BusinessCalendar) => new IncomingStockSearcher(o, c, cal),
+      inject: [PURCHASE_ORDER_REPOSITORY, PURCHASING_CATALOG, BUSINESS_CALENDAR],
     },
   ],
 })

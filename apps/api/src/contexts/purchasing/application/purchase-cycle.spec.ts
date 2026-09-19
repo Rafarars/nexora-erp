@@ -10,13 +10,14 @@ import {
   PurchaseOrderNotReceivableError,
   PurchaseOrderWithReceiptsError,
   PurchaseWarehouseNotFoundError,
+  SupplierNotFoundError,
   InactivePurchaseWarehouseError,
   ReceiptExceedsPendingError,
   ReceivedGoodsAlreadyUsedError,
   ItemNotPurchasableError,
   PurchaseFractionalQuantityError,
 } from '../domain/errors/purchasing.errors.js';
-import { BOX, CLOSED, FOREIGN_ITEM, FOREIGN_WAREHOUSE, MAIN, NORTH, PIECE, SERVICE, SOAP, KILO, TENANT_A, TENANT_B, WATER, NOT_TRADED_ITEM } from '../domain/testing/purchasing.mother.js';
+import { BOX, CLOSED, FOREIGN_ITEM, FOREIGN_SUPPLIER, FOREIGN_WAREHOUSE, MAIN, NORTH, PIECE, SERVICE, SOAP, KILO, TENANT_A, TENANT_B, WATER, NOT_TRADED_ITEM } from '../domain/testing/purchasing.mother.js';
 import { PurchaseOrderCreatorRequest } from './create-order/purchase-order-creator.js';
 import { PurchasingScenario, aPurchasingScenario } from './testing/purchasing-scenario.js';
 
@@ -191,7 +192,7 @@ describe('stock in transit', () => {
         item: expect.objectContaining({ sku: 'AGUA-500', baseUnit: 'un' }),
         warehouse: { id: MAIN, name: 'Principal' },
         quantity: 240,
-        orders: [{ id: order.id, code: order.code, expectedDate: '2026-01-20', pendingQuantity: 240 }],
+        orders: [{ id: order.id, code: order.code, expectedDate: '2026-01-20', late: false, pendingQuantity: 240 }],
       }),
       expect.objectContaining({ item: expect.objectContaining({ sku: 'JABON' }), quantity: 5 }),
     ]);
@@ -216,6 +217,59 @@ describe('stock in transit', () => {
 
     expect((await s.searchIncoming.run({ tenantId: TENANT_A, warehouseId: NORTH })).incoming).toEqual([]);
     await expect(s.searchIncoming.run({ tenantId: TENANT_A, warehouseId: FOREIGN_WAREHOUSE })).rejects.toThrow(PurchaseWarehouseNotFoundError);
+  });
+
+  // Filtrar por algo ajeno tiene que responder "no existe", no una lista vacia: una lista vacia
+  // afirma que ese proveedor no tiene ordenes, que no es lo mismo.
+  it('answers not found when filtering by a supplier or a warehouse of another tenant', async () => {
+    const { s } = await confirmedOrder();
+
+    await expect(s.searchOrders.run({ tenantId: TENANT_A, supplierId: FOREIGN_SUPPLIER })).rejects.toThrow(SupplierNotFoundError);
+    await expect(s.searchOrders.run({ tenantId: TENANT_A, warehouseId: FOREIGN_WAREHOUSE })).rejects.toThrow(PurchaseWarehouseNotFoundError);
+    await expect(s.searchReceipts.run({ tenantId: TENANT_A, warehouseId: FOREIGN_WAREHOUSE })).rejects.toThrow(PurchaseWarehouseNotFoundError);
+  });
+
+  // Lo que ya debia haber llegado se mira distinto que lo que esta por llegar.
+  it('marks as late an order whose expected date already passed', async () => {
+    const { s } = await confirmedOrder({ date: '2026-01-01', expectedDate: '2026-01-05' });
+
+    const [row] = (await s.searchIncoming.run({ tenantId: TENANT_A })).incoming;
+    const [order] = (await s.searchOrders.run({ tenantId: TENANT_A })).orders;
+
+    expect(row.orders[0]).toMatchObject({ expectedDate: '2026-01-05', late: true });
+    // La misma fecha se lee igual en las dos pantallas.
+    expect(order).toMatchObject({ expectedDate: '2026-01-05', late: true });
+  });
+
+  it('does not call late an order that already arrived', async () => {
+    const { s, order } = await confirmedOrder({ date: '2026-01-01', expectedDate: '2026-01-05' });
+    await receive(s, order.id, [
+      { orderLineId: order.lines[0].id, quantity: 10 },
+      { orderLineId: order.lines[1].id, quantity: 5 },
+    ]);
+
+    const [row] = (await s.searchOrders.run({ tenantId: TENANT_A })).orders;
+
+    expect(row).toMatchObject({ status: 'received', late: false });
+  });
+
+  // Un servicio no entra a una bodega: si se contara, la fila no se iria nunca.
+  it('leaves services out, like the stock the inventory expects does', async () => {
+    const { s, supplierId } = await confirmedOrder();
+    await s.createOrder.run(
+      orderRequest(supplierId, {
+        lines: [
+          { itemId: WATER, unitId: PIECE, quantity: 3, unitCost: 2 },
+          { itemId: SERVICE, unitId: PIECE, quantity: 5, unitCost: 40 },
+        ],
+      }),
+    );
+    const mixed = await latestOrder(s);
+    await s.confirmOrder.run({ tenantId: TENANT_A, orderId: mixed.id });
+
+    const { incoming } = await s.searchIncoming.run({ tenantId: TENANT_A });
+
+    expect(incoming.map((row) => row.item.id)).not.toContain(SERVICE);
   });
 });
 

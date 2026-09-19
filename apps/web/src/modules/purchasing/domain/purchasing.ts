@@ -28,6 +28,8 @@ export interface OrderLine {
   baseQuantity: number;
   unitCost: number;
   taxRate: number;
+  // Falso en los servicios: no entran a una bodega, asi que no se reciben.
+  movesStock: boolean;
   receivedQuantity: number;
   pendingQuantity: number;
   subtotal: number;
@@ -40,8 +42,12 @@ export interface PurchaseOrder extends DocumentCurrency {
   warehouse: { id: string; name: string };
   date: string;
   expectedDate: string | null;
+  // Verdadero solo mientras espera mercancia: una recibida nunca va atrasada.
+  late: boolean;
   notes: string | null;
   status: OrderStatus;
+  // El plazo congelado al emitirla, no el que tenga hoy el proveedor.
+  paymentTermDays: number;
   totals: { subtotal: number; tax: number; total: number };
   lines: OrderLine[];
 }
@@ -76,7 +82,7 @@ export interface IncomingStock {
   item: { id: string; sku: string; name: string; baseUnit: string };
   warehouse: { id: string; name: string };
   quantity: number;
-  orders: { id: string; code: string; expectedDate: string | null; pendingQuantity: number }[];
+  orders: { id: string; code: string; expectedDate: string | null; late: boolean; pendingQuantity: number }[];
 }
 
 export const ORDER_STATUS_LABELS: Record<OrderStatus, string> = {
@@ -128,12 +134,17 @@ export function summarizeReceiptLines(lines: ReceiptLine[]): string {
   return lines.map((line) => `${formatQuantity(line.quantity)} ${line.unitAbbreviation} ${line.sku}`).join(' · ');
 }
 
-// Las lineas que una entrada puede traer: las que tienen algo pendiente. Al editar un
-// borrador tambien las que ya lleva, con lo que lleva.
+// Las lineas que una entrada puede traer: las que mueven existencia y tienen algo pendiente.
+// Al editar un borrador tambien las que ya lleva, con lo que lleva.
 export function receivableLines(order: PurchaseOrder, receipt: GoodsReceipt | null): { line: OrderLine; quantity: number }[] {
   return order.lines
     .map((line) => ({ line, quantity: receipt?.lines.find((r) => r.orderLineId === line.id)?.quantity ?? 0 }))
-    .filter(({ line, quantity }) => line.pendingQuantity > 0 || quantity > 0);
+    .filter(({ line, quantity }) => line.movesStock && (line.pendingQuantity > 0 || quantity > 0));
+}
+
+// El plazo de pago de un proveedor o de una orden, tal como se lee en pantalla.
+export function paymentTermLabel(days: number): string {
+  return days === 0 ? 'Contado' : `${days} días`;
 }
 
 // Con al menos dos decimales y hasta cuatro, el maximo que admite una empresa.

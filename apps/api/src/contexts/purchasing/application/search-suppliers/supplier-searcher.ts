@@ -13,21 +13,47 @@ export interface SupplierResponse {
   isActive: boolean;
 }
 
-// Activos e inactivos, por nombre: la interfaz decide que ofrece en cada selector.
+export interface SupplierSearcherResponse {
+  total: number;
+  limit: number;
+  offset: number;
+  hasMore: boolean;
+  suppliers: SupplierResponse[];
+}
+
+const DEFAULT_PAGE = 20;
+
+// Activos e inactivos salvo que se pidan de un tipo: la interfaz decide que ofrece en cada
+// selector. Se busca por codigo, nombre e identificacion fiscal.
 export class SupplierSearcher {
   constructor(private readonly suppliers: SupplierRepository) {}
 
-  async run(request: { tenantId: string }): Promise<{ suppliers: SupplierResponse[] }> {
-    const suppliers = await this.suppliers.searchByTenant(TenantId.of(request.tenantId));
+  async run(request: {
+    tenantId: string;
+    q?: string | null;
+    active?: 'true' | 'false';
+    limit?: number;
+    offset?: number;
+  }): Promise<SupplierSearcherResponse> {
+    const limit = request.limit ?? DEFAULT_PAGE;
+    const offset = request.offset ?? 0;
+    const page = await this.suppliers.searchPage(TenantId.of(request.tenantId), {
+      text: request.q?.trim() ? request.q.trim() : null,
+      isActive: request.active === undefined ? null : request.active === 'true',
+      limit,
+      offset,
+    });
 
     return {
-      suppliers: suppliers
-        .map((supplier) => {
-          const { id, code, name, fiscalId, email, phone, address, paymentTermDays, isActive } = supplier.toPrimitives();
+      total: page.total,
+      limit,
+      offset,
+      hasMore: offset + page.suppliers.length < page.total,
+      suppliers: page.suppliers.map((supplier) => {
+        const { id, code, name, fiscalId, email, phone, address, paymentTermDays, isActive } = supplier.toPrimitives();
 
-          return { id, code, name, fiscalId, email, phone, address, paymentTermDays, isActive };
-        })
-        .sort((a, b) => a.name.localeCompare(b.name)),
+        return { id, code, name, fiscalId, email, phone, address, paymentTermDays, isActive };
+      }),
     };
   }
 }

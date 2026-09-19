@@ -1,18 +1,53 @@
 import { AccessError } from '../../access/domain/access-error';
 import type { AccessErrorBody } from '../../access/domain/access-error';
-import type { GoodsReceipt, IncomingStock, PurchaseOrder, Supplier } from '../domain/purchasing';
-import type { OrderInput, PurchasingApi, ReceiptInput, SupplierInput } from '../domain/purchasing-api';
+import type { PurchaseOrder, Supplier } from '../domain/purchasing';
+import type {
+  IncomingFilters,
+  IncomingPage,
+  OrderFilters,
+  OrderInput,
+  OrderPage,
+  PurchasingApi,
+  ReceiptFilters,
+  ReceiptInput,
+  ReceiptPage,
+  SupplierFilters,
+  SupplierInput,
+  SupplierPage,
+} from '../domain/purchasing-api';
 
 const BASE = '/api/v1/purchasing';
+
+// El tope que admite la API por peticion.
+const SELECTOR_PAGE = 50;
 
 // NaN no existe en JSON: se manda como texto y la API senala el campo.
 const numeric = (value: number | null) => (value !== null && Number.isNaN(value) ? 'NaN' : value);
 
+// Los esquemas son estrictos: solo viaja el filtro que trae valor.
+function queryOf(filters: Record<string, string | number | undefined>): string {
+  const query = new URLSearchParams();
+
+  for (const [key, value] of Object.entries(filters)) {
+    if (value !== undefined && value !== '') query.set(key, String(value));
+  }
+
+  return query.size > 0 ? `?${query.toString()}` : '';
+}
+
 export class HttpPurchasingApi implements PurchasingApi {
   constructor(private readonly baseUrl: string) {}
 
-  async searchSuppliers(token: string): Promise<Supplier[]> {
-    return (await this.request<{ suppliers: Supplier[] }>('GET', `${BASE}/suppliers`, token)).suppliers;
+  async searchSuppliers(token: string, filters: SupplierFilters = {}): Promise<SupplierPage> {
+    return this.request<SupplierPage>('GET', `${BASE}/suppliers${queryOf(filters)}`, token);
+  }
+
+  async allSuppliers(token: string): Promise<Supplier[]> {
+    return everyPage(async (offset) => {
+      const page = await this.searchSuppliers(token, { limit: SELECTOR_PAGE, offset });
+
+      return { rows: page.suppliers, hasMore: page.hasMore };
+    });
   }
 
   async saveSupplier(token: string, id: string | null, input: SupplierInput): Promise<void> {
@@ -25,8 +60,16 @@ export class HttpPurchasingApi implements PurchasingApi {
     await this.request('PUT', `${BASE}/suppliers/${id}/status`, token, { active });
   }
 
-  async searchOrders(token: string): Promise<PurchaseOrder[]> {
-    return (await this.request<{ orders: PurchaseOrder[] }>('GET', `${BASE}/orders`, token)).orders;
+  async searchOrders(token: string, filters: OrderFilters = {}): Promise<OrderPage> {
+    return this.request<OrderPage>('GET', `${BASE}/orders${queryOf(filters)}`, token);
+  }
+
+  async allOrders(token: string): Promise<PurchaseOrder[]> {
+    return everyPage(async (offset) => {
+      const page = await this.searchOrders(token, { limit: SELECTOR_PAGE, offset });
+
+      return { rows: page.orders, hasMore: page.hasMore };
+    });
   }
 
   async saveOrder(token: string, id: string | null, input: OrderInput): Promise<void> {
@@ -47,8 +90,8 @@ export class HttpPurchasingApi implements PurchasingApi {
     await this.request('PUT', `${BASE}/orders/${id}/cancel`, token);
   }
 
-  async searchReceipts(token: string): Promise<GoodsReceipt[]> {
-    return (await this.request<{ receipts: GoodsReceipt[] }>('GET', `${BASE}/receipts`, token)).receipts;
+  async searchReceipts(token: string, filters: ReceiptFilters = {}): Promise<ReceiptPage> {
+    return this.request<ReceiptPage>('GET', `${BASE}/receipts${queryOf(filters)}`, token);
   }
 
   async createReceipt(token: string, orderId: string, input: ReceiptInput): Promise<void> {
@@ -67,10 +110,8 @@ export class HttpPurchasingApi implements PurchasingApi {
     await this.request('PUT', `${BASE}/receipts/${id}/cancel`, token);
   }
 
-  async searchIncoming(token: string, warehouseId?: string): Promise<IncomingStock[]> {
-    const query = warehouseId ? `?warehouseId=${encodeURIComponent(warehouseId)}` : '';
-
-    return (await this.request<{ incoming: IncomingStock[] }>('GET', `${BASE}/incoming${query}`, token)).incoming;
+  async searchIncoming(token: string, filters: IncomingFilters = {}): Promise<IncomingPage> {
+    return this.request<IncomingPage>('GET', `${BASE}/incoming${queryOf(filters)}`, token);
   }
 
   private receiptBody(input: ReceiptInput) {
@@ -97,6 +138,23 @@ export class HttpPurchasingApi implements PurchasingApi {
 
     return (text.length > 0 ? JSON.parse(text) : undefined) as T;
   }
+}
+
+// Recorre las paginas hasta agotarlas: lo que necesita un selector, que no pagina.
+async function everyPage<T>(pageAt: (offset: number) => Promise<{ rows: T[]; hasMore: boolean }>): Promise<T[]> {
+  const all: T[] = [];
+  let offset = 0;
+  let hasMore = true;
+
+  while (hasMore) {
+    const page = await pageAt(offset);
+
+    all.push(...page.rows);
+    offset += page.rows.length;
+    hasMore = page.hasMore && page.rows.length > 0;
+  }
+
+  return all;
 }
 
 async function errorBodyOf(response: Response): Promise<AccessErrorBody> {

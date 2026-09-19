@@ -27,6 +27,7 @@ export interface PurchaseOrderRow extends CurrencyColumns {
   orderDate: Date;
   expectedDate: Date | null;
   notes: string | null;
+  paymentTermDays: number;
   status: 'draft' | 'confirmed' | 'partially_received' | 'received' | 'cancelled';
   confirmedAt: Date | null;
   cancelledAt: Date | null;

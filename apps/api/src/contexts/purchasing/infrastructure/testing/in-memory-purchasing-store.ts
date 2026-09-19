@@ -85,6 +85,37 @@ export class InMemoryPurchasingStore {
           .filter((row) => row.tenantId === tenantId.value)
           .sort((a, b) => b.code.localeCompare(a.code))
           .map((row) => PurchaseOrder.fromPrimitives(structuredClone(row))),
+      searchPage: async (tenantId, criteria) => {
+        const text = criteria.text?.toLowerCase() ?? null;
+        const matches = [...this.orderRows.values()]
+          .filter((row) => row.tenantId === tenantId.value)
+          .filter((row) => !criteria.supplierId || row.supplierId === criteria.supplierId)
+          .filter((row) => !criteria.warehouseId || row.warehouseId === criteria.warehouseId)
+          .filter((row) => !criteria.status || row.status === criteria.status)
+          .filter((row) => !criteria.from || row.orderDate >= criteria.from)
+          .filter((row) => !criteria.to || row.orderDate <= criteria.to)
+          .filter(
+            (row) =>
+              text === null ||
+              row.code.toLowerCase().includes(text) ||
+              row.lines.some((line) => line.itemSku.toLowerCase().includes(text) || line.itemName.toLowerCase().includes(text)),
+          )
+          .sort((a, b) => b.code.localeCompare(a.code));
+
+        return {
+          orders: matches
+            .slice(criteria.offset, criteria.offset + criteria.limit)
+            .map((row) => PurchaseOrder.fromPrimitives(structuredClone(row))),
+          total: matches.length,
+        };
+      },
+      searchOpen: async (tenantId, warehouseId) =>
+        [...this.orderRows.values()]
+          .filter((row) => row.tenantId === tenantId.value)
+          .filter((row) => row.status === 'confirmed' || row.status === 'partially_received')
+          .filter((row) => !warehouseId || row.warehouseId === warehouseId)
+          .sort((a, b) => a.code.localeCompare(b.code))
+          .map((row) => PurchaseOrder.fromPrimitives(structuredClone(row))),
     };
   }
 
@@ -97,6 +128,26 @@ export class InMemoryPurchasingStore {
           .filter((row) => row.tenantId === tenantId.value && (!orderId || row.orderId === orderId.value))
           .sort((a, b) => b.code.localeCompare(a.code))
           .map((row) => GoodsReceipt.fromPrimitives(structuredClone(row))),
+      searchPage: async (tenantId, criteria) => {
+        const text = criteria.text?.toLowerCase() ?? null;
+        const codeOf = (orderId: string) => this.orderRows.get(orderId)?.code ?? '';
+        const matches = [...this.receiptRows.values()]
+          .filter((row) => row.tenantId === tenantId.value)
+          .filter((row) => !criteria.orderId || row.orderId === criteria.orderId)
+          .filter((row) => !criteria.warehouseId || row.warehouseId === criteria.warehouseId)
+          .filter((row) => !criteria.status || row.status === criteria.status)
+          .filter((row) => !criteria.from || row.receiptDate >= criteria.from)
+          .filter((row) => !criteria.to || row.receiptDate <= criteria.to)
+          .filter((row) => text === null || row.code.toLowerCase().includes(text) || codeOf(row.orderId).toLowerCase().includes(text))
+          .sort((a, b) => b.code.localeCompare(a.code));
+
+        return {
+          receipts: matches
+            .slice(criteria.offset, criteria.offset + criteria.limit)
+            .map((row) => GoodsReceipt.fromPrimitives(structuredClone(row))),
+          total: matches.length,
+        };
+      },
     };
   }
 

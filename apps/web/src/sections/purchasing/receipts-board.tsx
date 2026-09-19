@@ -8,16 +8,29 @@ import { SlideOver } from '@/sections/shared/slide-over';
 import { emptyState } from '@/shared/forms/form-state';
 import type { FormState } from '@/shared/forms/form-state';
 import { RECEIPT_STATUS_LABELS, receiptActions, summarizeReceiptLines } from '@/modules/purchasing/domain/purchasing';
-import type { GoodsReceipt, PurchaseOrder } from '@/modules/purchasing/domain/purchasing';
+import type { GoodsReceipt, PurchaseOrder, ReceiptStatus } from '@/modules/purchasing/domain/purchasing';
 import { DocumentRate } from '@/sections/shared/document-rate';
+import { Filter, Pager } from '@/sections/shared/filters';
 import { MenuButton } from './menu-button';
 import { ReceiptFields } from './receipt-fields';
 import { submitKeepingValues } from '@/shared/forms/submit-keeping-values';
+
+export interface ReceiptSearch {
+  q: string;
+  status: string;
+  from: string;
+  to: string;
+  page: number;
+  pageSize: number;
+  total: number;
+  hasMore: boolean;
+}
 
 // Las entradas se crean desde su orden ("Recibir mercancia"); aqui se revisan, se confirman
 // y se anulan.
 export function ReceiptsBoard({
   receipts,
+  search,
   orders,
   baseCurrency,
   allowsRateOverride,
@@ -27,6 +40,7 @@ export function ReceiptsBoard({
   canCancel,
 }: {
   receipts: GoodsReceipt[];
+  search: ReceiptSearch;
   orders: PurchaseOrder[];
   baseCurrency: string;
   allowsRateOverride: boolean;
@@ -58,6 +72,8 @@ export function ReceiptsBoard({
           Se crean desde su orden. Confirmar sube la existencia al costo de la orden; anular la revierte si la mercancía sigue en la bodega.
         </p>
       </div>
+
+      <ReceiptFilters search={search} count={receipts.length} />
 
       <FormError message={changeState.error} testId="receipt-action-error" />
 
@@ -149,7 +165,7 @@ export function ReceiptsBoard({
             {receipts.length === 0 ? (
               <tr>
                 <td colSpan={6} className="text-muted px-4 py-6 text-center" data-testid="receipts-empty">
-                  Todavía no hay entradas de mercancía.
+                  No hay entradas de mercancía que mostrar.
                 </td>
               </tr>
             ) : null}
@@ -157,11 +173,22 @@ export function ReceiptsBoard({
         </table>
       </div>
 
-      <SlideOver title={editing ? `Editar ${editing.code}` : ''} open={editing !== null} onClose={() => setEditing(null)} testId="receipt-panel">
+      <SlideOver
+        title={editing ? `Editar ${editing.code}` : ''}
+        open={editing !== null}
+        onClose={() => setEditing(null)}
+        testId="receipt-panel"
+      >
         {editing && editingOrder ? (
           <form onSubmit={submitKeepingValues(save)} className="space-y-4" key={editing.id}>
             <input type="hidden" name="id" value={editing.id} />
-            <ReceiptFields order={editingOrder} receipt={editing} today={today} baseCurrency={baseCurrency} allowsRateOverride={allowsRateOverride} />
+            <ReceiptFields
+              order={editingOrder}
+              receipt={editing}
+              today={today}
+              baseCurrency={baseCurrency}
+              allowsRateOverride={allowsRateOverride}
+            />
             <FormError message={saveState.error} testId="receipt-error" />
             <SubmitButton pending={saving} testId="receipt-submit">
               Guardar borrador
@@ -170,5 +197,91 @@ export function ReceiptsBoard({
         ) : null}
       </SlideOver>
     </section>
+  );
+}
+
+function ReceiptFilters({ search, count }: { search: ReceiptSearch; count: number }) {
+  const pageHref = (page: number) =>
+    `/compras/entradas?${new URLSearchParams({
+      ...(search.q ? { q: search.q } : {}),
+      ...(search.status ? { estado: search.status } : {}),
+      ...(search.from ? { desde: search.from } : {}),
+      ...(search.to ? { hasta: search.to } : {}),
+      ...(page > 1 ? { pagina: String(page) } : {}),
+    }).toString()}`;
+
+  return (
+    <div className="border-line space-y-3 rounded-lg border p-3">
+      {/* Un formulario GET: los filtros quedan en la direccion y se pueden compartir. */}
+      <form method="get" className="flex flex-wrap items-end gap-2" data-testid="receipt-filter">
+        <Filter label="Buscar" htmlFor="receipt-search">
+          <input
+            id="receipt-search"
+            name="q"
+            defaultValue={search.q}
+            placeholder="Código de la entrada o de su orden"
+            data-testid="receipt-search"
+            className="border-line bg-background w-72 rounded-md border px-3 py-2 text-sm"
+          />
+        </Filter>
+
+        <Filter label="Estado" htmlFor="receipt-filter-status">
+          <select
+            id="receipt-filter-status"
+            name="estado"
+            defaultValue={search.status}
+            data-testid="receipt-filter-status"
+            className="border-line bg-background rounded-md border px-3 py-2 text-sm"
+          >
+            <option value="">Todos</option>
+            {(Object.keys(RECEIPT_STATUS_LABELS) as ReceiptStatus[]).map((status) => (
+              <option key={status} value={status}>
+                {RECEIPT_STATUS_LABELS[status]}
+              </option>
+            ))}
+          </select>
+        </Filter>
+
+        <Filter label="Desde" htmlFor="receipt-filter-from">
+          <input
+            id="receipt-filter-from"
+            name="desde"
+            type="date"
+            defaultValue={search.from}
+            data-testid="receipt-filter-from"
+            className="border-line rounded-md border bg-transparent px-3 py-2 text-sm"
+          />
+        </Filter>
+
+        <Filter label="Hasta" htmlFor="receipt-filter-to">
+          <input
+            id="receipt-filter-to"
+            name="hasta"
+            type="date"
+            defaultValue={search.to}
+            data-testid="receipt-filter-to"
+            className="border-line rounded-md border bg-transparent px-3 py-2 text-sm"
+          />
+        </Filter>
+
+        <button
+          type="submit"
+          data-testid="receipt-filter-submit"
+          className="border-line hover:bg-surface rounded-md border px-3 py-2 text-sm"
+        >
+          Filtrar
+        </button>
+      </form>
+
+      <Pager
+        testId="receipt"
+        page={search.page}
+        pageSize={search.pageSize}
+        count={count}
+        total={search.total}
+        hasMore={search.hasMore}
+        href={pageHref}
+      />
+    </div>
   );
 }

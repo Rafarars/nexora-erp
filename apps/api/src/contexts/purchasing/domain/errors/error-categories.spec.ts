@@ -14,6 +14,8 @@ const cases: Array<[DomainError, typeof DomainError]> = [
   [new errors.InvalidSupplierEmailError('x'), InvalidArgumentError],
   [new errors.InvalidPaymentTermError(400), InvalidArgumentError],
   [new errors.InactiveSupplierError(ID), ConflictError],
+  [new errors.SupplierWithOpenOrdersError(ID), ConflictError],
+  [new errors.ReceiptBeforeOrderError('2026-01-01'), ConflictError],
   [new errors.InactivePurchaseItemError(ID), ConflictError],
   [new errors.InactivePurchaseWarehouseError(ID), ConflictError],
   [new errors.ServiceNotPurchasableError(ID), InvalidArgumentError],

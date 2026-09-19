@@ -47,7 +47,7 @@ export class GoodsReceiptCreator {
     const lines = await this.factory.lines(tenantId, order, request.lines);
     const details = { date, notes: request.notes ?? null, lines, currency: await receiptCurrency(this.rates, request.tenantId, order, date, request.exchangeRate, today) };
     const id = GoodsReceiptId.of(this.ids.next());
-    const target = { id: order.id, warehouseId: order.warehouseId() };
+    const target = { id: order.id, warehouseId: order.warehouseId(), date: order.orderDate() };
 
     GoodsReceipt.draft(id, tenantId, purchasingCode('ENT', 0), target, details, now, today);
 

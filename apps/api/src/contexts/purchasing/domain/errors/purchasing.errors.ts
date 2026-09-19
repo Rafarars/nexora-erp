@@ -60,6 +60,28 @@ export class InactiveSupplierError extends ConflictError {
   }
 }
 
+// La mercancia no puede llegar antes de pedirse. Importa mas desde que la fecha del documento
+// viaja al kardex: un movimiento fechado antes que su orden se lista antes de que ella exista.
+export class ReceiptBeforeOrderError extends ConflictError {
+  constructor(date: string) {
+    super(
+      `Receipt dated <${date}> is earlier than its order.`,
+      'The receipt cannot be dated before its purchase order.',
+    );
+  }
+}
+
+// Cerrar a un proveedor con mercancia todavia en camino dejaria esas ordenes sin quien las
+// cierre. Mismo criterio que la bodega con documentos abiertos, en el catalogo.
+export class SupplierWithOpenOrdersError extends ConflictError {
+  constructor(id: string) {
+    super(
+      `Supplier <${id}> has open purchase orders.`,
+      'The supplier has orders still expecting goods and cannot be deactivated.',
+    );
+  }
+}
+
 // ---------------------------------------------------------------- lineas y catalogo
 
 // El articulo cambio su unidad desde que se escribio el documento, o en el instante entre

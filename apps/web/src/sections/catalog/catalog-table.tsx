@@ -33,6 +33,7 @@ export function CatalogTable<T extends CatalogRecord>({
   newLabel,
   rows,
   columns,
+  filters,
   renderFields,
   save,
   changeStatus,
@@ -48,6 +49,8 @@ export function CatalogTable<T extends CatalogRecord>({
   newLabel: string;
   rows: T[];
   columns: Column<T>[];
+  // Los filtros y la paginacion de la pantalla, si los tiene: van bajo el titulo.
+  filters?: React.ReactNode;
   renderFields: (row: T | null) => React.ReactNode;
   save: Action;
   changeStatus: Action;
@@ -103,6 +106,8 @@ export function CatalogTable<T extends CatalogRecord>({
           </button>
         ) : null}
       </div>
+
+      {filters}
 
       <FormError message={statusState.error} testId={`${resource}-status-error`} />
       <FormError message={extraState.error} testId={`${resource}-action-error`} />

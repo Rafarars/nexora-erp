@@ -350,6 +350,30 @@ export const ISOLATION_CASES: IsolationCase[] = [
     path: `/api/v1/purchasing/incoming?warehouseId=${GLOBEX.warehouseId}`,
   },
   {
+    route: 'GET /api/v1/purchasing/orders',
+    title: 'filter the orders by a supplier of another tenant',
+    method: 'get',
+    path: `/api/v1/purchasing/orders?supplierId=${GLOBEX.supplierId}`,
+  },
+  {
+    route: 'GET /api/v1/purchasing/orders',
+    title: 'filter the orders by a warehouse of another tenant',
+    method: 'get',
+    path: `/api/v1/purchasing/orders?warehouseId=${GLOBEX.warehouseId}`,
+  },
+  {
+    route: 'GET /api/v1/purchasing/receipts',
+    title: 'filter the receipts by an order of another tenant',
+    method: 'get',
+    path: `/api/v1/purchasing/receipts?orderId=${GLOBEX.confirmedOrderId}`,
+  },
+  {
+    route: 'GET /api/v1/purchasing/receipts',
+    title: 'filter the receipts by a warehouse of another tenant',
+    method: 'get',
+    path: `/api/v1/purchasing/receipts?warehouseId=${GLOBEX.warehouseId}`,
+  },
+  {
     route: 'PUT /api/v1/sales/customers/:customerId',
     title: 'rename a customer of another tenant',
     method: 'put',

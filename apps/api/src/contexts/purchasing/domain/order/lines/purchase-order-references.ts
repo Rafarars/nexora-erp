@@ -38,12 +38,13 @@ export class PurchaseOrderReferences {
     private readonly ids: IdGenerator,
   ) {}
 
-  async supplier(tenantId: TenantId, supplierId: string): Promise<SupplierId> {
+  // Devuelve tambien el plazo: la orden lo congela al escribirse, como el impuesto de la linea.
+  async supplier(tenantId: TenantId, supplierId: string): Promise<{ id: SupplierId; paymentTermDays: number }> {
     const supplier = await this.suppliers.find(tenantId, SupplierId.of(supplierId));
 
     if (!supplier.isActive()) throw new InactiveSupplierError(supplier.id.value);
 
-    return supplier.id;
+    return { id: supplier.id, paymentTermDays: supplier.toPrimitives().paymentTermDays };
   }
 
   async warehouse(tenantId: TenantId, warehouseId: string): Promise<WarehouseRef> {

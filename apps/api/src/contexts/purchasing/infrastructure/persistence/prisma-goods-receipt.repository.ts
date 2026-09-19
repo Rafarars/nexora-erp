@@ -3,7 +3,7 @@ import { PrismaService } from '../../../../shared/prisma/prisma.service.js';
 import { GoodsReceiptNotEditableError } from '../../domain/errors/purchasing.errors.js';
 import { PurchaseOrderId } from '../../domain/order/purchase-order.entity.js';
 import { GoodsReceipt, GoodsReceiptId } from '../../domain/receipt/goods-receipt.entity.js';
-import { GoodsReceiptRepository } from '../../domain/receipt/goods-receipt.repository.js';
+import { GoodsReceiptCriteria, GoodsReceiptPage, GoodsReceiptRepository } from '../../domain/receipt/goods-receipt.repository.js';
 import { ConcurrentModificationError } from '../../../../shared/domain/concurrent-modification.error.js';
 import { TenantId } from '../../domain/shared/tenant-id.vo.js';
 import { asDate, receiptFromRow } from './purchasing-rows.js';
@@ -63,5 +63,37 @@ export class PrismaGoodsReceiptRepository implements GoodsReceiptRepository {
     });
 
     return rows.map(receiptFromRow);
+  }
+
+  async searchPage(tenantId: TenantId, criteria: GoodsReceiptCriteria): Promise<GoodsReceiptPage> {
+    const text = criteria.text;
+    const where = {
+      tenantId: tenantId.value,
+      ...(criteria.orderId ? { orderId: criteria.orderId } : {}),
+      ...(criteria.warehouseId ? { warehouseId: criteria.warehouseId } : {}),
+      ...(criteria.status ? { status: criteria.status } : {}),
+      ...(criteria.from || criteria.to
+        ? {
+            receiptDate: {
+              ...(criteria.from ? { gte: new Date(`${criteria.from}T00:00:00.000Z`) } : {}),
+              ...(criteria.to ? { lte: new Date(`${criteria.to}T00:00:00.000Z`) } : {}),
+            },
+          }
+        : {}),
+      ...(text
+        ? {
+            OR: [
+              { code: { contains: text, mode: 'insensitive' as const } },
+              { order: { code: { contains: text, mode: 'insensitive' as const } } },
+            ],
+          }
+        : {}),
+    };
+    const [rows, total] = await Promise.all([
+      this.prisma.goodsReceipt.findMany({ where, include: { lines: true }, orderBy: { code: 'desc' }, take: criteria.limit, skip: criteria.offset }),
+      this.prisma.goodsReceipt.count({ where }),
+    ]);
+
+    return { receipts: rows.map(receiptFromRow), total };
   }
 }

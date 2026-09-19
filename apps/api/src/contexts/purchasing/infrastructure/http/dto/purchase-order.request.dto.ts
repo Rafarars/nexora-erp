@@ -16,6 +16,6 @@ export const purchaseOrderRequestSchema = z.object({
       unitCost: z.number(),
     }),
   ),
-});
+}).strict();
 
 export type PurchaseOrderRequestDto = z.infer<typeof purchaseOrderRequestSchema>;

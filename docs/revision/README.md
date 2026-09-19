@@ -75,10 +75,10 @@ Estados: ⬜ pendiente · 🔍 revisado, esperando decisiones · ✅ cerrado (de
 
 | Submódulo | Estado | Informe |
 |---|---|---|
-| Proveedores | ⬜ | |
-| Órdenes de compra | ⬜ | |
-| Entradas de mercancía | ⬜ | |
-| En camino | ⬜ | |
+| Proveedores | ✅ Cerrado. Ya no se cierra con órdenes abiertas; listado paginado y con búsqueda | [compras/compras.md](compras/compras.md) |
+| Órdenes de compra | ✅ Cerrado. Plazo de pago congelado, listado paginado y con filtros | [compras/compras.md](compras/compras.md) |
+| Entradas de mercancía | ✅ Cerrado. No se fechan antes que su orden; filtros por estado y fecha | [compras/compras.md](compras/compras.md) |
+| En camino | ✅ Cerrado. Ya no cuenta servicios, avisa de lo atrasado y no lee lo que descarta | [compras/compras.md](compras/compras.md) |
 
 ### 4. Ventas
 

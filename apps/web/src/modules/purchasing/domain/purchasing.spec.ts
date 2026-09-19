@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { formatAmount, orderActions, receiptActions, receivableLines, summarizeOrderLines } from './purchasing';
+import { formatAmount, orderActions, paymentTermLabel, receiptActions, receivableLines, summarizeOrderLines } from './purchasing';
 import type { GoodsReceipt, OrderLine, PurchaseOrder } from './purchasing';
 
 const line = (overrides: Partial<OrderLine>): OrderLine => ({
@@ -14,6 +14,7 @@ const line = (overrides: Partial<OrderLine>): OrderLine => ({
   baseQuantity: 240,
   unitCost: 12,
   taxRate: 16,
+  movesStock: true,
   receivedQuantity: 0,
   pendingQuantity: 10,
   subtotal: 120,
@@ -27,8 +28,10 @@ const order = (lines: OrderLine[]): PurchaseOrder => ({
   warehouse: { id: 'w', name: 'Principal' },
   date: '2026-09-01',
   expectedDate: null,
+  late: false,
   notes: null,
   status: 'partially_received',
+  paymentTermDays: 30,
   currency: 'USD',
   exchangeRate: 36.5,
   baseCurrency: 'USD',
@@ -80,7 +83,25 @@ describe('receivableLines', () => {
     const receipt = { lines: [{ orderLineId: 'done', quantity: 3 }] } as unknown as GoodsReceipt;
 
     expect(receivableLines(order([done, open]), null).map((r) => r.line.id)).toEqual(['open']);
-    expect(receivableLines(order([done, open]), receipt)).toMatchObject([{ line: { id: 'done' }, quantity: 3 }, { line: { id: 'open' }, quantity: 0 }]);
+    expect(receivableLines(order([done, open]), receipt)).toMatchObject([
+      { line: { id: 'done' }, quantity: 3 },
+      { line: { id: 'open' }, quantity: 0 },
+    ]);
+  });
+
+  // Un servicio no entra a una bodega: ofrecerlo acabaria en ServiceNotReceivableError.
+  it('never offers a line that does not move stock', () => {
+    const service = line({ id: 'service', movesStock: false, pendingQuantity: 1 });
+    const goods = line({ id: 'goods', pendingQuantity: 2 });
+
+    expect(receivableLines(order([service, goods]), null).map((r) => r.line.id)).toEqual(['goods']);
+  });
+});
+
+describe('paymentTermLabel', () => {
+  it('says "Contado" when there is no term and the days when there is', () => {
+    expect(paymentTermLabel(0)).toBe('Contado');
+    expect(paymentTermLabel(30)).toBe('30 días');
   });
 });
 

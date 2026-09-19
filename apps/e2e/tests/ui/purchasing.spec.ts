@@ -110,6 +110,7 @@ test.describe('Purchasing, from the screen', () => {
     await new LoginPage(page).signIn(ACME_ADMIN);
     await purchasing.open('ordenes');
     await purchasing.createOrder(supplier.name, [{ item: `${item.sku} — ${item.name}`, quantity: '3', unit: 'un', cost: '1' }]);
+    await purchasing.filterOrdersBySupplier(supplier.name);
     await purchasing.act(purchasing.orderOf(supplier.name), 'Confirmar');
     await expect(purchasing.orderOf(supplier.name).getByTestId(/order-status-/)).toHaveText('Confirmada');
 
@@ -132,6 +133,8 @@ test.describe('Purchasing, from the screen', () => {
     await page.getByTestId('supplier-submit').click();
     await expect(page.getByTestId('supplier-panel')).toBeHidden();
 
+    // El listado pagina: hay que buscarlo, no darlo por visible.
+    await purchasing.search('proveedores', name);
     await expect(page.getByTestId(`supplier-term-${name}`)).toHaveText('45 días');
 
     await page.getByTestId(`supplier-options-${name}`).click();
@@ -144,12 +147,18 @@ test('a read-only role sees orders and goods in transit but gets no way to buy',
   await new LoginPage(page).signIn(ACCOUNTANT);
   const purchasing = new PurchasingPage(page);
 
-  await purchasing.open('ordenes');
+  // Los listados paginan: las ordenes de la demostracion son las de codigo mas bajo, asi que
+  // cualquier orden que otra prueba cree las empuja fuera de la primera pagina.
+  await purchasing.open('ordenes', 'OC000001');
   await expect(page.getByTestId('order-status-OC000001')).toHaveText('Recibida en parte');
   await expect(page.getByTestId('new-order')).toHaveCount(0);
+
+  await purchasing.search('ordenes', 'OC000002');
   await expect(page.getByTestId('order-options-OC000002')).toHaveCount(0);
 
-  await purchasing.open('en-camino');
+  await purchasing.open('en-camino', 'AGUA-500');
   await expect(purchasing.incomingOf('AGUA-500', 'Principal')).toHaveText('144 un');
+
+  await purchasing.search('en-camino', 'DETERGENTE-1KG');
   await expect(purchasing.incomingOf('DETERGENTE-1KG', 'Principal')).toHaveText('20 kg');
 });

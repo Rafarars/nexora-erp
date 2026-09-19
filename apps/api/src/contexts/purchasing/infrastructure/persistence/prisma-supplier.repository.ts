@@ -4,7 +4,7 @@ import { violates } from '../../../../shared/prisma/unique-violation.js';
 import { DuplicateSupplierNameError } from '../../domain/errors/purchasing.errors.js';
 import { TenantId } from '../../domain/shared/tenant-id.vo.js';
 import { Supplier, SupplierId } from '../../domain/supplier/supplier.entity.js';
-import { SupplierRepository } from '../../domain/supplier/supplier.repository.js';
+import { SupplierCriteria, SupplierPage, SupplierRepository } from '../../domain/supplier/supplier.repository.js';
 
 @Injectable()
 export class PrismaSupplierRepository implements SupplierRepository {
@@ -43,5 +43,28 @@ export class PrismaSupplierRepository implements SupplierRepository {
     const rows = await this.prisma.supplier.findMany({ where: { tenantId: tenantId.value }, orderBy: { name: 'asc' } });
 
     return rows.map((row) => Supplier.fromPrimitives(row));
+  }
+
+  async searchPage(tenantId: TenantId, criteria: SupplierCriteria): Promise<SupplierPage> {
+    const text = criteria.text;
+    const where = {
+      tenantId: tenantId.value,
+      ...(criteria.isActive === null ? {} : { isActive: criteria.isActive }),
+      ...(text
+        ? {
+            OR: [
+              { code: { contains: text, mode: 'insensitive' as const } },
+              { name: { contains: text, mode: 'insensitive' as const } },
+              { fiscalId: { contains: text, mode: 'insensitive' as const } },
+            ],
+          }
+        : {}),
+    };
+    const [rows, total] = await Promise.all([
+      this.prisma.supplier.findMany({ where, orderBy: [{ name: 'asc' }, { id: 'asc' }], take: criteria.limit, skip: criteria.offset }),
+      this.prisma.supplier.count({ where }),
+    ]);
+
+    return { suppliers: rows.map((row) => Supplier.fromPrimitives(row)), total };
   }
 }

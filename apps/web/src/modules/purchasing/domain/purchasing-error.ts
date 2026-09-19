@@ -12,9 +12,11 @@ const BY_CODE: Record<string, string> = {
   InvalidPaymentTermError: 'El plazo de pago debe ser un número entero de días, de 0 a 365.',
   InactiveSupplierError: 'El proveedor está inactivo: no se le pueden hacer órdenes.',
   InactivePurchaseItemError: 'La orden o la entrada usa un artículo inactivo.',
-  PurchaseItemChangedError: 'La unidad de un artículo cambió desde que se escribió la orden: revisa las cantidades y guárdala antes de confirmar.',
+  PurchaseItemChangedError:
+    'La unidad de un artículo cambió desde que se escribió la orden: revisa las cantidades y guárdala antes de confirmar.',
   InactivePurchaseWarehouseError: 'La orden o la entrada usa una bodega inactiva.',
   ServiceNotPurchasableError: 'Un servicio no se recibe en una bodega: no se puede pedir en una orden.',
+  ServiceNotReceivableError: 'Un servicio no entra a una bodega: se paga con la factura del proveedor, sin entrada de mercancía.',
   PurchaseUnitNotOfItemError: 'Una línea usa una unidad que el artículo no tiene.',
   InvalidPurchaseQuantityError: 'Cada cantidad debe ser mayor que cero, con hasta cuatro decimales.',
   InvalidPurchaseCostError: 'El costo debe ser cero o más, con hasta seis decimales.',
@@ -37,11 +39,13 @@ const BY_CODE: Record<string, string> = {
   GoodsReceiptNotEditableError: 'Solo se puede editar una entrada en borrador.',
   GoodsReceiptNotConfirmableError: 'Solo se puede confirmar una entrada en borrador.',
   GoodsReceiptAlreadyCancelledError: 'La entrada ya está anulada.',
-  MissingExchangeRateError: 'No hay tasa de cambio cargada en esa fecha ni antes para la moneda del documento o la de la empresa: cárgala en Administración › Tasas de cambio.',
+  MissingExchangeRateError:
+    'No hay tasa de cambio cargada en esa fecha ni antes para la moneda del documento o la de la empresa: cárgala en Administración › Tasas de cambio.',
   RateOverrideNotAllowedError: 'La empresa no permite escribir la tasa: deja el campo vacío y se usa la del día.',
   FixedExchangeRateError: 'La tasa de la moneda de la empresa y la del bolívar no se escriben a mano.',
   ItemNotPurchasableError: 'Ese artículo no está marcado para comprarse: revísalo en Inventario › Artículos.',
-  PriceDecimalsExceededError: 'Un precio o costo tiene más decimales de los que usa la empresa: revisa los parámetros en Administración › Empresa.',
+  PriceDecimalsExceededError:
+    'Un precio o costo tiene más decimales de los que usa la empresa: revisa los parámetros en Administración › Empresa.',
   InvalidExchangeRateError: 'La tasa tiene que ser mayor que cero, con hasta 8 decimales.',
   UnknownCurrencyError: 'Esa moneda no existe.',
   InactiveCurrencyError: 'Esa moneda ya no está disponible: elige otra.',

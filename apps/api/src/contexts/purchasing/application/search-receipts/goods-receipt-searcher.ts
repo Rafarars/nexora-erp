@@ -1,5 +1,7 @@
 import { PurchasingCatalog } from '../../domain/catalog/purchasing-catalog.js';
+import { PurchaseOrderId } from '../../domain/order/purchase-order.entity.js';
 import { PurchaseOrderRepository } from '../../domain/order/purchase-order.repository.js';
+import { PurchaseOrderNotFoundError, PurchaseWarehouseNotFoundError } from '../../domain/errors/purchasing.errors.js';
 import { GoodsReceiptStatus } from '../../domain/receipt/goods-receipt.entity.js';
 import { GoodsReceiptRepository } from '../../domain/receipt/goods-receipt.repository.js';
 import { DocumentCurrencyPrimitives } from '../../../../shared/domain/document-currency.js';
@@ -33,6 +35,16 @@ export interface GoodsReceiptResponse extends DocumentCurrencyPrimitives {
   lines: GoodsReceiptLineResponse[];
 }
 
+export interface GoodsReceiptSearcherResponse {
+  total: number;
+  limit: number;
+  offset: number;
+  hasMore: boolean;
+  receipts: GoodsReceiptResponse[];
+}
+
+const DEFAULT_PAGE = 20;
+
 export class GoodsReceiptSearcher {
   constructor(
     private readonly receipts: GoodsReceiptRepository,
@@ -41,9 +53,42 @@ export class GoodsReceiptSearcher {
     private readonly catalog: PurchasingCatalog,
   ) {}
 
-  async run(request: { tenantId: string }): Promise<{ receipts: GoodsReceiptResponse[] }> {
+  async run(request: {
+    tenantId: string;
+    q?: string | null;
+    orderId?: string | null;
+    warehouseId?: string | null;
+    status?: GoodsReceiptStatus;
+    from?: string | null;
+    to?: string | null;
+    limit?: number;
+    offset?: number;
+  }): Promise<GoodsReceiptSearcherResponse> {
     const tenantId = TenantId.of(request.tenantId);
-    const rows = (await this.receipts.searchByTenant(tenantId)).map((receipt) => receipt.toPrimitives());
+
+    // Filtrar por algo de otra empresa responde como en el resto del sistema: no existe.
+    if (request.orderId && !(await this.orders.find(tenantId, PurchaseOrderId.of(request.orderId)))) {
+      throw new PurchaseOrderNotFoundError(request.orderId);
+    }
+    if (request.warehouseId) {
+      const found = await this.catalog.findWarehouses(tenantId, [WarehouseRef.of(request.warehouseId)]);
+
+      if (found.length === 0) throw new PurchaseWarehouseNotFoundError(request.warehouseId);
+    }
+
+    const limit = request.limit ?? DEFAULT_PAGE;
+    const offset = request.offset ?? 0;
+    const page = await this.receipts.searchPage(tenantId, {
+      text: request.q?.trim() ? request.q.trim() : null,
+      orderId: request.orderId ?? null,
+      warehouseId: request.warehouseId ?? null,
+      status: request.status ?? null,
+      from: request.from ?? null,
+      to: request.to ?? null,
+      limit,
+      offset,
+    });
+    const rows = page.receipts.map((receipt) => receipt.toPrimitives());
 
     const [orders, suppliers, items, warehouses] = await Promise.all([
       this.orders.searchByTenant(tenantId),
@@ -53,6 +98,10 @@ export class GoodsReceiptSearcher {
     ]);
 
     return {
+      total: page.total,
+      limit,
+      offset,
+      hasMore: offset + rows.length < page.total,
       receipts: rows
         .sort((a, b) => b.code.localeCompare(a.code))
         .map((row) => {

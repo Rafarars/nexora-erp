@@ -62,6 +62,10 @@ test('every route that takes an identifier has an isolation case', () => {
   expect(missing).toEqual([]);
 });
 
+// Contra RUTAS cubiertas, no contra ataques: una ruta que acepta dos identificadores necesita
+// dos ataques, uno por cada uno, y eso no significa que al escaner le falten rutas.
 test('finds routes to check, so an empty scan cannot pass by accident', () => {
-  expect(routesTakingIdentifiers().length).toBeGreaterThanOrEqual(ISOLATION_CASES.length);
+  const covered = new Set(ISOLATION_CASES.map((attack) => attack.route));
+
+  expect(routesTakingIdentifiers().length).toBeGreaterThanOrEqual(covered.size);
 });

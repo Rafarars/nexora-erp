@@ -3,6 +3,7 @@ import {
   DuplicateReceiptLineError,
   EmptyGoodsReceiptError,
   FuturePurchaseDateError,
+  ReceiptBeforeOrderError,
   GoodsReceiptAlreadyCancelledError,
   GoodsReceiptNotConfirmableError,
   GoodsReceiptNotEditableError,
@@ -45,7 +46,7 @@ function aReceipt(order: PurchaseOrder, lines: GoodsReceiptLine[], date = TODAY,
     GoodsReceiptId.of('0f000000-0000-4000-8000-000000000001'),
     TenantId.of(TENANT_A),
     'ENT000001',
-    { id: order.id, warehouseId: order.warehouseId() },
+    { id: order.id, warehouseId: order.warehouseId(), date: order.orderDate() },
     { date: PurchaseDate.of(date), notes: '  Llego completo ', lines, currency },
     NOW, TODAY,
   );
@@ -79,6 +80,15 @@ describe('GoodsReceipt', () => {
     expect(() => aReceipt(order, [])).toThrow(EmptyGoodsReceiptError);
     expect(() => aReceipt(order, [receiptLine(line, 1), receiptLine(line, 1)])).toThrow(DuplicateReceiptLineError);
     expect(() => aReceipt(order, [receiptLine(line, 1)], '2026-01-16')).toThrow(FuturePurchaseDateError);
+  });
+
+  // La mercancia no llega antes de pedirse, y esa fecha viaja al kardex.
+  it('refuses a date earlier than its own order', () => {
+    const line = anOrderLine();
+    const order = aConfirmedOrder([line]);
+
+    expect(() => aReceipt(order, [receiptLine(line, 1)], '2025-12-01')).toThrow(ReceiptBeforeOrderError);
+    expect(() => aReceipt(order, [receiptLine(line, 1)], order.orderDate().value)).not.toThrow();
   });
 
   it('costs each base unit at the order cost spread over the box', () => {
@@ -120,7 +130,7 @@ describe('GoodsReceipt', () => {
       new ReceiptConfirmation().apply(receipt, order, NOW);
 
       expect(() => receipt.confirm(NOW)).toThrow(GoodsReceiptNotConfirmableError);
-      expect(() => receipt.update({ date: PurchaseDate.of(TODAY), notes: null, lines: [receiptLine(line, 1)], currency: aDocumentCurrency() }, NOW, TODAY)).toThrow(
+      expect(() => receipt.update({ date: PurchaseDate.of(TODAY), notes: null, lines: [receiptLine(line, 1)], currency: aDocumentCurrency() }, NOW, TODAY, order.orderDate())).toThrow(
         GoodsReceiptNotEditableError,
       );
     });

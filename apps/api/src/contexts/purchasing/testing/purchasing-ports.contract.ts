@@ -63,6 +63,7 @@ export function describePurchasingPortsContract(implementation: string, createHa
         orderDate: PurchaseDate.of(TODAY),
         expectedDate: null,
         notes: 'contrato',
+        paymentTermDays: 30,
         lines,
         currency,
       }, NOW, TODAY);
@@ -92,7 +93,7 @@ export function describePurchasingPortsContract(implementation: string, createHa
         });
       });
 
-      await ports.receipts.save(GoodsReceipt.draft(id, tenant, `ENT${next().slice(-6)}`, { id: order.id, warehouseId: order.warehouseId() }, {
+      await ports.receipts.save(GoodsReceipt.draft(id, tenant, `ENT${next().slice(-6)}`, { id: order.id, warehouseId: order.warehouseId(), date: order.orderDate() }, {
         date: PurchaseDate.of(TODAY),
         notes: null,
         lines,
@@ -120,6 +121,42 @@ export function describePurchasingPortsContract(implementation: string, createHa
 
         await expect(ports.suppliers.save(clash)).rejects.toThrow(DuplicateSupplierNameError);
       });
+
+      // Buscar sin importar mayusculas es donde el doble y PostgreSQL se separan si nadie mira.
+      it('searches by code, name and fiscal id, ignoring case, and pages with a stable order', async () => {
+        const other = Supplier.create(
+          SupplierId.of('f3333333-3333-4333-8333-333333333333'),
+          tenant,
+          'PRV900003',
+          { name: 'Aguas del Valle', fiscalId: 'J-30512345-6' },
+          NOW,
+        );
+        await ports.suppliers.save(other);
+        const criteria = { text: null, isActive: null, limit: 20, offset: 0 };
+
+        expect((await ports.suppliers.searchPage(tenant, { ...criteria, text: 'aguas' })).suppliers.map((s) => s.id.value)).toEqual([other.id.value]);
+        expect((await ports.suppliers.searchPage(tenant, { ...criteria, text: 'AGUAS' })).suppliers.map((s) => s.id.value)).toEqual([other.id.value]);
+        expect((await ports.suppliers.searchPage(tenant, { ...criteria, text: 'prv900003' })).total).toBe(1);
+        // Un proveedor sin identificacion fiscal no puede romper la busqueda por ese campo.
+        expect((await ports.suppliers.searchPage(tenant, { ...criteria, text: '30512345' })).total).toBe(1);
+
+        const first = await ports.suppliers.searchPage(tenant, { ...criteria, limit: 1, offset: 0 });
+        const second = await ports.suppliers.searchPage(tenant, { ...criteria, limit: 1, offset: 1 });
+
+        expect(first.total).toBe(2);
+        expect(first.suppliers[0].id.value).not.toBe(second.suppliers[0].id.value);
+      });
+
+      it('tells apart the active from the inactive', async () => {
+        const closed = Supplier.create(SupplierId.of('f4444444-4444-4444-8444-444444444444'), tenant, 'PRV900004', { name: 'Cerrado' }, NOW);
+        closed.deactivate(NOW);
+        await ports.suppliers.save(closed);
+        const criteria = { text: null, limit: 20, offset: 0 };
+
+        expect((await ports.suppliers.searchPage(tenant, { ...criteria, isActive: true })).suppliers.map((s) => s.id.value)).toEqual([SUPPLIER]);
+        expect((await ports.suppliers.searchPage(tenant, { ...criteria, isActive: false })).suppliers.map((s) => s.id.value)).toEqual([closed.id.value]);
+        expect((await ports.suppliers.searchPage(tenant, { ...criteria, isActive: null })).total).toBe(2);
+      });
     });
 
     describe('PurchaseOrderRepository', () => {
@@ -133,6 +170,14 @@ export function describePurchasingPortsContract(implementation: string, createHa
           lines: [{ quantity: 3.5, baseQuantity: 84, unitCost: 1.234567, taxRate: 12.5, receivedQuantity: 0 }],
         });
         expect(await ports.orders.find(TenantId.of(TENANT_B), order.id)).toBeNull();
+      });
+
+      // El update enumera columnas a mano: una que se olvide se escribe bien en el doble y no en
+      // la base. Ya paso con el autor del ajuste, y por eso el plazo se comprueba aqui.
+      it('stores and reloads the payment term frozen on the order', async () => {
+        const order = await confirmedOrder();
+
+        expect((await ports.orders.find(tenant, order.id))?.toPrimitives().paymentTermDays).toBe(30);
       });
 
       it('keeps the currency and the frozen rates, and a document written before them without rates', async () => {
@@ -162,6 +207,7 @@ export function describePurchasingPortsContract(implementation: string, createHa
           warehouseId: WarehouseRef.of(MAIN),
           orderDate: PurchaseDate.of(TODAY),
           expectedDate: null,
+          paymentTermDays: 30,
           notes,
           lines: [anOrderLine()],
           currency: aDocumentCurrency(),
@@ -196,6 +242,7 @@ export function describePurchasingPortsContract(implementation: string, createHa
             orderDate: PurchaseDate.of(TODAY),
             expectedDate: null,
             notes: 'contrato',
+            paymentTermDays: 30,
             lines: [anOrderLine({ quantity: 10, factor: 12, unitCost: 12 })],
             currency: aDocumentCurrency(),
           }, NOW, TODAY),

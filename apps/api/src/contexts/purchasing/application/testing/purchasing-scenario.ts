@@ -18,6 +18,7 @@ import { InMemorySupplierRepository } from '../../infrastructure/testing/in-memo
 import { GoodsReceiptCanceller } from '../cancel-receipt/goods-receipt-canceller.js';
 import { PurchaseOrderCanceller } from '../cancel-order/purchase-order-canceller.js';
 import { SupplierStatusChanger } from '../change-supplier-status/supplier-status-changer.js';
+import { InMemorySupplierUsage } from '../../infrastructure/testing/in-memory-supplier-usage.js';
 import { GoodsReceiptConfirmer } from '../confirm-receipt/goods-receipt-confirmer.js';
 import { PurchaseOrderConfirmer } from '../confirm-order/purchase-order-confirmer.js';
 import { GoodsReceiptCreator } from '../create-receipt/goods-receipt-creator.js';
@@ -58,19 +59,19 @@ export function aPurchasingScenario() {
     catalog,
     createSupplier: new SupplierCreator(uniqueness, suppliers, codes, ids, clock),
     updateSupplier: new SupplierUpdater(supplierFinder, uniqueness, suppliers, clock),
-    changeSupplierStatus: new SupplierStatusChanger(supplierFinder, suppliers, clock),
+    changeSupplierStatus: new SupplierStatusChanger(supplierFinder, new InMemorySupplierUsage(store.orders), suppliers, clock),
     searchSuppliers: new SupplierSearcher(suppliers),
     createOrder: new PurchaseOrderCreator(references, store.orders, codes, ids, clock, calendar, rates),
     updateOrder: new PurchaseOrderUpdater(orderFinder, references, store.orders, clock, calendar, rates),
     confirmOrder: new PurchaseOrderConfirmer(orderFinder, references, store.orders, store.orderPosting, clock, calendar, rates),
     cancelOrder: new PurchaseOrderCanceller(store.orderPosting, clock),
-    searchOrders: new PurchaseOrderSearcher(store.orders, suppliers, catalog, rates),
+    searchOrders: new PurchaseOrderSearcher(store.orders, suppliers, catalog, rates, calendar),
     createReceipt: new GoodsReceiptCreator(orderFinder, receiptLines, store.receipts, codes, ids, clock, calendar, rates),
     updateReceipt: new GoodsReceiptUpdater(receiptFinder, orderFinder, receiptLines, store.receipts, clock, calendar, rates),
     confirmReceipt: new GoodsReceiptConfirmer(receiptFinder, orderFinder, receiptLines, store.receipts, store.receiptPosting, new ReceiptConfirmation(), clock, calendar, rates),
     cancelReceipt: new GoodsReceiptCanceller(store.receiptPosting, new ReceiptCancellation(), clock),
     searchReceipts: new GoodsReceiptSearcher(store.receipts, store.orders, suppliers, catalog),
-    searchIncoming: new IncomingStockSearcher(store.orders, catalog),
+    searchIncoming: new IncomingStockSearcher(store.orders, catalog, calendar),
   };
 }
 

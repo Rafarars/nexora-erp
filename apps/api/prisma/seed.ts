@@ -678,7 +678,7 @@ async function seedPurchasing(prisma: PrismaClient): Promise<void> {
     {
       id: PURCHASING.acme.partialOrder, tenantId: ACME, code: 'OC000001', supplierId: PURCHASING.acme.andina,
       warehouseId: acme.warehouses.main, orderDate: date('2026-09-02'), expectedDate: date('2026-09-10'),
-      notes: 'Reposición quincenal', status: 'partially_received' as const, confirmedAt: at('2026-09-02'),
+      notes: 'Reposición quincenal', paymentTermDays: 30, status: 'partially_received' as const, confirmedAt: at('2026-09-02'),
       lines: [
         { id: PURCHASING.acme.partialWater, itemId: acme.items.water, unitId: acme.units.box, quantity: 10, baseQuantity: 240, unitCost: 12, taxRate: 16, receivedQuantity: 4 },
         { id: PURCHASING.acme.partialDetergent, itemId: acme.items.detergent, unitId: acme.units.kilo, quantity: 20, baseQuantity: 20, unitCost: 3.1, taxRate: 16, receivedQuantity: 0 },
@@ -687,19 +687,19 @@ async function seedPurchasing(prisma: PrismaClient): Promise<void> {
     {
       id: PURCHASING.acme.draftOrder, tenantId: ACME, code: 'OC000002', supplierId: PURCHASING.acme.valle,
       warehouseId: acme.warehouses.main, orderDate: date('2026-09-06'), expectedDate: null, notes: null,
-      status: 'draft' as const, confirmedAt: null,
+      paymentTermDays: 0, status: 'draft' as const, confirmedAt: null,
       lines: [{ id: PURCHASING.acme.draftWater, itemId: acme.items.water, unitId: acme.units.piece, quantity: 48, baseQuantity: 48, unitCost: 0.45, taxRate: 16, receivedQuantity: 0 }],
     },
     {
       id: PURCHASING.globex.confirmedOrder, tenantId: GLOBEX, code: 'OC000001', supplierId: PURCHASING.globex.supplier,
       warehouseId: globex.warehouses.main, orderDate: date('2026-09-03'), expectedDate: null, notes: 'Filtros para taller',
-      status: 'confirmed' as const, confirmedAt: at('2026-09-03'),
+      paymentTermDays: 15, status: 'confirmed' as const, confirmedAt: at('2026-09-03'),
       lines: [{ id: PURCHASING.globex.confirmedFilter, itemId: globex.items.filter, unitId: globex.units.piece, quantity: 20, baseQuantity: 20, unitCost: 8, taxRate: 16, receivedQuantity: 0 }],
     },
     {
       id: PURCHASING.globex.draftOrder, tenantId: GLOBEX, code: 'OC000002', supplierId: PURCHASING.globex.supplier,
       warehouseId: globex.warehouses.main, orderDate: date('2026-09-04'), expectedDate: null, notes: null,
-      status: 'draft' as const, confirmedAt: null,
+      paymentTermDays: 15, status: 'draft' as const, confirmedAt: null,
       lines: [{ id: PURCHASING.globex.draftFilter, itemId: globex.items.filter, unitId: globex.units.piece, quantity: 5, baseQuantity: 5, unitCost: 8, taxRate: 16, receivedQuantity: 0 }],
     },
   ];

@@ -713,6 +713,7 @@ model PurchaseOrder {
   baseCurrency       String              @map("base_currency") @db.Char(3)
   baseExchangeRate   Decimal?            @map("base_exchange_rate") @db.Decimal(18, 8)
   manualExchangeRate Boolean             @default(false) @map("manual_exchange_rate")
+  paymentTermDays    Int                 @default(0) @map("payment_term_days")
   status             PurchaseOrderStatus @default(draft)
   confirmedAt        DateTime?           @map("confirmed_at")
   cancelledAt        DateTime?           @map("cancelled_at")

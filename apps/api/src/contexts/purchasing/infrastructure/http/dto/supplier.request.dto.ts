@@ -8,7 +8,7 @@ export const supplierRequestSchema = z.object({
   phone: z.string().nullable().optional(),
   address: z.string().nullable().optional(),
   paymentTermDays: z.number().nullable().optional(),
-});
+}).strict();
 
 export type SupplierRequestDto = z.infer<typeof supplierRequestSchema>;
 

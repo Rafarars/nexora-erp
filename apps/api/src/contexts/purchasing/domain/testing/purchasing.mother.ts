@@ -33,6 +33,7 @@ export const MAIN = 'b1111111-1111-4111-8111-111111111111';
 export const NORTH = 'b2222222-2222-4222-8222-222222222222';
 export const CLOSED = 'b3333333-3333-4333-8333-333333333333';
 export const FOREIGN_WAREHOUSE = 'b4444444-4444-4444-8444-444444444444';
+export const FOREIGN_SUPPLIER = 'f4444444-4444-4444-8444-444444444444';
 
 export const SUPPLIER = 'f1111111-1111-4111-8111-111111111111';
 
@@ -91,6 +92,7 @@ export function aDraftOrder(lines: PurchaseOrderLine[] = [anOrderLine()], id = '
     orderDate: PurchaseDate.of(TODAY),
     expectedDate: null,
     notes: null,
+    paymentTermDays: 30,
     lines,
     currency: aDocumentCurrency(),
   }, NOW, TODAY);

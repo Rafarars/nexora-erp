@@ -13,15 +13,37 @@ import type { Item } from '@/modules/inventory/domain/item';
 import { formatCost, formatQuantity } from '@/modules/inventory/domain/inventory';
 import { currencyOptions, formatRate, offersManualRate } from '@/modules/company/domain/company';
 import type { Currency } from '@/modules/company/domain/company';
-import { ORDER_STATUS_LABELS, formatAmount, orderActions, summarizeOrderLines } from '@/modules/purchasing/domain/purchasing';
-import type { PurchaseOrder, Supplier } from '@/modules/purchasing/domain/purchasing';
+import {
+  ORDER_STATUS_LABELS,
+  formatAmount,
+  orderActions,
+  paymentTermLabel,
+  receivableLines,
+  summarizeOrderLines,
+} from '@/modules/purchasing/domain/purchasing';
+import type { OrderStatus, PurchaseOrder, Supplier } from '@/modules/purchasing/domain/purchasing';
 import { DocumentRate } from '@/sections/shared/document-rate';
+import { Filter, Pager } from '@/sections/shared/filters';
 import { MenuButton } from './menu-button';
 import { ReceiptFields } from './receipt-fields';
 import { submitKeepingValues } from '@/shared/forms/submit-keeping-values';
 
+export interface OrderSearch {
+  q: string;
+  supplierId: string;
+  warehouseId: string;
+  status: string;
+  from: string;
+  to: string;
+  page: number;
+  pageSize: number;
+  total: number;
+  hasMore: boolean;
+}
+
 export function OrdersBoard({
   orders,
+  search,
   suppliers,
   items,
   warehouses,
@@ -36,6 +58,7 @@ export function OrdersBoard({
   canReceive,
 }: {
   orders: PurchaseOrder[];
+  search: OrderSearch;
   suppliers: Supplier[];
   items: Item[];
   warehouses: Warehouse[];
@@ -98,6 +121,8 @@ export function OrdersBoard({
         ) : null}
       </div>
 
+      <OrderFilters search={search} suppliers={suppliers} warehouses={warehouses} count={orders.length} />
+
       <FormError message={changeState.error} testId="order-action-error" />
 
       <div className="border-line overflow-x-auto rounded-lg border">
@@ -120,7 +145,9 @@ export function OrdersBoard({
                 edit: canUpdate && actions.edit,
                 confirm: canConfirm && actions.confirm,
                 cancel: canCancel && actions.cancel,
-                receive: canReceive && actions.receive,
+                // Sin lineas que reciban existencia, el panel saldria vacio: una orden de
+                // solo servicios se paga con la factura, no con una entrada.
+                receive: canReceive && actions.receive && receivableLines(order, null).length > 0,
               };
 
               return (
@@ -129,11 +156,23 @@ export function OrdersBoard({
                     <p className="font-mono text-xs">{order.code}</p>
                     <p className="text-muted text-xs">{order.date}</p>
                   </td>
-                  <td className="px-4 py-3">{order.supplier.name}</td>
+                  <td className="px-4 py-3">
+                    <p>{order.supplier.name}</p>
+                    <p className="text-muted text-xs" data-testid={`order-term-${order.code}`}>
+                      {paymentTermLabel(order.paymentTermDays)}
+                    </p>
+                  </td>
                   <td className="px-4 py-3">{order.warehouse.name}</td>
                   <td className="px-4 py-3">
                     <p data-testid={`order-lines-${order.code}`}>{summarizeOrderLines(order.lines)}</p>
-                    {order.expectedDate ? <p className="text-muted text-xs">Llega {order.expectedDate}</p> : null}
+                    {order.expectedDate ? (
+                      <p
+                        className={order.late ? 'text-xs text-red-500' : 'text-muted text-xs'}
+                        data-testid={`order-expected-${order.code}`}
+                      >
+                        {order.late ? 'Atrasada, llegaba' : 'Llega'} {order.expectedDate}
+                      </p>
+                    ) : null}
                     {order.notes ? <p className="text-muted text-xs">{order.notes}</p> : null}
                   </td>
                   <td className="px-4 py-3 text-right" data-testid={`order-total-${order.code}`}>
@@ -205,7 +244,7 @@ export function OrdersBoard({
             {orders.length === 0 ? (
               <tr>
                 <td colSpan={7} className="text-muted px-4 py-6 text-center" data-testid="orders-empty">
-                  Todavía no hay órdenes de compra.
+                  No hay órdenes de compra que mostrar.
                 </td>
               </tr>
             ) : null}
@@ -241,13 +280,22 @@ export function OrdersBoard({
         </form>
       </SlideOver>
 
-      <SlideOver title={receiving ? `Recibir ${receiving.code}` : ''} open={receiving !== null} onClose={() => setReceiving(null)} testId="receive-panel">
+      <SlideOver
+        title={receiving ? `Recibir ${receiving.code}` : ''}
+        open={receiving !== null}
+        onClose={() => setReceiving(null)}
+        testId="receive-panel"
+      >
         {receiving ? (
           <form onSubmit={submitKeepingValues(receive)} className="space-y-4" key={receiving.id}>
-            <p className="text-muted text-sm">
-              Se guarda como borrador en Entradas: la existencia sube cuando se confirma.
-            </p>
-            <ReceiptFields order={receiving} receipt={null} today={today} baseCurrency={baseCurrency} allowsRateOverride={allowsRateOverride} />
+            <p className="text-muted text-sm">Se guarda como borrador en Entradas: la existencia sube cuando se confirma.</p>
+            <ReceiptFields
+              order={receiving}
+              receipt={null}
+              today={today}
+              baseCurrency={baseCurrency}
+              allowsRateOverride={allowsRateOverride}
+            />
             <FormError message={receiveState.error} testId="receive-error" />
             <SubmitButton pending={receivingPending} testId="receive-submit">
               Crear entrada
@@ -509,5 +557,141 @@ function OrderFields({
         </button>
       </fieldset>
     </>
+  );
+}
+
+function OrderFilters({
+  search,
+  suppliers,
+  warehouses,
+  count,
+}: {
+  search: OrderSearch;
+  suppliers: Supplier[];
+  warehouses: Warehouse[];
+  count: number;
+}) {
+  const pageHref = (page: number) =>
+    `/compras/ordenes?${new URLSearchParams({
+      ...(search.q ? { q: search.q } : {}),
+      ...(search.supplierId ? { proveedor: search.supplierId } : {}),
+      ...(search.warehouseId ? { bodega: search.warehouseId } : {}),
+      ...(search.status ? { estado: search.status } : {}),
+      ...(search.from ? { desde: search.from } : {}),
+      ...(search.to ? { hasta: search.to } : {}),
+      ...(page > 1 ? { pagina: String(page) } : {}),
+    }).toString()}`;
+
+  return (
+    <div className="border-line space-y-3 rounded-lg border p-3">
+      {/* Un formulario GET: los filtros quedan en la direccion y se pueden compartir. */}
+      <form method="get" className="flex flex-wrap items-end gap-2" data-testid="order-filter">
+        <Filter label="Buscar" htmlFor="order-search">
+          <input
+            id="order-search"
+            name="q"
+            defaultValue={search.q}
+            placeholder="Código de la orden, SKU o artículo"
+            data-testid="order-search"
+            className="border-line bg-background w-72 rounded-md border px-3 py-2 text-sm"
+          />
+        </Filter>
+
+        {suppliers.length > 0 ? (
+          <Filter label="Proveedor" htmlFor="order-filter-supplier">
+            <select
+              id="order-filter-supplier"
+              name="proveedor"
+              defaultValue={search.supplierId}
+              data-testid="order-filter-supplier"
+              className="border-line bg-background rounded-md border px-3 py-2 text-sm"
+            >
+              <option value="">Todos</option>
+              {suppliers.map((supplier) => (
+                <option key={supplier.id} value={supplier.id}>
+                  {supplier.name}
+                </option>
+              ))}
+            </select>
+          </Filter>
+        ) : null}
+
+        {warehouses.length > 0 ? (
+          <Filter label="Bodega" htmlFor="order-filter-warehouse">
+            <select
+              id="order-filter-warehouse"
+              name="bodega"
+              defaultValue={search.warehouseId}
+              data-testid="order-filter-warehouse"
+              className="border-line bg-background rounded-md border px-3 py-2 text-sm"
+            >
+              <option value="">Todas</option>
+              {warehouses.map((warehouse) => (
+                <option key={warehouse.id} value={warehouse.id}>
+                  {warehouse.name}
+                </option>
+              ))}
+            </select>
+          </Filter>
+        ) : null}
+
+        <Filter label="Estado" htmlFor="order-filter-status">
+          <select
+            id="order-filter-status"
+            name="estado"
+            defaultValue={search.status}
+            data-testid="order-filter-status"
+            className="border-line bg-background rounded-md border px-3 py-2 text-sm"
+          >
+            <option value="">Todos</option>
+            {(Object.keys(ORDER_STATUS_LABELS) as OrderStatus[]).map((status) => (
+              <option key={status} value={status}>
+                {ORDER_STATUS_LABELS[status]}
+              </option>
+            ))}
+          </select>
+        </Filter>
+
+        <Filter label="Desde" htmlFor="order-filter-from">
+          <input
+            id="order-filter-from"
+            name="desde"
+            type="date"
+            defaultValue={search.from}
+            data-testid="order-filter-from"
+            className="border-line rounded-md border bg-transparent px-3 py-2 text-sm"
+          />
+        </Filter>
+
+        <Filter label="Hasta" htmlFor="order-filter-to">
+          <input
+            id="order-filter-to"
+            name="hasta"
+            type="date"
+            defaultValue={search.to}
+            data-testid="order-filter-to"
+            className="border-line rounded-md border bg-transparent px-3 py-2 text-sm"
+          />
+        </Filter>
+
+        <button
+          type="submit"
+          data-testid="order-filter-submit"
+          className="border-line hover:bg-surface rounded-md border px-3 py-2 text-sm"
+        >
+          Filtrar
+        </button>
+      </form>
+
+      <Pager
+        testId="order"
+        page={search.page}
+        pageSize={search.pageSize}
+        count={count}
+        total={search.total}
+        hasMore={search.hasMore}
+        href={pageHref}
+      />
+    </div>
   );
 }

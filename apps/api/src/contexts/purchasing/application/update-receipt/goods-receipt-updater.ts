@@ -49,6 +49,7 @@ export class GoodsReceiptUpdater {
       { date, notes: request.notes ?? null, lines, currency: await receiptCurrency(this.rates, request.tenantId, order, date, request.exchangeRate, today) },
       now,
       today,
+      order.orderDate(),
     );
     await this.receipts.save(receipt);
   }

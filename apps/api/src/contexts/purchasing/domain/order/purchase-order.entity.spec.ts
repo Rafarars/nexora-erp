@@ -26,6 +26,7 @@ const details = (overrides: Partial<Parameters<PurchaseOrder['update']>[0]> = {}
   orderDate: PurchaseDate.of('2026-01-10'),
   expectedDate: null,
   notes: null,
+  paymentTermDays: 30,
   lines: [anOrderLine()],
   currency: aDocumentCurrency(),
   ...overrides,

@@ -34,6 +34,9 @@ export interface PurchaseOrderDetails {
   orderDate: PurchaseDate;
   expectedDate: PurchaseDate | null;
   notes: string | null;
+  // Copiado del proveedor al escribir la orden, como el impuesto de la linea: lo que se pacto
+  // no cambia porque el maestro cambie despues.
+  paymentTermDays: number;
   lines: PurchaseOrderLine[];
   currency: DocumentCurrency;
 }
@@ -47,6 +50,7 @@ export interface PurchaseOrderPrimitives extends DocumentCurrencyPrimitives {
   orderDate: string;
   expectedDate: string | null;
   notes: string | null;
+  paymentTermDays: number;
   status: PurchaseOrderStatus;
   confirmedAt: Date | null;
   cancelledAt: Date | null;
@@ -100,6 +104,7 @@ export class PurchaseOrder {
         orderDate: PurchaseDate.of(row.orderDate),
         expectedDate: row.expectedDate ? PurchaseDate.of(row.expectedDate) : null,
         notes: row.notes,
+        paymentTermDays: row.paymentTermDays,
         currency: DocumentCurrency.fromPrimitives(row),
         lines: [...row.lines].sort((a, b) => a.lineNumber - b.lineNumber).map((line) => PurchaseOrderLine.fromPrimitives(line)),
       },
@@ -122,6 +127,7 @@ export class PurchaseOrder {
       orderDate: this.details.orderDate.value,
       expectedDate: this.details.expectedDate?.value ?? null,
       notes: this.details.notes,
+      paymentTermDays: this.details.paymentTermDays,
       ...this.details.currency.toPrimitives(),
       status: this.status,
       confirmedAt: this.confirmedAt,

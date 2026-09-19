@@ -8,7 +8,7 @@ export const goodsReceiptCreateSchema = z.object({
   notes: z.string().nullable().optional(),
   exchangeRate: z.number().nullable().optional(),
   lines,
-});
+}).strict();
 
 export type GoodsReceiptCreateDto = z.infer<typeof goodsReceiptCreateSchema>;
 
@@ -16,7 +16,3 @@ export type GoodsReceiptCreateDto = z.infer<typeof goodsReceiptCreateSchema>;
 export const goodsReceiptUpdateSchema = goodsReceiptCreateSchema.omit({ orderId: true });
 
 export type GoodsReceiptUpdateDto = z.infer<typeof goodsReceiptUpdateSchema>;
-
-export const incomingQuerySchema = z.object({ warehouseId: z.string().optional() });
-
-export type IncomingQueryDto = z.infer<typeof incomingQuerySchema>;

@@ -586,3 +586,17 @@ cliente y del proveedor. Modelarla en el impuesto es ponerla en el sitio equivoc
 
 Mientras no exista, el sistema no contempla retenciones y los documentos cobran el impuesto
 completo, que es coherente para una empresa que no es agente de retención ni le retienen.
+
+## Pedir un documento de Compras por su identificador
+
+**Qué es.** `GET /purchasing/{suppliers,orders,receipts}/:id`. Hoy sólo existen los listados: un
+documento se encuentra buscándolo por su código, no pidiéndolo.
+
+**Por qué no se hizo** (revisión de Compras, 19-sep-2026, H3). No es un defecto sino una carencia:
+nada deja de funcionar sin ello, y la búsqueda por texto que la misma revisión añadió permite
+llegar a un documento concreto. Lo que no se puede hoy es **enlazar**: el kardex muestra `ENT000001`
+y no puede llevar a esa entrada; «En camino» nombra `OC000001` y no puede llevar a esa orden.
+
+**Qué haría falta.** Tres rutas con su permiso, tres casos de uso que reutilicen la resolución de
+nombres de los buscadores —proveedor, bodega, artículos—, sus pruebas, y una fila por ruta en la
+matriz de aislamiento, porque son rutas que aceptan un identificador.

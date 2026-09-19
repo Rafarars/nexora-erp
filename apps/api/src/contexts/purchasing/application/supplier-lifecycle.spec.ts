@@ -1,6 +1,11 @@
 import { describe, expect, it } from 'vitest';
-import { DuplicateSupplierNameError, InvalidSupplierEmailError, SupplierNotFoundError } from '../domain/errors/purchasing.errors.js';
-import { TENANT_A, TENANT_B } from '../domain/testing/purchasing.mother.js';
+import {
+  DuplicateSupplierNameError,
+  InvalidSupplierEmailError,
+  SupplierNotFoundError,
+  SupplierWithOpenOrdersError,
+} from '../domain/errors/purchasing.errors.js';
+import { BOX, MAIN, TENANT_A, TENANT_B, WATER } from '../domain/testing/purchasing.mother.js';
 import { aPurchasingScenario } from './testing/purchasing-scenario.js';
 
 async function withSupplier(name = 'Distribuidora Andina') {
@@ -46,6 +51,30 @@ describe('suppliers', () => {
     await s.updateSupplier.run({ tenantId: TENANT_A, supplierId: supplier.id, name: 'Distribuidora Andina', email: 'compras@andina.com' });
 
     expect((await s.searchSuppliers.run({ tenantId: TENANT_A })).suppliers[0]).toMatchObject({ email: 'compras@andina.com', fiscalId: null });
+  });
+
+  // La misma regla que protege a una bodega del catalogo: no se cierra lo que tiene
+  // documentos esperando. Un borrador no cuenta, porque se revalida al confirmarlo.
+  it('refuses to deactivate a supplier that still expects goods', async () => {
+    const { s, supplier } = await withSupplier();
+    await s.createOrder.run({
+      tenantId: TENANT_A,
+      supplierId: supplier.id,
+      warehouseId: MAIN,
+      lines: [{ itemId: WATER, unitId: BOX, quantity: 10, unitCost: 12 }],
+    });
+    const [order] = (await s.searchOrders.run({ tenantId: TENANT_A })).orders;
+
+    await s.changeSupplierStatus.run({ tenantId: TENANT_A, supplierId: supplier.id, active: false });
+    expect((await s.searchSuppliers.run({ tenantId: TENANT_A })).suppliers[0].isActive).toBe(false);
+
+    await s.changeSupplierStatus.run({ tenantId: TENANT_A, supplierId: supplier.id, active: true });
+    await s.confirmOrder.run({ tenantId: TENANT_A, orderId: order.id });
+
+    await expect(s.changeSupplierStatus.run({ tenantId: TENANT_A, supplierId: supplier.id, active: false })).rejects.toThrow(
+      SupplierWithOpenOrdersError,
+    );
+    expect((await s.searchSuppliers.run({ tenantId: TENANT_A })).suppliers[0].isActive).toBe(true);
   });
 
   it('deactivates and reactivates a supplier', async () => {

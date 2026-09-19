@@ -9,6 +9,7 @@ import {
 import { PurchaseOrderId } from '../order/purchase-order.entity.js';
 import { DocumentCurrency, DocumentCurrencyPrimitives } from '../../../../shared/domain/document-currency.js';
 import { PurchaseDate } from '../shared/purchase-date.vo.js';
+import { ReceiptBeforeOrderError } from '../errors/purchasing.errors.js';
 import { WarehouseRef } from '../shared/references.vo.js';
 import { optionalText } from '../shared/text.js';
 import { TenantId } from '../shared/tenant-id.vo.js';
@@ -71,12 +72,12 @@ export class GoodsReceipt {
     id: GoodsReceiptId,
     tenantId: TenantId,
     code: string,
-    order: { id: PurchaseOrderId; warehouseId: WarehouseRef },
+    order: { id: PurchaseOrderId; warehouseId: WarehouseRef; date: PurchaseDate },
     details: GoodsReceiptDetails,
     now: Date,
     today: string,
   ): GoodsReceipt {
-    return new GoodsReceipt(id, tenantId, code, order.id, order.warehouseId, validated(details, today), 'draft', null, null, now, now);
+    return new GoodsReceipt(id, tenantId, code, order.id, order.warehouseId, validated(details, today, order.date), 'draft', null, null, now, now);
   }
 
   static fromPrimitives(row: GoodsReceiptPrimitives): GoodsReceipt {
@@ -145,10 +146,10 @@ export class GoodsReceipt {
     return [...this.details.lines];
   }
 
-  update(details: GoodsReceiptDetails, now: Date, today: string): void {
+  update(details: GoodsReceiptDetails, now: Date, today: string, orderDate: PurchaseDate): void {
     if (this.status !== 'draft') throw new GoodsReceiptNotEditableError(this.id.value, this.status);
 
-    this.details = validated(details, today);
+    this.details = validated(details, today, orderDate);
     this.updatedAt = now;
   }
 
@@ -169,7 +170,7 @@ export class GoodsReceipt {
   }
 }
 
-function validated(details: GoodsReceiptDetails, today: string): GoodsReceiptDetails {
+function validated(details: GoodsReceiptDetails, today: string, orderDate: PurchaseDate): GoodsReceiptDetails {
   if (details.lines.length === 0) throw new EmptyGoodsReceiptError();
 
   const seen = new Set<string>();
@@ -180,6 +181,8 @@ function validated(details: GoodsReceiptDetails, today: string): GoodsReceiptDet
   }
 
   details.date.ensureNotAfter(today);
+
+  if (details.date.isBefore(orderDate)) throw new ReceiptBeforeOrderError(details.date.value);
 
   return { ...details, notes: optionalText(details.notes, NOTES_MAX, 'GoodsReceiptNotes') };
 }

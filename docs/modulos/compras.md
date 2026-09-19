@@ -48,8 +48,14 @@ de ninguno de los dos.
 **Reglas**
 
 - Dos altas simultáneas con el mismo nombre: la base rechaza la segunda y se responde `409`.
-- Desactivar no toca las órdenes que ya tiene. Sus borradores ya no se pueden confirmar, porque
+- **No se desactiva un proveedor con órdenes abiertas** —confirmadas o recibidas en parte—:
+  `SupplierWithOpenOrdersError`. La mercancía ya pedida va a llegar físicamente, y cerrar al
+  proveedor dejaría esas órdenes sin quien las cierre. Es la misma regla que protege a una bodega
+  en el Catálogo. **Un borrador no cuenta**: todavía no prometió nada y se revalida al confirmarlo.
+- Desactivar no toca las órdenes ya cerradas. Sus borradores ya no se pueden confirmar, porque
   confirmar revalida el proveedor.
+- El listado **pagina de 20** y busca por código, nombre e identificación fiscal, con filtro de
+  activo o inactivo.
 - Renombrar cambia cómo se leen todas sus órdenes, también las viejas: las órdenes guardan el
   identificador, no el nombre.
 
@@ -67,6 +73,7 @@ de ninguno de los dos.
 | `order_date` | fecha | Por defecto hoy. **No puede ser futura** |
 | `expected_date` | fecha | Opcional. **Sí puede ser futura**, pero no anterior a la de la orden |
 | `notes` | texto(500) | Opcional |
+| `payment_term_days` | entero | **Copiado del proveedor al escribir la orden.** Lo que se pactó, no lo que el maestro diga después |
 | `currency` | char(3) | La elige quien captura; **por defecto, la de la empresa**. Existe y está activa |
 | `exchange_rate` | decimal(18,8) | Bolívares por 1 unidad de `currency`, **de la fecha del documento o la última anterior**. 1 si es el bolívar |
 | `base_currency` | char(3) | La moneda de la empresa **en ese momento** |
@@ -183,7 +190,7 @@ después. Las pide al contexto de empresa por el contrato publicado `DocumentRat
 | `code` | `ENT000001` | Asignado al crear |
 | `order_id` | orden | De la empresa, **confirmada o recibida en parte**. No cambia |
 | `warehouse_id` | bodega | **La de la orden**. No cambia |
-| `receipt_date` | fecha | Por defecto hoy. **No puede ser futura** |
+| `receipt_date` | fecha | Por defecto hoy. **No puede ser futura ni anterior a la de su orden**: la mercancía no llega antes de pedirse, y esa fecha viaja al kardex |
 | `notes` | texto(500) | Opcional |
 | `currency` | char(3) | **La de su orden**. No cambia |
 | `exchange_rate` | decimal(18,8) | Bolívares por 1 unidad de `currency`, **del día en que llegó o la última anterior**. 1 si es el bolívar |
@@ -234,7 +241,13 @@ esperada.
 
 - Un borrador **todavía no promete nada**; una orden anulada o recibida, **ya no**.
 - Con 10 cajas pedidas y 4 recibidas, en camino hay 144 unidades.
+- **Una línea de servicio no cuenta.** Un servicio no entra a una bodega, así que nunca deja de
+  estar pendiente: contarlo dejaría una fila que no se va nunca. Es el mismo filtro que usa la
+  existencia esperada del inventario, y antes sólo lo aplicaba uno de los dos.
+- **Lo que ya debía haber llegado se marca** (`late`), comparando la fecha esperada con el hoy de
+  la empresa en su zona horaria.
 - Filtrar por una bodega de otra empresa responde `404`, como en el resto del sistema.
+- Pagina de 20 y busca por SKU o nombre; sólo lee las órdenes que siguen esperando mercancía.
 
 ---
 
@@ -269,21 +282,25 @@ PrismaReceiptPosting (compras)                     PrismaDocumentStockPosting (i
 
 | Acción | Ruta | Permiso |
 |---|---|---|
-| Listar proveedores | `GET /api/v1/purchasing/suppliers` | `purchasing.suppliers.search` |
+| Listar proveedores | `GET /api/v1/purchasing/suppliers?q=&active=&limit=&offset=` | `purchasing.suppliers.search` |
 | Crear proveedor | `POST /api/v1/purchasing/suppliers` | `purchasing.suppliers.create` |
 | Editar proveedor | `PUT /api/v1/purchasing/suppliers/:supplierId` | `purchasing.suppliers.update` |
 | Activar o desactivar | `PUT /api/v1/purchasing/suppliers/:supplierId/status` | `purchasing.suppliers.deactivate` |
-| Listar órdenes | `GET /api/v1/purchasing/orders` | `purchasing.orders.search` |
+| Listar órdenes | `GET /api/v1/purchasing/orders?q=&supplierId=&warehouseId=&status=&from=&to=&limit=&offset=` | `purchasing.orders.search` |
 | Crear orden | `POST /api/v1/purchasing/orders` | `purchasing.orders.create` |
 | Editar borrador | `PUT /api/v1/purchasing/orders/:orderId` | `purchasing.orders.update` |
 | Confirmar | `PUT /api/v1/purchasing/orders/:orderId/confirm` | `purchasing.orders.confirm` |
 | Anular | `PUT /api/v1/purchasing/orders/:orderId/cancel` | `purchasing.orders.cancel` |
-| Listar entradas | `GET /api/v1/purchasing/receipts` | `purchasing.receipts.search` |
+| Listar entradas | `GET /api/v1/purchasing/receipts?q=&orderId=&warehouseId=&status=&from=&to=&limit=&offset=` | `purchasing.receipts.search` |
 | Crear entrada | `POST /api/v1/purchasing/receipts` | `purchasing.receipts.create` |
 | Editar borrador | `PUT /api/v1/purchasing/receipts/:receiptId` | `purchasing.receipts.update` |
 | Confirmar | `PUT /api/v1/purchasing/receipts/:receiptId/confirm` | `purchasing.receipts.confirm` |
 | Anular | `PUT /api/v1/purchasing/receipts/:receiptId/cancel` | `purchasing.receipts.cancel` |
-| En camino | `GET /api/v1/purchasing/incoming?warehouseId=` | `purchasing.incoming.search` |
+| En camino | `GET /api/v1/purchasing/incoming?warehouseId=&q=&limit=&offset=` | `purchasing.incoming.search` |
+
+**Los cuatro listados paginan de 20 y devuelven `{ total, limit, offset, hasMore, … }`.** Los
+esquemas son **estrictos**: un parámetro que no exista responde `400` en vez de ignorarse en
+silencio.
 
 **Ejemplo: crear una orden**
 
@@ -313,7 +330,10 @@ POST /api/v1/purchasing/receipts
 |---|---|---|
 | `DuplicateSupplierNameError` | 409 | Otro proveedor de la empresa ya tiene ese nombre |
 | `InactiveSupplierError` | 409 | Orden a un proveedor inactivo |
+| `SupplierWithOpenOrdersError` | 409 | Desactivar un proveedor con órdenes esperando mercancía |
+| `ReceiptBeforeOrderError` | 409 | Una entrada fechada antes que su propia orden |
 | `ServiceNotPurchasableError` | 400 | Una línea es un servicio |
+| `ServiceNotReceivableError` | 400 | Recibir una línea de servicio: no entra a una bodega |
 | `ItemNotPurchasableError` | 409 | El artículo no está marcado para comprarse |
 | `PurchaseItemChangedError` | 409 | Un artículo cambió mientras se confirmaba la orden: se vuelve a intentar |
 | `PurchaseOrderNotEditableError` | 409 | Editar una orden que no es borrador |
@@ -333,15 +353,18 @@ POST /api/v1/purchasing/receipts
 
 | Ruta | Qué muestra |
 |---|---|
-| `/compras/ordenes` | Órdenes con proveedor, bodega, líneas con lo recibido, total con IVA y estado. Menú: recibir mercancía, editar, confirmar, anular. Panel de orden con líneas dinámicas y panel de recepción con lo pendiente propuesto |
-| `/compras/entradas` | Entradas con su orden y proveedor, lo que llegó y el estado. Menú: editar, confirmar, anular (revierte la existencia) |
-| `/compras/en-camino` | Por artículo y bodega, lo que viene y de qué órdenes, con filtro por bodega en la dirección |
-| `/compras/proveedores` | Maestro con identificación fiscal, contacto y plazo («Contado» o «N días») |
+| `/compras/ordenes` | Órdenes con proveedor y su plazo congelado, bodega, líneas con lo recibido, la fecha esperada en rojo y «atrasada» cuando ya pasó, total con IVA y estado. Menú: recibir mercancía, editar, confirmar, anular. Panel de orden con líneas dinámicas y panel de recepción con lo pendiente propuesto. Filtros: texto (código, SKU o artículo), proveedor, bodega, estado y rango de fechas |
+| `/compras/entradas` | Entradas con su orden y proveedor, lo que llegó y el estado. Menú: editar, confirmar, anular (revierte la existencia). Filtros: texto (código de la entrada o de su orden), estado y rango de fechas |
+| `/compras/en-camino` | Por artículo y bodega, lo que viene y de qué órdenes, con la fecha en rojo y «atrasada» cuando ya pasó. Filtros: texto (SKU o nombre) y bodega |
+| `/compras/proveedores` | Maestro con identificación fiscal, contacto y plazo («Contado» o «N días»). Filtros: texto (código, nombre o identificación fiscal) y estado |
 
+- Las cuatro pantallas paginan de 20 en 20 y dejan los filtros en la dirección: un listado
+  filtrado se comparte pegando el enlace.
 - El módulo aparece en la barra lateral solo si el rol puede ver alguna de sus secciones.
 - Los menús ofrecen solo lo que el estado permite; la API lo vuelve a comprobar.
 - **Las entradas se crean desde su orden** («Recibir mercancía»): así nunca se elige una orden que
-  no admite recepción.
+  no admite recepción. Solo se ofrece, y solo propone líneas, cuando algo de la orden entra a una
+  bodega: un servicio se paga con la factura del proveedor.
 
 ---
 

@@ -37,8 +37,10 @@ export async function orderDetails(
   keepsCurrency = false,
 ): Promise<PurchaseOrderDetails> {
   const orderDate = input.date ? PurchaseDate.of(input.date) : PurchaseDate.of(today);
+  const supplier = await references.supplier(tenantId, input.supplierId);
   const resolved = {
-    supplierId: await references.supplier(tenantId, input.supplierId),
+    supplierId: supplier.id,
+    paymentTermDays: supplier.paymentTermDays,
     warehouseId: await references.warehouse(tenantId, input.warehouseId),
     orderDate,
     expectedDate: input.expectedDate ? PurchaseDate.of(input.expectedDate) : null,

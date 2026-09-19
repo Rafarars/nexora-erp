@@ -16,7 +16,8 @@ export async function aFreshSupplier(request: APIRequestContext, token: string, 
 
   expect(response.status(), await response.text()).toBe(201);
 
-  const { suppliers } = await (await request.get(`${baseUrl}${SUPPLIERS}`, { headers: auth(token) })).json();
+  // Los listados paginan: hay que pedir el que se acaba de crear, no mirarlos todos.
+  const { suppliers } = await (await request.get(`${baseUrl}${SUPPLIERS}?q=${encodeURIComponent(name)}`, { headers: auth(token) })).json();
 
   return suppliers.find((supplier: { name: string }) => supplier.name === name);
 }
@@ -40,7 +41,11 @@ export async function aDraftOrder(
 
   expect(response.status(), await response.text()).toBe(201);
 
-  const { orders } = await (await request.get(`${baseUrl}${ORDERS}`, { headers: auth(token) })).json();
+  // El buscador de ordenes mira el codigo y el articulo, no las notas: se filtra por proveedor,
+  // que si acota, y la recien creada es la primera por codigo.
+  const { orders } = await (
+    await request.get(`${baseUrl}${ORDERS}?supplierId=${data.supplierId}`, { headers: auth(token) })
+  ).json();
 
   return orders.find((order: { notes: string }) => order.notes === notes);
 }
@@ -58,7 +63,9 @@ export async function aDraftReceipt(
 
   expect(response.status(), await response.text()).toBe(201);
 
-  const { receipts } = await (await request.get(`${baseUrl}${RECEIPTS}`, { headers: auth(token) })).json();
+  const { receipts } = await (
+    await request.get(`${baseUrl}${RECEIPTS}?orderId=${orderId}`, { headers: auth(token) })
+  ).json();
 
   return receipts.find((receipt: { notes: string }) => receipt.notes === notes);
 }
