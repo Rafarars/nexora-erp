@@ -111,6 +111,19 @@ export class CostOnOutgoingLineError extends InvalidArgumentError {
   }
 }
 
+// Una entrada sin costo se valora al promedio, y aqui no hay ninguno: ni la bodega ni el resto
+// de la empresa guardan existencia de este articulo. Valorarla en cero la regalaria, asi que se
+// pide el costo. Es hermano de InsufficientStockError: los dos aparecen al publicar, cuando ya
+// se sabe lo que hay.
+export class UnknownEntryCostError extends ConflictError {
+  constructor(itemId: string) {
+    super(
+      `Item <${itemId}> has no stock anywhere to value an entry without a unit cost.`,
+      'Write the unit cost: there is no stock of this item to value the entry with.',
+    );
+  }
+}
+
 export class InvalidAdjustmentDateError extends InvalidArgumentError {
   constructor(value: string) {
     super(`An adjustment date must be a real YYYY-MM-DD date, received <${value}>.`, 'The adjustment date is not valid.');

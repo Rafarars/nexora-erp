@@ -33,6 +33,7 @@ const BY_CODE: Record<string, string> = {
   InvalidQuantityError: 'Cada cantidad debe ser mayor que cero, con hasta cuatro decimales.',
   InvalidUnitCostError: 'El costo debe ser cero o más, con hasta seis decimales.',
   CostOnOutgoingLineError: 'Solo las entradas llevan costo: las salidas se valoran al costo promedio.',
+  UnknownEntryCostError: 'Escribe el costo de la entrada: este artículo no tiene existencia en ninguna bodega con la que valorarla.',
   InvalidAdjustmentDateError: 'La fecha no es válida.',
   FutureAdjustmentDateError: 'Un ajuste no puede tener fecha futura.',
   InvalidDirectionError: 'Cada línea debe ser una entrada o una salida.',

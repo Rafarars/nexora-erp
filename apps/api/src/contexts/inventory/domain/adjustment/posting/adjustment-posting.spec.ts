@@ -7,12 +7,13 @@ import {
   InactiveStockItemError,
   InsufficientStockError,
   StockItemChangedError,
+  UnknownEntryCostError,
 } from '../../errors/inventory.errors.js';
 import { Quantity } from '../../quantity/quantity.vo.js';
 import { UnitCost } from '../../quantity/unit-cost.vo.js';
 import { ItemRef, UnitRef, WarehouseRef } from '../../shared/references.vo.js';
 import { TenantId } from '../../shared/tenant-id.vo.js';
-import { BOX, MAIN, NOW, PIECE, TENANT_A, TODAY, WATER, stockWarehouses, stockableItems } from '../../testing/inventory.mother.js';
+import { BOX, MAIN, NORTH, NOW, PIECE, TENANT_A, TODAY, WATER, stockWarehouses, stockableItems } from '../../testing/inventory.mother.js';
 import { AdjustmentDate } from '../adjustment-date.vo.js';
 import { AdjustmentLine, AdjustmentLineId } from '../adjustment-line.js';
 import { Adjustment, AdjustmentId } from '../adjustment.entity.js';
@@ -40,9 +41,9 @@ function line(direction: 'in' | 'out', base: number, unitCost: number | null = n
   });
 }
 
-async function draft(store: InMemoryInventoryStore, id: string, lines: AdjustmentLine[]) {
+async function draft(store: InMemoryInventoryStore, id: string, lines: AdjustmentLine[], warehouse = MAIN) {
   const adjustment = Adjustment.draft(AdjustmentId.of(id), tenant, `AJU${id.slice(-6)}`, {
-    warehouseId: WarehouseRef.of(MAIN),
+    warehouseId: WarehouseRef.of(warehouse),
     date: AdjustmentDate.of(TODAY),
     notes: null,
     lines,
@@ -105,6 +106,35 @@ describe('confirming an adjustment', () => {
     await w.confirm(await draft(w.store, A2, [line('in', 10)]));
 
     expect((await w.kardex()).at(-1)).toMatchObject({ unitCost: 3, balanceAverageCost: 3 });
+  });
+
+  // El agujero por el que se colaba mercancia valorada en cero: la bodega vacia no tiene
+  // promedio, y el articulo cuesta lo mismo este donde este.
+  it('values an entry without cost at what the item costs in the rest of the company', async () => {
+    const w = world();
+    await w.confirm(await draft(w.store, A1, [line('in', 10, 3)]));
+
+    await w.confirm(await draft(w.store, A2, [line('in', 10)], NORTH));
+
+    expect((await w.kardex()).at(-1)).toMatchObject({ warehouseId: NORTH, unitCost: 3, balanceAverageCost: 3 });
+  });
+
+  it('weighs that fallback by quantity, not by number of entries', async () => {
+    const w = world();
+
+    // 30 a 4 y 10 a 8 son 40 a 5, no el punto medio entre 4 y 8.
+    await w.confirm(await draft(w.store, A1, [line('in', 30, 4), line('in', 10, 8)]));
+    await w.confirm(await draft(w.store, A2, [line('in', 5)], NORTH));
+
+    expect((await w.kardex()).at(-1)).toMatchObject({ warehouseId: NORTH, unitCost: 5, balanceAverageCost: 5 });
+  });
+
+  it('refuses an entry without cost when the item has no stock anywhere', async () => {
+    const w = world();
+
+    await expect(w.confirm(await draft(w.store, A1, [line('in', 10)]))).rejects.toThrow(UnknownEntryCostError);
+    expect(await w.available()).toBe(0);
+    expect(await w.kardex()).toEqual([]);
   });
 });
 

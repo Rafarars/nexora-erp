@@ -1,7 +1,10 @@
 import { lockItems } from '../../../../shared/prisma/inventory-items.js';
 import type { TransactionClient } from '../../../../shared/prisma/document-stock-posting.js';
 import { InventoryMovement, MovementOriginType } from '../../domain/movement/inventory-movement.entity.js';
+import { Quantity } from '../../domain/quantity/quantity.vo.js';
+import { UnitCost } from '../../domain/quantity/unit-cost.vo.js';
 import { ItemRef, WarehouseRef } from '../../domain/shared/references.vo.js';
+import { weightedAverageCost } from '../../domain/stock/average-cost.js';
 import { ItemStock } from '../../domain/stock/item-stock.entity.js';
 import { Ledger, StockChanges } from '../../domain/stock/posting/stock-ledger.js';
 import { movementFromRow, stockFromRow } from './inventory-rows.js';
@@ -36,6 +39,24 @@ export async function lockedLedger(
   );
   const items = await lockItems(tx, tenantId, unique.map(([itemId]) => itemId));
   const stocks = new Map<string, ItemStock>();
+  const itemIds = [...new Set(unique.map(([itemId]) => itemId))];
+  // Lo que el articulo vale en el resto de la empresa, leido antes de tocar nada. Solo se
+  // consulta cuando una entrada sin costo cae en una bodega vacia.
+  const averages = new Map<string, UnitCost | null>(
+    await Promise.all(
+      itemIds.map(async (itemId): Promise<[string, UnitCost | null]> => {
+        const rows = await tx.itemStock.findMany({
+          where: { tenantId, itemId },
+          select: { quantity: true, averageCost: true },
+        });
+
+        return [
+          itemId,
+          weightedAverageCost(rows.map((row) => ({ quantity: Quantity.of(Number(row.quantity)), averageCost: UnitCost.of(Number(row.averageCost)) }))),
+        ];
+      }),
+    ),
+  );
 
   for (const [itemId, warehouseId] of unique) {
     await tx.$executeRaw`
@@ -71,6 +92,7 @@ export async function lockedLedger(
 
       return stock;
     },
+    averageCostOf: (itemId: ItemRef) => averages.get(itemId.value) ?? null,
     movementsOf: () => previous,
   };
 }

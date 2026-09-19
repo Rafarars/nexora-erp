@@ -1,5 +1,5 @@
 import { IdGenerator } from '../../../../../shared/domain/ports/id-generator.js';
-import { InactiveStockItemError, ServiceHasNoStockError } from '../../errors/inventory.errors.js';
+import { InactiveStockItemError, ServiceHasNoStockError, UnknownEntryCostError } from '../../errors/inventory.errors.js';
 import { MovementId, MovementOrigin, StockDirection } from '../../movement/inventory-movement.entity.js';
 import { Quantity } from '../../quantity/quantity.vo.js';
 import { UnitCost } from '../../quantity/unit-cost.vo.js';
@@ -36,7 +36,7 @@ export class StockMovements {
       touched.set(keyOf(stock), stock);
 
       return entry.direction === 'in'
-        ? stock.receive(entry.quantity, entry.unitCost ?? stock.currentAverageCost(), origin, id, now)
+        ? stock.receive(entry.quantity, entry.unitCost ?? costOf(ledger, stock, entry.itemId), origin, id, now)
         : stock.release(entry.quantity, origin, id, now);
     });
 
@@ -66,6 +66,21 @@ export class StockMovements {
 
     return { stocks: [...touched.values()], movements };
   }
+}
+
+// Cuanto vale lo que entra sin costo escrito. Si la bodega ya tenia existencia, su promedio: lo
+// que aparece contando no es una compra y no cambia lo que la mercancia vale. Si la bodega esta
+// vacia ese promedio es cero, y valorar en cero regalaria la mercancia en la valuacion y en toda
+// salida posterior; entonces vale lo que el articulo cuesta en el resto de la empresa. Si no hay
+// existencia en ninguna bodega no hay de donde sacarlo, y se pide escribirlo.
+function costOf(ledger: Ledger, stock: ItemStock, itemId: ItemRef): UnitCost {
+  if (!stock.available().isZero()) return stock.currentAverageCost();
+
+  const average = ledger.averageCostOf(itemId);
+
+  if (average === null || average.isZero()) throw new UnknownEntryCostError(itemId.value);
+
+  return average;
 }
 
 // El documento se valido contra el maestro de articulos antes de bloquear nada: si entretanto el articulo se

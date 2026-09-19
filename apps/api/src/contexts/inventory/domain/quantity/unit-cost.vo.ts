@@ -35,6 +35,10 @@ export class UnitCost {
     return UnitCost.fromMicros(roundedDivision(this.micros * quantity.units, base.units));
   }
 
+  isZero(): boolean {
+    return this.micros === 0n;
+  }
+
   equals(other: UnitCost): boolean {
     return this.micros === other.micros;
   }

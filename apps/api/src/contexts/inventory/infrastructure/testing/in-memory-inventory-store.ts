@@ -8,8 +8,11 @@ import {
   InsufficientStockError,
 } from '../../domain/errors/inventory.errors.js';
 import { InventoryMovement, InventoryMovementPrimitives } from '../../domain/movement/inventory-movement.entity.js';
+import { Quantity } from '../../domain/quantity/quantity.vo.js';
+import { UnitCost } from '../../domain/quantity/unit-cost.vo.js';
 import { ItemRef, WarehouseRef } from '../../domain/shared/references.vo.js';
 import { TenantId } from '../../domain/shared/tenant-id.vo.js';
+import { weightedAverageCost } from '../../domain/stock/average-cost.js';
 import { ItemStock, ItemStockPrimitives } from '../../domain/stock/item-stock.entity.js';
 import { StockRepository } from '../../domain/stock/stock.repository.js';
 import { InMemoryInventoryCatalog } from './in-memory-inventory-catalog.js';
@@ -127,6 +130,13 @@ export class InMemoryInventoryStore implements AdjustmentRepository, StockReposi
 
         return stock;
       },
+      // Todas las bodegas de ESTA empresa: el promedio de una empresa no vale para otra.
+      averageCostOf: (itemId) =>
+        weightedAverageCost(
+          [...this.stocks.values()]
+            .filter((row) => row.tenantId === tenantId.value && row.itemId === itemId.value)
+            .map((row) => ({ quantity: Quantity.of(row.quantity), averageCost: UnitCost.of(row.averageCost) })),
+        ),
       movementsOf: (id) =>
         this.movements
           .filter((row) => row.tenantId === tenantId.value && row.originId === id)

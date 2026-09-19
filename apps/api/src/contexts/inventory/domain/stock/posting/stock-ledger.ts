@@ -1,4 +1,5 @@
 import { InventoryMovement } from '../../movement/inventory-movement.entity.js';
+import { UnitCost } from '../../quantity/unit-cost.vo.js';
 import { ItemRef, UnitRef, WarehouseRef } from '../../shared/references.vo.js';
 import { ItemStock } from '../item-stock.entity.js';
 
@@ -17,6 +18,9 @@ export interface LedgerItem {
 export interface Ledger {
   item(itemId: ItemRef): LedgerItem;
   stock(itemId: ItemRef, warehouseId: WarehouseRef): ItemStock;
+  // El promedio del articulo en TODA la empresa, ponderado por bodega y leido al bloquear.
+  // Null si no queda existencia en ninguna. Es el respaldo de una entrada sin costo.
+  averageCostOf(itemId: ItemRef): UnitCost | null;
   movementsOf(originId: string): InventoryMovement[];
 }
 

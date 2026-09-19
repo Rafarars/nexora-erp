@@ -13,6 +13,7 @@ import {
   InactiveStockItemError,
   InsufficientStockError,
   StockItemChangedError,
+  UnknownEntryCostError,
 } from '../domain/errors/inventory.errors.js';
 import { Quantity } from '../domain/quantity/quantity.vo.js';
 import { UnitCost } from '../domain/quantity/unit-cost.vo.js';
@@ -205,6 +206,27 @@ export function describeInventoryPortsContract(implementation: string, createHar
         expect((await ports.adjustments.find(tenant, id))?.currentStatus()).toBe('draft');
         expect(await ports.stocks.searchStocks(tenant)).toEqual([]);
         expect(await ports.stocks.searchMovements(tenant, ItemRef.of(WATER))).toEqual([]);
+      });
+
+      // Una entrada sin costo en una bodega donde el articulo nunca estuvo: el promedio de esa
+      // bodega es cero, y valorarla en cero regalaria la mercancia.
+      it('values an entry without cost at what the item costs in the other warehouses', async () => {
+        await confirm(await draft([line('in', 30, 4), line('in', 10, 8)]));
+
+        await confirm(await draft([line('in', 5)], NORTH));
+
+        const kardex = (await ports.stocks.searchMovements(tenant, ItemRef.of(WATER))).map((m) => m.toPrimitives());
+        expect(kardex.at(-1)).toMatchObject({ warehouseId: NORTH, unitCost: 5, balanceAverageCost: 5 });
+        await expectStockMatchesKardex();
+      });
+
+      it('refuses an entry without cost when the item has no stock in any warehouse', async () => {
+        const id = await draft([line('in', 5)]);
+
+        await expect(confirm(id)).rejects.toThrow(UnknownEntryCostError);
+
+        expect((await ports.adjustments.find(tenant, id))?.currentStatus()).toBe('draft');
+        expect(await ports.stocks.searchStocks(tenant)).toEqual([]);
       });
 
       // Entre la revalidacion del borrador y el bloqueo, la caja del articulo pudo cambiar: una caja

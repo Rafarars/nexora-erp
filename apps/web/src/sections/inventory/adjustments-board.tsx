@@ -265,7 +265,8 @@ function AdjustmentFields({
       <fieldset className="space-y-3" data-testid="adjustment-lines-editor">
         <legend className="text-sm font-medium">Líneas</legend>
         <p className="text-muted text-xs">
-          El costo es por unidad de la línea y solo lo llevan las entradas; sin costo, la entrada se valora al promedio vigente.
+          El costo es por unidad de la línea y solo lo llevan las entradas; sin costo, la entrada se valora a lo que el artículo
+          cuesta hoy, y si no tiene existencia en ninguna bodega hay que escribirlo.
         </p>
 
         {rows.map((row, index) => {

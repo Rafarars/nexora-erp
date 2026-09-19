@@ -23,6 +23,7 @@ const cases: Array<[DomainError, typeof DomainError]> = [
   [new errors.InvalidQuantityError(-1), InvalidArgumentError],
   [new errors.InvalidUnitCostError(-1), InvalidArgumentError],
   [new errors.CostOnOutgoingLineError(1), InvalidArgumentError],
+  [new errors.UnknownEntryCostError(ID), ConflictError],
   [new errors.InvalidAdjustmentDateError('x'), InvalidArgumentError],
   [new errors.FutureAdjustmentDateError('2099-01-01'), InvalidArgumentError],
   [new errors.InventoryTextTooLongError('Notes', 500), InvalidArgumentError],
