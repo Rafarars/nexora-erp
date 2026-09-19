@@ -40,6 +40,15 @@ Mismos campos y reglas que un proveedor ([compras.md §1](compras.md#1-proveedor
 nombre único por empresa, identificación fiscal libre, correo, teléfono, dirección y
 **plazo de pago de 0 a 365 días** (0 es contado). Uno inactivo no recibe pedidos nuevos.
 
+**No se desactiva un cliente con pedidos abiertos** —confirmados o despachados en parte—:
+`CustomerWithOpenOrdersError`. Esa mercancía está comprometida y va a salir; cerrarlo dejaría esos
+pedidos sin quien los cierre, y la mercancía saldría a nombre de alguien a quien la empresa ya
+decidió dejar de venderle. Es la misma regla que protege a una bodega en el Catálogo y a un
+proveedor en Compras. **Un borrador no cuenta**: se revalida al confirmarlo.
+
+**El listado pagina de 20** y busca por código, nombre e identificación fiscal, con filtro de
+activo o inactivo.
+
 **El plazo decide cuándo vence la factura**: se toma el plazo del cliente **al emitirla**.
 
 **Límite de crédito**: monto de cero o más, o vacío para no tener límite. Decide cuánto se le puede
@@ -93,6 +102,11 @@ Montos por línea redondeados a los **decimales de importe de la empresa** (`amo
 **No se guarda aparte.** Lo reservado es lo pendiente de despachar, en unidad base, de los pedidos
 confirmados o despachados en parte. Así nunca se desincroniza de los pedidos.
 
+**Una línea de servicio no reserva nada**: un servicio no sale de la bodega. La regla vale en los
+tres sitios que calculan la cifra —el dominio, la pantalla de Disponibilidad y la consulta que
+decide si el pedido se confirma—, y **las tres la aplican igual**: cada línea se redondea a
+diezmilésimas y después se suman, nunca al revés.
+
 **Al confirmar**, con el pedido bloqueado:
 
 1. Se bloquean las filas de existencia de sus artículos en su bodega (contrato del inventario,
@@ -103,6 +117,9 @@ confirmados o despachados en parte. Así nunca se desincroniza de los pedidos.
    confirma nada.
 
 Ejemplo: hay 300, otro pedido reservó 60. Un pedido de 10 cajas (240) cabe; uno de 241 no.
+
+**Lo que la pantalla promete es lo que el sistema acepta.** Disponibilidad y la comprobación de la
+reserva cuentan lo mismo: si la pantalla dice que quedan cinco, un pedido de cinco se confirma.
 
 **Anular** libera la reserva: un pedido anulado deja de contar.
 
@@ -324,6 +341,9 @@ confirmar, con las filas bloqueadas.
 | `DispatchNotInvoiceableError` | 409 | Facturar un despacho que no está confirmado |
 | `CustomerWithOverdueInvoicesError` | 409 | Facturar a crédito a un cliente con vencidas |
 | `CreditLimitExceededError` | 409 | La factura a crédito supera el límite |
+| `CustomerWithOpenOrdersError` | 409 | Desactivar un cliente con pedidos esperando salir |
+| `DispatchBeforeOrderError` | 409 | Un despacho fechado antes que su pedido |
+| `InvoiceBeforeOriginError` | 409 | Una factura fechada antes de lo que cobra |
 | `InvoiceWithPaymentsError` | 409 | Anular una factura con cobros |
 | `MissingExchangeRateError` | 409 | No hay tasa de esa moneda en la fecha del documento ni antes |
 | `RateOverrideNotAllowedError` | 409 | Tasa escrita a mano en una empresa que no lo permite |

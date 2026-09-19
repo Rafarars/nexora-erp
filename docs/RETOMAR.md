@@ -520,12 +520,45 @@ cliente, el precio mínimo y el precio sugerido en el pedido. Después, la fase 
 
 ---
 
+### Hecho el 19-sep-2026 · Compras y Ventas enteros, en dos revisiones **en lote**
+
+Rafael pidió cambiar el método: auditar **todos los submódulos de un módulo en una sola pasada**,
+anotar los hallazgos en un archivo, corregirlos de una vez y revalidarlos de una vez. Funcionó, con
+un matiz que conviene recordar: **el ahorro está en la verificación** —una suite entera, una
+reconstrucción de contenedores, una pasada de interfaz— **no en la auditoría**, que cuesta lo mismo.
+Y lo que **no** se puede meter en el lote es reproducir: de los catorce candidatos de Compras, dos
+no se sostuvieron al comprobarlos.
+
+**Compras** ([revisión](revision/compras/compras.md)): trece hallazgos, once construidos. Los dos
+graves: un proveedor se desactivaba con mercancía en camino **y se le seguía recibiendo**, y «En
+camino» contaba los **servicios** como mercancía esperada —una fila que no se iba nunca, porque un
+servicio no se puede recibir—.
+
+**Ventas** ([revisión](revision/ventas/ventas.md)): seis hallazgos, cuatro construidos. El de
+fondo: **lo reservado se calculaba en tres sitios con dos criterios**, así que la pantalla prometía
+cinco unidades y el sistema rechazaba un pedido de cinco.
+
+**El patrón que ya no es casualidad:** tres maestros con el mismo hueco —bodega, proveedor,
+cliente—, encontrados con la misma pregunta: *¿qué le pasa a lo que ya lo usa cuando este maestro
+se cierra?* Y tres falsos verdes del mismo tipo, que ahora están escritos en el playbook: **cuando
+el doble en memoria se porta mejor que el adaptador real, el contrato pasa en verde**.
+
 ### Qué sigue
 
 **Continuar la revisión módulo por módulo con la skill `module-review`**, que es justo el método que salió de este
 piloto. El orden y el estado están en [`revision/README.md`](revision/README.md) § Orden y estado.
 
-**Inventario está cerrado entero.** El siguiente módulo es **Compras**, empezando por Proveedores.
+**Inventario, Compras y Ventas están cerrados enteros.** El siguiente módulo es **Cuentas por
+cobrar** (límite de crédito, facturas por cobrar, cobros, antigüedad de saldos y estado de cuenta),
+y después quedan **Reportes** y **Acceso**.
+
+**Dos avisos para quien lo retome**, salidos de estas dos tandas:
+
+- **Los listados de Cuentas por cobrar, Reportes y Acceso casi seguro tampoco paginan.** Es el
+  primer sitio donde mirar, y el arreglo ya tiene patrón en `purchasing` y `sales`.
+- **Al paginar, los ayudantes de `apps/e2e/support/*-fixtures.ts` se rompen**, porque crean un
+  registro y luego lo buscan en el listado entero. La corrección es que **pidan el suyo** con un
+  filtro, no subir el límite.
 
 **Cómo arrancar el siguiente:** invocar la skill `module-review`, decirle qué submódulo se revisa y que el sistema de
 referencia es `verlumyx/erp`. Para leerlo, **clonarlo es mucho más rápido que ir archivo por archivo**:

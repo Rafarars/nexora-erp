@@ -1,18 +1,55 @@
 import { AccessError } from '../../access/domain/access-error';
 import type { AccessErrorBody } from '../../access/domain/access-error';
-import type { Availability, Customer, Dispatch, Invoice, SalesOrder } from '../domain/sales';
-import type { CustomerInput, DispatchInput, OrderInput, SalesApi } from '../domain/sales-api';
+import type { Customer, SalesOrder } from '../domain/sales';
+import type {
+  AvailabilityFilters,
+  AvailabilityPage,
+  CustomerFilters,
+  CustomerInput,
+  CustomerPage,
+  DispatchFilters,
+  DispatchInput,
+  DispatchPage,
+  InvoiceFilters,
+  InvoicePage,
+  OrderFilters,
+  OrderInput,
+  OrderPage,
+  SalesApi,
+} from '../domain/sales-api';
 
 const BASE = '/api/v1/sales';
+
+// El tope que admite la API por peticion.
+const SELECTOR_PAGE = 50;
 
 // NaN no existe en JSON: se manda como texto y la API senala el campo.
 const numeric = (value: number | null) => (value !== null && Number.isNaN(value) ? 'NaN' : value);
 
+// Los esquemas son estrictos: solo viaja el filtro que trae valor.
+function queryOf(filters: Record<string, string | number | undefined>): string {
+  const query = new URLSearchParams();
+
+  for (const [key, value] of Object.entries(filters)) {
+    if (value !== undefined && value !== '') query.set(key, String(value));
+  }
+
+  return query.size > 0 ? `?${query.toString()}` : '';
+}
+
 export class HttpSalesApi implements SalesApi {
   constructor(private readonly baseUrl: string) {}
 
-  async searchCustomers(token: string): Promise<Customer[]> {
-    return (await this.request<{ customers: Customer[] }>('GET', `${BASE}/customers`, token)).customers;
+  async searchCustomers(token: string, filters: CustomerFilters = {}): Promise<CustomerPage> {
+    return this.request<CustomerPage>('GET', `${BASE}/customers${queryOf(filters)}`, token);
+  }
+
+  async allCustomers(token: string): Promise<Customer[]> {
+    return everyPage(async (offset) => {
+      const page = await this.searchCustomers(token, { limit: SELECTOR_PAGE, offset });
+
+      return { rows: page.customers, hasMore: page.hasMore };
+    });
   }
 
   async saveCustomer(token: string, id: string | null, input: CustomerInput): Promise<void> {
@@ -23,8 +60,16 @@ export class HttpSalesApi implements SalesApi {
     await this.request('PUT', `${BASE}/customers/${id}/status`, token, { active });
   }
 
-  async searchOrders(token: string): Promise<SalesOrder[]> {
-    return (await this.request<{ orders: SalesOrder[] }>('GET', `${BASE}/orders`, token)).orders;
+  async searchOrders(token: string, filters: OrderFilters = {}): Promise<OrderPage> {
+    return this.request<OrderPage>('GET', `${BASE}/orders${queryOf(filters)}`, token);
+  }
+
+  async allOrders(token: string): Promise<SalesOrder[]> {
+    return everyPage(async (offset) => {
+      const page = await this.searchOrders(token, { limit: SELECTOR_PAGE, offset });
+
+      return { rows: page.orders, hasMore: page.hasMore };
+    });
   }
 
   async saveOrder(token: string, id: string | null, input: OrderInput): Promise<void> {
@@ -45,8 +90,8 @@ export class HttpSalesApi implements SalesApi {
     await this.request('PUT', `${BASE}/orders/${id}/cancel`, token);
   }
 
-  async searchDispatches(token: string): Promise<Dispatch[]> {
-    return (await this.request<{ dispatches: Dispatch[] }>('GET', `${BASE}/dispatches`, token)).dispatches;
+  async searchDispatches(token: string, filters: DispatchFilters = {}): Promise<DispatchPage> {
+    return this.request<DispatchPage>('GET', `${BASE}/dispatches${queryOf(filters)}`, token);
   }
 
   async createDispatch(token: string, orderId: string, input: DispatchInput): Promise<void> {
@@ -65,8 +110,8 @@ export class HttpSalesApi implements SalesApi {
     await this.request('PUT', `${BASE}/dispatches/${id}/cancel`, token);
   }
 
-  async searchInvoices(token: string): Promise<Invoice[]> {
-    return (await this.request<{ invoices: Invoice[] }>('GET', `${BASE}/invoices`, token)).invoices;
+  async searchInvoices(token: string, filters: InvoiceFilters = {}): Promise<InvoicePage> {
+    return this.request<InvoicePage>('GET', `${BASE}/invoices${queryOf(filters)}`, token);
   }
 
   // Un pedido que solo vende servicios se factura sin despacho: no hay nada que sacar.
@@ -78,10 +123,8 @@ export class HttpSalesApi implements SalesApi {
     await this.request('PUT', `${BASE}/invoices/${id}/cancel`, token);
   }
 
-  async searchAvailability(token: string, warehouseId?: string): Promise<Availability[]> {
-    const query = warehouseId ? `?warehouseId=${encodeURIComponent(warehouseId)}` : '';
-
-    return (await this.request<{ availability: Availability[] }>('GET', `${BASE}/availability${query}`, token)).availability;
+  async searchAvailability(token: string, filters: AvailabilityFilters = {}): Promise<AvailabilityPage> {
+    return this.request<AvailabilityPage>('GET', `${BASE}/availability${queryOf(filters)}`, token);
   }
 
   private dispatchBody(input: DispatchInput) {
@@ -102,6 +145,23 @@ export class HttpSalesApi implements SalesApi {
 
     return (text.length > 0 ? JSON.parse(text) : undefined) as T;
   }
+}
+
+// Recorre las paginas hasta agotarlas: lo que necesita un selector, que no pagina.
+async function everyPage<T>(pageAt: (offset: number) => Promise<{ rows: T[]; hasMore: boolean }>): Promise<T[]> {
+  const all: T[] = [];
+  let offset = 0;
+  let hasMore = true;
+
+  while (hasMore) {
+    const page = await pageAt(offset);
+
+    all.push(...page.rows);
+    offset += page.rows.length;
+    hasMore = page.hasMore && page.rows.length > 0;
+  }
+
+  return all;
 }
 
 async function errorBodyOf(response: Response): Promise<AccessErrorBody> {

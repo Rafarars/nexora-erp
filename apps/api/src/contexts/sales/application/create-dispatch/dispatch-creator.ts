@@ -44,7 +44,7 @@ export class DispatchCreator {
       lines: await this.factory.lines(tenantId, order, request.lines),
     };
     const id = DispatchId.of(this.ids.next());
-    const target = { id: order.id, warehouseId: order.warehouseId() };
+    const target = { id: order.id, warehouseId: order.warehouseId(), date: order.orderDate() };
 
     Dispatch.draft(id, tenantId, salesCode('DES', 0), target, details, now, today);
 

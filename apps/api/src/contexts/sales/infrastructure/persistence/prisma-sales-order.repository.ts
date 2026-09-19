@@ -2,7 +2,7 @@ import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../../../../shared/prisma/prisma.service.js';
 import { SalesOrderNotEditableError } from '../../domain/errors/sales.errors.js';
 import { SalesOrder, SalesOrderId } from '../../domain/order/sales-order.entity.js';
-import { SalesOrderRepository } from '../../domain/order/sales-order.repository.js';
+import { SalesOrderCriteria, SalesOrderPage, SalesOrderRepository } from '../../domain/order/sales-order.repository.js';
 import { ConcurrentModificationError } from '../../../../shared/domain/concurrent-modification.error.js';
 import { TenantId } from '../../domain/shared/tenant-id.vo.js';
 import { asDate, orderFromRow } from './sales-rows.js';
@@ -48,5 +48,38 @@ export class PrismaSalesOrderRepository implements SalesOrderRepository {
     const rows = await this.prisma.salesOrder.findMany({ where: { tenantId: tenantId.value }, include: { lines: true }, orderBy: { code: 'desc' } });
 
     return rows.map(orderFromRow);
+  }
+
+  async searchPage(tenantId: TenantId, criteria: SalesOrderCriteria): Promise<SalesOrderPage> {
+    const text = criteria.text;
+    const where = {
+      tenantId: tenantId.value,
+      ...(criteria.customerId ? { customerId: criteria.customerId } : {}),
+      ...(criteria.warehouseId ? { warehouseId: criteria.warehouseId } : {}),
+      ...(criteria.status ? { status: criteria.status } : {}),
+      ...(criteria.from || criteria.to
+        ? {
+            orderDate: {
+              ...(criteria.from ? { gte: new Date(`${criteria.from}T00:00:00.000Z`) } : {}),
+              ...(criteria.to ? { lte: new Date(`${criteria.to}T00:00:00.000Z`) } : {}),
+            },
+          }
+        : {}),
+      ...(text
+        ? {
+            OR: [
+              { code: { contains: text, mode: 'insensitive' as const } },
+              { lines: { some: { itemSku: { contains: text, mode: 'insensitive' as const } } } },
+              { lines: { some: { itemName: { contains: text, mode: 'insensitive' as const } } } },
+            ],
+          }
+        : {}),
+    };
+    const [rows, total] = await Promise.all([
+      this.prisma.salesOrder.findMany({ where, include: { lines: true }, orderBy: { code: 'desc' }, take: criteria.limit, skip: criteria.offset }),
+      this.prisma.salesOrder.count({ where }),
+    ]);
+
+    return { orders: rows.map(orderFromRow), total };
   }
 }

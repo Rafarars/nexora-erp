@@ -16,6 +16,8 @@ import { DispatchCanceller } from '../application/cancel-dispatch/dispatch-cance
 import { InvoiceCanceller } from '../application/cancel-invoice/invoice-canceller.js';
 import { SalesOrderCanceller } from '../application/cancel-order/sales-order-canceller.js';
 import { CustomerStatusChanger } from '../application/change-customer-status/customer-status-changer.js';
+import { CUSTOMER_USAGE, CustomerUsage } from '../domain/customer/usage/customer-usage.js';
+import { PrismaCustomerUsage } from './persistence/prisma-customer-usage.js';
 import { DispatchConfirmer } from '../application/confirm-dispatch/dispatch-confirmer.js';
 import { SalesOrderConfirmer } from '../application/confirm-order/sales-order-confirmer.js';
 import { CustomerCreator } from '../application/create-customer/customer-creator.js';
@@ -117,6 +119,7 @@ import { PrismaSalesStock } from './persistence/prisma-sales-stock.js';
   ],
   providers: [
     { provide: CUSTOMER_REPOSITORY, useClass: PrismaCustomerRepository },
+    { provide: CUSTOMER_USAGE, useClass: PrismaCustomerUsage },
     { provide: SALES_ORDER_REPOSITORY, useClass: PrismaSalesOrderRepository },
     { provide: DISPATCH_REPOSITORY, useClass: PrismaDispatchRepository },
     { provide: INVOICE_REPOSITORY, useClass: PrismaInvoiceRepository },
@@ -153,8 +156,8 @@ import { PrismaSalesStock } from './persistence/prisma-sales-stock.js';
     },
     {
       provide: CustomerStatusChanger,
-      useFactory: (f: CustomerFinder, r: CustomerRepository, k: Clock) => new CustomerStatusChanger(f, r, k),
-      inject: [CustomerFinder, CUSTOMER_REPOSITORY, CLOCK],
+      useFactory: (f: CustomerFinder, u: CustomerUsage, r: CustomerRepository, k: Clock) => new CustomerStatusChanger(f, u, r, k),
+      inject: [CustomerFinder, CUSTOMER_USAGE, CUSTOMER_REPOSITORY, CLOCK],
     },
     { provide: CustomerSearcher, useFactory: (r: CustomerRepository) => new CustomerSearcher(r), inject: [CUSTOMER_REPOSITORY] },
 

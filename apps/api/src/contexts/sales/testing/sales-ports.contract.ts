@@ -57,14 +57,14 @@ export function describeSalesPortsContract(implementation: string, createHarness
     const next = () => String((counter += 1)).padStart(12, '0');
     const pieces = (quantity: number) => anOrderLine({ quantity, unit: PIECE, factor: 1, unitPrice: 2 });
 
-    async function draftOrder(lines: SalesOrderLine[]): Promise<SalesOrderId> {
+    async function draftOrder(lines: SalesOrderLine[], date = TODAY): Promise<SalesOrderId> {
       const id = SalesOrderId.of(`5b000000-0000-4000-8000-${next()}`);
 
       await ports.orders.save(
         SalesOrder.draft(id, tenant, `PED${next().slice(-6)}`, {
           customerId: CustomerId.of(CUSTOMER),
           warehouseId: WarehouseRef.of(MAIN),
-          orderDate: SalesDate.of(TODAY),
+          orderDate: SalesDate.of(date),
           currency: aDocumentCurrency(),
           notes: 'contrato',
           priceListId: null,
@@ -77,21 +77,21 @@ export function describeSalesPortsContract(implementation: string, createHarness
 
     const confirmOrder = (id: SalesOrderId) => ports.orderPosting.post(tenant, id, (order, availability) => new StockReservation().confirm(order, availability, NOW));
 
-    async function confirmedOrder(quantity: number): Promise<SalesOrder> {
-      const id = await draftOrder([pieces(quantity)]);
+    async function confirmedOrder(quantity: number, date = TODAY): Promise<SalesOrder> {
+      const id = await draftOrder([pieces(quantity)], date);
       await confirmOrder(id);
 
       return (await ports.orders.find(tenant, id))!;
     }
 
-    async function draftDispatch(order: SalesOrder, quantity: number): Promise<DispatchId> {
+    async function draftDispatch(order: SalesOrder, quantity: number, date = TODAY): Promise<DispatchId> {
       const id = DispatchId.of(`5d000000-0000-4000-8000-${next()}`);
       const [line] = order.lines();
       const q = Quantity.of(quantity);
 
       await ports.dispatches.save(
-        Dispatch.draft(id, tenant, `DES${next().slice(-6)}`, { id: order.id, warehouseId: order.warehouseId() }, {
-          date: SalesDate.of(TODAY),
+        Dispatch.draft(id, tenant, `DES${next().slice(-6)}`, { id: order.id, warehouseId: order.warehouseId(), date: order.orderDate() }, {
+          date: SalesDate.of(date),
           notes: null,
           lines: [DispatchLine.of({ id: DispatchLineId.of(`5e000000-0000-4000-8000-${next()}`), lineNumber: 1, orderLineId: line.id, itemId: line.itemId, itemSku: line.itemSku, itemName: line.itemName, unitId: line.unitId, quantity: q, baseQuantity: line.baseOf(q) })],
         }, NOW, TODAY),
@@ -159,6 +159,24 @@ export function describeSalesPortsContract(implementation: string, createHarness
 
         await expect(confirmOrder(stale)).rejects.toThrow(SalesItemChangedError);
         expect((await ports.orders.find(tenant, stale))?.currentStatus()).toBe('draft');
+      });
+
+      // Un servicio no sale de la bodega, asi que no reserva nada. Lo comprueba el contrato
+      // porque el doble lo filtraba y la consulta de produccion no, y ninguno de los dos casos
+      // que existian tenia una linea de servicio de otro pedido: coincidian por omision.
+      it('does not let a service line of another order eat the available stock', async () => {
+        await harness.stock(WATER, MAIN, 10);
+        // Mixto a proposito: uno de solo servicios nace despachado y no entraria en el filtro.
+        const mixed = await draftOrder([
+          pieces(1),
+          anOrderLine({ quantity: 9, unit: PIECE, factor: 1, unitPrice: 2, movesStock: false }),
+        ]);
+        await confirmOrder(mixed);
+
+        // Reservada hay una sola unidad: el servicio no sale de la bodega. Caben nueve.
+        const fits = await draftOrder([pieces(9)]);
+
+        await expect(confirmOrder(fits)).resolves.not.toThrow();
       });
 
       // La guarda de la reserva bajo concurrencia real: dos pedidos de 6 sobre 10.
@@ -305,8 +323,10 @@ export function describeSalesPortsContract(implementation: string, createHarness
         expect(await ports.invoices.searchByTenant(tenant)).toHaveLength(1);
       });
 
-      async function invoicedDispatch(quantity: number): Promise<DispatchId> {
-        const id = await draftDispatch(await confirmedOrder(quantity), quantity);
+      // La fecha viaja al pedido y al despacho: una factura vieja lo es porque lo que cobra
+      // tambien es viejo, no porque se le haya puesto otra fecha encima.
+      async function invoicedDispatch(quantity: number, date = TODAY): Promise<DispatchId> {
+        const id = await draftDispatch(await confirmedOrder(quantity, date), quantity, date);
         await confirmDispatch(id);
 
         return id;
@@ -332,7 +352,7 @@ export function describeSalesPortsContract(implementation: string, createHarness
 
       it('counts only what is still owed, and refuses credit while an invoice is overdue', async () => {
         await harness.stock(WATER, MAIN, 10);
-        const [old, recent, next] = [await invoicedDispatch(4), await invoicedDispatch(4), await invoicedDispatch(1)];
+        const [old, recent, next] = [await invoicedDispatch(4, '2026-01-01'), await invoicedDispatch(4), await invoicedDispatch(1)];
         await limitCredit(20);
 
         // Vence el 11 y hoy es 15.
@@ -356,6 +376,106 @@ export function describeSalesPortsContract(implementation: string, createHarness
 
         await expect(ports.invoicePosting.cancel(tenant, invoice.id, (found, _order, paid) => found.cancel(NOW, paid))).rejects.toThrow(InvoiceWithPaymentsError);
         expect((await ports.invoices.find(tenant, invoice.id))?.currentStatus()).toBe('issued');
+      });
+    });
+
+    // Buscar y paginar es donde el doble y PostgreSQL se separan si nadie mira: mayusculas,
+    // campos nulos y el orden entre paginas.
+    describe('Search pages', () => {
+      const page = { text: null, limit: 20, offset: 0 };
+
+      it('searches customers by code, name and fiscal id, ignoring case, and pages with a stable order', async () => {
+        const other = Customer.create(
+          CustomerId.of('c2222222-2222-4222-8222-222222222222'),
+          tenant,
+          'CLI900002',
+          { name: 'Aguas del Valle', fiscalId: 'J-30512345-6' },
+          NOW,
+        );
+        await ports.customers.save(other);
+        const criteria = { ...page, isActive: null };
+
+        expect((await ports.customers.searchPage(tenant, { ...criteria, text: 'aguas' })).customers.map((c) => c.id.value)).toEqual([other.id.value]);
+        expect((await ports.customers.searchPage(tenant, { ...criteria, text: 'AGUAS' })).customers.map((c) => c.id.value)).toEqual([other.id.value]);
+        expect((await ports.customers.searchPage(tenant, { ...criteria, text: 'cli900002' })).total).toBe(1);
+        // Un cliente sin identificacion fiscal no puede romper la busqueda por ese campo.
+        expect((await ports.customers.searchPage(tenant, { ...criteria, text: '30512345' })).total).toBe(1);
+
+        const first = await ports.customers.searchPage(tenant, { ...criteria, limit: 1, offset: 0 });
+        const second = await ports.customers.searchPage(tenant, { ...criteria, limit: 1, offset: 1 });
+
+        expect(first.total).toBe(2);
+        expect(first.customers[0].id.value).not.toBe(second.customers[0].id.value);
+      });
+
+      it('tells apart the active customers from the inactive', async () => {
+        const closed = Customer.create(CustomerId.of('c3333333-3333-4333-8333-333333333333'), tenant, 'CLI900003', { name: 'Cerrado' }, NOW);
+        closed.deactivate(NOW);
+        await ports.customers.save(closed);
+
+        expect((await ports.customers.searchPage(tenant, { ...page, isActive: true })).customers.map((c) => c.id.value)).toEqual([CUSTOMER]);
+        expect((await ports.customers.searchPage(tenant, { ...page, isActive: false })).customers.map((c) => c.id.value)).toEqual([closed.id.value]);
+        expect((await ports.customers.searchPage(tenant, { ...page, isActive: null })).total).toBe(2);
+      });
+
+      it('searches orders by code and by the sku or name of their lines, and filters by status and date', async () => {
+        await harness.stock(WATER, MAIN, 10);
+        const soap = await draftOrder([anOrderLine({ quantity: 1, unit: PIECE, factor: 1, unitPrice: 2, sku: 'JABON-01', name: 'Jabon azul' })], '2026-01-01');
+        const water = await draftOrder([pieces(1)]);
+        const confirmed = await confirmedOrder(2);
+        const criteria = { ...page, customerId: null, warehouseId: null, status: null, from: null, to: null };
+        const codeOf = async (id: SalesOrderId) => (await ports.orders.find(tenant, id))!.code;
+
+        expect((await ports.orders.searchPage(tenant, { ...criteria, text: 'jabon-01' })).orders.map((o) => o.id.value)).toEqual([soap.value]);
+        expect((await ports.orders.searchPage(tenant, { ...criteria, text: 'JABON AZUL' })).orders.map((o) => o.id.value)).toEqual([soap.value]);
+        expect((await ports.orders.searchPage(tenant, { ...criteria, text: (await codeOf(water)).toLowerCase() })).orders.map((o) => o.id.value)).toEqual([water.value]);
+        expect((await ports.orders.searchPage(tenant, { ...criteria, status: 'confirmed' })).orders.map((o) => o.id.value)).toEqual([confirmed.id.value]);
+        expect((await ports.orders.searchPage(tenant, { ...criteria, customerId: CUSTOMER })).total).toBe(3);
+        expect((await ports.orders.searchPage(tenant, { ...criteria, warehouseId: MAIN })).total).toBe(3);
+        expect((await ports.orders.searchPage(tenant, { ...criteria, to: '2026-01-05' })).orders.map((o) => o.id.value)).toEqual([soap.value]);
+        expect((await ports.orders.searchPage(tenant, { ...criteria, from: '2026-01-10' })).total).toBe(2);
+
+        const first = await ports.orders.searchPage(tenant, { ...criteria, limit: 1, offset: 0 });
+        const second = await ports.orders.searchPage(tenant, { ...criteria, limit: 1, offset: 1 });
+
+        expect(first.total).toBe(3);
+        expect(first.orders[0].id.value).not.toBe(second.orders[0].id.value);
+      });
+
+      it('searches dispatches by their code and by the code of their order, and filters by order and date', async () => {
+        await harness.stock(WATER, MAIN, 10);
+        const order = await confirmedOrder(4, '2026-01-01');
+        const id = await draftDispatch(order, 2, '2026-01-02');
+        const code = (await ports.dispatches.find(tenant, id))!.toPrimitives().code;
+        const criteria = { ...page, orderId: null, warehouseId: null, status: null, from: null, to: null };
+
+        expect((await ports.dispatches.searchPage(tenant, { ...criteria, text: code.toLowerCase() })).dispatches.map((d) => d.id.value)).toEqual([id.value]);
+        expect((await ports.dispatches.searchPage(tenant, { ...criteria, text: order.code.toLowerCase() })).dispatches.map((d) => d.id.value)).toEqual([id.value]);
+        expect((await ports.dispatches.searchPage(tenant, { ...criteria, orderId: order.id.value })).total).toBe(1);
+        expect((await ports.dispatches.searchPage(tenant, { ...criteria, warehouseId: MAIN })).total).toBe(1);
+        expect((await ports.dispatches.searchPage(tenant, { ...criteria, status: 'confirmed' })).total).toBe(0);
+        expect((await ports.dispatches.searchPage(tenant, { ...criteria, to: '2026-01-05' })).total).toBe(1);
+        expect((await ports.dispatches.searchPage(tenant, { ...criteria, from: '2026-01-10' })).total).toBe(0);
+      });
+
+      it('searches invoices by their code, the code of their order and the name of the customer', async () => {
+        await harness.stock(WATER, MAIN, 10);
+        const order = await confirmedOrder(4);
+        const dispatchId = await draftDispatch(order, 4);
+        await confirmDispatch(dispatchId);
+        await issue(dispatchId);
+
+        const [invoice] = await ports.invoices.searchByTenant(tenant);
+        const criteria = { ...page, customerId: null, status: null, from: null, to: null };
+
+        expect((await ports.invoices.searchPage(tenant, { ...criteria, text: invoice.toPrimitives().code.toLowerCase() })).invoices.map((i) => i.id.value)).toEqual([invoice.id.value]);
+        expect((await ports.invoices.searchPage(tenant, { ...criteria, text: order.code.toLowerCase() })).total).toBe(1);
+        expect((await ports.invoices.searchPage(tenant, { ...criteria, text: 'contrato cliente' })).total).toBe(1);
+        expect((await ports.invoices.searchPage(tenant, { ...criteria, text: 'aguas' })).total).toBe(0);
+        expect((await ports.invoices.searchPage(tenant, { ...criteria, customerId: CUSTOMER })).total).toBe(1);
+        expect((await ports.invoices.searchPage(tenant, { ...criteria, status: 'cancelled' })).total).toBe(0);
+        expect((await ports.invoices.searchPage(tenant, { ...criteria, to: TODAY })).total).toBe(1);
+        expect((await ports.invoices.searchPage(tenant, { ...criteria, from: '2026-01-16' })).total).toBe(0);
       });
     });
 

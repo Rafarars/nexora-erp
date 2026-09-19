@@ -4,6 +4,7 @@ import {
   DispatchNotInvoiceableError,
   InvoiceAlreadyCancelledError,
   InvoiceWithPaymentsError,
+  InvoiceBeforeOriginError,
   NothingToInvoiceError,
   OrderNotDirectlyInvoiceableError,
   SalesOrderNotInvoiceableError,
@@ -108,6 +109,11 @@ export class Invoice {
     }
 
     issue.date.ensureNotAfter(today);
+
+    // Lo que se factura ya ocurrio: la salida si hay despacho, el pedido si se factura directo.
+    const billed = dispatch ? dispatch.date() : order.orderDate();
+
+    if (issue.date.isBefore(billed)) throw new InvoiceBeforeOriginError(issue.date.value);
 
     const decimals = issue.amountDecimals;
 

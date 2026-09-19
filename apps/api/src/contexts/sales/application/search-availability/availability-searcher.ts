@@ -15,6 +15,16 @@ export interface AvailabilityResponse {
   available: number;
 }
 
+export interface AvailabilitySearcherResponse {
+  total: number;
+  limit: number;
+  offset: number;
+  hasMore: boolean;
+  availability: AvailabilityResponse[];
+}
+
+const DEFAULT_PAGE = 20;
+
 // Cuanto se puede vender de cada articulo en cada bodega: lo que hay menos lo que ya reservaron
 // los pedidos confirmados. Es una foto para mirar; la reserva de verdad se decide al confirmar.
 export class AvailabilitySearcher {
@@ -24,7 +34,13 @@ export class AvailabilitySearcher {
     private readonly catalog: SalesCatalog,
   ) {}
 
-  async run(request: { tenantId: string; warehouseId?: string | null }): Promise<{ availability: AvailabilityResponse[] }> {
+  async run(request: {
+    tenantId: string;
+    q?: string | null;
+    warehouseId?: string | null;
+    limit?: number;
+    offset?: number;
+  }): Promise<AvailabilitySearcherResponse> {
     const tenantId = TenantId.of(request.tenantId);
     const warehouseId = request.warehouseId ? WarehouseRef.of(request.warehouseId) : undefined;
 
@@ -61,22 +77,37 @@ export class AvailabilitySearcher {
       this.catalog.findWarehouses(tenantId, [...new Set(values.map((r) => r.warehouseId))].map((id) => WarehouseRef.of(id))),
     ]);
 
-    return {
-      availability: values
-        .map((r) => {
-          const item = items.find((candidate) => candidate.id === r.itemId);
-          const available = r.reserved.isGreaterThan(r.onHand) ? Quantity.zero() : r.onHand.minus(r.reserved);
+    const limit = request.limit ?? DEFAULT_PAGE;
+    const offset = request.offset ?? 0;
+    const text = request.q?.trim().toLowerCase() ?? null;
+    // La pagina se corta sobre los grupos ya calculados: la fila es articulo por bodega, no una
+    // fila de ninguna tabla.
+    const all = values
+      .map((r) => {
+        const item = items.find((candidate) => candidate.id === r.itemId);
+        const available = r.reserved.isGreaterThan(r.onHand) ? Quantity.zero() : r.onHand.minus(r.reserved);
 
-          return {
-            item: { id: r.itemId, sku: item?.sku ?? '', name: item?.name ?? '', baseUnit: item?.units.find((u) => u.isBase)?.abbreviation ?? '' },
-            warehouse: { id: r.warehouseId, name: warehouses.find((w) => w.id === r.warehouseId)?.name ?? '' },
-            onHand: r.onHand.toNumber(),
-            reserved: r.reserved.toNumber(),
-            available: available.toNumber(),
-          };
-        })
-        .filter((r) => r.item.sku !== '' && r.warehouse.name !== '')
-        .sort((a, b) => a.warehouse.name.localeCompare(b.warehouse.name) || a.item.name.localeCompare(b.item.name)),
+        return {
+          item: { id: r.itemId, sku: item?.sku ?? '', name: item?.name ?? '', baseUnit: item?.units.find((u) => u.isBase)?.abbreviation ?? '' },
+          warehouse: { id: r.warehouseId, name: warehouses.find((w) => w.id === r.warehouseId)?.name ?? '' },
+          onHand: r.onHand.toNumber(),
+          reserved: r.reserved.toNumber(),
+          available: available.toNumber(),
+        };
+      })
+      .filter((r) => r.item.sku !== '' && r.warehouse.name !== '')
+      .filter((r) => text === null || r.item.sku.toLowerCase().includes(text) || r.item.name.toLowerCase().includes(text))
+      // El desempate por SKU evita que dos articulos homonimos se turnen entre paginas.
+      .sort(
+        (a, b) => a.warehouse.name.localeCompare(b.warehouse.name) || a.item.name.localeCompare(b.item.name) || a.item.sku.localeCompare(b.item.sku),
+      );
+
+    return {
+      total: all.length,
+      limit,
+      offset,
+      hasMore: offset + Math.min(limit, Math.max(0, all.length - offset)) < all.length,
+      availability: all.slice(offset, offset + limit),
     };
   }
 }

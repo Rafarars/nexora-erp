@@ -28,7 +28,9 @@ export async function aConfirmedDispatch(request: APIRequestContext, token: stri
 
   expect((await request.put(`${baseUrl}${SALES_ORDERS}/${order.id}/confirm`, { headers: auth(token) })).status()).toBe(200);
 
-  const confirmed = (await (await request.get(`${baseUrl}${SALES_ORDERS}`, { headers: auth(token) })).json()).orders.find((row: { id: string }) => row.id === order.id);
+  const confirmed = (
+    await (await request.get(`${baseUrl}${SALES_ORDERS}?customerId=${order.customer.id}`, { headers: auth(token) })).json()
+  ).orders.find((row: { id: string }) => row.id === order.id);
   const dispatch = await aDraftDispatch(request, token, order.id, [{ orderLineId: confirmed.lines[0].id, quantity }], baseUrl);
 
   expect((await request.put(`${baseUrl}${DISPATCHES}/${dispatch.id}/confirm`, { headers: auth(token) })).status()).toBe(200);

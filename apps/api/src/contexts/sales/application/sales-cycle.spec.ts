@@ -17,6 +17,8 @@ import {
   SalesWarehouseNotFoundError,
   ItemNotSellableError,
   SalesFractionalQuantityError,
+  CustomerWithOpenOrdersError,
+  CustomerNotFoundError,
 } from '../domain/errors/sales.errors.js';
 import { BOX, FOREIGN_WAREHOUSE, KILO, MAIN, NORTH, PIECE, SOAP, TENANT_A, TENANT_B, WATER, NOT_TRADED_ITEM } from '../domain/testing/sales.mother.js';
 import { SalesOrderCreatorRequest } from './create-order/sales-order-creator.js';
@@ -53,6 +55,27 @@ const latestDispatch = async (s: SalesScenario) => (await s.searchDispatches.run
 const latestInvoice = async (s: SalesScenario) => (await s.searchInvoices.run({ tenantId: TENANT_A })).invoices[0];
 const availabilityOf = async (s: SalesScenario, itemId = WATER) =>
   (await s.searchAvailability.run({ tenantId: TENANT_A })).availability.find((row) => row.item.id === itemId);
+
+// La misma regla que protege a una bodega del catalogo y a un proveedor de compras: no se cierra
+// lo que tiene documentos esperando. Un borrador no cuenta, porque se revalida al confirmarlo.
+describe('closing a customer', () => {
+  it('refuses to deactivate one that still has goods to dispatch', async () => {
+    const { s, customerId } = await world({ water: 500, soap: 100 });
+    await s.createOrder.run(orderRequest(customerId));
+    const order = await latestOrder(s);
+
+    await s.changeCustomerStatus.run({ tenantId: TENANT_A, customerId, active: false });
+    expect((await s.searchCustomers.run({ tenantId: TENANT_A })).customers[0].isActive).toBe(false);
+
+    await s.changeCustomerStatus.run({ tenantId: TENANT_A, customerId, active: true });
+    await s.confirmOrder.run({ tenantId: TENANT_A, orderId: order.id });
+
+    await expect(s.changeCustomerStatus.run({ tenantId: TENANT_A, customerId, active: false })).rejects.toThrow(
+      CustomerWithOpenOrdersError,
+    );
+    expect((await s.searchCustomers.run({ tenantId: TENANT_A })).customers[0].isActive).toBe(true);
+  });
+});
 
 async function confirmedOrder(overrides: Partial<SalesOrderCreatorRequest> = {}, stock?: { water?: number; soap?: number }) {
   const w = await world(stock);
@@ -300,5 +323,63 @@ describe('invoices', () => {
 
     expect((await s.searchAvailability.run({ tenantId: TENANT_A, warehouseId: NORTH })).availability).toEqual([]);
     await expect(s.searchAvailability.run({ tenantId: TENANT_A, warehouseId: FOREIGN_WAREHOUSE })).rejects.toThrow(SalesWarehouseNotFoundError);
+  });
+});
+
+// Las listas de ventas se leen por paginas y con filtros: lo que no se pide no se trae.
+describe('searching the sales lists', () => {
+  it('pages the orders and filters them by status, customer and text', async () => {
+    const { s, customerId, order } = await confirmedOrder();
+    await s.createOrder.run(orderRequest(customerId, { lines: [{ itemId: SOAP, unitId: KILO, quantity: 1, unitPrice: 4 }] }));
+
+    expect(await s.searchOrders.run({ tenantId: TENANT_A, limit: 1 })).toMatchObject({ total: 2, limit: 1, offset: 0, hasMore: true });
+    expect((await s.searchOrders.run({ tenantId: TENANT_A, limit: 1, offset: 1 })).hasMore).toBe(false);
+    expect((await s.searchOrders.run({ tenantId: TENANT_A, status: 'confirmed' })).orders.map((o) => o.id)).toEqual([order.id]);
+    expect((await s.searchOrders.run({ tenantId: TENANT_A, q: 'agua-500' })).orders.map((o) => o.id)).toEqual([order.id]);
+    expect((await s.searchOrders.run({ tenantId: TENANT_A, customerId })).total).toBe(2);
+  });
+
+  it('pages the dispatches and filters them by order, status and text', async () => {
+    const { s, order } = await confirmedOrder();
+    await dispatch(s, order.id, [{ orderLineId: order.lines[0].id, quantity: 2 }]);
+    await dispatch(s, order.id, [{ orderLineId: order.lines[0].id, quantity: 3 }]);
+
+    expect(await s.searchDispatches.run({ tenantId: TENANT_A, limit: 1 })).toMatchObject({ total: 2, hasMore: true });
+    expect((await s.searchDispatches.run({ tenantId: TENANT_A, q: 'ped000001' })).total).toBe(2);
+    expect((await s.searchDispatches.run({ tenantId: TENANT_A, q: 'des000002' })).dispatches.map((d) => d.code)).toEqual(['DES000002']);
+    expect((await s.searchDispatches.run({ tenantId: TENANT_A, orderId: order.id })).total).toBe(2);
+    expect((await s.searchDispatches.run({ tenantId: TENANT_A, status: 'draft' })).total).toBe(0);
+  });
+
+  it('pages the invoices and filters them by customer, status and text', async () => {
+    const { s, customerId, order } = await confirmedOrder();
+    const id = await dispatch(s, order.id, [{ orderLineId: order.lines[0].id, quantity: 2 }]);
+    await s.issueInvoice.run({ tenantId: TENANT_A, dispatchId: id });
+
+    expect(await s.searchInvoices.run({ tenantId: TENANT_A })).toMatchObject({ total: 1, limit: 20, offset: 0, hasMore: false });
+    expect((await s.searchInvoices.run({ tenantId: TENANT_A, q: 'comercial delta' })).total).toBe(1);
+    expect((await s.searchInvoices.run({ tenantId: TENANT_A, q: 'ped000001' })).total).toBe(1);
+    expect((await s.searchInvoices.run({ tenantId: TENANT_A, customerId })).total).toBe(1);
+    expect((await s.searchInvoices.run({ tenantId: TENANT_A, status: 'cancelled' })).total).toBe(0);
+  });
+
+  it('pages the availability and filters it by sku or name', async () => {
+    const { s } = await confirmedOrder();
+
+    expect(await s.searchAvailability.run({ tenantId: TENANT_A, limit: 1 })).toMatchObject({ total: 2, limit: 1, hasMore: true });
+    expect((await s.searchAvailability.run({ tenantId: TENANT_A, limit: 1, offset: 1 })).hasMore).toBe(false);
+    expect((await s.searchAvailability.run({ tenantId: TENANT_A, q: 'jabon' })).availability.map((row) => row.item.id)).toEqual([SOAP]);
+  });
+
+  // Filtrar por algo ajeno tiene que responder "no existe", no una lista vacia: una lista vacia
+  // afirma que ese cliente no tiene pedidos, que no es lo mismo.
+  it('answers not found when filtering by a customer, a warehouse or an order of another tenant', async () => {
+    const { s, customerId, order } = await confirmedOrder();
+
+    await expect(s.searchOrders.run({ tenantId: TENANT_B, customerId })).rejects.toThrow(CustomerNotFoundError);
+    await expect(s.searchOrders.run({ tenantId: TENANT_A, warehouseId: FOREIGN_WAREHOUSE })).rejects.toThrow(SalesWarehouseNotFoundError);
+    await expect(s.searchDispatches.run({ tenantId: TENANT_B, orderId: order.id })).rejects.toThrow(SalesOrderNotFoundError);
+    await expect(s.searchDispatches.run({ tenantId: TENANT_A, warehouseId: FOREIGN_WAREHOUSE })).rejects.toThrow(SalesWarehouseNotFoundError);
+    await expect(s.searchInvoices.run({ tenantId: TENANT_B, customerId })).rejects.toThrow(CustomerNotFoundError);
   });
 });

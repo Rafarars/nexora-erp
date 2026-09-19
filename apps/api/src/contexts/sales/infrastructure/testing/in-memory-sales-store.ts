@@ -100,6 +100,28 @@ export class InMemorySalesStore {
           .filter((row) => row.tenantId === tenantId.value)
           .sort((a, b) => b.code.localeCompare(a.code))
           .map((row) => SalesOrder.fromPrimitives(structuredClone(row))),
+      searchPage: async (tenantId, criteria) => {
+        const text = criteria.text?.toLowerCase() ?? null;
+        const matches = [...this.orderRows.values()]
+          .filter((row) => row.tenantId === tenantId.value)
+          .filter((row) => !criteria.customerId || row.customerId === criteria.customerId)
+          .filter((row) => !criteria.warehouseId || row.warehouseId === criteria.warehouseId)
+          .filter((row) => !criteria.status || row.status === criteria.status)
+          .filter((row) => !criteria.from || row.orderDate >= criteria.from)
+          .filter((row) => !criteria.to || row.orderDate <= criteria.to)
+          .filter(
+            (row) =>
+              text === null ||
+              row.code.toLowerCase().includes(text) ||
+              row.lines.some((line) => line.itemSku.toLowerCase().includes(text) || line.itemName.toLowerCase().includes(text)),
+          )
+          .sort((a, b) => b.code.localeCompare(a.code));
+
+        return {
+          orders: matches.slice(criteria.offset, criteria.offset + criteria.limit).map((row) => SalesOrder.fromPrimitives(structuredClone(row))),
+          total: matches.length,
+        };
+      },
     };
   }
 
@@ -119,6 +141,24 @@ export class InMemorySalesStore {
           .filter((row) => row.tenantId === tenantId.value && (!orderId || row.orderId === orderId.value))
           .sort((a, b) => b.code.localeCompare(a.code))
           .map((row) => Dispatch.fromPrimitives(structuredClone(row))),
+      searchPage: async (tenantId, criteria) => {
+        const text = criteria.text?.toLowerCase() ?? null;
+        const codeOf = (orderId: string) => this.orderRows.get(orderId)?.code ?? '';
+        const matches = [...this.dispatchRows.values()]
+          .filter((row) => row.tenantId === tenantId.value)
+          .filter((row) => !criteria.orderId || row.orderId === criteria.orderId)
+          .filter((row) => !criteria.warehouseId || row.warehouseId === criteria.warehouseId)
+          .filter((row) => !criteria.status || row.status === criteria.status)
+          .filter((row) => !criteria.from || row.dispatchDate >= criteria.from)
+          .filter((row) => !criteria.to || row.dispatchDate <= criteria.to)
+          .filter((row) => text === null || row.code.toLowerCase().includes(text) || codeOf(row.orderId).toLowerCase().includes(text))
+          .sort((a, b) => b.code.localeCompare(a.code));
+
+        return {
+          dispatches: matches.slice(criteria.offset, criteria.offset + criteria.limit).map((row) => Dispatch.fromPrimitives(structuredClone(row))),
+          total: matches.length,
+        };
+      },
     };
   }
 
@@ -130,6 +170,31 @@ export class InMemorySalesStore {
           .filter((row) => row.tenantId === tenantId.value)
           .sort((a, b) => b.code.localeCompare(a.code))
           .map((row) => Invoice.fromPrimitives(row)),
+      searchPage: async (tenantId, criteria) => {
+        const text = criteria.text?.toLowerCase() ?? null;
+        const customers = await this.customers.searchByTenant(tenantId);
+        const nameOf = (customerId: string) => customers.find((customer) => customer.id.value === customerId)?.name() ?? '';
+        const codeOf = (orderId: string) => this.orderRows.get(orderId)?.code ?? '';
+        const matches = [...this.invoiceRows.values()]
+          .filter((row) => row.tenantId === tenantId.value)
+          .filter((row) => !criteria.customerId || row.customerId === criteria.customerId)
+          .filter((row) => !criteria.status || row.status === criteria.status)
+          .filter((row) => !criteria.from || row.issueDate >= criteria.from)
+          .filter((row) => !criteria.to || row.issueDate <= criteria.to)
+          .filter(
+            (row) =>
+              text === null ||
+              row.code.toLowerCase().includes(text) ||
+              codeOf(row.orderId).toLowerCase().includes(text) ||
+              nameOf(row.customerId).toLowerCase().includes(text),
+          )
+          .sort((a, b) => b.code.localeCompare(a.code));
+
+        return {
+          invoices: matches.slice(criteria.offset, criteria.offset + criteria.limit).map((row) => Invoice.fromPrimitives(structuredClone(row))),
+          total: matches.length,
+        };
+      },
       issuedForDispatch: async (tenantId, dispatchId) => this.invoiced(tenantId.value, dispatchId.value),
     };
   }

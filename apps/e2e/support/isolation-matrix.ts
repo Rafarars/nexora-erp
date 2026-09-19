@@ -459,6 +459,36 @@ export const ISOLATION_CASES: IsolationCase[] = [
     path: `/api/v1/sales/availability?warehouseId=${GLOBEX.warehouseId}`,
   },
   {
+    route: 'GET /api/v1/sales/orders',
+    title: 'filter the sales orders by a customer of another tenant',
+    method: 'get',
+    path: `/api/v1/sales/orders?customerId=${GLOBEX.customerId}`,
+  },
+  {
+    route: 'GET /api/v1/sales/orders',
+    title: 'filter the sales orders by a warehouse of another tenant',
+    method: 'get',
+    path: `/api/v1/sales/orders?warehouseId=${GLOBEX.warehouseId}`,
+  },
+  {
+    route: 'GET /api/v1/sales/dispatches',
+    title: 'filter the dispatches by an order of another tenant',
+    method: 'get',
+    path: `/api/v1/sales/dispatches?orderId=${GLOBEX.partialSalesOrderId}`,
+  },
+  {
+    route: 'GET /api/v1/sales/dispatches',
+    title: 'filter the dispatches by a warehouse of another tenant',
+    method: 'get',
+    path: `/api/v1/sales/dispatches?warehouseId=${GLOBEX.warehouseId}`,
+  },
+  {
+    route: 'GET /api/v1/sales/invoices',
+    title: 'filter the invoices by a customer of another tenant',
+    method: 'get',
+    path: `/api/v1/sales/invoices?customerId=${GLOBEX.customerId}`,
+  },
+  {
     route: 'POST /api/v1/receivables/payments',
     title: 'register a payment for a customer and an invoice of another tenant',
     method: 'post',

@@ -10,10 +10,33 @@ import { formatQuantity } from '@/modules/inventory/domain/inventory';
 import { formatAmount } from '@/modules/purchasing/domain/purchasing';
 import { INVOICE_STATUS_LABELS } from '@/modules/sales/domain/sales';
 import { DocumentRate } from '@/sections/shared/document-rate';
-import type { Invoice } from '@/modules/sales/domain/sales';
+import { Filter, Pager } from '@/sections/shared/filters';
+import type { Customer, Invoice, InvoiceStatus } from '@/modules/sales/domain/sales';
+
+export interface InvoiceSearch {
+  q: string;
+  customerId: string;
+  status: string;
+  from: string;
+  to: string;
+  page: number;
+  pageSize: number;
+  total: number;
+  hasMore: boolean;
+}
 
 // Las facturas se emiten desde su despacho ("Facturar"). Aqui se consultan y se anulan.
-export function InvoicesBoard({ invoices, canCancel }: { invoices: Invoice[]; canCancel: boolean }) {
+export function InvoicesBoard({
+  invoices,
+  search,
+  customers,
+  canCancel,
+}: {
+  invoices: Invoice[];
+  search: InvoiceSearch;
+  customers: Customer[];
+  canCancel: boolean;
+}) {
   const [state, cancel] = useActionState(cancelInvoice, emptyState);
 
   return (
@@ -22,6 +45,8 @@ export function InvoicesBoard({ invoices, canCancel }: { invoices: Invoice[]; ca
         <h2 className="text-base font-semibold">Facturas</h2>
         <p className="text-muted mt-1 text-sm">Cobran lo que salió en un despacho, más los servicios del pedido, que no salen de ninguna bodega. No mueven existencia; anular una deja volver a facturar.</p>
       </div>
+
+      <InvoiceFilters search={search} customers={customers} count={invoices.length} />
 
       <FormError message={state.error} testId="invoice-action-error" />
 
@@ -103,5 +128,111 @@ export function InvoicesBoard({ invoices, canCancel }: { invoices: Invoice[]; ca
         </table>
       </div>
     </section>
+  );
+}
+
+function InvoiceFilters({ search, customers, count }: { search: InvoiceSearch; customers: Customer[]; count: number }) {
+  const pageHref = (page: number) =>
+    `/ventas/facturas?${new URLSearchParams({
+      ...(search.q ? { q: search.q } : {}),
+      ...(search.customerId ? { cliente: search.customerId } : {}),
+      ...(search.status ? { estado: search.status } : {}),
+      ...(search.from ? { desde: search.from } : {}),
+      ...(search.to ? { hasta: search.to } : {}),
+      ...(page > 1 ? { pagina: String(page) } : {}),
+    }).toString()}`;
+
+  return (
+    <div className="border-line space-y-3 rounded-lg border p-3">
+      {/* Un formulario GET: los filtros quedan en la direccion y se pueden compartir. */}
+      <form method="get" className="flex flex-wrap items-end gap-2" data-testid="invoice-filter">
+        <Filter label="Buscar" htmlFor="invoice-search">
+          <input
+            id="invoice-search"
+            name="q"
+            defaultValue={search.q}
+            placeholder="Código de la factura, de su pedido o nombre del cliente"
+            data-testid="invoice-search"
+            className="border-line bg-background w-72 rounded-md border px-3 py-2 text-sm"
+          />
+        </Filter>
+
+        {customers.length > 0 ? (
+          <Filter label="Cliente" htmlFor="invoice-filter-customer">
+            <select
+              id="invoice-filter-customer"
+              name="cliente"
+              defaultValue={search.customerId}
+              data-testid="invoice-filter-customer"
+              className="border-line bg-background rounded-md border px-3 py-2 text-sm"
+            >
+              <option value="">Todos</option>
+              {customers.map((customer) => (
+                <option key={customer.id} value={customer.id}>
+                  {customer.name}
+                </option>
+              ))}
+            </select>
+          </Filter>
+        ) : null}
+
+        <Filter label="Estado" htmlFor="invoice-filter-status">
+          <select
+            id="invoice-filter-status"
+            name="estado"
+            defaultValue={search.status}
+            data-testid="invoice-filter-status"
+            className="border-line bg-background rounded-md border px-3 py-2 text-sm"
+          >
+            <option value="">Todas</option>
+            {(Object.keys(INVOICE_STATUS_LABELS) as InvoiceStatus[]).map((status) => (
+              <option key={status} value={status}>
+                {INVOICE_STATUS_LABELS[status]}
+              </option>
+            ))}
+          </select>
+        </Filter>
+
+        <Filter label="Desde" htmlFor="invoice-filter-from">
+          <input
+            id="invoice-filter-from"
+            name="desde"
+            type="date"
+            defaultValue={search.from}
+            data-testid="invoice-filter-from"
+            className="border-line rounded-md border bg-transparent px-3 py-2 text-sm"
+          />
+        </Filter>
+
+        <Filter label="Hasta" htmlFor="invoice-filter-to">
+          <input
+            id="invoice-filter-to"
+            name="hasta"
+            type="date"
+            defaultValue={search.to}
+            data-testid="invoice-filter-to"
+            className="border-line rounded-md border bg-transparent px-3 py-2 text-sm"
+          />
+        </Filter>
+
+        <button
+          type="submit"
+          data-testid="invoice-filter-submit"
+          className="border-line hover:bg-surface rounded-md border px-3 py-2 text-sm"
+        >
+          Filtrar
+        </button>
+      </form>
+
+      <Pager
+        testId="invoice"
+        page={search.page}
+        pageSize={search.pageSize}
+        count={count}
+        total={search.total}
+        hasMore={search.hasMore}
+        href={pageHref}
+      />
+    </div>
   );
 }

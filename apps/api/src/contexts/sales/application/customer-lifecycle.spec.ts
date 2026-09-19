@@ -58,6 +58,28 @@ describe('customers', () => {
     expect((await s.searchCustomers.run({ tenantId: TENANT_A })).customers[0].isActive).toBe(true);
   });
 
+  it('searches by code, name and fiscal id, and pages the result', async () => {
+    const { s } = await withCustomer();
+    await s.createCustomer.run({ tenantId: TENANT_A, name: 'Bodegón La Esquina' });
+    await s.createCustomer.run({ tenantId: TENANT_A, name: 'Aguas del Valle' });
+
+    expect((await s.searchCustomers.run({ tenantId: TENANT_A, q: 'aguas' })).customers.map((c) => c.name)).toEqual(['Aguas del Valle']);
+    expect((await s.searchCustomers.run({ tenantId: TENANT_A, q: 'J-12345678' })).customers.map((c) => c.name)).toEqual(['Comercial Delta']);
+    expect((await s.searchCustomers.run({ tenantId: TENANT_A, q: 'cli000002' })).customers.map((c) => c.name)).toEqual(['Bodegón La Esquina']);
+
+    expect(await s.searchCustomers.run({ tenantId: TENANT_A, limit: 2 })).toMatchObject({ total: 3, limit: 2, offset: 0, hasMore: true });
+    expect(await s.searchCustomers.run({ tenantId: TENANT_A, limit: 2, offset: 2 })).toMatchObject({ total: 3, hasMore: false });
+  });
+
+  it('filters the list by whether the customer is active', async () => {
+    const { s, customer } = await withCustomer();
+    await s.createCustomer.run({ tenantId: TENANT_A, name: 'Bodegón La Esquina' });
+    await s.changeCustomerStatus.run({ tenantId: TENANT_A, customerId: customer.id, active: false });
+
+    expect((await s.searchCustomers.run({ tenantId: TENANT_A, active: 'false' })).customers.map((c) => c.name)).toEqual(['Comercial Delta']);
+    expect((await s.searchCustomers.run({ tenantId: TENANT_A, active: 'true' })).customers.map((c) => c.name)).toEqual(['Bodegón La Esquina']);
+  });
+
   it('cannot reach the customer of another tenant', async () => {
     const { s, customer } = await withCustomer();
 

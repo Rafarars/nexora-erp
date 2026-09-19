@@ -4,6 +4,7 @@ import { ReceivableCustomerNotFoundError } from '../../domain/errors/receivables
 import { ReceivablesLedger } from '../../domain/ledger/receivables-ledger.js';
 import { PaymentRepository } from '../../domain/payment/payment.repository.js';
 import { amountUnits, unitsToNumber } from '../../../../shared/domain/amount.js';
+import { CustomerRef } from '../../domain/shared/references.vo.js';
 import { ReceivablesDate } from '../../domain/shared/receivables-date.vo.js';
 import { TenantId } from '../../domain/shared/tenant-id.vo.js';
 import { CustomerBalanceResponse, customerBalance } from '../search-customer-balances/customer-balance-searcher.js';
@@ -35,7 +36,10 @@ export class CustomerStatementSearcher {
   async run(request: { tenantId: string; customerId: string }): Promise<{ summary: CustomerBalanceResponse; movements: StatementMovement[] }> {
     const tenantId = TenantId.of(request.tenantId);
     const today = ReceivablesDate.of(await this.calendar.today(request.tenantId));
-    const customer = await this.ledger.customer(tenantId, request.customerId);
+    // Se valida el formato antes de consultar: un identificador malo es una peticion incorrecta,
+    // no un fallo del servidor.
+    const customerId = CustomerRef.of(request.customerId);
+    const customer = await this.ledger.customer(tenantId, customerId.value);
 
     if (!customer) throw new ReceivableCustomerNotFoundError(request.customerId);
 

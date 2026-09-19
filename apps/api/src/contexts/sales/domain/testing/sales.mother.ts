@@ -84,7 +84,18 @@ let lineCounter = 0;
 
 // Una linea de agua ya validada: por defecto 10 cajas de 24 a 30 cada una, con 16 %.
 export function anOrderLine(
-  overrides: { quantity?: number; unit?: string; factor?: number; unitPrice?: number; listPrice?: number; taxRate?: number; item?: string } = {},
+  overrides: {
+    quantity?: number;
+    unit?: string;
+    factor?: number;
+    unitPrice?: number;
+    listPrice?: number;
+    taxRate?: number;
+    item?: string;
+    sku?: string;
+    name?: string;
+    movesStock?: boolean;
+  } = {},
 ): SalesOrderLine {
   lineCounter += 1;
   const quantity = Quantity.of(overrides.quantity ?? 10);
@@ -93,14 +104,15 @@ export function anOrderLine(
     id: SalesOrderLineId.of(`5a000000-0000-4000-8000-${String(lineCounter).padStart(12, '0')}`),
     lineNumber: lineCounter,
     itemId: ItemRef.of(overrides.item ?? WATER),
-    itemSku: 'PRUEBA-SKU',
-    itemName: 'Articulo de prueba',
+    itemSku: overrides.sku ?? 'PRUEBA-SKU',
+    itemName: overrides.name ?? 'Articulo de prueba',
     unitId: UnitRef.of(overrides.unit ?? BOX),
     quantity,
     baseQuantity: quantity.times(overrides.factor ?? 24),
     unitPrice: UnitPrice.of(overrides.unitPrice ?? 30),
     listPrice: overrides.listPrice === undefined ? undefined : UnitPrice.of(overrides.listPrice),
     taxRate: TaxRate.of(overrides.taxRate ?? 16),
+    movesStock: overrides.movesStock,
   });
 }
 

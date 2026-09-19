@@ -1,7 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../../../../shared/prisma/prisma.service.js';
 import { Dispatch, DispatchId } from '../../domain/dispatch/dispatch.entity.js';
-import { DispatchRepository } from '../../domain/dispatch/dispatch.repository.js';
+import { DispatchCriteria, DispatchPage, DispatchRepository } from '../../domain/dispatch/dispatch.repository.js';
 import { DispatchNotEditableError } from '../../domain/errors/sales.errors.js';
 import { SalesOrderId } from '../../domain/order/sales-order.entity.js';
 import { ConcurrentModificationError } from '../../../../shared/domain/concurrent-modification.error.js';
@@ -52,5 +52,37 @@ export class PrismaDispatchRepository implements DispatchRepository {
     });
 
     return rows.map(dispatchFromRow);
+  }
+
+  async searchPage(tenantId: TenantId, criteria: DispatchCriteria): Promise<DispatchPage> {
+    const text = criteria.text;
+    const where = {
+      tenantId: tenantId.value,
+      ...(criteria.orderId ? { orderId: criteria.orderId } : {}),
+      ...(criteria.warehouseId ? { warehouseId: criteria.warehouseId } : {}),
+      ...(criteria.status ? { status: criteria.status } : {}),
+      ...(criteria.from || criteria.to
+        ? {
+            dispatchDate: {
+              ...(criteria.from ? { gte: new Date(`${criteria.from}T00:00:00.000Z`) } : {}),
+              ...(criteria.to ? { lte: new Date(`${criteria.to}T00:00:00.000Z`) } : {}),
+            },
+          }
+        : {}),
+      ...(text
+        ? {
+            OR: [
+              { code: { contains: text, mode: 'insensitive' as const } },
+              { order: { code: { contains: text, mode: 'insensitive' as const } } },
+            ],
+          }
+        : {}),
+    };
+    const [rows, total] = await Promise.all([
+      this.prisma.dispatch.findMany({ where, include: { lines: true }, orderBy: { code: 'desc' }, take: criteria.limit, skip: criteria.offset }),
+      this.prisma.dispatch.count({ where }),
+    ]);
+
+    return { dispatches: rows.map(dispatchFromRow), total };
   }
 }

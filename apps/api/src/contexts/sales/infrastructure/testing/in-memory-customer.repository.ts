@@ -1,7 +1,7 @@
 import { DuplicateCustomerNameError } from '../../domain/errors/sales.errors.js';
 import { TenantId } from '../../domain/shared/tenant-id.vo.js';
 import { Customer, CustomerId, CustomerPrimitives } from '../../domain/customer/customer.entity.js';
-import { CustomerRepository } from '../../domain/customer/customer.repository.js';
+import { CustomerCriteria, CustomerPage, CustomerRepository } from '../../domain/customer/customer.repository.js';
 
 // Imita el indice unico de la base: dos clientes con el mismo nombre en una empresa se
 // rechazan aunque nadie lo haya comprobado antes.
@@ -34,5 +34,25 @@ export class InMemoryCustomerRepository implements CustomerRepository {
       .filter((row) => row.tenantId === tenantId.value)
       .sort((a, b) => a.name.localeCompare(b.name))
       .map((row) => Customer.fromPrimitives(structuredClone(row)));
+  }
+
+  async searchPage(tenantId: TenantId, criteria: CustomerCriteria): Promise<CustomerPage> {
+    const text = criteria.text?.toLowerCase() ?? null;
+    const matches = [...this.rows.values()]
+      .filter((row) => row.tenantId === tenantId.value)
+      .filter((row) => criteria.isActive === null || row.isActive === criteria.isActive)
+      .filter(
+        (row) =>
+          text === null ||
+          row.code.toLowerCase().includes(text) ||
+          row.name.toLowerCase().includes(text) ||
+          (row.fiscalId ?? '').toLowerCase().includes(text),
+      )
+      .sort((a, b) => a.name.localeCompare(b.name) || a.id.localeCompare(b.id));
+
+    return {
+      customers: matches.slice(criteria.offset, criteria.offset + criteria.limit).map((row) => Customer.fromPrimitives(structuredClone(row))),
+      total: matches.length,
+    };
   }
 }

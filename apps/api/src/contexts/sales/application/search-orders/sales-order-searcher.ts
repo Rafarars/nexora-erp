@@ -1,5 +1,7 @@
 import { SalesCatalog } from '../../domain/catalog/sales-catalog.js';
+import { CustomerId } from '../../domain/customer/customer.entity.js';
 import { CustomerRepository } from '../../domain/customer/customer.repository.js';
+import { CustomerNotFoundError, SalesWarehouseNotFoundError } from '../../domain/errors/sales.errors.js';
 import { SalesOrderStatus } from '../../domain/order/sales-order.entity.js';
 import { SalesOrderRepository } from '../../domain/order/sales-order.repository.js';
 import { unitsToNumber } from '../../../../shared/domain/amount.js';
@@ -31,6 +33,14 @@ export interface SalesOrderLineResponse {
   subtotal: number;
 }
 
+export interface SalesOrderSearcherResponse {
+  total: number;
+  limit: number;
+  offset: number;
+  hasMore: boolean;
+  orders: SalesOrderResponse[];
+}
+
 export interface SalesOrderResponse extends DocumentCurrencyPrimitives {
   id: string;
   code: string;
@@ -44,6 +54,8 @@ export interface SalesOrderResponse extends DocumentCurrencyPrimitives {
   lines: SalesOrderLineResponse[];
 }
 
+const DEFAULT_PAGE = 20;
+
 export class SalesOrderSearcher {
   constructor(
     private readonly orders: SalesOrderRepository,
@@ -52,9 +64,43 @@ export class SalesOrderSearcher {
     private readonly rates: DocumentRates,
   ) {}
 
-  async run(request: { tenantId: string }): Promise<{ orders: SalesOrderResponse[] }> {
+  async run(request: {
+    tenantId: string;
+    q?: string | null;
+    customerId?: string | null;
+    warehouseId?: string | null;
+    status?: SalesOrderStatus;
+    from?: string | null;
+    to?: string | null;
+    limit?: number;
+    offset?: number;
+  }): Promise<SalesOrderSearcherResponse> {
     const tenantId = TenantId.of(request.tenantId);
-    const orders = await this.orders.searchByTenant(tenantId);
+
+    // Filtrar por algo de otra empresa responde como en el resto del sistema: no existe. Una
+    // lista vacia diria que ese cliente no tiene pedidos, que es una respuesta distinta.
+    if (request.customerId && !(await this.customers.find(tenantId, CustomerId.of(request.customerId)))) {
+      throw new CustomerNotFoundError(request.customerId);
+    }
+    if (request.warehouseId) {
+      const found = await this.catalog.findWarehouses(tenantId, [WarehouseRef.of(request.warehouseId)]);
+
+      if (found.length === 0) throw new SalesWarehouseNotFoundError(request.warehouseId);
+    }
+
+    const limit = request.limit ?? DEFAULT_PAGE;
+    const offset = request.offset ?? 0;
+    const page = await this.orders.searchPage(tenantId, {
+      text: request.q?.trim() ? request.q.trim() : null,
+      customerId: request.customerId ?? null,
+      warehouseId: request.warehouseId ?? null,
+      status: request.status ?? null,
+      from: request.from ?? null,
+      to: request.to ?? null,
+      limit,
+      offset,
+    });
+    const orders = page.orders;
     const rows = orders.map((order) => order.toPrimitives());
     const decimals = await this.rates.amountDecimals(request.tenantId);
 
@@ -75,6 +121,10 @@ export class SalesOrderSearcher {
     };
 
     return {
+      total: page.total,
+      limit,
+      offset,
+      hasMore: offset + orders.length < page.total,
       orders: orders
         .sort((a, b) => b.code.localeCompare(a.code))
         .map((order) => {

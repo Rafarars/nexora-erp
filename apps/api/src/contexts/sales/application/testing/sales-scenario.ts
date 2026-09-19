@@ -22,6 +22,7 @@ import { DispatchCanceller } from '../cancel-dispatch/dispatch-canceller.js';
 import { InvoiceCanceller } from '../cancel-invoice/invoice-canceller.js';
 import { SalesOrderCanceller } from '../cancel-order/sales-order-canceller.js';
 import { CustomerStatusChanger } from '../change-customer-status/customer-status-changer.js';
+import { InMemoryCustomerUsage } from '../../infrastructure/testing/in-memory-customer-usage.js';
 import { DispatchConfirmer } from '../confirm-dispatch/dispatch-confirmer.js';
 import { SalesOrderConfirmer } from '../confirm-order/sales-order-confirmer.js';
 import { CustomerCreator } from '../create-customer/customer-creator.js';
@@ -65,7 +66,7 @@ export function aSalesScenario() {
     catalog,
     createCustomer: new CustomerCreator(uniqueness, customers, codes, ids, clock),
     updateCustomer: new CustomerUpdater(customerFinder, uniqueness, customers, clock),
-    changeCustomerStatus: new CustomerStatusChanger(customerFinder, customers, clock),
+    changeCustomerStatus: new CustomerStatusChanger(customerFinder, new InMemoryCustomerUsage(store.orders), customers, clock),
     searchCustomers: new CustomerSearcher(customers),
     createOrder: new SalesOrderCreator(references, priceListChoice, store.orders, codes, ids, clock, calendar, rates),
     updateOrder: new SalesOrderUpdater(orderFinder, references, priceListChoice, store.orders, clock, calendar, rates),

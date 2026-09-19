@@ -10,6 +10,7 @@ import {
 import { SalesOrderId } from '../order/sales-order.entity.js';
 import { WarehouseRef } from '../shared/references.vo.js';
 import { SalesDate } from '../shared/sales-date.vo.js';
+import { DispatchBeforeOrderError } from '../errors/sales.errors.js';
 import { optionalText } from '../shared/text.js';
 import { TenantId } from '../shared/tenant-id.vo.js';
 import { DispatchLine, DispatchLinePrimitives } from './dispatch-line.js';
@@ -69,12 +70,12 @@ export class Dispatch {
     id: DispatchId,
     tenantId: TenantId,
     code: string,
-    order: { id: SalesOrderId; warehouseId: WarehouseRef },
+    order: { id: SalesOrderId; warehouseId: WarehouseRef; date: SalesDate },
     details: DispatchDetails,
     now: Date,
     today: string,
   ): Dispatch {
-    return new Dispatch(id, tenantId, code, order.id, order.warehouseId, validated(details, today), 'draft', null, null, now, now);
+    return new Dispatch(id, tenantId, code, order.id, order.warehouseId, validated(details, today, order.date), 'draft', null, null, now, now);
   }
 
   static fromPrimitives(row: DispatchPrimitives): Dispatch {
@@ -163,7 +164,7 @@ export class Dispatch {
   }
 }
 
-function validated(details: DispatchDetails, today: string): DispatchDetails {
+function validated(details: DispatchDetails, today: string, orderDate?: SalesDate): DispatchDetails {
   if (details.lines.length === 0) throw new EmptyDispatchError();
 
   const seen = new Set<string>();
@@ -174,6 +175,8 @@ function validated(details: DispatchDetails, today: string): DispatchDetails {
   }
 
   details.date.ensureNotAfter(today);
+
+  if (orderDate && details.date.isBefore(orderDate)) throw new DispatchBeforeOrderError(details.date.value);
 
   return { ...details, notes: optionalText(details.notes, NOTES_MAX, 'DispatchNotes') };
 }

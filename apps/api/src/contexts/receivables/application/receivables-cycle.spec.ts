@@ -10,6 +10,7 @@ import {
 } from '../domain/errors/receivables.errors.js';
 import { PaymentId } from '../domain/payment/customer-payment.entity.js';
 import { TenantId } from '../domain/shared/tenant-id.vo.js';
+import { InvalidUuidError } from '../../../shared/domain/uuid.vo.js';
 import { CUSTOMER, DOLLARS, INVOICE, OTHER_CUSTOMER, OTHER_INVOICE, TENANT_A, TENANT_B } from '../domain/testing/receivables.mother.js';
 import { PaymentRequest } from './create-payment/payment-creator.js';
 import { ReceivablesScenario, aReceivablesScenario } from './testing/receivables-scenario.js';
@@ -199,5 +200,13 @@ describe('receivables cycle', () => {
 
     await expect(s.searchCustomerStatement.run({ tenantId: TENANT_B, customerId: CUSTOMER })).rejects.toThrow(ReceivableCustomerNotFoundError);
     await expect(s.searchReceivables.run({ tenantId: TENANT_B, customerId: CUSTOMER })).rejects.toThrow(ReceivableCustomerNotFoundError);
+  });
+
+  // Un identificador mal escrito es una peticion incorrecta, no un fallo del servidor: sin la
+  // guarda llegaba crudo a la consulta y PostgreSQL lo devolvia como error interno.
+  it('refuses a malformed customer identifier instead of failing inside', async () => {
+    const s = world();
+
+    await expect(s.searchCustomerStatement.run({ tenantId: TENANT_A, customerId: 'undefined' })).rejects.toThrow(InvalidUuidError);
   });
 });

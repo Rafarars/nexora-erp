@@ -33,21 +33,27 @@ export class PrismaSalesOrderPosting implements SalesOrderPosting {
       const onHand = await this.stock.lockAvailable(tx, tenant, itemIds.map((itemId) => [itemId, warehouseId]));
 
       const reserved = await tx.$queryRaw<{ item_id: string; units: string }[]>`
-        SELECT l.item_id, SUM(l.base_quantity * (l.quantity - l.dispatched_quantity) / l.quantity)::text AS units
+        SELECT l.item_id,
+               SUM(ROUND(l.base_quantity * (l.quantity - l.dispatched_quantity) / l.quantity, 4) * 10000)::bigint::text AS units
         FROM sales_order_lines l
         JOIN sales_orders o ON o.tenant_id = l.tenant_id AND o.id = l.order_id
         WHERE o.tenant_id = ${tenant}::uuid
           AND o.warehouse_id = ${warehouseId}::uuid
           AND o.id <> ${order.id.value}::uuid
+          -- Un servicio no sale de la bodega: no reserva nada. El dominio y la pantalla ya lo
+          -- filtraban; aqui faltaba, y este es el sitio que decide.
+          AND l.moves_stock
           AND o.status IN ('confirmed', 'partially_dispatched')
           AND l.item_id = ANY(${itemIds}::uuid[])
         GROUP BY l.item_id`;
 
-      // El pendiente base se redondea a cuatro decimales, igual que en el dominio.
+      // Se redondea CADA linea a diezmilesimas y despues se suman, que es lo que hace el dominio
+      // (`SalesOrderLine.pendingBase`). Sumar primero y redondear al final da otra cifra, y el
+      // entero evita que la coma flotante meta la suya en el sitio que decide la reserva.
       const reservedOf = (itemId: string) => {
         const row = reserved.find((candidate) => candidate.item_id === itemId);
 
-        return row ? Quantity.of(Math.round(Number(row.units) * 10_000) / 10_000) : Quantity.zero();
+        return row ? Quantity.fromUnits(BigInt(row.units)) : Quantity.zero();
       };
 
       work(order, {

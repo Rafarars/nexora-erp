@@ -1,5 +1,11 @@
 import { CustomerCredit } from '../invoice/credit/customer-credit.js';
-import { CreditLimitExceededError, CustomerWithOverdueInvoicesError, InvoiceWithPaymentsError } from '../errors/sales.errors.js';
+import {
+  CreditLimitExceededError,
+  CustomerWithOverdueInvoicesError,
+  DispatchBeforeOrderError,
+  InvoiceBeforeOriginError,
+  InvoiceWithPaymentsError,
+} from '../errors/sales.errors.js';
 import { describe, expect, it } from 'vitest';
 import {
   DispatchAlreadyCancelledError,
@@ -44,7 +50,7 @@ function dispatchLine(orderLine: SalesOrderLine, quantity: number): DispatchLine
 }
 
 function aDispatch(order: SalesOrder, lines: DispatchLine[], date = TODAY): Dispatch {
-  return Dispatch.draft(DispatchId.of(nextId()), TenantId.of(TENANT_A), 'DES000001', { id: order.id, warehouseId: order.warehouseId() }, {
+  return Dispatch.draft(DispatchId.of(nextId()), TenantId.of(TENANT_A), 'DES000001', { id: order.id, warehouseId: order.warehouseId(), date: order.orderDate() }, {
     date: SalesDate.of(date),
     notes: null,
     lines,
@@ -61,7 +67,11 @@ function aConfirmedDispatch(order: SalesOrder, lines: DispatchLine[]): Dispatch 
 
 const credit = (overrides: Partial<CustomerCredit> = {}): CustomerCredit => ({ customerId: CUSTOMER, paymentTermDays: 30, creditLimit: null, openBalance: 0, hasOverdue: false, ...overrides });
 
-const issue = (dispatch: Dispatch, order: SalesOrder, overrides: { alreadyInvoiced?: boolean; credit?: Partial<CustomerCredit> } = {}) =>
+const issue = (
+  dispatch: Dispatch,
+  order: SalesOrder,
+  overrides: { alreadyInvoiced?: boolean; credit?: Partial<CustomerCredit>; date?: string } = {},
+) =>
   Invoice.issue(InvoiceId.of(nextId()), TenantId.of(TENANT_A), 'FAC000001', {
     dispatch,
     order,
@@ -69,7 +79,7 @@ const issue = (dispatch: Dispatch, order: SalesOrder, overrides: { alreadyInvoic
     amountDecimals: 2,
     alreadyInvoiced: overrides.alreadyInvoiced ?? false,
     credit: credit(overrides.credit),
-    date: SalesDate.of(TODAY),
+    date: SalesDate.of(overrides.date ?? TODAY),
     notes: null,
     lineIds: nextId,
   }, NOW, TODAY);
@@ -81,6 +91,15 @@ describe('Dispatch', () => {
 
     expect(() => aDispatch(order, [])).toThrow(EmptyDispatchError);
     expect(() => aDispatch(order, [dispatchLine(line, 1), dispatchLine(line, 1)])).toThrow(DuplicateDispatchLineError);
+  });
+
+  // La mercancia no sale antes de pedirse, y esa fecha viaja al kardex.
+  it('refuses a date earlier than its own order', () => {
+    const line = anOrderLine();
+    const order = aConfirmedOrder([line]);
+
+    expect(() => aDispatch(order, [dispatchLine(line, 1)], '2025-12-01')).toThrow(DispatchBeforeOrderError);
+    expect(() => aDispatch(order, [dispatchLine(line, 1)], order.orderDate().value)).not.toThrow();
   });
 
   it('takes the base quantity in proportion to the order line, which is what it reserved', () => {
@@ -175,6 +194,16 @@ describe('Invoice', () => {
         { quantity: 5, unitPrice: 2.5, taxRate: 0, subtotal: 12.5, tax: 0 },
       ],
     });
+  });
+
+  // La factura cobra algo que ya salio: su fecha fija el vencimiento y la antiguedad de saldos.
+  it('refuses a date earlier than the dispatch it bills', () => {
+    const line = anOrderLine();
+    const order = aConfirmedOrder([line]);
+    const dispatch = aConfirmedDispatch(order, [dispatchLine(line, 1)]);
+
+    expect(() => issue(dispatch, order, { date: '2025-12-01' })).toThrow(InvoiceBeforeOriginError);
+    expect(() => issue(dispatch, order, { date: dispatch.date().value })).not.toThrow();
   });
 
   it('falls due the same day when the customer pays cash', () => {

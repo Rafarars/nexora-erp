@@ -84,11 +84,11 @@ Estados: ⬜ pendiente · 🔍 revisado, esperando decisiones · ✅ cerrado (de
 
 | Submódulo | Estado | Informe |
 |---|---|---|
-| Clientes | ⬜ | |
-| Pedidos | ⬜ | |
-| Disponibilidad | ⬜ | |
-| Despachos | ⬜ | |
-| Facturas | ⬜ | |
+| Clientes | ✅ Cerrado. Ya no se cierra con pedidos abiertos; listado paginado y con búsqueda | [ventas/ventas.md](ventas/ventas.md) |
+| Pedidos | ✅ Cerrado. El reservado se calcula igual en los tres sitios; listado con filtros | [ventas/ventas.md](ventas/ventas.md) |
+| Disponibilidad | ✅ Cerrado. Lo que promete es lo que el sistema acepta | [ventas/ventas.md](ventas/ventas.md) |
+| Despachos | ✅ Cerrado. No se fechan antes que su pedido; filtros por estado y fecha | [ventas/ventas.md](ventas/ventas.md) |
+| Facturas | ✅ Cerrado. No se fechan antes de lo que cobran; filtros y paginación | [ventas/ventas.md](ventas/ventas.md) |
 
 ### 5. Cuentas por cobrar
 

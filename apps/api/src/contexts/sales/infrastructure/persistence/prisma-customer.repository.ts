@@ -4,7 +4,7 @@ import { violates } from '../../../../shared/prisma/unique-violation.js';
 import { DuplicateCustomerNameError } from '../../domain/errors/sales.errors.js';
 import { TenantId } from '../../domain/shared/tenant-id.vo.js';
 import { Customer, CustomerId, CustomerPrimitives } from '../../domain/customer/customer.entity.js';
-import { CustomerRepository } from '../../domain/customer/customer.repository.js';
+import { CustomerCriteria, CustomerPage, CustomerRepository } from '../../domain/customer/customer.repository.js';
 
 // Prisma devuelve el limite como Decimal.
 function customerFromRow(row: Omit<CustomerPrimitives, 'creditLimit'> & { creditLimit: { toNumber(): number } | null }): Customer {
@@ -48,5 +48,28 @@ export class PrismaCustomerRepository implements CustomerRepository {
     const rows = await this.prisma.customer.findMany({ where: { tenantId: tenantId.value }, orderBy: { name: 'asc' } });
 
     return rows.map(customerFromRow);
+  }
+
+  async searchPage(tenantId: TenantId, criteria: CustomerCriteria): Promise<CustomerPage> {
+    const text = criteria.text;
+    const where = {
+      tenantId: tenantId.value,
+      ...(criteria.isActive === null ? {} : { isActive: criteria.isActive }),
+      ...(text
+        ? {
+            OR: [
+              { code: { contains: text, mode: 'insensitive' as const } },
+              { name: { contains: text, mode: 'insensitive' as const } },
+              { fiscalId: { contains: text, mode: 'insensitive' as const } },
+            ],
+          }
+        : {}),
+    };
+    const [rows, total] = await Promise.all([
+      this.prisma.customer.findMany({ where, orderBy: [{ name: 'asc' }, { id: 'asc' }], take: criteria.limit, skip: criteria.offset }),
+      this.prisma.customer.count({ where }),
+    ]);
+
+    return { customers: rows.map(customerFromRow), total };
   }
 }

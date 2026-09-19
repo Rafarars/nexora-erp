@@ -9,15 +9,31 @@ import { SlideOver } from '@/sections/shared/slide-over';
 import { emptyState } from '@/shared/forms/form-state';
 import type { FormState } from '@/shared/forms/form-state';
 import { DISPATCH_STATUS_LABELS, dispatchActions, summarizeDispatchLines } from '@/modules/sales/domain/sales';
-import type { Dispatch, SalesOrder } from '@/modules/sales/domain/sales';
+import type { Dispatch, DispatchStatus, SalesOrder } from '@/modules/sales/domain/sales';
+import type { Warehouse } from '@/modules/catalog/domain/catalog';
+import { Filter, Pager } from '@/sections/shared/filters';
 import { DispatchFields } from './dispatch-fields';
 import { submitKeepingValues } from '@/shared/forms/submit-keeping-values';
+
+export interface DispatchSearch {
+  q: string;
+  warehouseId: string;
+  status: string;
+  from: string;
+  to: string;
+  page: number;
+  pageSize: number;
+  total: number;
+  hasMore: boolean;
+}
 
 // Los despachos se crean desde su pedido ("Despachar"); aqui se revisan, se confirman, se
 // facturan y se anulan.
 export function DispatchesBoard({
   dispatches,
+  search,
   orders,
+  warehouses,
   today,
   canUpdate,
   canConfirm,
@@ -25,7 +41,9 @@ export function DispatchesBoard({
   canInvoice,
 }: {
   dispatches: Dispatch[];
+  search: DispatchSearch;
   orders: SalesOrder[];
+  warehouses: Warehouse[];
   today: string;
   canUpdate: boolean;
   canConfirm: boolean;
@@ -55,6 +73,8 @@ export function DispatchesBoard({
           Se crean desde su pedido. Confirmar baja la existencia; anular la devuelve, si no está facturado.
         </p>
       </div>
+
+      <DispatchFilters search={search} warehouses={warehouses} count={dispatches.length} />
 
       <FormError message={changeState.error} testId="dispatch-action-error" />
 
@@ -155,5 +175,111 @@ export function DispatchesBoard({
         ) : null}
       </SlideOver>
     </section>
+  );
+}
+
+function DispatchFilters({ search, warehouses, count }: { search: DispatchSearch; warehouses: Warehouse[]; count: number }) {
+  const pageHref = (page: number) =>
+    `/ventas/despachos?${new URLSearchParams({
+      ...(search.q ? { q: search.q } : {}),
+      ...(search.warehouseId ? { bodega: search.warehouseId } : {}),
+      ...(search.status ? { estado: search.status } : {}),
+      ...(search.from ? { desde: search.from } : {}),
+      ...(search.to ? { hasta: search.to } : {}),
+      ...(page > 1 ? { pagina: String(page) } : {}),
+    }).toString()}`;
+
+  return (
+    <div className="border-line space-y-3 rounded-lg border p-3">
+      {/* Un formulario GET: los filtros quedan en la direccion y se pueden compartir. */}
+      <form method="get" className="flex flex-wrap items-end gap-2" data-testid="dispatch-filter">
+        <Filter label="Buscar" htmlFor="dispatch-search">
+          <input
+            id="dispatch-search"
+            name="q"
+            defaultValue={search.q}
+            placeholder="Código del despacho o de su pedido"
+            data-testid="dispatch-search"
+            className="border-line bg-background w-72 rounded-md border px-3 py-2 text-sm"
+          />
+        </Filter>
+
+        {warehouses.length > 0 ? (
+          <Filter label="Bodega" htmlFor="dispatch-filter-warehouse">
+            <select
+              id="dispatch-filter-warehouse"
+              name="bodega"
+              defaultValue={search.warehouseId}
+              data-testid="dispatch-filter-warehouse"
+              className="border-line bg-background rounded-md border px-3 py-2 text-sm"
+            >
+              <option value="">Todas</option>
+              {warehouses.map((warehouse) => (
+                <option key={warehouse.id} value={warehouse.id}>
+                  {warehouse.name}
+                </option>
+              ))}
+            </select>
+          </Filter>
+        ) : null}
+
+        <Filter label="Estado" htmlFor="dispatch-filter-status">
+          <select
+            id="dispatch-filter-status"
+            name="estado"
+            defaultValue={search.status}
+            data-testid="dispatch-filter-status"
+            className="border-line bg-background rounded-md border px-3 py-2 text-sm"
+          >
+            <option value="">Todos</option>
+            {(Object.keys(DISPATCH_STATUS_LABELS) as DispatchStatus[]).map((status) => (
+              <option key={status} value={status}>
+                {DISPATCH_STATUS_LABELS[status]}
+              </option>
+            ))}
+          </select>
+        </Filter>
+
+        <Filter label="Desde" htmlFor="dispatch-filter-from">
+          <input
+            id="dispatch-filter-from"
+            name="desde"
+            type="date"
+            defaultValue={search.from}
+            data-testid="dispatch-filter-from"
+            className="border-line rounded-md border bg-transparent px-3 py-2 text-sm"
+          />
+        </Filter>
+
+        <Filter label="Hasta" htmlFor="dispatch-filter-to">
+          <input
+            id="dispatch-filter-to"
+            name="hasta"
+            type="date"
+            defaultValue={search.to}
+            data-testid="dispatch-filter-to"
+            className="border-line rounded-md border bg-transparent px-3 py-2 text-sm"
+          />
+        </Filter>
+
+        <button
+          type="submit"
+          data-testid="dispatch-filter-submit"
+          className="border-line hover:bg-surface rounded-md border px-3 py-2 text-sm"
+        >
+          Filtrar
+        </button>
+      </form>
+
+      <Pager
+        testId="dispatch"
+        page={search.page}
+        pageSize={search.pageSize}
+        count={count}
+        total={search.total}
+        hasMore={search.hasMore}
+        href={pageHref}
+      />
+    </div>
   );
 }

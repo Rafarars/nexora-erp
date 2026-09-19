@@ -16,7 +16,10 @@ export async function aFreshCustomer(request: APIRequestContext, token: string, 
 
   expect(response.status(), await response.text()).toBe(201);
 
-  const { customers } = await (await request.get(`${baseUrl}${CUSTOMERS}`, { headers: auth(token) })).json();
+  // Los listados paginan: hay que pedir el que se acaba de crear, no mirarlos todos.
+  const { customers } = await (
+    await request.get(`${baseUrl}${CUSTOMERS}?q=${encodeURIComponent(name)}`, { headers: auth(token) })
+  ).json();
 
   return customers.find((customer: { name: string }) => customer.name === name);
 }
@@ -53,7 +56,10 @@ export async function aDraftSalesOrder(
 
   expect(response.status(), await response.text()).toBe(201);
 
-  const { orders } = await (await request.get(`${baseUrl}${SALES_ORDERS}`, { headers: auth(token) })).json();
+  // El buscador mira el codigo y el articulo, no las notas: se filtra por cliente, que si acota.
+  const { orders } = await (
+    await request.get(`${baseUrl}${SALES_ORDERS}?customerId=${data.customerId}`, { headers: auth(token) })
+  ).json();
 
   return orders.find((order: { notes: string }) => order.notes === notes);
 }
@@ -64,7 +70,9 @@ export async function aDraftDispatch(request: APIRequestContext, token: string, 
 
   expect(response.status(), await response.text()).toBe(201);
 
-  const { dispatches } = await (await request.get(`${baseUrl}${DISPATCHES}`, { headers: auth(token) })).json();
+  const { dispatches } = await (
+    await request.get(`${baseUrl}${DISPATCHES}?orderId=${orderId}`, { headers: auth(token) })
+  ).json();
 
   return dispatches.find((dispatch: { notes: string }) => dispatch.notes === notes);
 }

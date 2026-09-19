@@ -1,6 +1,8 @@
 import { SalesCatalog } from '../../domain/catalog/sales-catalog.js';
+import { CustomerId } from '../../domain/customer/customer.entity.js';
 import { CustomerRepository } from '../../domain/customer/customer.repository.js';
 import { DispatchRepository } from '../../domain/dispatch/dispatch.repository.js';
+import { CustomerNotFoundError } from '../../domain/errors/sales.errors.js';
 import { InvoiceStatus } from '../../domain/invoice/invoice.entity.js';
 import { InvoiceRepository } from '../../domain/invoice/invoice.repository.js';
 import { SalesOrderRepository } from '../../domain/order/sales-order.repository.js';
@@ -39,6 +41,16 @@ export interface InvoiceResponse extends DocumentCurrencyPrimitives {
   }[];
 }
 
+export interface InvoiceSearcherResponse {
+  total: number;
+  limit: number;
+  offset: number;
+  hasMore: boolean;
+  invoices: InvoiceResponse[];
+}
+
+const DEFAULT_PAGE = 20;
+
 export class InvoiceSearcher {
   constructor(
     private readonly invoices: InvoiceRepository,
@@ -48,9 +60,36 @@ export class InvoiceSearcher {
     private readonly catalog: SalesCatalog,
   ) {}
 
-  async run(request: { tenantId: string }): Promise<{ invoices: InvoiceResponse[] }> {
+  async run(request: {
+    tenantId: string;
+    q?: string | null;
+    customerId?: string | null;
+    status?: InvoiceStatus;
+    from?: string | null;
+    to?: string | null;
+    limit?: number;
+    offset?: number;
+  }): Promise<InvoiceSearcherResponse> {
     const tenantId = TenantId.of(request.tenantId);
-    const invoices = await this.invoices.searchByTenant(tenantId);
+
+    // Filtrar por un cliente de otra empresa responde como el resto del sistema: no existe. Una
+    // lista vacia diria que ese cliente no tiene facturas, que es una respuesta distinta.
+    if (request.customerId && !(await this.customers.find(tenantId, CustomerId.of(request.customerId)))) {
+      throw new CustomerNotFoundError(request.customerId);
+    }
+
+    const limit = request.limit ?? DEFAULT_PAGE;
+    const offset = request.offset ?? 0;
+    const page = await this.invoices.searchPage(tenantId, {
+      text: request.q?.trim() ? request.q.trim() : null,
+      customerId: request.customerId ?? null,
+      status: request.status ?? null,
+      from: request.from ?? null,
+      to: request.to ?? null,
+      limit,
+      offset,
+    });
+    const invoices = page.invoices;
     const rows = invoices.map((invoice) => invoice.toPrimitives());
 
     const [dispatches, orders, customers, items] = await Promise.all([
@@ -61,6 +100,10 @@ export class InvoiceSearcher {
     ]);
 
     return {
+      total: page.total,
+      limit,
+      offset,
+      hasMore: offset + rows.length < page.total,
       invoices: rows
         .sort((a, b) => b.code.localeCompare(a.code))
         .map((row) => ({

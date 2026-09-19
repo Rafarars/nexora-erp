@@ -17,13 +17,28 @@ import type { Currency } from '@/modules/company/domain/company';
 import { formatAmount } from '@/modules/purchasing/domain/purchasing';
 import { DocumentRate } from '@/sections/shared/document-rate';
 import { ORDER_STATUS_LABELS, orderActions, summarizeOrderLines } from '@/modules/sales/domain/sales';
-import type { Customer, SalesOrder } from '@/modules/sales/domain/sales';
+import type { Customer, OrderStatus, SalesOrder } from '@/modules/sales/domain/sales';
 import { MenuButton } from '@/sections/purchasing/menu-button';
+import { Filter, Pager } from '@/sections/shared/filters';
 import { DispatchFields } from './dispatch-fields';
 import { submitKeepingValues } from '@/shared/forms/submit-keeping-values';
 
+export interface SalesOrderSearch {
+  q: string;
+  customerId: string;
+  warehouseId: string;
+  status: string;
+  from: string;
+  to: string;
+  page: number;
+  pageSize: number;
+  total: number;
+  hasMore: boolean;
+}
+
 export function SalesOrdersBoard({
   orders,
+  search,
   customers,
   items,
   warehouses,
@@ -42,6 +57,7 @@ export function SalesOrdersBoard({
   canInvoice,
 }: {
   orders: SalesOrder[];
+  search: SalesOrderSearch;
   customers: Customer[];
   items: Item[];
   warehouses: Warehouse[];
@@ -107,6 +123,8 @@ export function SalesOrdersBoard({
           </button>
         ) : null}
       </div>
+
+      <SalesOrderFilters search={search} customers={customers} warehouses={warehouses} count={orders.length} />
 
       <FormError message={changeState.error} testId="sales-order-action-error" />
 
@@ -603,5 +621,141 @@ function OrderFields({
         </button>
       </fieldset>
     </>
+  );
+}
+
+function SalesOrderFilters({
+  search,
+  customers,
+  warehouses,
+  count,
+}: {
+  search: SalesOrderSearch;
+  customers: Customer[];
+  warehouses: Warehouse[];
+  count: number;
+}) {
+  const pageHref = (page: number) =>
+    `/ventas/pedidos?${new URLSearchParams({
+      ...(search.q ? { q: search.q } : {}),
+      ...(search.customerId ? { cliente: search.customerId } : {}),
+      ...(search.warehouseId ? { bodega: search.warehouseId } : {}),
+      ...(search.status ? { estado: search.status } : {}),
+      ...(search.from ? { desde: search.from } : {}),
+      ...(search.to ? { hasta: search.to } : {}),
+      ...(page > 1 ? { pagina: String(page) } : {}),
+    }).toString()}`;
+
+  return (
+    <div className="border-line space-y-3 rounded-lg border p-3">
+      {/* Un formulario GET: los filtros quedan en la direccion y se pueden compartir. */}
+      <form method="get" className="flex flex-wrap items-end gap-2" data-testid="sales-order-filter">
+        <Filter label="Buscar" htmlFor="sales-order-search">
+          <input
+            id="sales-order-search"
+            name="q"
+            defaultValue={search.q}
+            placeholder="Código del pedido, SKU o artículo"
+            data-testid="sales-order-search"
+            className="border-line bg-background w-72 rounded-md border px-3 py-2 text-sm"
+          />
+        </Filter>
+
+        {customers.length > 0 ? (
+          <Filter label="Cliente" htmlFor="sales-order-filter-customer">
+            <select
+              id="sales-order-filter-customer"
+              name="cliente"
+              defaultValue={search.customerId}
+              data-testid="sales-order-filter-customer"
+              className="border-line bg-background rounded-md border px-3 py-2 text-sm"
+            >
+              <option value="">Todos</option>
+              {customers.map((customer) => (
+                <option key={customer.id} value={customer.id}>
+                  {customer.name}
+                </option>
+              ))}
+            </select>
+          </Filter>
+        ) : null}
+
+        {warehouses.length > 0 ? (
+          <Filter label="Bodega" htmlFor="sales-order-filter-warehouse">
+            <select
+              id="sales-order-filter-warehouse"
+              name="bodega"
+              defaultValue={search.warehouseId}
+              data-testid="sales-order-filter-warehouse"
+              className="border-line bg-background rounded-md border px-3 py-2 text-sm"
+            >
+              <option value="">Todas</option>
+              {warehouses.map((warehouse) => (
+                <option key={warehouse.id} value={warehouse.id}>
+                  {warehouse.name}
+                </option>
+              ))}
+            </select>
+          </Filter>
+        ) : null}
+
+        <Filter label="Estado" htmlFor="sales-order-filter-status">
+          <select
+            id="sales-order-filter-status"
+            name="estado"
+            defaultValue={search.status}
+            data-testid="sales-order-filter-status"
+            className="border-line bg-background rounded-md border px-3 py-2 text-sm"
+          >
+            <option value="">Todos</option>
+            {(Object.keys(ORDER_STATUS_LABELS) as OrderStatus[]).map((status) => (
+              <option key={status} value={status}>
+                {ORDER_STATUS_LABELS[status]}
+              </option>
+            ))}
+          </select>
+        </Filter>
+
+        <Filter label="Desde" htmlFor="sales-order-filter-from">
+          <input
+            id="sales-order-filter-from"
+            name="desde"
+            type="date"
+            defaultValue={search.from}
+            data-testid="sales-order-filter-from"
+            className="border-line rounded-md border bg-transparent px-3 py-2 text-sm"
+          />
+        </Filter>
+
+        <Filter label="Hasta" htmlFor="sales-order-filter-to">
+          <input
+            id="sales-order-filter-to"
+            name="hasta"
+            type="date"
+            defaultValue={search.to}
+            data-testid="sales-order-filter-to"
+            className="border-line rounded-md border bg-transparent px-3 py-2 text-sm"
+          />
+        </Filter>
+
+        <button
+          type="submit"
+          data-testid="sales-order-filter-submit"
+          className="border-line hover:bg-surface rounded-md border px-3 py-2 text-sm"
+        >
+          Filtrar
+        </button>
+      </form>
+
+      <Pager
+        testId="sales-order"
+        page={search.page}
+        pageSize={search.pageSize}
+        count={count}
+        total={search.total}
+        hasMore={search.hasMore}
+        href={pageHref}
+      />
+    </div>
   );
 }

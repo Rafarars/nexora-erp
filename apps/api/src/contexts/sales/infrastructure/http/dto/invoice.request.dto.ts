@@ -9,7 +9,3 @@ export const invoiceIssueSchema = z.object({
 });
 
 export type InvoiceIssueDto = z.infer<typeof invoiceIssueSchema>;
-
-export const availabilityQuerySchema = z.object({ warehouseId: z.string().optional() });
-
-export type AvailabilityQueryDto = z.infer<typeof availabilityQuerySchema>;

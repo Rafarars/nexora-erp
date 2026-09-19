@@ -71,6 +71,35 @@ export class InactiveCustomerError extends ConflictError {
   }
 }
 
+// La mercancia no sale antes de pedirse ni se factura antes de salir. Importa mas desde que la
+// fecha del documento viaja al kardex, y porque la de la factura fija el vencimiento y la
+// antiguedad de saldos.
+export class DispatchBeforeOrderError extends ConflictError {
+  constructor(date: string) {
+    super(`Dispatch dated <${date}> is earlier than its order.`, 'The dispatch cannot be dated before its sales order.');
+  }
+}
+
+export class InvoiceBeforeOriginError extends ConflictError {
+  constructor(date: string) {
+    super(
+      `Invoice dated <${date}> is earlier than what it bills.`,
+      'The invoice cannot be dated before the goods it bills left the warehouse.',
+    );
+  }
+}
+
+// Cerrar a un cliente con mercancia por salir dejaria esos pedidos sin quien los cierre, y la
+// mercancia saldria a nombre de alguien a quien ya se decidio dejar de venderle.
+export class CustomerWithOpenOrdersError extends ConflictError {
+  constructor(id: string) {
+    super(
+      `Customer <${id}> has open sales orders.`,
+      'The customer has orders still waiting to be dispatched and cannot be deactivated.',
+    );
+  }
+}
+
 // ---------------------------------------------------------------- lineas y catalogo
 
 // El articulo cambio su unidad desde que se escribio el documento, o en el instante entre
