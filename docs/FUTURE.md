@@ -167,6 +167,43 @@ título, filtros, tabla. Lo vio la revisión de la interfaz a mano de Ajustes (1
 mover ahí el buscador de cada listado. Toca Catálogo, Inventario, Compras y Ventas a la vez, que es
 justo por lo que no se hizo sobre la marcha.
 
+### Cerrar la carrera entre desactivar una bodega y publicar en ella
+
+**Por qué:** el Catálogo construyó la regla «una bodega no se desactiva si tiene existencia o
+documentos abiertos». Bajo concurrencia se puede romper: `WarehouseStatusChanger` pregunta la
+existencia **fuera de toda transacción y sin bloquear la bodega**
+(`change-warehouse-status/warehouse-status-changer.ts:36-44`), y la publicación de un ajuste, una
+entrada o un despacho **no bloquea ni revisa la bodega** dentro de su transacción: la comprueba
+antes, al revalidar el borrador (`adjustment-line-factory.ts:44`). Interleadas, una bodega vacía se
+desactiva mientras un ajuste le mete existencia, y queda **una bodega inactiva con mercancía
+dentro** — el estado que la regla existía para impedir.
+
+Encontrado leyendo la persistencia durante la revisión de Ajustes (19-sep-2026). Ventana estrecha y
+sin impacto conocido, pero es una invariante que el sistema dice mantener.
+
+**Qué haría falta, en dos mitades:**
+1. En el inventario: bloquear la fila de la bodega en modo compartido dentro de `lockedLedger`
+   —donde ya se bloquean los artículos— y comprobar ahí que sigue activa. Es **un solo sitio**: los
+   tres documentos que mueven existencia pasan por ahí.
+2. En el catálogo: envolver la desactivación en una transacción que bloquee la bodega con
+   `FOR UPDATE` antes de preguntar por la existencia y los documentos abiertos.
+
+Con las dos, las dos operaciones se serializan: o la desactivación ve la existencia, o la
+publicación ve la bodega cerrada. Con una sola, la ventana se estrecha pero no se cierra.
+
+### Contrapartida contable de los movimientos de inventario
+
+**Por qué:** el sistema no lleva contabilidad, así que un ajuste mueve existencia y no dice contra
+qué cuenta va. La investigación del sector durante la revisión de Ajustes (19-sep-2026) encontró que
+eso es justo lo que **cinco de seis** productos exigen —ERPNext con su `Difference Account`, Business
+Central con `Inventory Adjmt.`, SAP con el *Inventory Offset*, NetSuite con el `Adjustment Account`,
+Zoho como campo obligatorio—, y que en todos está **condicionado a llevar inventario perpetuo**. Es
+decir: no es un campo del ajuste, es la consecuencia de tener un libro mayor.
+
+**Qué haría falta:** un módulo contable con plan de cuentas y asientos, y una configuración de
+contrapartidas por tipo de movimiento. Es un hito entero, muy por encima del alcance actual, y se
+anota aquí para que conste que la ausencia es de alcance y no un descuido.
+
 ### Aprobación de ajustes por umbral de importe
 
 **Por qué:** un ajuste mueve existencia **sin una operación comercial detrás**, y eso lo convierte

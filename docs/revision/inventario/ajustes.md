@@ -54,10 +54,22 @@ En este submódulo está **bastante por delante**:
 
 | | Delta o contado | Motivo | Revaluación |
 |---|---|---|---|
-| [Odoo](https://www.odoo.com/documentation/18.0/applications/inventory_and_mrp/inventory/warehouses_storage/inventory_management/count_products.html) | Contado: «the difference between the On Hand Quantity and Counted Quantity» | No en el núcleo; un módulo lo añade *(secundaria)* | Sí |
-| [ERPNext](https://docs.frappe.io/erpnext/user/manual/en/stock-reconciliation) | Contado: «the quantity will be changed as required» | `Purpose` + cuenta de diferencia | Sí, con `Valuation Rate` |
-| [Dynamics 365](https://learn.microsoft.com/en-us/dynamics365/supply-chain/warehousing/reason-codes-for-counting-journals) | Contado | **Códigos de razón, configurables como obligatorios** | Sí |
-| Referencia | Contado | Ocho tipos, obligatorio | Tipo propio |
+| [Odoo](https://www.odoo.com/documentation/18.0/applications/inventory_and_mrp/inventory/warehouses_storage/inventory_management/count_products.html) | Contado: «the difference between the On Hand Quantity and Counted Quantity» | Texto libre prerrellenado: «Some companies do not require adjustment reasons to be recorded» | Sí |
+| [ERPNext](https://docs.frappe.io/erpnext/stock-reconciliation) | Contado: «the quantity will be changed as required» | **No hay campo de razón**; sí `Difference Account` | Sí, con `Valuation Rate` |
+| [Business Central](https://learn.microsoft.com/en-us/dynamics365/business-central/finance-setup-trail-codes) | Los dos, en libros distintos | `Reason Code` existe, **sin evidencia de que sea obligatorio** | Sí |
+| [SAP Business One](https://help.sap.com/saphelp_sbo900/helpdata/en/2f/ca149512334ee58fd95c1c9b3af841/content.htm) | Los dos, en documentos distintos | **No hay campo de razón** | Sí, documento propio |
+| [Zoho Inventory](https://www.zoho.com/us/inventory/kb/items/item-adjust-stock.html) | Los dos, campos espejo | **Obligatorio y con catálogo**: «mandatory fields such as the date of adjustment, account, reason» | Sí, como modo |
+| [NetSuite](https://docs.oracle.com/en/cloud/saas/netsuite/ns-online-help/section_161981111273.html) | Los dos, transacciones distintas | **No hay campo de razón**, sólo `Memo` | Sí |
+| Referencia | Contado | Ocho tipos **y** `reason` obligatorio | Tipo propio |
+
+> **Corregido el 19-sep-2026.** La primera versión de esta tabla decía «3 de 4 lo tienen» sobre el
+> motivo, con tres productos mirados por encima. Una investigación a fondo sobre **seis** productos
+> lo desmiente: **sólo uno de los seis exige un motivo** (Zoho), dos tienen catálogo (Zoho y
+> Business Central) y tres no tienen siquiera el campo. Lo que **cinco de los seis sí exigen** es la
+> **cuenta contable de contrapartida**, que aquí no aplica porque el sistema no lleva contabilidad.
+> La decisión de construir el motivo no cambia —la sostiene el sistema de referencia, que lo exige
+> por partida doble, y el uso que se le va a dar en los informes de merma—, pero la sostenía
+> parcialmente una cifra que no era cierta, y eso se corrige donde se escribió.
 
 **Y el consenso sobre el costo**: en Odoo el promedio es del **producto**, no de la bodega —«operating
 on a company-wide basis rather than per warehouse»—, igual que el maestro de artículos de la
@@ -75,7 +87,7 @@ referencia. El nuestro es por artículo **y bodega**, y ahí está la raíz del 
 | La salida ignora las reservas de ventas | Sí, a propósito | Sí | Sí (Odoo) | **Ya correcto** |
 | **Costo de una entrada sin saldo previo** | **Cero** | Promedio del maestro | Promedio del producto | **Falta** → H1 |
 | **La fecha del documento llega al kardex** | **No** | — | — | **Falta** → H2 |
-| Motivo del ajuste | **No** | Ocho tipos | 3 de 4 lo tienen | **A decidir** → H3 |
+| Motivo del ajuste | **No** | Ocho tipos **y** razón obligatoria | **1 de 6 lo exige** | **A decidir** → H3 |
 | Revaluación de costo sin mover cantidad | **No** | Tipo propio | Sí | **A decidir** → H4 |
 | Listado paginado y con filtros | **No** | Sí | Sí | **A decidir** → H5 |
 | Rastro de quién lo hizo | **No** | Sí | Sí | **A decidir** → H6 |
@@ -100,6 +112,14 @@ documento: al ordenar por fecha, la columna de saldo quedaría incoherente.
 corta propia que estaba anotada en `FUTURE.md` (conteo inicial, conteo, merma, daño, hallazgo)
 porque los ocho ya separan daño de merma, de vencimiento y de robo, que es justo lo que un informe
 de mermas necesita distinguir.
+
+Vale decir que **el sector no respalda esta decisión**: de seis productos, sólo Zoho exige un
+motivo, y tres no tienen ni el campo. Lo que cinco de seis exigen es la **cuenta contable de
+contrapartida**, que aquí no aplica. La decisión se sostiene en el sistema de referencia —que lo
+pide por partida doble, un tipo tipificado y un `reason` de texto obligatorio, con el comentario
+«un ajuste sin motivo no se registra»— y en para qué se va a usar: sin él, ningún informe puede
+separar cuánto se perdió por merma de cuánto se corrigió por conteo. Es una decisión tomada
+**a pesar** del consenso, no gracias a él, y queda escrita así a propósito.
 
 **La revaluación se construye con el motor que ya hay.** El kardex no sabe escribir un movimiento de
 cantidad cero, así que se expresa como lo que es: sale todo al costo viejo y vuelve a entrar al
@@ -199,6 +219,27 @@ Arreglarlo toca un componente compartido por cuatro módulos, así que quedó an
 Seis menciones por nombre en `docs/PLAN.md`, `docs/RETOMAR.md` y `docs/modulos/inventario.md`, en un
 repositorio público. **Corregido** con redacción neutra, en su propio commit.
 
+## 5.1 Comprobado y descartado
+
+Dos cosas que una lectura de la persistencia señaló y que, al verificarlas, **no se sostienen como
+defectos**:
+
+- **Las violaciones de restricción de la base salen como 500 crudo.** Es cierto: ni el repositorio
+  ni la publicación del ajuste traducen errores de PostgreSQL, al contrario del repositorio de
+  artículos, que sí traduce el SKU duplicado. Pero las restricciones que quedan —existencia no
+  negativa, contrapartida única, correlativo único— sólo se violan si el dominio ya falló, y ahí
+  **un 500 es la respuesta honesta**: traducirlo a un 409 escondería el defecto. El SKU duplicado
+  es distinto porque la carrera es real y la causa el usuario. Lo que sí costó tiempo durante esta
+  revisión fue diagnosticar uno: el mensaje no dice nada y hay que ir a los registros.
+- **El correlativo se consume fuera de la transacción que guarda.** Cierto, pero el borrador se
+  valida **entero antes** de pedir el número (`adjustment-creator.ts:44`), así que un rechazo no
+  gasta correlativo. Sólo un fallo de infraestructura al guardar dejaría un hueco, y un hueco en una
+  serie interna no rompe nada.
+
+Y una que **sí** se sostiene y no se construyó, por ser transversal y tocar un módulo ya cerrado:
+**la carrera entre desactivar una bodega y publicar en ella**, con su arreglo en dos mitades escrito
+en [FUTURE.md](../../FUTURE.md).
+
 ## 6. Lo que este paso enseñó
 
 1. **El contrato de puerto encontró el defecto que el doble escondía, otra vez.** El caso nuevo de
@@ -214,5 +255,11 @@ repositorio público. **Corregido** con redacción neutra, en su propio commit.
 4. **Revisar un módulo encuentra cosas que no son del módulo.** La fecha del kardex resultó
    transversal a tres contextos, el rastro de autor faltaba en los siete, y las menciones al sistema
    privado no tenían nada que ver con Ajustes.
-5. **Cuando la referencia acierta, hay que decirlo.** Su `averageOf` resuelve exactamente el caso
+5. **Los informes que se piden tarde llegan tarde, y aun así valen.** Las seis exploraciones que
+   abrieron esta revisión no devolvieron nada a tiempo y hubo que rehacer su trabajo a mano. Cuando
+   llegaron, con el módulo ya cerrado, traían dos cosas que el trabajo a mano no tenía: la carrera
+   de la bodega, y la constatación de que **la cifra del sector que yo había escrito era falsa**
+   —dije «3 de 4 exigen motivo» tras mirar tres productos por encima; sobre seis, lo exige uno—.
+   La corrección está en la tabla de la etapa 2, donde se escribió el error.
+6. **Cuando la referencia acierta, hay que decirlo.** Su `averageOf` resuelve exactamente el caso
    que aquí entraba en cero. Leer su código, y no su documentación, es lo que lo hizo visible.
