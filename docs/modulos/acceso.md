@@ -43,12 +43,10 @@ Contexto: `apps/api/src/contexts/access` · Pantallas: `/login`, `/perfil`, `/ad
     **mismo tiempo de respuesta**, para no revelar qué correos existen.
   - **5 fallos sobre un mismo correo bloquean ese correo 15 minutos**
     (`TooManyLoginAttemptsError`, 429), también si el correo no existe.
-  - **20 cuentas distintas fallando desde una misma dirección bloquean esa dirección** otros 15
-    minutos. Se cuentan **cuentas, no fallos**: equivocarse muchas veces con la propia contraseña
-    ya lo frena el límite de arriba, y contar fallos aquí castigaría a una oficina entera detrás
-    de una misma salida a internet. Lo que la dirección frena es el **barrido de cuentas ajenas**.
-  - Acertar limpia el contador del correo, **pero no el de la dirección**: a quien lleva rato
-    barriendo no le basta acertar una para empezar de cero.
+  - Se probó a contar también por dirección y **se retiró**: contando fallos castigaba a una
+    oficina entera detrás de una misma salida a internet, y contando sólo las cuentas que no
+    existen se convertía en un oráculo —veintiuna peticiones bastaban para saber si un correo
+    está registrado—, justo lo que el tiempo constante evita.
   - Contraseña correcta pero ninguna membresía activa: `NoActiveMembershipError` (401). A esa
     rama solo llega el dueño de la cuenta, así que decírselo no da pistas.
   - Persona, empresa o membresía inactivas no entran.
@@ -69,7 +67,8 @@ Contexto: `apps/api/src/contexts/access` · Pantallas: `/login`, `/perfil`, `/ad
   hubiera llevado una deja de entrar en ese instante, sin esperar a que caduque su token.
 - Devuelve **una sesión nueva**, que la interfaz guarda: caen los demás dispositivos, no el suyo.
 - Por debajo es una fecha de corte por persona (`users.sessions_valid_from`): el guardián rechaza
-  todo token firmado antes de ella. Eso da también «cerrar sesión en todos los dispositivos».
+  todo token firmado antes de ella. Hoy **sólo la mueve el cambio de contraseña**: la pieza permite
+  «cerrar sesión en todos los dispositivos», pero no hay pantalla ni ruta que lo ofrezca.
 
 **Token**: JWT firmado con `JWT_SECRET`, algoritmo fijo, una hora. Lleva **cuándo se firmó, al
 milisegundo**, que es lo que permite rechazar una sesión anterior al último cambio de contraseña.
@@ -128,10 +127,12 @@ cuya duración es **la que dice la API**, no un número repetido en la interfaz.
 - **El rol de administrador no se edita** (`CannotEditAdminRoleError`, 409). No enumera permisos
   —los concede todos, incluidos los que aún no existen—, así que editarlo sólo serviría para
   disfrazarlo: un rol llamado «Consulta» que abre la empresa entera es peor que no tener la regla.
-- **Nadie se concede a sí mismo permisos que no tiene** (`CannotGrantSelfMoreAccessError`, 409). Al
-  cambiar sus **propios** roles, lo que le queda tiene que caber en lo que ya tenía. Repartir roles
-  a **otra** persona sigue siendo lo normal, y quien ya administra no se ve afectado porque no hay
-  a qué ascenderlo.
+- **Nadie concede lo que no tiene, ni a sí mismo ni a otro** (`CannotGrantSelfMoreAccessError`,
+  409). Vale para los cinco caminos que reparten acceso: crear un rol, editarlo, asignarlo, cambiar
+  los roles de una persona y dar de alta a una persona nueva. Da igual a quién se le conceda —una
+  cuenta títere con el rol de administrador llega al mismo sitio que ascenderse uno mismo—. Quien ya
+  administra no se ve afectado, porque no hay nada fuera de su alcance, y **quitar** un rol no pide
+  alcance: sólo concederlo lo pide.
 - El cambio tiene **efecto inmediato**: con el mismo token, la persona pierde el acceso en su
   siguiente petición.
 

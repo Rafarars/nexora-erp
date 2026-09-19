@@ -1,4 +1,4 @@
-import { LoginAttempt, LoginAttempts } from '../../domain/authenticate/login-attempts.js';
+import { LoginAttempts } from '../../domain/authenticate/login-attempts.js';
 import { SignInPolicy } from '../../domain/authenticate/sign-in-policy.js';
 import { InvalidCredentialsError } from '../../domain/errors/invalid-credentials.error.js';
 import { NoActiveMembershipError } from '../../domain/errors/no-active-membership.error.js';
@@ -27,11 +27,10 @@ export class UserAuthenticator {
 
   async run(request: UserAuthenticatorRequest): Promise<AccessSessionResponse> {
     const email = Email.of(request.email);
-    const attempt: LoginAttempt = { email, ip: request.ip };
 
     // Antes de verificar: una cuenta bloqueada no gasta ni un calculo de Argon2, y
     // quien prueba contrasenas no puede saber si la ultima era la buena.
-    if (await this.attempts.isLocked(attempt)) {
+    if (await this.attempts.isLocked(email)) {
       throw new TooManyLoginAttemptsError();
     }
 
@@ -43,11 +42,11 @@ export class UserAuthenticator {
     const matches = await this.hasher.verify(request.password, hash);
 
     if (!user || !matches) {
-      await this.attempts.recordFailure(attempt, user !== null);
+      await this.attempts.recordFailure(email);
       throw new InvalidCredentialsError();
     }
 
-    await this.attempts.reset(attempt);
+    await this.attempts.reset(email);
 
     const tenant = await this.resolveTenant(user, request.tenantSlug);
     const membership = await this.memberships.findByUser(tenant.id, user.id);

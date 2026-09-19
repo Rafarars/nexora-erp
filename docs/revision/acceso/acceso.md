@@ -33,7 +33,7 @@ hechas.** La suite seguía verde porque el camino nuevo se las saltaba.
 
 ---
 
-## Los once hallazgos
+## Los doce hallazgos
 
 Todos **reproducidos contra la API local** antes de tocar una línea de código.
 
@@ -47,11 +47,12 @@ Todos **reproducidos contra la API local** antes de tocar una línea de código.
 | **A7** | Los DTO de Acceso aceptaban campos que ignoraban | Baja | Construido |
 | **A8** | El bloqueo por intentos se perdía al reiniciar, y no se purgaba nunca | Media | Construido |
 | **A9** | Se puede dejar fuera a alguien a propósito | Media | **Anotado, no construido** |
+| **A14** | El conteo de administradores no filtraba la empresa **del rol** | Media | Construido |
 | **A10** | Cambiar la contraseña no cerraba las sesiones abiertas | **Alta** | Construido |
 | **A12** | El rol que lo concede todo sólo estaba protegido **en la pantalla** | **Alta** | Construido |
 | **A13** | Dos peticiones a la vez se saltaban la guarda del último administrador | **Alta** | Construido |
 
-**Diez construidos y uno anotado**: A9 sigue abierto a propósito, y abajo está el porqué.
+**Once construidos y uno anotado**: A9 sigue abierto a propósito, y abajo está el porqué.
 
 Y uno descartado: **A11, que los listados de Acceso no paginan.** Ya estaba decidido y razonado en
 la auditoría anterior —los permisos son un catálogo cerrado de 89, los roles son pocos por diseño y
@@ -109,13 +110,34 @@ GET  /api/v1/auth/me                                             -> grantsAll: t
 
 Nadie comprobaba que no se concediera más de lo que se tenía.
 
-**Decisión de Rafael:** la opción amplia — *nadie se concede lo que no tiene*. Al cambiar sus
-**propios** roles, los permisos resultantes tienen que caber en los actuales. Cierra también la
-escalada indirecta, que la opción estrecha dejaba abierta: asignarse un rol «Contabilidad» con
-permisos que no se tenían seguía siendo un ascenso, aunque no llegara hasta el final.
+**Decisión de Rafael:** la opción amplia — *nadie se concede lo que no tiene*.
 
-Quien ya administra no se ve afectado, porque no hay a qué ascenderlo. Y repartir roles a **otra**
-persona sigue siendo lo normal: lo que se protege es ascenderse uno mismo.
+**Y la primera implementación se quedó corta, hasta el punto de ser decorativa.** La escribí
+mirando sólo el caso propio (`actorId === userId`) y en sólo dos de los cinco caminos que reparten
+acceso. La revisión adversarial encontró las dos puertas que quedaban, y las dos se reprodujeron
+contra la API:
+
+```
+A) Olga edita SU PROPIO rol y marca los 89 permisos   -> 200, de 3 permisos a 89
+B) Bruno crea una cuenta CON el rol que lo concede todo -> 201, y entra: grantsAll: true
+```
+
+Ninguna de las dos se toca a sí misma en el sentido que la guarda miraba: una amplía **el rol que
+lleva**, la otra asciende **a una cuenta títere**. La regla real no era «no te asciendas a ti
+mismo», sino **«nadie concede lo que no tiene, ni a sí mismo ni a otro»**, y tiene que vivir en los
+cinco caminos: crear un rol, editarlo, asignarlo, retirarlo al editar a una persona y dar de alta a
+una persona nueva.
+
+Tras corregirlo, las mismas dos reproducciones:
+
+```
+A) editar su propio rol con los 89 permisos -> 409 CannotGrantSelfMoreAccessError
+B) crear la cuenta con ese rol              -> 409 CannotGrantSelfMoreAccessError
+```
+
+Quien ya administra no se ve afectado, porque no hay nada fuera de su alcance. Y **quitar** un rol
+no pide alcance: sólo concederlo lo pide, así que un supervisor sigue pudiendo retirar roles —y ahí
+es donde le sale al paso la guarda del último administrador—.
 
 ---
 
@@ -128,6 +150,12 @@ navegador.
 
 **Decisión de Rafael:** una fecha de corte por persona. Una columna, `sessions_valid_from`; el
 guardián rechaza los tokens firmados antes de ella; y cambiar la contraseña la mueve.
+
+**Con un matiz que hay que decir:** la fecha de corte *permite* «cerrar sesión en todos los
+dispositivos», pero **no existe ninguna pantalla ni ruta que lo ofrezca**. Hoy sólo la mueve el
+cambio de contraseña. El método que lo haría por su cuenta se escribió, no lo llamaba nadie, y se
+retiró: un método muerto con un comentario que promete una puerta inexistente es peor que no
+tenerlo.
 
 Dos detalles que decidieron el diseño:
 
@@ -208,7 +236,7 @@ esta misma sesión ya encontró una vez.
 
 ---
 
-## A9 y A8 — El bloqueo por intentos
+## A9 y A8 — El bloqueo por intentos, y dos vueltas en falso
 
 Comprobado, en los dos sentidos:
 
@@ -219,50 +247,44 @@ docker compose restart api
 luego, con la contraseña BUENA              -> entra: el bloqueo se esfumó
 ```
 
-Contar **sólo por correo** permitía dejar fuera a cualquiera sabiendo su dirección, repitiéndolo
-cada quince minutos. Y el mapa **sólo se limpiaba al acertar**, así que cada correo inventado dejaba
-una entrada que no se iba nunca.
+Contar **sólo por correo** permite dejar fuera a cualquiera sabiendo su dirección, y el mapa
+**sólo se limpiaba al acertar**, así que cada correo inventado dejaba una entrada que no se iba
+nunca.
 
-**Decisión de Rafael:** contar también por dirección de red —veinte fallos, más alto que el del
-correo porque una oficina entera sale por la misma— y barrer las entradas caducadas.
+**Lo construido:** la purga de entradas caducadas, y que **la ventana arranque de nuevo al
+bloquear** —sin eso, un fallo posterior podía caer fuera de la ventana vieja, reiniciar el contador
+y levantar el bloqueo antes de tiempo—.
 
-Un detalle deliberado: **acertar limpia el contador del correo, pero no el de la dirección.** Si lo
-limpiara, a quien lleva rato probando cuentas ajenas desde el mismo sitio le bastaría acertar una
-para empezar de cero.
+**Lo que se intentó y se retiró, que es lo que enseña.** La decisión inicial fue contar también por
+dirección de red. Costó tres vueltas y acabó fuera:
 
-**Y aquí la corrección costó dos intentos y una lección.** El comentario que había en el código
-**ya advertía** exactamente lo que iba a pasar:
+1. Contando **fallos** por dirección: veinte pruebas en rojo. El comentario del código **ya lo
+   advertía** palabra por palabra —«la suite de pruebas entra decenas de veces por minuto desde la
+   misma direccion y no debe bloquearse sola»—, y no le hice caso.
+2. Contando **cuentas distintas**: la suite completa acabó con **314 pruebas en 401**. Una suite de
+   pruebas **es** un barrido de cuentas desde una sola dirección, que es justo lo que el límite
+   busca.
+3. Contando sólo las **cuentas que no existen**: la suite pasó… y el mecanismo se convirtió en **un
+   oráculo de enumeración**. Reproducido:
 
-> «Cuenta intentos fallidos por correo, no peticiones por IP: la suite de pruebas entra decenas de
-> veces por minuto desde la misma direccion y no debe bloquearse sola.»
+```
+ana@acme.com    -> EXISTE      (no contó: la dirección sigue en 19)
+nadie@acme.com  -> NO EXISTE   (contó 20: la dirección se bloqueó)
+```
 
-El primer intento contó **fallos** por dirección: veinte pruebas en rojo. El segundo contó **cuentas
-distintas**, y pareció bastar… hasta que la suite completa acabó con **314 pruebas en 401**, todas
-por el mismo `429`. La razón es de fondo: una suite de pruebas **es** un barrido de cuentas desde
-una sola dirección, que es justo lo que el límite busca.
+Veintiuna peticiones bastaban para saber si un correo está registrado — exactamente lo que el
+tiempo constante del login (29 ms contra 28 ms) protege. **El mecanismo puesto para frenar la
+enumeración la volvía trivial.** Y hay un segundo problema: la API no configura `trust proxy`, así
+que detrás de un balanceador `@Ip()` devuelve la misma dirección para todo el mundo y veinte
+peticiones anónimas habrían dejado fuera a la empresa entera.
 
-La regla que sí distingue las dos cosas —decisión de Rafael— es mirar **cuántos correos que no
-existen** se prueban desde una dirección. Equivocarse de contraseña en una cuenta real es un
-despiste, y castigarlo deja fuera a una oficina entera detrás de una misma salida a internet.
-Probar correos al azar es otra cosa: es **adivinar a quién hay**, y eso no lo hace nadie por
-error.
+**Decisión de Rafael, con ese dato encima de la mesa:** retirar el conteo por dirección. Queda el
+límite por correo con su purga, desaparecen el oráculo y el riesgo del proxy, y **A9 sigue abierto a
+propósito**, escrito en [`FUTURE.md`](../../FUTURE.md) con el retardo creciente como salida real.
 
-**Y eso deja A9 abierto, hay que decirlo.** Contar sólo las cuentas inexistentes frena la
-enumeración, pero **no impide dejar fuera a alguien a propósito**: cinco intentos contra un correo
-real siguen bloqueando ese correo quince minutos, y ese fallo no cuenta para la dirección. Es el
-precio de no castigar a la oficina entera, y está escrito en [`FUTURE.md`](../../FUTURE.md) con lo
-que haría falta para cerrarlo de verdad.
-
-Un detalle que casi se me cuela, y que es justo el patrón que esta revisión persigue: al releer mi
-propio diff encontré **un comentario mío que afirmaba lo que el código ya no hacía** —decía que el
-conteo por dirección evitaba que «nadie pueda dejar fuera a un compañero sabiendo sólo su correo»,
-y tras la última corrección eso dejó de ser cierto—. Corregido.
-
-La lección, que vale más que el arreglo: **un comentario que explica un porqué es una restricción de
-diseño, no una nota al margen.** Costó dos vueltas no haberlo leído como tal.
-
-Lo que **no** cambia: el estado sigue en la memoria del proceso. Con una sola instancia basta; con
-varias haría falta Redis o una tabla. Queda escrito en [`FUTURE.md`](../../FUTURE.md).
+La lección, que vale más que el código: **un comentario que explica un porqué es una restricción de
+diseño, no una nota al margen** — y cuando una defensa nueva trata distinto dos casos, esa
+diferencia es observable, y lo observable es un oráculo.
 
 ---
 
@@ -282,6 +304,28 @@ añadirlo a mano y seguir, se cerró la puerta:
 - Otra, en la interfaz, comprueba que **cada error que la API puede mandar tiene su texto en
   español**. Los que se conforman con el mensaje de su categoría están escritos uno a uno: estar en
   esa lista es una decisión, no un olvido.
+
+---
+
+## A14 — El doble contaba mejor que la base
+
+Lo encontró la revisión adversarial leyendo el SQL. `PrismaTenantAdministration` filtraba la empresa
+**de la membresía**, pero no la **del rol**:
+
+```sql
+roles: { some: { role: { grantsAll: true } } }     -- sin tenantId del rol
+```
+
+`membership_roles` no impide unir una membresía de una empresa con un rol de otra, así que una fila
+así habría contado como administradora de Acme a quien lleva un rol de Globex. Y **contar de más es
+la dirección mala**: la política habría dejado quitarle el rol al último administrador de verdad
+creyendo que quedaba otro.
+
+Hoy ninguna ruta crea esa fila —`RoleFinder` filtra por empresa—, pero el contrato existe justo para
+que el adaptador no dependa de eso. Lo llamativo es que el caso del contrato que parecía cubrirlo
+**no lo cubría**: ponía la *membresía* en la otra empresa, que es lo que filtra el otro `where`.
+Ahora hay tres casos nuevos, y quitando el filtro el contrato falla contra PostgreSQL y pasa contra
+el doble — el falso verde otra vez, por tercera vez en esta sesión.
 
 ---
 

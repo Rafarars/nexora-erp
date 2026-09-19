@@ -13,6 +13,7 @@ import { InMemoryTenantRepository } from '../../infrastructure/testing/in-memory
 import { InMemoryTenantAdministration } from '../../infrastructure/testing/in-memory-tenant-administration.js';
 import { InMemoryUserRepository } from '../../infrastructure/testing/in-memory-user.repository.js';
 import { SequentialIdGenerator } from '../../../../shared/infrastructure/testing/sequential-id-generator.js';
+import { ActorAuthority } from '../authority/actor-authority.js';
 import { MemberEnroller } from '../../domain/membership/enroll/member-enroller.js';
 import { MembershipFinder } from '../../domain/membership/find/membership-finder.js';
 import { RoleFinder } from '../../domain/role/find/role-finder.js';
@@ -43,6 +44,7 @@ export interface AccessScenario {
   catalog: CatalogPermissions;
   attempts: InMemoryLoginAttempts;
   administration: InMemoryTenantAdministration;
+  authority: ActorAuthority;
 }
 
 // Monta el mundo de una prueba de aplicacion en una linea. Sin base de datos, sin
@@ -79,7 +81,8 @@ export function anAccessScenario(
     registrar: new UserRegistrar(users, hasher, ids, clock),
     enroller: new MemberEnroller(memberships, ids, clock),
     catalog: new CatalogPermissions(),
-    attempts: new InMemoryLoginAttempts(5, 20, 900, clock),
+    attempts: new InMemoryLoginAttempts(5, 900, clock),
     administration: new InMemoryTenantAdministration(memberships, roles, users),
+    authority: new ActorAuthority(new MembershipFinder(memberships), new RoleFinder(roles)),
   };
 }

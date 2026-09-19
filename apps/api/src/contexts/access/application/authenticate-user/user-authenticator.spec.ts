@@ -26,9 +26,6 @@ async function hashed(): Promise<PasswordHash> {
   return PasswordHash.of(await new FakePasswordHasher().hash(PASSWORD));
 }
 
-// De donde llega el intento: da igual cual, mientras sea la misma en toda la prueba.
-const IP = '203.0.113.7';
-
 describe('UserAuthenticator', () => {
   let hash: PasswordHash;
 
@@ -76,7 +73,7 @@ describe('UserAuthenticator', () => {
   it('returns the session of the only tenant the user belongs to', async () => {
     const scenario = scenarioWithOneTenant();
 
-    const session = await authenticatorFor(scenario).run({ email: 'ana@acme.com', password: PASSWORD, ip: IP });
+    const session = await authenticatorFor(scenario).run({ email: 'ana@acme.com', password: PASSWORD });
 
     expect(session.userId).toBe(USER_A);
     expect(session.tenantId).toBe(TENANT_A);
@@ -87,7 +84,7 @@ describe('UserAuthenticator', () => {
   it('accepts the email in any case, because it is normalized', async () => {
     const scenario = scenarioWithOneTenant();
 
-    const session = await authenticatorFor(scenario).run({ email: '  ANA@Acme.com ', password: PASSWORD, ip: IP });
+    const session = await authenticatorFor(scenario).run({ email: '  ANA@Acme.com ', password: PASSWORD });
 
     expect(session.email).toBe('ana@acme.com');
   });
@@ -96,7 +93,7 @@ describe('UserAuthenticator', () => {
     const scenario = scenarioWithOneTenant();
 
     await expect(
-      authenticatorFor(scenario).run({ email: 'ana@acme.com', password: 'wrong', ip: IP }),
+      authenticatorFor(scenario).run({ email: 'ana@acme.com', password: 'wrong' }),
     ).rejects.toThrow(InvalidCredentialsError);
   });
 
@@ -106,7 +103,7 @@ describe('UserAuthenticator', () => {
     const scenario = scenarioWithOneTenant();
 
     await expect(
-      authenticatorFor(scenario).run({ email: 'nadie@acme.com', password: PASSWORD, ip: IP }),
+      authenticatorFor(scenario).run({ email: 'nadie@acme.com', password: PASSWORD }),
     ).rejects.toThrow(/Invalid credentials/);
   });
 
@@ -114,7 +111,7 @@ describe('UserAuthenticator', () => {
     const scenario = scenarioWithOneTenant({ active: false });
 
     await expect(
-      authenticatorFor(scenario).run({ email: 'ana@acme.com', password: PASSWORD, ip: IP }),
+      authenticatorFor(scenario).run({ email: 'ana@acme.com', password: PASSWORD }),
     ).rejects.toThrow(InactiveTenantError);
   });
 
@@ -133,14 +130,14 @@ describe('UserAuthenticator', () => {
   // acceso activo en vez de hacerle creer que se equivoco de contrasena.
   it('tells a person with the right password that no access is active', async () => {
     await expect(
-      authenticatorFor(scenarioWithRevokedMembership()).run({ email: 'ana@acme.com', password: PASSWORD, ip: IP }),
+      authenticatorFor(scenarioWithRevokedMembership()).run({ email: 'ana@acme.com', password: PASSWORD }),
     ).rejects.toThrow(NoActiveMembershipError);
   });
 
   // La contrasena mala sigue sin revelar nada, tenga o no acceso activo la cuenta.
   it('still answers invalid credentials when the password is wrong', async () => {
     await expect(
-      authenticatorFor(scenarioWithRevokedMembership()).run({ email: 'ana@acme.com', password: 'wrong', ip: IP }),
+      authenticatorFor(scenarioWithRevokedMembership()).run({ email: 'ana@acme.com', password: 'wrong' }),
     ).rejects.toThrow(InvalidCredentialsError);
   });
 
@@ -151,7 +148,7 @@ describe('UserAuthenticator', () => {
       authenticatorFor(scenarioWithRevokedMembership()).run({
         email: 'ana@acme.com',
         password: PASSWORD,
-        tenantSlug: 'acme', ip: IP }),
+        tenantSlug: 'acme' }),
     ).rejects.toThrow(InactiveMembershipError);
   });
 
@@ -161,7 +158,7 @@ describe('UserAuthenticator', () => {
     const session = await authenticatorFor(scenario).run({
       email: 'ana@acme.com',
       password: PASSWORD,
-      tenantSlug: 'globex', ip: IP });
+      tenantSlug: 'globex' });
 
     expect(session.tenantId).toBe(TENANT_B);
     expect(session.availableTenants).toHaveLength(2);
@@ -170,7 +167,7 @@ describe('UserAuthenticator', () => {
   it('enters the first tenant when none is asked for', async () => {
     const scenario = scenarioWithTwoTenants();
 
-    const session = await authenticatorFor(scenario).run({ email: 'ana@acme.com', password: PASSWORD, ip: IP });
+    const session = await authenticatorFor(scenario).run({ email: 'ana@acme.com', password: PASSWORD });
 
     expect(session.tenantId).toBe(TENANT_A);
   });
@@ -182,7 +179,7 @@ describe('UserAuthenticator', () => {
       authenticatorFor(scenario).run({
         email: 'ana@acme.com',
         password: PASSWORD,
-        tenantSlug: 'unknown-company', ip: IP }),
+        tenantSlug: 'unknown-company' }),
     ).rejects.toThrow(InvalidCredentialsError);
   });
 
@@ -201,7 +198,7 @@ describe('UserAuthenticator', () => {
       authenticatorFor(scenario).run({
         email: 'ana@acme.com',
         password: PASSWORD,
-        tenantSlug: 'globex', ip: IP }),
+        tenantSlug: 'globex' }),
     ).rejects.toThrow(InvalidCredentialsError);
   });
 
@@ -212,12 +209,12 @@ describe('UserAuthenticator', () => {
 
     for (let i = 0; i < 5; i++) {
       await expect(
-        authenticator.run({ email: 'ana@acme.com', password: 'wrong', ip: IP }),
+        authenticator.run({ email: 'ana@acme.com', password: 'wrong' }),
       ).rejects.toThrow(InvalidCredentialsError);
     }
 
     await expect(
-      authenticator.run({ email: 'ana@acme.com', password: PASSWORD, ip: IP }),
+      authenticator.run({ email: 'ana@acme.com', password: PASSWORD }),
     ).rejects.toThrow(TooManyLoginAttemptsError);
   });
 
@@ -226,12 +223,12 @@ describe('UserAuthenticator', () => {
     const authenticator = authenticatorFor(scenario);
 
     for (let i = 0; i < 4; i++) {
-      await expect(authenticator.run({ email: 'ana@acme.com', password: 'wrong', ip: IP })).rejects.toThrow();
+      await expect(authenticator.run({ email: 'ana@acme.com', password: 'wrong' })).rejects.toThrow();
     }
-    await authenticator.run({ email: 'ana@acme.com', password: PASSWORD, ip: IP });
+    await authenticator.run({ email: 'ana@acme.com', password: PASSWORD });
 
     for (let i = 0; i < 4; i++) {
-      await expect(authenticator.run({ email: 'ana@acme.com', password: 'wrong', ip: IP })).rejects.toThrow(
+      await expect(authenticator.run({ email: 'ana@acme.com', password: 'wrong' })).rejects.toThrow(
         InvalidCredentialsError,
       );
     }
@@ -243,10 +240,10 @@ describe('UserAuthenticator', () => {
     const authenticator = authenticatorFor(scenario);
 
     for (let i = 0; i < 5; i++) {
-      await expect(authenticator.run({ email: 'nadie@acme.com', password: 'x', ip: IP })).rejects.toThrow();
+      await expect(authenticator.run({ email: 'nadie@acme.com', password: 'x' })).rejects.toThrow();
     }
 
-    await expect(authenticator.run({ email: 'nadie@acme.com', password: 'x', ip: IP })).rejects.toThrow(
+    await expect(authenticator.run({ email: 'nadie@acme.com', password: 'x' })).rejects.toThrow(
       TooManyLoginAttemptsError,
     );
   });

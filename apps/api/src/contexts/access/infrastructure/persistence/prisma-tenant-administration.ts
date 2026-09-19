@@ -27,7 +27,11 @@ export class PrismaTenantAdministration implements TenantAdministration {
         isActive: true,
         userId: { not: userId.value },
         user: { isActive: true },
-        roles: { some: { role: { grantsAll: true } } },
+        // El tenantId del ROL tambien, no solo el de la membresia: `membership_roles` no
+        // impide unir una membresia de una empresa con un rol de otra, y sin este filtro
+        // se contaria como administradora a quien lleva un rol ajeno. Contar de mas es la
+        // direccion mala: dejaria quitarle el rol al ultimo administrador de verdad.
+        roles: { some: { role: { grantsAll: true, tenantId: tenantId.value } } },
       },
     });
   }

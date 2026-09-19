@@ -14,7 +14,7 @@ inventario—, que son los tres últimos que quedan. Después **las cuatro decis
 sólo entonces las **mejoras de diseño**. El detalle está en
 [«El plan para cerrar el sistema al 100 %»](#el-plan-para-cerrar-el-sistema-al-100--acordado-el-19-sep-2026).
 
-**Acceso quedó cerrado el 19-sep-2026**: once hallazgos, diez construidos y uno anotado
+**Acceso quedó cerrado el 19-sep-2026**: doce hallazgos, once construidos y uno anotado
 ([informe](revision/acceso/acceso.md)).
 
 **Veintiséis de veintinueve submódulos están cerrados.** El estado exacto de cada uno, en
@@ -50,7 +50,7 @@ un cambio de API o de web no se ve en el navegador ni en la e2e hasta que se eje
 |---|---|
 | Repositorio | github.com/Rafarars/nexora-erp |
 | Reporte de pruebas | https://rafarars.github.io/nexora-erp/ |
-| Pruebas | 2873 + 194 unitarias · 226 de contrato · 415 end-to-end |
+| Pruebas | 2884 + 194 unitarias · 229 de contrato · 415 end-to-end |
 | **H0 — Fundación** | **Completado** |
 | **H1 — Multiempresa y acceso** | **Completado** y revisado |
 | **H2 — Catálogo** | **Completado** ([`H2-CATALOGO.md`](H2-CATALOGO.md)) |
@@ -592,14 +592,14 @@ Rafael fijó **este orden, y no se altera**:
 
 | | Qué | Por qué en ese sitio |
 |---|---|---|
-| ~~1º~~ | ~~**Acceso**~~ — **cerrado el 19-sep-2026**, diez hallazgos construidos de once | Era el que tenía peso real, y lo confirmó: una empresa podía quedarse sin nadie que la administrara por tres puertas distintas |
+| ~~1º~~ | ~~**Acceso**~~ — **cerrado el 19-sep-2026**, once hallazgos construidos de doce | Era el que tenía peso real, y lo confirmó: una empresa podía quedarse sin nadie que la administrara por tres puertas distintas |
 | **2º** | **Reportes** — ventas por cliente, estado de cuenta, valuación del inventario | Más pequeños, y con un hallazgo ya anotado: las exportaciones redondean distinto que la pantalla |
 | **3º** | **Las cuatro decisiones** que esperan a Rafael | Están abajo, cada una con su síntoma, su `archivo:línea` y su coste |
 | **4º** | **Mejoras de diseño del sistema** | **Sólo después de cerrar el 100 %.** Textual: «eso será luego de cerrar al 100 el sistema como tal» |
 
 #### 1º · Acceso — cerrado el 19-sep-2026
 
-Once hallazgos, **diez construidos**. El informe completo está en
+Doce hallazgos, **once construidos**. El informe completo está en
 [`revision/acceso/acceso.md`](revision/acceso/acceso.md). Lo que cambió, en corto:
 
 - **Una empresa ya no se queda sin nadie que la administre**, por ninguna de las tres puertas
@@ -607,15 +607,19 @@ Once hallazgos, **diez construidos**. El informe completo está en
   que **nunca fue administradora** para dejar Acme con cero administradores, y era irreversible.
 - **`DELETE /roles/assignments` se saltaba entera** la guarda construida el día antes: el mismo acto
   daba 409 por una ruta y 200 por la otra. Ahora la regla vive en una política, en un solo sitio.
-- **Nadie se concede a sí mismo permisos que no tiene.** Antes, quien podía repartir roles se daba
-  el de administrador en una petición.
+- **Nadie concede lo que no tiene, ni a sí mismo ni a otro**, en los cinco caminos que reparten
+  acceso. La primera versión miraba sólo el caso propio y en dos caminos: quedaban abiertas dos
+  puertas —ampliar el rol que uno lleva (de 3 a 89 permisos en una petición) y crear una cuenta
+  títere con el rol de administrador—, que encontró la revisión adversarial.
 - **Cambiar la contraseña cierra las sesiones abiertas**, con una fecha de corte por persona
   (`users.sessions_valid_from`), y devuelve una sesión nueva para que quien la cambió siga dentro.
 - **El rol de administrador no se edita**: se le podía poner el nombre «Consulta basica» y seguía
   concediendo la empresa entera. Esa regla sólo existía en la pantalla.
 - **Un rol concede al menos un permiso**, y los DTO de Acceso rechazan campos que antes ignoraban.
-- **El bloqueo por intentos cuenta también cuentas distintas por dirección** —no fallos, que
-  bloquearía a una oficina entera— y purga las entradas caducadas.
+- **El bloqueo por intentos purga las entradas caducadas** y la ventana arranca de nuevo al
+  bloquear. Contar además por dirección de red **se intentó y se retiró**: contando fallos
+  castigaba a una oficina entera, y contando sólo las cuentas inexistentes se convertía en un
+  oráculo —21 peticiones bastaban para saber si un correo está registrado—.
 - **La cookie dura lo que dice la API**, en vez de un «1 hora» repetido a mano en la interfaz.
 - **Dos peticiones a la vez ya no se saltan la guarda del administrador**: se turnan con un cerrojo
   por empresa, el mismo patrón que Ventas e Inventario usan para reservar existencia. Sin él, la

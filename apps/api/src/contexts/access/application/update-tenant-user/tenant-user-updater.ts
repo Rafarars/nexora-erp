@@ -1,6 +1,7 @@
 import { Clock } from '../../../../shared/domain/ports/clock.js';
 import { CannotDropOwnAdminRoleError } from '../../domain/errors/cannot-drop-own-admin-role.error.js';
-import { SelfEscalationPolicy } from '../../domain/authorize/self-escalation-policy.js';
+import { ActorAuthority } from '../authority/actor-authority.js';
+import { GrantPolicy } from '../../domain/authorize/grant-policy.js';
 import { AdministrationPolicy } from '../../domain/membership/administration/administration-policy.js';
 import { TenantAdministration } from '../../domain/membership/administration/tenant-administration.js';
 import { MembershipFinder } from '../../domain/membership/find/membership-finder.js';
@@ -33,6 +34,7 @@ export class TenantUserUpdater {
     private readonly userRepository: UserRepository,
     private readonly membershipRepository: MembershipRepository,
     private readonly administration: TenantAdministration,
+    private readonly authority: ActorAuthority,
     private readonly clock: Clock,
   ) {}
 
@@ -53,13 +55,11 @@ export class TenantUserUpdater {
     const user = await this.users.find(userId);
     const now = this.clock.now();
 
-    if (request.actorId === request.userId) {
-      SelfEscalationPolicy.ensureGrantsNothingNew(
-        tenantId,
-        await this.roles.findAll(tenantId, membership.roles()),
-        roles,
-      );
-    }
+    GrantPolicy.ensureRolesWithinReach(
+      tenantId,
+      await this.authority.of(tenantId, request.actorId),
+      roles,
+    );
 
     // Solo importa si la persona administraba y deja de hacerlo.
     if (!roles.some((role) => role.grantsEverything())) {

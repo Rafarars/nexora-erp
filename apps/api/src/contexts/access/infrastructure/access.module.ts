@@ -39,6 +39,7 @@ import { SessionFinder } from '../application/find-session/session-finder.js';
 import { RoleCreator } from '../application/create-role/role-creator.js';
 import { RoleRevoker } from '../application/revoke-role/role-revoker.js';
 import { RoleSearcher } from '../application/search-roles/role-searcher.js';
+import { ActorAuthority } from '../application/authority/actor-authority.js';
 import { PermissionSearcher } from '../application/search-permissions/permission-searcher.js';
 import { RoleUpdater } from '../application/update-role/role-updater.js';
 import { CatalogPermissions } from '../domain/role/catalog-permissions.js';
@@ -110,7 +111,6 @@ import { TOKEN_ISSUER } from './security/token-issuer.js';
       useFactory: (config: ConfigService<Env, true>, clock: Clock) =>
         new InMemoryLoginAttempts(
           config.get('LOGIN_MAX_FAILED_ATTEMPTS', { infer: true }),
-          config.get('LOGIN_MAX_UNKNOWN_ACCOUNTS_PER_IP', { infer: true }),
           config.get('LOGIN_LOCKOUT_SECONDS', { infer: true }),
           clock,
         ),
@@ -121,6 +121,12 @@ import { TOKEN_ISSUER } from './security/token-issuer.js';
     // se anadan despues. Un contexto nuevo nace protegido sin hacer nada.
     { provide: APP_GUARD, useClass: AccessGuard },
 
+    {
+      provide: ActorAuthority,
+      useFactory: (memberships: MembershipFinder, roles: RoleFinder) =>
+        new ActorAuthority(memberships, roles),
+      inject: [MembershipFinder, RoleFinder],
+    },
     {
       provide: TenantFinder,
       useFactory: (tenants: TenantRepository) => new TenantFinder(tenants),
@@ -203,8 +209,9 @@ import { TOKEN_ISSUER } from './security/token-issuer.js';
         roles: RoleFinder,
         registrar: UserRegistrar,
         enroller: MemberEnroller,
-      ) => new UserCreator(tenants, roles, registrar, enroller),
-      inject: [TenantFinder, RoleFinder, UserRegistrar, MemberEnroller],
+        authority: ActorAuthority,
+      ) => new UserCreator(tenants, roles, registrar, enroller, authority),
+      inject: [TenantFinder, RoleFinder, UserRegistrar, MemberEnroller, ActorAuthority],
     },
     {
       provide: RoleAssigner,
@@ -212,9 +219,10 @@ import { TOKEN_ISSUER } from './security/token-issuer.js';
         finder: MembershipFinder,
         roles: RoleFinder,
         memberships: MembershipRepository,
+        authority: ActorAuthority,
         clock: Clock,
-      ) => new RoleAssigner(finder, roles, memberships, clock),
-      inject: [MembershipFinder, RoleFinder, MEMBERSHIP_REPOSITORY, CLOCK],
+      ) => new RoleAssigner(finder, roles, memberships, authority, clock),
+      inject: [MembershipFinder, RoleFinder, MEMBERSHIP_REPOSITORY, ActorAuthority, CLOCK],
     },
     { provide: CatalogPermissions, useClass: CatalogPermissions },
     {
@@ -236,6 +244,7 @@ import { TOKEN_ISSUER } from './security/token-issuer.js';
         userRepository: UserRepository,
         membershipRepository: MembershipRepository,
         administration: TenantAdministration,
+        authority: ActorAuthority,
         clock: Clock,
       ) =>
         new TenantUserUpdater(
@@ -245,6 +254,7 @@ import { TOKEN_ISSUER } from './security/token-issuer.js';
           userRepository,
           membershipRepository,
           administration,
+          authority,
           clock,
         ),
       inject: [
@@ -254,6 +264,7 @@ import { TOKEN_ISSUER } from './security/token-issuer.js';
         USER_REPOSITORY,
         MEMBERSHIP_REPOSITORY,
         TENANT_ADMINISTRATION,
+        ActorAuthority,
         CLOCK,
       ],
     },
@@ -311,9 +322,10 @@ import { TOKEN_ISSUER } from './security/token-issuer.js';
         roles: RoleRepository,
         catalog: CatalogPermissions,
         ids: IdGenerator,
+        authority: ActorAuthority,
         clock: Clock,
-      ) => new RoleCreator(roles, catalog, ids, clock),
-      inject: [ROLE_REPOSITORY, CatalogPermissions, ID_GENERATOR, CLOCK],
+      ) => new RoleCreator(roles, catalog, ids, authority, clock),
+      inject: [ROLE_REPOSITORY, CatalogPermissions, ID_GENERATOR, ActorAuthority, CLOCK],
     },
     {
       provide: RoleUpdater,
@@ -321,9 +333,10 @@ import { TOKEN_ISSUER } from './security/token-issuer.js';
         finder: RoleFinder,
         roles: RoleRepository,
         catalog: CatalogPermissions,
+        authority: ActorAuthority,
         clock: Clock,
-      ) => new RoleUpdater(finder, roles, catalog, clock),
-      inject: [RoleFinder, ROLE_REPOSITORY, CatalogPermissions, CLOCK],
+      ) => new RoleUpdater(finder, roles, catalog, authority, clock),
+      inject: [RoleFinder, ROLE_REPOSITORY, CatalogPermissions, ActorAuthority, CLOCK],
     },
     {
       provide: RoleSearcher,

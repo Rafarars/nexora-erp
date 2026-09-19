@@ -43,16 +43,16 @@ export class PasswordChanger {
 
     const next = PlainPassword.of(request.next);
 
+    // La empresa y la membresia se buscan ANTES de guardar: si faltan, la respuesta seria
+    // un error con la contrasena ya cambiada y la vieja inservible.
+    const tenantId = TenantId.of(request.tenantId);
+    const tenant = await this.tenants.find(tenantId);
+    const membership = await this.memberships.findByUser(tenantId, UserId.of(request.userId));
+
     user.changePassword(PasswordHash.of(await this.hasher.hash(next.value)), this.clock.now());
 
     await this.users.save(user);
 
-    const tenantId = TenantId.of(request.tenantId);
-
-    return this.session.build(
-      user,
-      await this.tenants.find(tenantId),
-      await this.memberships.findByUser(tenantId, UserId.of(request.userId)),
-    );
+    return this.session.build(user, tenant, membership);
   }
 }

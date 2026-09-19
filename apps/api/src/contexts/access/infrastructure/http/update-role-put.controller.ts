@@ -19,6 +19,6 @@ export class UpdateRolePutController {
     @Param('roleId') roleId: string,
     @Body(new ZodValidationPipe(roleRequestSchema)) body: RoleRequestDto,
   ): Promise<void> {
-    await this.updater.run({ ...body, roleId, tenantId: session.tenantId });
+    await this.updater.run({ ...body, roleId, tenantId: session.tenantId, actorId: session.userId });
   }
 }

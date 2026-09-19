@@ -13,12 +13,14 @@ import {
   aMembership,
   aRole,
   aTenant,
+  anActingAdministrator,
   anAdminRole,
 } from '../../domain/testing/access.mother.js';
 import { anAccessScenario } from '../testing/access-scenario.js';
 
-// Quien asigna: un administrador actuando sobre otra persona.
-const ACTOR = 'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb';
+// Quien asigna administra: reparte dentro de su alcance.
+const actor = anActingAdministrator();
+const ACTOR = actor.user.id.value;
 const OTHER_ROLE = '88888888-8888-4888-8888-888888888888';
 const ABSENT = '99999999-9999-4999-8999-999999999999';
 
@@ -27,6 +29,7 @@ function assignerFor(scenario: ReturnType<typeof anAccessScenario>) {
     scenario.membershipFinder,
     scenario.roleFinder,
     scenario.memberships,
+    scenario.authority,
     scenario.clock,
   );
 }
@@ -34,8 +37,8 @@ function assignerFor(scenario: ReturnType<typeof anAccessScenario>) {
 function aScenario() {
   return anAccessScenario({
     tenants: [aTenant()],
-    roles: [aRole()],
-    memberships: [aMembership()],
+    roles: [actor.role, aRole()],
+    memberships: [actor.membership, aMembership()],
   });
 }
 
@@ -72,8 +75,8 @@ describe('RoleAssigner', () => {
   it('rejects a role of another tenant, as if it did not exist', async () => {
     const scenario = anAccessScenario({
       tenants: [aTenant(), aTenant({ id: TENANT_B, name: 'Globex', slug: 'globex' })],
-      roles: [aRole({ id: OTHER_ROLE, tenantId: TENANT_B })],
-      memberships: [aMembership()],
+      roles: [actor.role, aRole({ id: OTHER_ROLE, tenantId: TENANT_B })],
+      memberships: [actor.membership, aMembership()],
     });
 
     await expect(
@@ -84,7 +87,7 @@ describe('RoleAssigner', () => {
   });
 
   it('rejects a user with no membership in the tenant', async () => {
-    const scenario = anAccessScenario({ tenants: [aTenant()], roles: [aRole()] });
+    const scenario = anAccessScenario({ tenants: [aTenant()], users: [actor.user], roles: [actor.role, aRole()] });
 
     await expect(
       assignerFor(scenario).run({ tenantId: TENANT_A, actorId: ACTOR, userId: USER_A, roleId: ROLE_A }),
@@ -103,8 +106,9 @@ describe('RoleAssigner', () => {
     it('refuses the role that grants everything', async () => {
       const scenario = anAccessScenario({
         tenants: [aTenant()],
-        roles: [aRole({ permissions: ['access.roles.assign'] }), anAdminRole({ id: OTHER_ROLE })],
-        memberships: [aMembership({ roleIds: [ROLE_A] })],
+        users: [actor.user],
+        roles: [actor.role, aRole({ permissions: ['access.roles.assign'] }), anAdminRole({ id: OTHER_ROLE })],
+        memberships: [actor.membership, aMembership({ roleIds: [ROLE_A] })],
       });
 
       await expect(
@@ -122,11 +126,12 @@ describe('RoleAssigner', () => {
     it('refuses a role with permissions they did not have', async () => {
       const scenario = anAccessScenario({
         tenants: [aTenant()],
-        roles: [
+        users: [actor.user],
+        roles: [actor.role, 
           aRole({ permissions: ['access.roles.assign'] }),
           aRole({ id: OTHER_ROLE, name: 'Contabilidad', permissions: ['sales.invoices.create'] }),
         ],
-        memberships: [aMembership({ roleIds: [ROLE_A] })],
+        memberships: [actor.membership, aMembership({ roleIds: [ROLE_A] })],
       });
 
       await expect(
@@ -143,11 +148,12 @@ describe('RoleAssigner', () => {
     it('allows a role that grants nothing new', async () => {
       const scenario = anAccessScenario({
         tenants: [aTenant()],
-        roles: [
+        users: [actor.user],
+        roles: [actor.role, 
           aRole({ permissions: ['access.roles.assign', 'access.users.search'] }),
           aRole({ id: OTHER_ROLE, name: 'Consulta', permissions: ['access.users.search'] }),
         ],
-        memberships: [aMembership({ roleIds: [ROLE_A] })],
+        memberships: [actor.membership, aMembership({ roleIds: [ROLE_A] })],
       });
 
       await assignerFor(scenario).run({
@@ -164,8 +170,9 @@ describe('RoleAssigner', () => {
     it('never gets in the way of assigning to somebody else', async () => {
       const scenario = anAccessScenario({
         tenants: [aTenant()],
-        roles: [aRole(), anAdminRole({ id: OTHER_ROLE })],
-        memberships: [aMembership({ roleIds: [ROLE_A] })],
+        users: [actor.user],
+        roles: [actor.role, aRole(), anAdminRole({ id: OTHER_ROLE })],
+        memberships: [actor.membership, aMembership({ roleIds: [ROLE_A] })],
       });
 
       await assignerFor(scenario).run({

@@ -636,6 +636,10 @@ dirección de red y las entradas caducadas se barren.
 tabla, y su prueba de contrato corriendo contra las dos, como el resto de puertos del proyecto. No
 hay que tocar ni el dominio ni el caso de uso: el puerto ya existe y no sabe dónde se guarda.
 
+**Ojo si algún día se cuenta por dirección de red**: la API no configura `trust proxy`, así que
+detrás de un balanceador `@Ip()` devuelve la dirección del balanceador para todo el mundo. Un
+límite por dirección, con eso, deja fuera a la empresa entera con unas pocas peticiones anónimas.
+
 ## Revocar una sesión concreta, no todas
 
 **Qué es.** Hoy la revocación es una fecha de corte por persona (`users.sessions_valid_from`): al
@@ -651,6 +655,10 @@ dispositivos». Una tabla de sesiones añade una consulta a cada petición y una
 revocación, el agente y la última actividad; una pantalla que las liste; y decidir qué hacer con las
 filas viejas. La fecha de corte actual seguiría valiendo para «cerrarlas todas».
 
+**Y antes que eso, lo barato**: hoy la fecha de corte sólo la mueve el cambio de contraseña. Una
+ruta «cerrar sesión en todos los dispositivos» es una línea de dominio y un botón, y con la columna
+ya puesta no cuesta nada más.
+
 ## Que nadie pueda dejar fuera a otro a propósito
 
 **Qué es.** Cinco intentos fallidos contra un correo real lo bloquean quince minutos. Quien conozca
@@ -658,12 +666,12 @@ el correo de un compañero puede dejarlo fuera a voluntad, repitiéndolo cada qu
 Comprobado contra la API: cinco intentos ajenos, y después la contraseña **correcta** responde
 `429`.
 
-**Por qué no se hizo** (revisión de Acceso, 19-sep-2026). El intento de cerrarlo contando también
-por dirección tumbó la suite dos veces, porque una suite de pruebas **es** un barrido de cuentas
-desde una sola dirección. La regla que quedó —contar sólo los correos **inexistentes** que se
-prueban desde una dirección— frena la enumeración, que es el ataque real, pero deja este caso
-abierto a propósito: contar los fallos sobre cuentas reales dejaría fuera a una oficina entera
-detrás de una misma salida a internet, que es un daño mayor y más probable.
+**Por qué no se hizo** (revisión de Acceso, 19-sep-2026). Se intentó cerrarlo contando también por
+dirección de red, y se retiró tras tres vueltas: contando **fallos** tumbaba la suite y castigaba a
+una oficina entera detrás de una misma salida a internet; contando sólo las **cuentas que no
+existen** se convertía en un oráculo —veintiuna peticiones bastaban para saber si un correo está
+registrado—, que es justo lo que el tiempo constante del login evita. Cualquier defensa que trate
+distinto a una cuenta que existe y a una que no es observable, y lo observable es un oráculo.
 
 **Qué haría falta.** Lo que hacen los productos maduros: no bloquear la cuenta, sino **encarecer el
 intento** —un retardo creciente por cuenta, o un desafío tras varios fallos— de modo que el dueño

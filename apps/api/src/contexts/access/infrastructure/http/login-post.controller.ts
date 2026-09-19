@@ -4,7 +4,6 @@ import {
   HttpCode,
   HttpStatus,
   Inject,
-  Ip,
   Post,
 } from '@nestjs/common';
 import { Public } from '../../../../shared/infrastructure/http/public.decorator.js';
@@ -30,10 +29,9 @@ export class LoginPostController {
   @HttpCode(HttpStatus.OK)
   @Public()
   async run(
-    @Ip() ip: string,
     @Body(new ZodValidationPipe(loginRequestSchema)) body: LoginRequestDto,
   ): Promise<SessionResponseDto> {
-    const session = await this.authenticator.run({ ...body, ip });
+    const session = await this.authenticator.run(body);
 
     return toSessionResponse(
       session,

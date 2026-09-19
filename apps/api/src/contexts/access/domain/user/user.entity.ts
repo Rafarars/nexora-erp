@@ -96,10 +96,6 @@ export class User {
     return issuedAtMs >= this.sessionsValidFrom.getTime();
   }
 
-  closeOpenSessions(now: Date): void {
-    this.sessionsValidFrom = now;
-    this.updatedAt = now;
-  }
 
   rename(name: UserName, now: Date): void {
     this.name = name;

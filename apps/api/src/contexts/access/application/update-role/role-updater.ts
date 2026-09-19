@@ -1,4 +1,6 @@
 import { Clock } from '../../../../shared/domain/ports/clock.js';
+import { ActorAuthority } from '../authority/actor-authority.js';
+import { GrantPolicy } from '../../domain/authorize/grant-policy.js';
 import { CannotEditAdminRoleError } from '../../domain/errors/cannot-edit-admin-role.error.js';
 import { DuplicateRoleNameError } from '../../domain/errors/duplicate-role-name.error.js';
 import { RoleWithoutPermissionsError } from '../../domain/errors/role-without-permissions.error.js';
@@ -18,6 +20,7 @@ export class RoleUpdater {
     private readonly finder: RoleFinder,
     private readonly roles: RoleRepository,
     private readonly catalog: CatalogPermissions,
+    private readonly authority: ActorAuthority,
     private readonly clock: Clock,
   ) {}
 
@@ -42,6 +45,12 @@ export class RoleUpdater {
     }
 
     const wanted = this.catalog.ensureKnown(request.permissions);
+
+    // La puerta por la que se colaba la escalada: con `access.roles.update` bastaba editar
+    // el rol que uno mismo lleva y marcarlo todo. Un rol es acceso repartido, asi que pasa
+    // por la misma regla que repartirlo a mano.
+    GrantPolicy.ensureWithinReach(tenantId, await this.authority.of(tenantId, request.actorId), wanted);
+
     const now = this.clock.now();
 
     role.rename(name, now);

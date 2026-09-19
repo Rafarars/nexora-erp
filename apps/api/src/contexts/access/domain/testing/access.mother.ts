@@ -23,6 +23,11 @@ export const TENANT_B = '22222222-2222-4222-8222-222222222222';
 export const USER_A = '33333333-3333-4333-8333-333333333333';
 export const ROLE_A = '44444444-4444-4444-8444-444444444444';
 export const MEMBERSHIP_A = '55555555-5555-4555-8555-555555555555';
+// Quien hace el cambio en las pruebas de aplicacion: administra, asi que nada de lo que
+// reparte queda fuera de su alcance. Las reglas que se prueban no son las suyas.
+export const ACTOR = 'eeeeeeee-eeee-4eee-8eee-eeeeeeeeeeee';
+export const ACTOR_ROLE = 'dddddddd-dddd-4ddd-8ddd-dddddddddddd';
+export const ACTOR_MEMBERSHIP = 'cccccccc-cccc-4ccc-8ccc-cccccccccccc';
 
 export const VALID_HASH = '$argon2id$v=19$m=65536,t=3,p=4$c29tZXNhbHQ$aGFzaGVkdmFsdWU';
 
@@ -95,11 +100,46 @@ export function aRole(
   );
 }
 
-export function anAdminRole(overrides: { id?: string; tenantId?: string } = {}): Role {
+export function anAdminRole(
+  overrides: { id?: string; tenantId?: string; name?: string } = {},
+): Role {
   return Role.createAdmin(
     RoleId.of(overrides.id ?? ROLE_A),
     TenantId.of(overrides.tenantId ?? TENANT_A),
-    RoleName.of('Administrator'),
+    RoleName.of(overrides.name ?? 'Administrator'),
     NOW,
   );
+}
+
+// Quien actua SIN administrar: tiene el permiso puntual y nada mas. Sirve para probar lo
+// que pasa cuando el ultimo administrador es OTRA persona.
+export function anActingSupervisor(permissions: string[] = ['access.users.update'], tenantId = TENANT_A) {
+  return {
+    user: aUser({ id: ACTOR, email: 'actor@acme.com' }),
+    role: aRole({ id: ACTOR_ROLE, tenantId, name: 'Supervisor', permissions }),
+    membership: aMembership({
+      id: ACTOR_MEMBERSHIP,
+      userId: ACTOR,
+      tenantId,
+      roleIds: [ACTOR_ROLE],
+    }),
+  };
+}
+
+// El administrador que actua, listo para meter en el seed de un escenario. Los ids del rol
+// y de la membresia cambian con la empresa: el mismo actor puede administrar dos, y con
+// ids repetidos la segunda pisaria a la primera en los dobles.
+export function anActingAdministrator(tenantId = TENANT_A) {
+  const suffix = tenantId === TENANT_A ? 'd' : 'b';
+
+  return {
+    user: aUser({ id: ACTOR, email: 'actor@acme.com' }),
+    role: anAdminRole({ id: ACTOR_ROLE.replaceAll('d', suffix), tenantId }),
+    membership: aMembership({
+      id: ACTOR_MEMBERSHIP.replaceAll('c', suffix),
+      userId: ACTOR,
+      tenantId,
+      roleIds: [ACTOR_ROLE.replaceAll('d', suffix)],
+    }),
+  };
 }

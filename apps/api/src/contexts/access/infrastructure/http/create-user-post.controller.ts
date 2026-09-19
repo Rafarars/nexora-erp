@@ -19,6 +19,6 @@ export class CreateUserPostController {
     @Body(new ZodValidationPipe(createUserRequestSchema))
     body: CreateUserRequestDto,
   ): Promise<void> {
-    await this.creator.run({ ...body, tenantId: session.tenantId });
+    await this.creator.run({ ...body, tenantId: session.tenantId, actorId: session.userId });
   }
 }

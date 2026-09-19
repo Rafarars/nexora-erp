@@ -1,5 +1,6 @@
 import { Clock } from '../../../../shared/domain/ports/clock.js';
-import { SelfEscalationPolicy } from '../../domain/authorize/self-escalation-policy.js';
+import { ActorAuthority } from '../authority/actor-authority.js';
+import { GrantPolicy } from '../../domain/authorize/grant-policy.js';
 import { MembershipFinder } from '../../domain/membership/find/membership-finder.js';
 import { MembershipRepository } from '../../domain/membership/membership.repository.js';
 import { RoleFinder } from '../../domain/role/find/role-finder.js';
@@ -13,6 +14,7 @@ export class RoleAssigner {
     private readonly finder: MembershipFinder,
     private readonly roles: RoleFinder,
     private readonly memberships: MembershipRepository,
+    private readonly authority: ActorAuthority,
     private readonly clock: Clock,
   ) {}
 
@@ -21,11 +23,9 @@ export class RoleAssigner {
     const membership = await this.finder.findByUser(tenantId, UserId.of(request.userId));
     const role = await this.roles.find(tenantId, RoleId.of(request.roleId));
 
-    if (request.actorId === request.userId) {
-      const current = await this.roles.findAll(tenantId, membership.roles());
-
-      SelfEscalationPolicy.ensureGrantsNothingNew(tenantId, current, [...current, role]);
-    }
+    // A cualquiera, no solo a uno mismo: repartirlo a un companero complice y entrar con
+    // su cuenta llevaba al mismo sitio.
+    GrantPolicy.ensureRolesWithinReach(tenantId, await this.authority.of(tenantId, request.actorId), [role]);
 
     membership.assignRole(role.id, this.clock.now());
 

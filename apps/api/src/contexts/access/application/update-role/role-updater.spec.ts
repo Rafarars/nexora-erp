@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { RoleUpdater } from './role-updater.js';
 import { CannotEditAdminRoleError } from '../../domain/errors/cannot-edit-admin-role.error.js';
+import { CannotGrantSelfMoreAccessError } from '../../domain/errors/cannot-grant-self-more-access.error.js';
 import { DuplicateRoleNameError } from '../../domain/errors/duplicate-role-name.error.js';
 import { RoleWithoutPermissionsError } from '../../domain/errors/role-without-permissions.error.js';
 import { RoleNotFoundError } from '../../domain/errors/role-not-found.error.js';
@@ -8,19 +9,30 @@ import { UnknownPermissionError } from '../../domain/errors/unknown-permission.e
 import { RoleId } from '../../domain/role/role-id.vo.js';
 import { TenantId } from '../../domain/tenant/tenant-id.vo.js';
 import {
+  ACTOR,
   ROLE_A,
   TENANT_A,
   TENANT_B,
   aRole,
   aTenant,
+  anActingAdministrator,
+  anActingSupervisor,
   anAdminRole,
 } from '../../domain/testing/access.mother.js';
 import { anAccessScenario } from '../testing/access-scenario.js';
 
+// Quien edita administra: reparte dentro de su alcance.
+const actor = anActingAdministrator();
 const OTHER_ROLE = '88888888-8888-4888-8888-888888888888';
 
 function updaterFor(scenario: ReturnType<typeof anAccessScenario>) {
-  return new RoleUpdater(scenario.roleFinder, scenario.roles, scenario.catalog, scenario.clock);
+  return new RoleUpdater(
+    scenario.roleFinder,
+    scenario.roles,
+    scenario.catalog,
+    scenario.authority,
+    scenario.clock,
+  );
 }
 
 async function permissionsOf(
@@ -34,7 +46,9 @@ async function permissionsOf(
 function aScenario() {
   return anAccessScenario({
     tenants: [aTenant()],
-    roles: [aRole({ name: 'Ventas', permissions: ['access.users.search'] })],
+    users: [actor.user],
+    memberships: [actor.membership],
+    roles: [actor.role, aRole({ name: 'Ventas', permissions: ['access.users.search'] })],
   });
 }
 
@@ -44,6 +58,7 @@ describe('RoleUpdater', () => {
 
     await updaterFor(scenario).run({
       tenantId: TENANT_A,
+        actorId: ACTOR,
       roleId: ROLE_A,
       name: 'Ventas',
       permissions: ['access.users.search', 'access.users.create'],
@@ -57,13 +72,17 @@ describe('RoleUpdater', () => {
   it('removes a permission that is no longer checked', async () => {
     const scenario = anAccessScenario({
       tenants: [aTenant()],
+      users: [actor.user],
+      memberships: [actor.membership],
       roles: [
+        actor.role,
         aRole({ name: 'Ventas', permissions: ['access.users.search', 'access.users.create'] }),
       ],
     });
 
     await updaterFor(scenario).run({
       tenantId: TENANT_A,
+        actorId: ACTOR,
       roleId: ROLE_A,
       name: 'Ventas',
       permissions: ['access.users.search'],
@@ -76,7 +95,7 @@ describe('RoleUpdater', () => {
     const scenario = aScenario();
 
     await expect(
-      updaterFor(scenario).run({ tenantId: TENANT_A, roleId: ROLE_A, name: 'Ventas', permissions: [] }),
+      updaterFor(scenario).run({ tenantId: TENANT_A, actorId: ACTOR, roleId: ROLE_A, name: 'Ventas', permissions: [] }),
     ).rejects.toThrow(RoleWithoutPermissionsError);
 
     expect(await permissionsOf(scenario)).toEqual(['access.users.search']);
@@ -85,11 +104,12 @@ describe('RoleUpdater', () => {
   // La pantalla ya escondia su boton de editar; por la API se le podia cambiar el nombre y
   // seguia concediendolo todo.
   it('refuses to edit the role that grants everything', async () => {
-    const scenario = anAccessScenario({ tenants: [aTenant()], roles: [anAdminRole()] });
+    const scenario = anAccessScenario({ tenants: [aTenant()], users: [actor.user], memberships: [actor.membership], roles: [anAdminRole()] });
 
     await expect(
       updaterFor(scenario).run({
         tenantId: TENANT_A,
+        actorId: ACTOR,
         roleId: ROLE_A,
         name: 'Consulta basica',
         permissions: ['access.users.search'],
@@ -105,6 +125,7 @@ describe('RoleUpdater', () => {
 
     await updaterFor(scenario).run({
       tenantId: TENANT_A,
+        actorId: ACTOR,
       roleId: ROLE_A,
       name: 'Comercial',
       permissions: ['access.users.search'],
@@ -122,6 +143,7 @@ describe('RoleUpdater', () => {
     await expect(
       updaterFor(scenario).run({
         tenantId: TENANT_A,
+        actorId: ACTOR,
         roleId: ROLE_A,
         name: 'Ventas',
         permissions: ['access.users.search'],
@@ -132,12 +154,15 @@ describe('RoleUpdater', () => {
   it('rejects a name that another role already uses', async () => {
     const scenario = anAccessScenario({
       tenants: [aTenant()],
-      roles: [aRole({ name: 'Ventas' }), aRole({ id: OTHER_ROLE, name: 'Compras' })],
+      users: [actor.user],
+      memberships: [actor.membership],
+      roles: [actor.role, aRole({ name: 'Ventas' }), aRole({ id: OTHER_ROLE, name: 'Compras' })],
     });
 
     await expect(
       updaterFor(scenario).run({
         tenantId: TENANT_A,
+        actorId: ACTOR,
         roleId: ROLE_A,
         name: 'Compras',
         permissions: ['access.users.search'],
@@ -151,6 +176,7 @@ describe('RoleUpdater', () => {
     await expect(
       updaterFor(scenario).run({
         tenantId: TENANT_A,
+        actorId: ACTOR,
         roleId: ROLE_A,
         name: 'Ventas',
         permissions: ['ventas.borrar.todo'],
@@ -162,16 +188,66 @@ describe('RoleUpdater', () => {
   it('rejects a role of another tenant', async () => {
     const scenario = anAccessScenario({
       tenants: [aTenant(), aTenant({ id: TENANT_B, name: 'Globex', slug: 'globex' })],
-      roles: [aRole({ id: OTHER_ROLE, tenantId: TENANT_B })],
+      roles: [actor.role, aRole({ id: OTHER_ROLE, tenantId: TENANT_B })],
     });
 
     await expect(
       updaterFor(scenario).run({
         tenantId: TENANT_A,
+        actorId: ACTOR,
         roleId: OTHER_ROLE,
         name: 'Colado',
         permissions: ['access.users.search'],
       }),
     ).rejects.toThrow(RoleNotFoundError);
+  });
+
+  // Reproducido contra la API: con `access.roles.update` bastaba editar el rol que uno
+  // mismo lleva y marcarlo todo. Pasaba de 3 permisos a 89 en una peticion.
+  describe('widening a role you carry yourself', () => {
+    const supervisor = anActingSupervisor(['access.roles.update', 'access.users.search']);
+
+    it('refuses to add a permission the actor does not have', async () => {
+      const scenario = anAccessScenario({
+        tenants: [aTenant()],
+        users: [supervisor.user],
+        memberships: [supervisor.membership],
+        roles: [supervisor.role],
+      });
+
+      await expect(
+        updaterFor(scenario).run({
+          tenantId: TENANT_A,
+          actorId: supervisor.user.id.value,
+          roleId: supervisor.role.id.value,
+          name: 'Supervisor',
+          permissions: ['access.roles.update', 'access.users.search', 'access.users.create'],
+        }),
+      ).rejects.toThrow(CannotGrantSelfMoreAccessError);
+
+      const role = await scenario.roles.find(TenantId.of(TENANT_A), supervisor.role.id);
+      expect(role!.permissionCodes()).toHaveLength(2);
+    });
+
+    // Reducirlo o reordenarlo sigue siendo suyo: lo que se impide es ampliarlo.
+    it('lets the actor narrow a role they carry', async () => {
+      const scenario = anAccessScenario({
+        tenants: [aTenant()],
+        users: [supervisor.user],
+        memberships: [supervisor.membership],
+        roles: [supervisor.role],
+      });
+
+      await updaterFor(scenario).run({
+        tenantId: TENANT_A,
+        actorId: supervisor.user.id.value,
+        roleId: supervisor.role.id.value,
+        name: 'Supervisor',
+        permissions: ['access.roles.update'],
+      });
+
+      const role = await scenario.roles.find(TenantId.of(TENANT_A), supervisor.role.id);
+      expect(role!.permissionCodes().map((code) => code.value)).toEqual(['access.roles.update']);
+    });
   });
 });

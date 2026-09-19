@@ -458,6 +458,44 @@ export function describeAccessRepositoriesContract(
         expect(started).toHaveLength(2);
       });
 
+      // El caso que el de abajo NO cubre: la membresia es de Acme, y el rol de Globex. Lo
+      // filtra el tenantId del ROL, no el de la membresia.
+      it('does not count a membership carrying a role from another tenant', async () => {
+        await repos.roles.save(anAdminRole({ id: ADMIN_B, tenantId: TENANT_B }));
+        await repos.memberships.save(aMembership({ userId: USER_B, roleIds: [ADMIN_B] }));
+
+        expect(
+          await repos.administration.countAdministratorsExcept(
+            TenantId.of(TENANT_A),
+            UserId.of(USER_A),
+          ),
+        ).toBe(0);
+      });
+
+      // Dos roles que lo conceden todo no hacen dos administradoras.
+      it('counts a person with several roles only once', async () => {
+        await repos.roles.save(anAdminRole({ id: ADMIN_B, name: 'Second administrator' }));
+        await repos.memberships.save(aMembership({ userId: USER_B, roleIds: [ROLE_A, ADMIN_B] }));
+
+        expect(
+          await repos.administration.countAdministratorsExcept(
+            TenantId.of(TENANT_A),
+            UserId.of(USER_A),
+          ),
+        ).toBe(1);
+      });
+
+      it('does not count a membership with no roles at all', async () => {
+        await repos.memberships.save(aMembership({ userId: USER_B, roleIds: [] }));
+
+        expect(
+          await repos.administration.countAdministratorsExcept(
+            TenantId.of(TENANT_A),
+            UserId.of(USER_A),
+          ),
+        ).toBe(0);
+      });
+
       // El aislamiento otra vez: quien administra Globex no salva a Acme.
       it('does not count administrators of another tenant', async () => {
         await repos.roles.save(anAdminRole({ id: ADMIN_B, tenantId: TENANT_B }));

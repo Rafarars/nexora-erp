@@ -1,18 +1,9 @@
 import { Clock } from '../../../../shared/domain/ports/clock.js';
-import { LoginAttempt, LoginAttempts } from '../../domain/authenticate/login-attempts.js';
+import { LoginAttempts } from '../../domain/authenticate/login-attempts.js';
+import { Email } from '../../domain/user/email.vo.js';
 
 interface Entry {
   failures: number;
-  firstFailureAt: number;
-  lockedUntil: number;
-}
-
-// Por direccion se cuentan CUANTOS CORREOS INEXISTENTES DISTINTOS se prueban. No fallos, y
-// no cuentas reales: quien se equivoca de contrasena en su propia cuenta ya lo frena el
-// limite por correo, y contarlo aqui dejaria fuera a una oficina entera detras de una misma
-// salida a internet. Lo que esto frena es adivinar a quien hay.
-interface Sweep {
-  emails: Set<string>;
   firstFailureAt: number;
   lockedUntil: number;
 }
@@ -24,93 +15,61 @@ const SWEEP_AT = 1_000;
 // En memoria del proceso: suficiente con una sola instancia de la API. Con varias,
 // cada una contaria por su lado y el limite se multiplicaria; ahi hace falta Redis.
 export class InMemoryLoginAttempts implements LoginAttempts {
-  private readonly byEmail = new Map<string, Entry>();
-  private readonly byIp = new Map<string, Sweep>();
+  private readonly entries = new Map<string, Entry>();
 
   constructor(
-    private readonly maxFailuresPerEmail: number,
-    private readonly maxUnknownAccountsPerIp: number,
+    private readonly maxFailures: number,
     private readonly lockoutSeconds: number,
     private readonly clock: Clock,
   ) {}
 
-  async isLocked(attempt: LoginAttempt): Promise<boolean> {
+  async isLocked(email: Email): Promise<boolean> {
+    const entry = this.entries.get(email.value);
+
+    return entry !== undefined && entry.lockedUntil > this.now();
+  }
+
+  async recordFailure(email: Email): Promise<void> {
     const now = this.now();
-    const email = this.byEmail.get(attempt.email.value);
-    const ip = this.byIp.get(attempt.ip);
-
-    return (email?.lockedUntil ?? 0) > now || (ip?.lockedUntil ?? 0) > now;
-  }
-
-  async recordFailure(attempt: LoginAttempt, accountExists: boolean): Promise<void> {
-    this.countForEmail(attempt.email.value);
-
-    if (!accountExists) {
-      this.countForIp(attempt.ip, attempt.email.value);
-    }
-  }
-
-  // Solo el correo: acertar una contrasena no deberia limpiarle el rastro a quien lleva
-  // rato barriendo cuentas ajenas desde la misma direccion.
-  async reset(attempt: LoginAttempt): Promise<void> {
-    this.byEmail.delete(attempt.email.value);
-  }
-
-  private countForEmail(email: string): void {
-    const now = this.now();
-    const current = this.byEmail.get(email);
+    const current = this.entries.get(email.value);
     const entry = this.expired(current, now)
       ? { failures: 0, firstFailureAt: now, lockedUntil: 0 }
       : current!;
 
     entry.failures += 1;
 
-    if (entry.failures >= this.maxFailuresPerEmail) {
+    if (entry.failures >= this.maxFailures) {
       entry.lockedUntil = now + this.lockoutSeconds * 1000;
+      // La ventana arranca de nuevo al bloquear: sin esto, un fallo posterior podia caer
+      // fuera de la ventana vieja, reiniciar el contador y levantar el bloqueo antes.
+      entry.firstFailureAt = now;
     }
 
-    this.byEmail.set(email, entry);
-    this.sweepEmails();
+    this.entries.set(email.value, entry);
+    this.sweep();
   }
 
-  private countForIp(ip: string, email: string): void {
-    const now = this.now();
-    const current = this.byIp.get(ip);
-    const entry = this.expired(current, now)
-      ? { emails: new Set<string>(), firstFailureAt: now, lockedUntil: 0 }
-      : current!;
-
-    entry.emails.add(email);
-
-    if (entry.emails.size >= this.maxUnknownAccountsPerIp) {
-      entry.lockedUntil = now + this.lockoutSeconds * 1000;
-    }
-
-    this.byIp.set(ip, entry);
-    this.sweepIps();
+  async reset(email: Email): Promise<void> {
+    this.entries.delete(email.value);
   }
 
   private expired(entry: { firstFailureAt: number } | undefined, now: number): boolean {
     return !entry || now - entry.firstFailureAt > this.lockoutSeconds * 1000;
   }
 
-  private sweepEmails(): void {
-    if (this.byEmail.size <= SWEEP_AT) return;
-
-    const now = this.now();
-
-    for (const [key, entry] of this.byEmail) {
-      if (entry.lockedUntil <= now && this.expired(entry, now)) this.byEmail.delete(key);
+  // Solo borra las caducadas, asi que bajo ataque sostenido el mapa crece igual: acota el
+  // rastro de correos inventados, no el coste de un ataque en curso.
+  private sweep(): void {
+    if (this.entries.size <= SWEEP_AT) {
+      return;
     }
-  }
-
-  private sweepIps(): void {
-    if (this.byIp.size <= SWEEP_AT) return;
 
     const now = this.now();
 
-    for (const [key, entry] of this.byIp) {
-      if (entry.lockedUntil <= now && this.expired(entry, now)) this.byIp.delete(key);
+    for (const [key, entry] of this.entries) {
+      if (entry.lockedUntil <= now && this.expired(entry, now)) {
+        this.entries.delete(key);
+      }
     }
   }
 

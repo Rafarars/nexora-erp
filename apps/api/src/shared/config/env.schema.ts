@@ -20,10 +20,6 @@ export const envSchema = z
     JWT_TTL_SECONDS: z.coerce.number().int().positive().default(3600),
     // Intentos fallidos por correo antes de bloquear, y cuanto dura el bloqueo.
     LOGIN_MAX_FAILED_ATTEMPTS: z.coerce.number().int().positive().default(5),
-    // CORREOS INEXISTENTES distintos que pueden probarse desde una misma direccion.
-    // Equivocarse de contrasena en cuentas reales no cuenta aqui: eso es un despiste, y
-    // castigarlo dejaria fuera a una oficina entera.
-    LOGIN_MAX_UNKNOWN_ACCOUNTS_PER_IP: z.coerce.number().int().positive().default(20),
     LOGIN_LOCKOUT_SECONDS: z.coerce.number().int().positive().default(900),
   })
   .superRefine((env, ctx) => {

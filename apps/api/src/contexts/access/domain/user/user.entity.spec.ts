@@ -76,13 +76,5 @@ describe('User', () => {
       expect(user.acceptsSessionIssuedAt(issuedAt(NOW))).toBe(true);
     });
 
-    it('closes every open session on demand', () => {
-      const user = aUser();
-      const before = issuedAt(NOW);
-
-      user.closeOpenSessions(new Date(NOW.getTime() + 10 * SECOND));
-
-      expect(user.acceptsSessionIssuedAt(before)).toBe(false);
-    });
   });
 });

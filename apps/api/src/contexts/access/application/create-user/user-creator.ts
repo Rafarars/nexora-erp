@@ -1,3 +1,5 @@
+import { ActorAuthority } from '../authority/actor-authority.js';
+import { GrantPolicy } from '../../domain/authorize/grant-policy.js';
 import { MemberEnroller } from '../../domain/membership/enroll/member-enroller.js';
 import { RoleId } from '../../domain/role/role-id.vo.js';
 import { RoleFinder } from '../../domain/role/find/role-finder.js';
@@ -17,6 +19,7 @@ export class UserCreator {
     private readonly roles: RoleFinder,
     private readonly registrar: UserRegistrar,
     private readonly enroller: MemberEnroller,
+    private readonly authority: ActorAuthority,
   ) {}
 
   async run(request: UserCreatorRequest): Promise<void> {
@@ -27,6 +30,14 @@ export class UserCreator {
     const roles = await this.roles.findAll(
       tenant.id,
       (request.roleIds ?? []).map((id) => RoleId.of(id)),
+    );
+
+    // La otra puerta de la escalada: dar de alta una cuenta con el rol que lo concede todo
+    // y entrar con ella llega al mismo sitio que ascenderse uno mismo.
+    GrantPolicy.ensureRolesWithinReach(
+      tenant.id,
+      await this.authority.of(tenant.id, request.actorId),
+      roles,
     );
 
     // Se valida antes de escribir nada, junto con los roles.

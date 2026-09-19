@@ -1,5 +1,7 @@
 import { Clock } from '../../../../shared/domain/ports/clock.js';
 import { IdGenerator } from '../../../../shared/domain/ports/id-generator.js';
+import { ActorAuthority } from '../authority/actor-authority.js';
+import { GrantPolicy } from '../../domain/authorize/grant-policy.js';
 import { DuplicateRoleNameError } from '../../domain/errors/duplicate-role-name.error.js';
 import { RoleWithoutPermissionsError } from '../../domain/errors/role-without-permissions.error.js';
 import { PermissionCode } from '../../domain/role/permission-code.vo.js';
@@ -16,6 +18,7 @@ export class RoleCreator {
     private readonly roles: RoleRepository,
     private readonly catalog: CatalogPermissions,
     private readonly ids: IdGenerator,
+    private readonly authority: ActorAuthority,
     private readonly clock: Clock,
   ) {}
 
@@ -35,6 +38,13 @@ export class RoleCreator {
     }
 
     const permissions = this.catalog.ensureKnown(request.permissions);
+
+    // Crear un rol con mas de lo que uno tiene y asignarselo despues llega al mismo sitio.
+    GrantPolicy.ensureWithinReach(
+      tenantId,
+      await this.authority.of(tenantId, request.actorId),
+      permissions,
+    );
 
     await this.roles.save(
       Role.create(

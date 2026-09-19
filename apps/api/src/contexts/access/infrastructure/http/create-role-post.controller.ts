@@ -18,6 +18,6 @@ export class CreateRolePostController {
     @Session() session: CurrentSession,
     @Body(new ZodValidationPipe(roleRequestSchema)) body: RoleRequestDto,
   ): Promise<void> {
-    await this.creator.run({ ...body, tenantId: session.tenantId });
+    await this.creator.run({ ...body, tenantId: session.tenantId, actorId: session.userId });
   }
 }

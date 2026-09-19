@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { TenantUserUpdater } from './tenant-user-updater.js';
 import { MembershipNotFoundError } from '../../domain/errors/membership-not-found.error.js';
 import { CannotDropOwnAdminRoleError } from '../../domain/errors/cannot-drop-own-admin-role.error.js';
+import { CannotGrantSelfMoreAccessError } from '../../domain/errors/cannot-grant-self-more-access.error.js';
 import { LastAdministratorError } from '../../domain/errors/last-administrator.error.js';
 import { RoleNotFoundError } from '../../domain/errors/role-not-found.error.js';
 import { TenantId } from '../../domain/tenant/tenant-id.vo.js';
@@ -15,13 +16,16 @@ import {
   aRole,
   aTenant,
   aUser,
+  anActingAdministrator,
+  anActingSupervisor,
   anAdminRole,
 } from '../../domain/testing/access.mother.js';
 import { anAccessScenario } from '../testing/access-scenario.js';
 
 const OTHER_ROLE = '88888888-8888-4888-8888-888888888888';
 // Quien edita, cuando no es la propia persona: un administrador cambiando a otro.
-const OTHER_USER = '99999999-9999-4999-8999-999999999999';
+const actor = anActingAdministrator();
+const OTHER_USER = actor.user.id.value;
 
 function updaterFor(scenario: ReturnType<typeof anAccessScenario>) {
   return new TenantUserUpdater(
@@ -31,16 +35,17 @@ function updaterFor(scenario: ReturnType<typeof anAccessScenario>) {
     scenario.users,
     scenario.memberships,
     scenario.administration,
+    scenario.authority,
     scenario.clock,
   );
 }
 
 function aScenario() {
   return anAccessScenario({
-    users: [aUser()],
+    users: [actor.user, aUser()],
     tenants: [aTenant()],
-    roles: [aRole(), aRole({ id: OTHER_ROLE, name: 'Compras' })],
-    memberships: [aMembership({ roleIds: [ROLE_A] })],
+    roles: [actor.role, aRole(), aRole({ id: OTHER_ROLE, name: 'Compras' })],
+    memberships: [actor.membership, aMembership({ roleIds: [ROLE_A] })],
   });
 }
 
@@ -66,10 +71,10 @@ describe('TenantUserUpdater', () => {
   // y si eras el unico administrador nadie puede devolver el acceso.
   it('refuses to let someone take away their own administrator role', async () => {
     const scenario = anAccessScenario({
-      users: [aUser()],
+      users: [actor.user, aUser()],
       tenants: [aTenant()],
-      roles: [anAdminRole(), aRole({ id: OTHER_ROLE, name: 'Compras' })],
-      memberships: [aMembership({ roleIds: [ROLE_A] })],
+      roles: [actor.role, anAdminRole(), aRole({ id: OTHER_ROLE, name: 'Compras' })],
+      memberships: [actor.membership, aMembership({ roleIds: [ROLE_A] })],
     });
 
     await expect(
@@ -87,10 +92,10 @@ describe('TenantUserUpdater', () => {
   // la administracion, no tocarse a uno mismo.
   it('lets an administrator rename themselves and keep administering', async () => {
     const scenario = anAccessScenario({
-      users: [aUser()],
+      users: [actor.user, aUser()],
       tenants: [aTenant()],
-      roles: [anAdminRole(), aRole({ id: OTHER_ROLE, name: 'Compras' })],
-      memberships: [aMembership({ roleIds: [ROLE_A] })],
+      roles: [actor.role, anAdminRole(), aRole({ id: OTHER_ROLE, name: 'Compras' })],
+      memberships: [actor.membership, aMembership({ roleIds: [ROLE_A] })],
     });
 
     await updaterFor(scenario).run({ tenantId: TENANT_A, actorId: USER_A, userId: USER_A, name: 'Ana Maria', roleIds: [ROLE_A, OTHER_ROLE] });
@@ -123,9 +128,9 @@ describe('TenantUserUpdater', () => {
   // Aislamiento: no se edita a quien no esta en la empresa, ni se confirma que exista.
   it('rejects a person who does not belong to the tenant', async () => {
     const scenario = anAccessScenario({
-      users: [aUser()],
+      users: [actor.user, aUser()],
       tenants: [aTenant(), aTenant({ id: TENANT_B, name: 'Globex', slug: 'globex' })],
-      memberships: [aMembership({ tenantId: TENANT_B })],
+      memberships: [actor.membership, aMembership({ tenantId: TENANT_B })],
     });
 
     await expect(
@@ -154,24 +159,27 @@ describe('TenantUserUpdater', () => {
   // La guarda de arriba solo miraba el caso propio: otra persona podia quitarle la
   // administracion al ultimo que quedaba y dejar a la empresa sin gobierno.
   describe('the last administrator', () => {
-    const SECOND_ADMIN = 'cccccccc-cccc-4ccc-8ccc-cccccccccccc';
+    const SECOND_ADMIN = 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa';
     const SECOND_MEMBERSHIP = '77777777-7777-4777-8777-777777777777';
+    // Quien edita NO administra: si administrara, nunca seria el ultimo. Quitar un rol no
+    // pide alcance —solo concederlo lo pide—, asi que puede intentarlo igual.
+    const supervisor = anActingSupervisor();
 
     it('refuses to let anyone take it from the only one left', async () => {
       const scenario = anAccessScenario({
-        users: [aUser()],
+        users: [supervisor.user, aUser()],
         tenants: [aTenant()],
-        roles: [anAdminRole(), aRole({ id: OTHER_ROLE, name: 'Compras' })],
-        memberships: [aMembership({ roleIds: [ROLE_A] })],
+        roles: [supervisor.role, anAdminRole(), aRole({ id: OTHER_ROLE, name: 'Compras' })],
+        memberships: [supervisor.membership, aMembership({ roleIds: [ROLE_A] })],
       });
 
       await expect(
         updaterFor(scenario).run({
           tenantId: TENANT_A,
-          actorId: OTHER_USER,
+          actorId: supervisor.user.id.value,
           userId: USER_A,
           name: 'Ana',
-          roleIds: [OTHER_ROLE],
+          roleIds: [],
         }),
       ).rejects.toThrow(LastAdministratorError);
 
@@ -181,10 +189,11 @@ describe('TenantUserUpdater', () => {
 
     it('allows it while somebody else still administers', async () => {
       const scenario = anAccessScenario({
-        users: [aUser(), aUser({ id: SECOND_ADMIN, email: 'beto@acme.com' })],
+        users: [supervisor.user, aUser(), aUser({ id: SECOND_ADMIN, email: 'beto@acme.com' })],
         tenants: [aTenant()],
-        roles: [anAdminRole(), aRole({ id: OTHER_ROLE, name: 'Compras' })],
+        roles: [supervisor.role, anAdminRole(), aRole({ id: OTHER_ROLE, name: 'Compras' })],
         memberships: [
+          supervisor.membership,
           aMembership({ roleIds: [ROLE_A] }),
           aMembership({ id: SECOND_MEMBERSHIP, userId: SECOND_ADMIN, roleIds: [ROLE_A] }),
         ],
@@ -192,14 +201,35 @@ describe('TenantUserUpdater', () => {
 
       await updaterFor(scenario).run({
         tenantId: TENANT_A,
-        actorId: OTHER_USER,
+        actorId: supervisor.user.id.value,
         userId: USER_A,
         name: 'Ana',
-        roleIds: [OTHER_ROLE],
+        roleIds: [],
       });
 
       const membership = await scenario.memberships.findByUser(TenantId.of(TENANT_A), UserId.of(USER_A));
-      expect(membership!.roles().map((role) => role.value)).toEqual([OTHER_ROLE]);
+      expect(membership!.roles()).toEqual([]);
+    });
+
+    // La puerta que quedaba abierta: con solo `access.users.update`, dar de alta el rol que
+    // lo concede todo —a otro o a uno mismo— era ascender sin ser administrador.
+    it('refuses to hand the administrator role to anyone when the actor is not one', async () => {
+      const scenario = anAccessScenario({
+        users: [supervisor.user, aUser()],
+        tenants: [aTenant()],
+        roles: [supervisor.role, anAdminRole()],
+        memberships: [supervisor.membership, aMembership()],
+      });
+
+      await expect(
+        updaterFor(scenario).run({
+          tenantId: TENANT_A,
+          actorId: supervisor.user.id.value,
+          userId: USER_A,
+          name: 'Ana',
+          roleIds: [ROLE_A],
+        }),
+      ).rejects.toThrow(CannotGrantSelfMoreAccessError);
     });
   });
 });
