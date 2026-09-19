@@ -10,8 +10,12 @@ async function find(request: APIRequestContext, token: string, path: string, key
   return (await (await request.get(path, { headers: auth(token) })).json())[key].find((row: { id: string }) => row.id === id);
 }
 
-async function availabilityOf(request: APIRequestContext, token: string, itemId: string) {
-  const { availability } = await (await request.get(`${AVAILABILITY}?warehouseId=${ACME_INVENTORY.mainWarehouse}`, { headers: auth(token) })).json();
+// El listado pagina: hay que pedir el articulo de la prueba, no mirarlos todos.
+async function availabilityOf(request: APIRequestContext, token: string, itemId: string, sku?: string) {
+  const filtro = sku ? `&q=${encodeURIComponent(sku)}` : '';
+  const { availability } = await (
+    await request.get(`${AVAILABILITY}?warehouseId=${ACME_INVENTORY.mainWarehouse}${filtro}`, { headers: auth(token) })
+  ).json();
 
   return availability.find((row: { item: { id: string } }) => row.item.id === itemId);
 }
@@ -47,11 +51,11 @@ test.describe('sales orders', () => {
     const order = await aDraftSalesOrder(request, token, { customerId: customer.id, lines: [{ itemId: item.id, unitId: piece, quantity: 40, unitPrice: 2.5 }] });
 
     expect(order).toMatchObject({ code: expect.stringMatching(/^PED\d{6}$/), status: 'draft', totals: { subtotal: 100, tax: 0, total: 100 } });
-    expect(await availabilityOf(request, token, item.id)).toMatchObject({ onHand: 100, reserved: 0, available: 100 });
+    expect(await availabilityOf(request, token, item.id, item.sku)).toMatchObject({ onHand: 100, reserved: 0, available: 100 });
 
     expect((await put(request, token, `${SALES_ORDERS}/${order.id}/confirm`)).status()).toBe(200);
 
-    expect(await availabilityOf(request, token, item.id)).toMatchObject({ onHand: 100, reserved: 40, available: 60 });
+    expect(await availabilityOf(request, token, item.id, item.sku)).toMatchObject({ onHand: 100, reserved: 40, available: 60 });
   });
 
   // La regla central del pedido, a traves de toda la pila.
@@ -63,7 +67,7 @@ test.describe('sales orders', () => {
 
     expect(response.status()).toBe(409);
     expect((await response.json()).error).toBe('InsufficientAvailabilityError');
-    expect(await availabilityOf(request, token, item.id)).toMatchObject({ reserved: 70, available: 30 });
+    expect(await availabilityOf(request, token, item.id, item.sku)).toMatchObject({ reserved: 70, available: 30 });
   });
 
   test('lets only one of two simultaneous orders reserve when both do not fit', async ({ request }) => {
@@ -75,7 +79,7 @@ test.describe('sales orders', () => {
     const responses = await Promise.all([put(request, token, `${SALES_ORDERS}/${first.id}/confirm`), put(request, token, `${SALES_ORDERS}/${second.id}/confirm`)]);
 
     expect(responses.map((r) => r.status()).sort()).toEqual([200, 409]);
-    expect(await availabilityOf(request, token, item.id)).toMatchObject({ reserved: 6, available: 4 });
+    expect(await availabilityOf(request, token, item.id, item.sku)).toMatchObject({ reserved: 6, available: 4 });
   });
 });
 
@@ -86,7 +90,7 @@ test.describe('dispatches and invoices', () => {
 
     expect((await put(request, token, `${DISPATCHES}/${dispatch.id}/confirm`)).status()).toBe(200);
 
-    expect(await availabilityOf(request, token, item.id)).toMatchObject({ onHand: 85, reserved: 25, available: 60 });
+    expect(await availabilityOf(request, token, item.id, item.sku)).toMatchObject({ onHand: 85, reserved: 25, available: 60 });
     expect(await find(request, token, SALES_ORDERS, 'orders', order.id)).toMatchObject({ status: 'partially_dispatched', lines: [{ dispatchedQuantity: 15 }] });
 
     const { movements } = await (await request.get(`/api/v1/inventory/items/${item.id}/movements`, { headers: auth(token) })).json();
@@ -109,7 +113,7 @@ test.describe('dispatches and invoices', () => {
     due.setUTCDate(due.getUTCDate() + 15);
 
     expect(invoice).toMatchObject({ code: expect.stringMatching(/^FAC\d{6}$/), status: 'issued', issueDate: today, dueDate: due.toISOString().slice(0, 10), total: 25 });
-    expect(await availabilityOf(request, token, item.id)).toMatchObject({ onHand: 90 });
+    expect(await availabilityOf(request, token, item.id, item.sku)).toMatchObject({ onHand: 90 });
 
     const again = await request.post(INVOICES, { headers: auth(token), data: { dispatchId: dispatch.id } });
     expect([again.status(), (await again.json()).error]).toEqual([409, 'DispatchAlreadyInvoicedError']);
@@ -119,7 +123,7 @@ test.describe('dispatches and invoices', () => {
 
     expect((await put(request, token, `${INVOICES}/${invoice.id}/cancel`)).status()).toBe(200);
     expect((await put(request, token, `${DISPATCHES}/${dispatch.id}/cancel`)).status()).toBe(200);
-    expect(await availabilityOf(request, token, item.id)).toMatchObject({ onHand: 100, reserved: 40 });
+    expect(await availabilityOf(request, token, item.id, item.sku)).toMatchObject({ onHand: 100, reserved: 40 });
   });
 
   test('refuses a dispatch the warehouse no longer has, and changes nothing', async ({ request }) => {

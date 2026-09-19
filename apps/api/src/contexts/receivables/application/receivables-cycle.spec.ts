@@ -154,7 +154,7 @@ describe('receivables cycle', () => {
     const payment = await confirmed(s, [{ invoiceId: INVOICE, amount: 1 }]);
 
     await expect(s.cancelPayment.run({ tenantId: TENANT_B, paymentId: payment.id })).rejects.toThrow(PaymentNotFoundError);
-    expect(await s.searchPayments.run({ tenantId: TENANT_B })).toEqual({ payments: [] });
+    expect(await s.searchPayments.run({ tenantId: TENANT_B })).toMatchObject({ total: 0, payments: [] });
   });
 
   it('ages what is owed and blocks credit while something is overdue, again after a payment is cancelled', async () => {

@@ -39,7 +39,7 @@ test('the whole cycle from the screen: buy, receive, sell, dispatch and invoice'
   });
 
   await test.step('Entonces hay 240 unidades disponibles para vender', async () => {
-    await sales.open('disponibilidad');
+    await sales.open('disponibilidad', item.sku);
     await expect(sales.availableOf(item.sku, 'Principal')).toHaveText('240 un');
   });
 
@@ -51,7 +51,7 @@ test('the whole cycle from the screen: buy, receive, sell, dispatch and invoice'
   });
 
   await test.step('Entonces 96 unidades quedan reservadas y la existencia no se mueve', async () => {
-    await sales.open('disponibilidad');
+    await sales.open('disponibilidad', item.sku);
     await expect(sales.reservedOf(item.sku, 'Principal')).toHaveText('96 un');
     await expect(sales.availableOf(item.sku, 'Principal')).toHaveText('144 un');
     await inventory.openStock(item.sku);
@@ -138,17 +138,23 @@ test('a read-only role sees orders, invoices and availability but gets no way to
   await new LoginPage(page).signIn(ACCOUNTANT);
   const sales = new SalesPage(page);
 
-  await sales.open('pedidos');
+  // Los listados paginan: los documentos de la demostracion son los de codigo mas bajo, asi que
+  // cualquiera que otra prueba cree los empuja fuera de la primera pagina.
+  await sales.open('pedidos', 'PED000001');
   await expect(page.getByTestId('sales-order-status-PED000001')).toHaveText('Despachado en parte');
   await expect(page.getByTestId('new-sales-order')).toHaveCount(0);
+
+  await sales.search('pedidos', 'PED000002');
   await expect(page.getByTestId('sales-order-options-PED000002')).toHaveCount(0);
 
-  await sales.open('facturas');
+  await sales.open('facturas', 'FAC000001');
   await expect(page.getByTestId('invoice-status-FAC000001')).toHaveText('Emitida');
   await expect(page.getByTestId('invoice-due-FAC000001')).toHaveText('2026-09-22');
 
-  await sales.open('disponibilidad');
+  await sales.open('disponibilidad', 'AGUA-500');
   await expect(sales.reservedOf('AGUA-500', 'Principal')).toHaveText('72 un');
+
+  await sales.search('disponibilidad', 'DETERGENTE-1KG');
   await expect(sales.availableOf('DETERGENTE-1KG', 'Principal')).toHaveText('40 kg');
 });
 

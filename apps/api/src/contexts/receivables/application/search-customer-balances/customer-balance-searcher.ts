@@ -21,8 +21,25 @@ export interface CustomerBalanceResponse {
   aging: AgingTotals;
 }
 
+export interface CustomerBalanceSearcherResponse {
+  total: number;
+  limit: number;
+  offset: number;
+  hasMore: boolean;
+  customers: CustomerBalanceResponse[];
+  // La fila de totales de la pantalla: suma TODO lo que cumple el filtro, no la pagina. Sumar solo
+  // la pagina haria que la pantalla dijera que la empresa cobra veinte clientes.
+  totals: AgingTotals;
+}
+
+const DEFAULT_PAGE = 20;
+
 // La antiguedad de saldos: cuanto debe cada cliente, repartido por tramos, y cuanto credito le
-// queda. Solo aparecen los clientes que deben algo.
+// queda. Por defecto solo aparecen los clientes que deben algo.
+//
+// El saldo no es una columna, sale de restar lo cobrado a lo facturado: el libro baja los clientes
+// que cumplen el texto y aqui se calculan los saldos, se filtran, se suman los totales sobre todos
+// y solo al final se corta la pagina.
 export class CustomerBalanceSearcher {
   constructor(
     private readonly ledger: ReceivablesLedger,
@@ -30,16 +47,36 @@ export class CustomerBalanceSearcher {
     private readonly rates: DocumentRates,
   ) {}
 
-  async run(request: { tenantId: string }): Promise<{ customers: CustomerBalanceResponse[]; totals: AgingTotals }> {
+  async run(request: {
+    tenantId: string;
+    q?: string | null;
+    onlyWithBalance?: 'true' | 'false';
+    limit?: number;
+    offset?: number;
+  }): Promise<CustomerBalanceSearcherResponse> {
     const tenantId = TenantId.of(request.tenantId);
     const today = ReceivablesDate.of(await this.calendar.today(request.tenantId));
-    const [customers, invoices, decimals] = await Promise.all([this.ledger.customers(tenantId), this.ledger.invoices(tenantId), this.rates.amountDecimals(request.tenantId)]);
+    const [customers, invoices, decimals] = await Promise.all([
+      this.ledger.customers(tenantId, { text: request.q?.trim() ? request.q.trim() : null }),
+      this.ledger.invoices(tenantId),
+      this.rates.amountDecimals(request.tenantId),
+    ]);
+
+    const limit = request.limit ?? DEFAULT_PAGE;
+    const offset = request.offset ?? 0;
+    const matched = new Set(customers.map((customer) => customer.id));
+    const all = customers
+      .map((customer) => customerBalance(customer, invoices.filter((invoice) => invoice.customerId() === customer.id), today, decimals))
+      .filter((row) => request.onlyWithBalance === 'false' || row.balance > 0);
 
     return {
-      customers: customers
-        .map((customer) => customerBalance(customer, invoices.filter((invoice) => invoice.customerId() === customer.id), today, decimals))
-        .filter((row) => row.balance > 0),
-      totals: agingOf(invoices, today, decimals),
+      total: all.length,
+      limit,
+      offset,
+      hasMore: offset + Math.max(0, Math.min(limit, all.length - offset)) < all.length,
+      customers: all.slice(offset, offset + limit),
+      // Sobre las facturas de todos los clientes que cumplen el filtro, no las de la pagina.
+      totals: agingOf(invoices.filter((invoice) => matched.has(invoice.customerId())), today, decimals),
     };
   }
 }

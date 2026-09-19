@@ -1,7 +1,7 @@
 import { ConcurrentModificationError } from '../../../../shared/domain/concurrent-modification.error.js';
 import { PaymentNotEditableError, PaymentNotFoundError } from '../../domain/errors/receivables.errors.js';
 import { ReceivableInvoice, ReceivableInvoicePrimitives } from '../../domain/ledger/receivable-invoice.js';
-import { ReceivableCustomer, ReceivablesLedger } from '../../domain/ledger/receivables-ledger.js';
+import { ReceivableCustomer, ReceivableInvoiceFilter, ReceivablesLedger } from '../../domain/ledger/receivables-ledger.js';
 import { CustomerPayment, PaymentPrimitives } from '../../domain/payment/customer-payment.entity.js';
 import { PaymentRepository } from '../../domain/payment/payment.repository.js';
 import { PaymentPosting } from '../../domain/payment/posting/payment-posting.js';
@@ -35,11 +35,15 @@ export class InMemoryReceivablesStore {
 
   get ledger(): ReceivablesLedger {
     return {
-      customers: async (tenantId) =>
-        [...this.customerRows.values()]
+      customers: async (tenantId, filter = {}) => {
+        const text = filter.text?.toLowerCase() ?? null;
+
+        return [...this.customerRows.values()]
           .filter((row) => row.tenantId === tenantId.value)
-          .sort((a, b) => a.name.localeCompare(b.name))
-          .map(({ tenantId: _tenant, ...customer }) => ({ ...customer })),
+          .filter((row) => text === null || row.code.toLowerCase().includes(text) || row.name.toLowerCase().includes(text))
+          .sort((a, b) => a.name.localeCompare(b.name) || a.code.localeCompare(b.code))
+          .map(({ tenantId: _tenant, ...customer }) => ({ ...customer }));
+      },
       customer: async (tenantId, customerId) => {
         const row = this.customerRows.get(customerId);
 
@@ -74,6 +78,22 @@ export class InMemoryReceivablesStore {
           .filter((row) => row.tenantId === tenantId.value)
           .sort((a, b) => b.code.localeCompare(a.code))
           .map((row) => CustomerPayment.fromPrimitives(row)),
+      searchPage: async (tenantId, criteria) => {
+        const text = criteria.text?.toLowerCase() ?? null;
+        const matches = [...this.paymentRows.values()]
+          .filter((row) => row.tenantId === tenantId.value)
+          .filter((row) => !criteria.customerId || row.customerId === criteria.customerId)
+          .filter((row) => !criteria.status || row.status === criteria.status)
+          .filter((row) => !criteria.from || row.paymentDate >= criteria.from)
+          .filter((row) => !criteria.to || row.paymentDate <= criteria.to)
+          .filter((row) => text === null || row.code.toLowerCase().includes(text) || (row.reference ?? '').toLowerCase().includes(text))
+          .sort((a, b) => b.code.localeCompare(a.code) || a.id.localeCompare(b.id));
+
+        return {
+          payments: matches.slice(criteria.offset, criteria.offset + criteria.limit).map((row) => CustomerPayment.fromPrimitives(row)),
+          total: matches.length,
+        };
+      },
     };
   }
 
@@ -94,9 +114,16 @@ export class InMemoryReceivablesStore {
     };
   }
 
-  private invoicesOf(tenantId: string, filter: { customerId?: string; ids?: string[] }, excludedPayment?: string): ReceivableInvoice[] {
+  private invoicesOf(tenantId: string, filter: ReceivableInvoiceFilter, excludedPayment?: string): ReceivableInvoice[] {
+    const text = filter.text?.toLowerCase() ?? null;
+    const nameOf = (customerId: string) => this.customerRows.get(customerId)?.name ?? '';
+
     return [...this.invoiceRows.values()]
       .filter((row) => row.tenantId === tenantId && (!filter.customerId || row.customerId === filter.customerId) && (!filter.ids || filter.ids.includes(row.id)))
+      .filter((row) => !filter.onlyIssued || row.status === 'issued')
+      .filter((row) => !filter.from || row.dueDate >= filter.from)
+      .filter((row) => !filter.to || row.dueDate <= filter.to)
+      .filter((row) => text === null || row.code.toLowerCase().includes(text) || nameOf(row.customerId).toLowerCase().includes(text))
       .sort((a, b) => b.code.localeCompare(a.code))
       .map(({ tenantId: _tenant, ...row }) => ReceivableInvoice.of({ ...row, paid: this.paidOf(row.id, excludedPayment) }));
   }

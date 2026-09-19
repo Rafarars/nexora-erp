@@ -834,13 +834,15 @@ async function seedSales(prisma: PrismaClient): Promise<void> {
       id: SALES.acme.invoice, tenantId: ACME, code: 'FAC000001', dispatchId: SALES.acme.dispatch, orderId: SALES.acme.partialOrder, customerId: SALES.acme.delta,
       issueDate: date('2026-09-07'), dueDate: date('2026-09-22'), subtotal: 60, tax: 9.6, total: 69.6,
       ...dollarsAt(150.25), subtotalVes: 9015, taxVes: 1442.4, totalVes: 10457.4,
-      line: { id: SALES.acme.invoiceWater, itemId: acme.items.water, unitId: acme.units.box, quantity: 2, unitPrice: 30, taxRate: 16, subtotal: 60, tax: 9.6 },
+      // La linea de pedido que factura: sin ella la factura no se puede anular, porque no hay
+      // a donde devolver lo facturado.
+      line: { id: SALES.acme.invoiceWater, orderLineId: SALES.acme.partialWater, itemId: acme.items.water, unitId: acme.units.box, quantity: 2, unitPrice: 30, taxRate: 16, subtotal: 60, tax: 9.6 },
     },
     {
       id: SALES.globex.invoice, tenantId: GLOBEX, code: 'FAC000001', dispatchId: SALES.globex.dispatch, orderId: SALES.globex.partialOrder, customerId: SALES.globex.customer,
       issueDate: date('2026-09-06'), dueDate: date('2026-10-06'), subtotal: 70, tax: 11.2, total: 81.2,
       ...dollarsAt(141), subtotalVes: 9870, taxVes: 1579.2, totalVes: 11449.2,
-      line: { id: SALES.globex.invoiceFilter, itemId: globex.items.filter, unitId: globex.units.piece, quantity: 5, unitPrice: 14, taxRate: 16, subtotal: 70, tax: 11.2 },
+      line: { id: SALES.globex.invoiceFilter, orderLineId: SALES.globex.partialFilter, itemId: globex.items.filter, unitId: globex.units.piece, quantity: 5, unitPrice: 14, taxRate: 16, subtotal: 70, tax: 11.2 },
     },
   ];
 

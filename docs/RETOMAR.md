@@ -548,9 +548,15 @@ el doble en memoria se porta mejor que el adaptador real, el contrato pasa en ve
 **Continuar la revisión módulo por módulo con la skill `module-review`**, que es justo el método que salió de este
 piloto. El orden y el estado están en [`revision/README.md`](revision/README.md) § Orden y estado.
 
-**Inventario, Compras y Ventas están cerrados enteros.** El siguiente módulo es **Cuentas por
-cobrar** (límite de crédito, facturas por cobrar, cobros, antigüedad de saldos y estado de cuenta),
-y después quedan **Reportes** y **Acceso**.
+**Cinco módulos cerrados enteros**: Catálogo, Inventario, Compras, Ventas y Cuentas por cobrar.
+
+**Reportes y Acceso tienen una auditoría acotada, NO la revisión completa**
+([informe](revision/reportes/reportes-y-acceso.md)). Se les hicieron las dos preguntas que esta
+tanda demostró que rinden —¿alguna ruta responde distinto que sus gemelas?, ¿alguna cifra se
+calcula en más de un sitio?— y encontraron un defecto. **Lo que no se miró está escrito**: de dónde
+sale cada cifra del tablero y contra qué zona horaria calcula «este mes», qué pasa con las personas
+cuando un rol pierde un permiso, la caducidad de la sesión, y si las exportaciones a PDF y Excel
+usan el mismo cálculo que la pantalla. **Ese es el siguiente trabajo.**
 
 **Dos avisos para quien lo retome**, salidos de estas dos tandas:
 
@@ -626,6 +632,22 @@ autor en los otros seis documentos.
 ### Decisiones esperando a Rafael
 
 Ninguna bloquea el trabajo. Cada una trae lo que hace falta para decidirla sin releer nada más.
+
+**0. El cliente de contado se salta las dos protecciones de crédito.** *(abierta el 19-sep-2026, en
+la revisión de Cuentas por cobrar — [informe § C3](revision/cuentas-por-cobrar/cuentas-por-cobrar.md))*
+
+Reproducido: a un cliente con plazo 0 y **límite de crédito 1** se le emitió una factura de
+**98,60** sin una queja. La línea `if (paymentTermDays === 0) return` (`customer-credit.ts:18`) sale
+antes de las dos comprobaciones, así que se salta el límite **y el bloqueo por facturas vencidas**.
+
+- **No se construyó porque cambia lo que el negocio puede hacer**, no arregla un cálculo: forzar el
+  control bloquearía la venta de mostrador, donde se factura y se cobra en el mismo acto.
+- **Las dos lecturas son razonables.** Que un contado no consuma crédito tiene sentido; que un
+  `creditLimit` puesto a mano se ignore **en silencio** es justo lo que este proyecto le ha
+  reprochado tres veces al sistema de referencia.
+- **Recomendación, si quieres una:** aplicar siempre el bloqueo por **facturas vencidas** —eso no
+  tiene nada que ver con el plazo y es la mitad difícil de defender— y dejar el límite como está.
+  Una línea y una prueba.
 
 **1. La carrera entre desactivar una bodega y publicar en ella.** *(abierta el 19-sep-2026, en la revisión de Ajustes)*
 

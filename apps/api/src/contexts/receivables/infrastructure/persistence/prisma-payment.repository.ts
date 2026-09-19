@@ -3,7 +3,7 @@ import { ConcurrentModificationError } from '../../../../shared/domain/concurren
 import { PrismaService } from '../../../../shared/prisma/prisma.service.js';
 import { PaymentNotEditableError } from '../../domain/errors/receivables.errors.js';
 import { CustomerPayment, PaymentId } from '../../domain/payment/customer-payment.entity.js';
-import { PaymentRepository } from '../../domain/payment/payment.repository.js';
+import { PaymentCriteria, PaymentPage, PaymentRepository } from '../../domain/payment/payment.repository.js';
 import { TenantId } from '../../domain/shared/tenant-id.vo.js';
 import { PAYMENT_INCLUDE, asDate, paymentFromRow } from './receivables-rows.js';
 
@@ -46,5 +46,32 @@ export class PrismaPaymentRepository implements PaymentRepository {
     const rows = await this.prisma.customerPayment.findMany({ where: { tenantId: tenantId.value }, include: PAYMENT_INCLUDE, orderBy: { code: 'desc' } });
 
     return rows.map(paymentFromRow);
+  }
+
+  async searchPage(tenantId: TenantId, criteria: PaymentCriteria): Promise<PaymentPage> {
+    const text = criteria.text;
+    const where = {
+      tenantId: tenantId.value,
+      ...(criteria.customerId ? { customerId: criteria.customerId } : {}),
+      ...(criteria.status ? { status: criteria.status } : {}),
+      ...(criteria.from || criteria.to
+        ? { paymentDate: { ...(criteria.from ? { gte: asDate(criteria.from) } : {}), ...(criteria.to ? { lte: asDate(criteria.to) } : {}) } }
+        : {}),
+      ...(text
+        ? {
+            OR: [
+              { code: { contains: text, mode: 'insensitive' as const } },
+              { reference: { contains: text, mode: 'insensitive' as const } },
+            ],
+          }
+        : {}),
+    };
+    const [rows, total] = await Promise.all([
+      // El desempate por id evita que dos cobros se turnen entre paginas si compartieran codigo.
+      this.prisma.customerPayment.findMany({ where, include: PAYMENT_INCLUDE, orderBy: [{ code: 'desc' }, { id: 'asc' }], take: criteria.limit, skip: criteria.offset }),
+      this.prisma.customerPayment.count({ where }),
+    ]);
+
+    return { payments: rows.map(paymentFromRow), total };
   }
 }

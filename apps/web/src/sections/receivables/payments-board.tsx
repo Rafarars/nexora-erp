@@ -12,13 +12,28 @@ import { formatAmount } from '@/modules/purchasing/domain/purchasing';
 import { currencyOptions, formatRate, offersManualRate } from '@/modules/company/domain/company';
 import { DocumentRate } from '@/sections/shared/document-rate';
 import { PAYMENT_METHOD_LABELS, PAYMENT_STATUS_LABELS, customersWithDebt, overdueLabel, payableInvoices, paymentActions } from '@/modules/receivables/domain/receivables';
-import type { Payment, PaymentMethod, Receivable } from '@/modules/receivables/domain/receivables';
+import type { CustomerBalance, Payment, PaymentMethod, PaymentStatus, Receivable } from '@/modules/receivables/domain/receivables';
 import type { CompanySettings, Currency } from '@/modules/company/domain/company';
+import { Filter, Pager } from '@/sections/shared/filters';
 import { submitKeepingValues } from '@/shared/forms/submit-keeping-values';
+
+export interface PaymentSearch {
+  q: string;
+  customerId: string;
+  status: string;
+  from: string;
+  to: string;
+  page: number;
+  pageSize: number;
+  total: number;
+  hasMore: boolean;
+}
 
 export function PaymentsBoard({
   payments,
+  search,
   receivables,
+  customers,
   currencies,
   settings,
   canCreate,
@@ -27,7 +42,9 @@ export function PaymentsBoard({
   canCancel,
 }: {
   payments: Payment[];
+  search: PaymentSearch;
   receivables: Receivable[];
+  customers: CustomerBalance['customer'][];
   currencies: Currency[];
   settings: CompanySettings;
   canCreate: boolean;
@@ -73,6 +90,8 @@ export function PaymentsBoard({
           </button>
         ) : null}
       </div>
+
+      <PaymentFilters search={search} customers={customers} count={payments.length} />
 
       <FormError message={changeState.error} testId="payment-action-error" />
 
@@ -176,7 +195,7 @@ export function PaymentsBoard({
             {payments.length === 0 ? (
               <tr>
                 <td colSpan={7} className="text-muted px-4 py-6 text-center" data-testid="payments-empty">
-                  Todavía no hay cobros.
+                  Ningún cobro coincide con lo que buscas.
                 </td>
               </tr>
             ) : null}
@@ -366,5 +385,119 @@ function PaymentFields({
         ))}
       </fieldset>
     </>
+  );
+}
+
+function PaymentFilters({
+  search,
+  customers,
+  count,
+}: {
+  search: PaymentSearch;
+  customers: CustomerBalance['customer'][];
+  count: number;
+}) {
+  const pageHref = (page: number) =>
+    `/cuentas-por-cobrar/cobros?${new URLSearchParams({
+      ...(search.q ? { q: search.q } : {}),
+      ...(search.customerId ? { cliente: search.customerId } : {}),
+      ...(search.status ? { estado: search.status } : {}),
+      ...(search.from ? { desde: search.from } : {}),
+      ...(search.to ? { hasta: search.to } : {}),
+      ...(page > 1 ? { pagina: String(page) } : {}),
+    }).toString()}`;
+
+  return (
+    <div className="border-line space-y-3 rounded-lg border p-3">
+      {/* Un formulario GET: los filtros quedan en la direccion y se pueden compartir. */}
+      <form method="get" className="flex flex-wrap items-end gap-2" data-testid="payment-filter">
+        <Filter label="Buscar" htmlFor="payment-search">
+          <input
+            id="payment-search"
+            name="q"
+            defaultValue={search.q}
+            placeholder="Código del cobro o referencia"
+            data-testid="payment-search"
+            className="border-line bg-background w-72 rounded-md border px-3 py-2 text-sm"
+          />
+        </Filter>
+
+        {customers.length > 0 ? (
+          <Filter label="Cliente" htmlFor="payment-filter-customer">
+            <select
+              id="payment-filter-customer"
+              name="cliente"
+              defaultValue={search.customerId}
+              data-testid="payment-filter-customer"
+              className="border-line bg-background rounded-md border px-3 py-2 text-sm"
+            >
+              <option value="">Todos</option>
+              {customers.map((customer) => (
+                <option key={customer.id} value={customer.id}>
+                  {customer.name}
+                </option>
+              ))}
+            </select>
+          </Filter>
+        ) : null}
+
+        <Filter label="Estado" htmlFor="payment-filter-status">
+          <select
+            id="payment-filter-status"
+            name="estado"
+            defaultValue={search.status}
+            data-testid="payment-filter-status"
+            className="border-line bg-background rounded-md border px-3 py-2 text-sm"
+          >
+            <option value="">Todos</option>
+            {(Object.keys(PAYMENT_STATUS_LABELS) as PaymentStatus[]).map((status) => (
+              <option key={status} value={status}>
+                {PAYMENT_STATUS_LABELS[status]}
+              </option>
+            ))}
+          </select>
+        </Filter>
+
+        <Filter label="Desde" htmlFor="payment-filter-from">
+          <input
+            id="payment-filter-from"
+            name="desde"
+            type="date"
+            defaultValue={search.from}
+            data-testid="payment-filter-from"
+            className="border-line rounded-md border bg-transparent px-3 py-2 text-sm"
+          />
+        </Filter>
+
+        <Filter label="Hasta" htmlFor="payment-filter-to">
+          <input
+            id="payment-filter-to"
+            name="hasta"
+            type="date"
+            defaultValue={search.to}
+            data-testid="payment-filter-to"
+            className="border-line rounded-md border bg-transparent px-3 py-2 text-sm"
+          />
+        </Filter>
+
+        <button
+          type="submit"
+          data-testid="payment-filter-submit"
+          className="border-line hover:bg-surface rounded-md border px-3 py-2 text-sm"
+        >
+          Filtrar
+        </button>
+      </form>
+
+      <Pager
+        testId="payment"
+        page={search.page}
+        pageSize={search.pageSize}
+        count={count}
+        total={search.total}
+        hasMore={search.hasMore}
+        href={pageHref}
+      />
+    </div>
   );
 }

@@ -3,12 +3,23 @@ import type { Locator, Page } from '@playwright/test';
 
 type Section = 'pedidos' | 'despachos' | 'facturas' | 'disponibilidad' | 'clientes';
 
+const FILTER_PREFIX: Record<Section, string> = {
+  pedidos: 'sales-order',
+  despachos: 'dispatch',
+  facturas: 'invoice',
+  disponibilidad: 'availability',
+  clientes: 'customer',
+};
+
 // Las pantallas de ventas. Un pedido se busca por su cliente, un despacho por sus notas y una
 // factura por su cliente: los codigos los asigna el sistema.
+//
+// Los listados paginan de 20, asi que una prueba que busca un documento concreto NO puede darlo
+// por visible: `open` acepta un texto de busqueda y lo deja filtrado antes de mirar.
 export class SalesPage {
   constructor(private readonly page: Page) {}
 
-  async open(section: Section): Promise<void> {
+  async open(section: Section, search?: string): Promise<void> {
     // El modulo redirige a su primera seccion: si se elige la seccion antes de que termine esa
     // redireccion, la redireccion llega despues y deja la pantalla en la seccion equivocada.
     await this.page.getByTestId('nav-ventas').click();
@@ -20,6 +31,18 @@ export class SalesPage {
       await expect(this.page).toHaveURL(new RegExp(`/ventas/${section}`), { timeout: 2_000 });
     }).toPass();
     await expect(this.page.getByTestId('sales-nav')).toBeVisible();
+
+    if (search) await this.search(section, search);
+  }
+
+  // Filtra el listado para que el documento que la prueba busca este en la primera pagina.
+  async search(section: Section, text: string): Promise<void> {
+    const box = this.page.getByTestId(`${FILTER_PREFIX[section]}-search`);
+
+    await expect(box).toBeVisible();
+    await box.fill(text);
+    await this.page.getByTestId(`${FILTER_PREFIX[section]}-filter-submit`).click();
+    await expect(this.page).toHaveURL(/[?&]q=/);
   }
 
   orderOf(customer: string): Locator {

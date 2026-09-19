@@ -267,9 +267,23 @@ cada movimiento por su lado pierde fracciones: una factura de 100 € con abonos
 | Cobros | `GET/POST /api/v1/receivables/payments`, `PUT …/:paymentId` | `receivables.payments.{search,create,update}` |
 | Confirmar cobro | `PUT /api/v1/receivables/payments/:paymentId/confirm` | `receivables.payments.confirm` |
 | Anular cobro | `PUT /api/v1/receivables/payments/:paymentId/cancel` | `receivables.payments.cancel` |
-| Facturas por cobrar | `GET /api/v1/receivables/invoices?customerId=` | `receivables.balances.search` |
+| Facturas por cobrar | `GET /api/v1/receivables/invoices` | `receivables.balances.search` |
 | Antigüedad | `GET /api/v1/receivables/customers` | `receivables.balances.search` |
 | Estado de cuenta | `GET /api/v1/receivables/customers/:customerId/statement` | `receivables.statements.search` |
+
+Los tres listados se leen por páginas (`limit` ≤ 50, `offset`; por defecto 20) y devuelven
+`total`, `limit`, `offset` y `hasMore`:
+
+| Listado | Filtros |
+|---|---|
+| `GET /receivables/invoices` | `q` (código de factura o nombre de cliente), `customerId`, `status` (`pending`, `partially_paid`, `paid`), `from`/`to` (vencimiento), `onlyOverdue` |
+| `GET /receivables/payments` | `q` (código del cobro o referencia), `customerId`, `status` (`draft`, `confirmed`, `cancelled`), `from`/`to` (fecha del cobro) |
+| `GET /receivables/customers` | `q` (código o nombre), `onlyWithBalance` (por defecto `true`) |
+
+En `GET /receivables/customers`, `totals` suma **todos** los clientes que cumplen el filtro, no
+los de la página: si sumara la página, la fila de totales de la pantalla mentiría.
+
+Filtrar por un `customerId` de otra empresa responde **404**, no una lista vacía.
 
 Cuerpo de un cobro:
 
@@ -333,3 +347,22 @@ El rol **Consulta** ve cobros, saldos, antigüedad y estados de cuenta, pero no 
 | API | `tests/api/receivables.api.spec.ts` | Los tres del plan por HTTP (anular revierte, vencidas no facturan a crédito, estado de cuenta cuadra), contado, límite, concurrencia, **factura en dólares cobrada en bolívares con su diferencial**, tasa escrita para la moneda de la empresa |
 | Interfaz | `tests/ui/receivables.spec.ts` | Cobrar en parte y anular en pasos Dado/Cuando/Entonces, **cobrar en bolívares y ver el diferencial**, error de sobrecobro en español, facturar con vencidas desde Despachos, solo lectura |
 | Aislamiento | `tests/isolation/*` | 6 ataques a cobros, saldos y estados de cuenta de Globex |
+
+
+---
+
+## Listados
+
+Los tres paginan de 20 y devuelven `{ total, limit, offset, hasMore, … }`:
+
+| Listado | Busca por | Filtra por |
+|---|---|---|
+| Facturas por cobrar | Código de factura, nombre de cliente | Cliente, estado, rango de vencimiento, sólo vencidas |
+| Cobros | Código del cobro, referencia | Cliente, estado, rango de fechas |
+| Saldos por cliente | Código, nombre | Sólo con saldo |
+
+**Los totales que la pantalla enseña arriba suman todo lo que cumple el filtro, no la página.** Si
+sumaran sólo las veinte filas visibles, la cifra sería falsa en cuanto hubiera una segunda página.
+
+**Los esquemas son estrictos**: un parámetro que no exista responde `400` en vez de ignorarse, y un
+identificador mal escrito responde `400` en vez de fallar por dentro.

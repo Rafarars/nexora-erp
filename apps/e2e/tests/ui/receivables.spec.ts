@@ -17,7 +17,7 @@ test('collects part of an invoice from the screen and cancelling the payment giv
 
   await test.step('Dado que la administradora de Acme inició sesión y el cliente debe una factura de 100', async () => {
     await new LoginPage(page).signIn(ACME_ADMIN);
-    await receivables.open('facturas');
+    await receivables.open('facturas', invoice.code);
     await expect(page.getByTestId(`receivable-balance-${invoice.code}`)).toHaveText('100,00');
     await expect(page.getByTestId(`receivable-status-${invoice.code}`)).toHaveText('Pendiente');
   });
@@ -32,10 +32,10 @@ test('collects part of an invoice from the screen and cancelling the payment giv
   });
 
   await test.step('Entonces la factura debe 60, el cliente tiene 440 de crédito y el estado de cuenta lo cuadra', async () => {
-    await receivables.open('facturas');
+    await receivables.open('facturas', invoice.code);
     await expect(page.getByTestId(`receivable-balance-${invoice.code}`)).toHaveText('60,00');
     await expect(page.getByTestId(`receivable-status-${invoice.code}`)).toHaveText('Cobrada en parte');
-    await receivables.open('antiguedad');
+    await receivables.open('antiguedad', customer.name);
     await expect(page.getByTestId(`aging-balance-${customer.code}`)).toHaveText('60,00');
     await expect(page.getByTestId(`aging-credit-${customer.code}`)).toContainText('Disponible 440,00');
     await receivables.open('estado-de-cuenta');
@@ -51,7 +51,7 @@ test('collects part of an invoice from the screen and cancelling the payment giv
   });
 
   await test.step('Entonces la factura vuelve a deber 100', async () => {
-    await receivables.open('facturas');
+    await receivables.open('facturas', invoice.code);
     await expect(page.getByTestId(`receivable-balance-${invoice.code}`)).toHaveText('100,00');
     await expect(page.getByTestId(`receivable-status-${invoice.code}`)).toHaveText('Pendiente');
   });

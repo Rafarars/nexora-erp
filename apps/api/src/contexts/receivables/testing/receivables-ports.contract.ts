@@ -97,6 +97,33 @@ export function describeReceivablesPortsContract(implementation: string, createH
         await expect(ports.payments.save(second)).rejects.toThrow(ConcurrentModificationError);
         expect((await ports.payments.find(tenant, id))?.toPrimitives().method).toBe('cash');
       });
+
+      // Buscar y paginar es donde el doble y PostgreSQL se separan si nadie mira: mayusculas,
+      // campos nulos y el orden entre paginas.
+      it('pages the payments and filters them by text, customer, status and date', async () => {
+        const criteria = { text: null, customerId: null, status: null, from: null, to: null, limit: 10, offset: 0 };
+        const first = await draft([allocation(INVOICE, 10)]);
+        const second = await draft([allocation(OTHER_INVOICE, 5)], OTHER_CUSTOMER);
+        await confirm(second);
+        const code = (await ports.payments.find(tenant, first))!.toPrimitives().code;
+
+        expect((await ports.payments.searchPage(tenant, criteria)).total).toBe(2);
+        expect((await ports.payments.searchPage(tenant, { ...criteria, text: code.toLowerCase() })).payments.map((p) => p.id.value)).toEqual([first.value]);
+        expect((await ports.payments.searchPage(tenant, { ...criteria, text: 'trf' })).total).toBe(2);
+        expect((await ports.payments.searchPage(tenant, { ...criteria, customerId: OTHER_CUSTOMER })).payments.map((p) => p.id.value)).toEqual([second.value]);
+        expect((await ports.payments.searchPage(tenant, { ...criteria, status: 'confirmed' })).payments.map((p) => p.id.value)).toEqual([second.value]);
+        expect((await ports.payments.searchPage(tenant, { ...criteria, status: 'draft' })).total).toBe(1);
+        expect((await ports.payments.searchPage(tenant, { ...criteria, from: TODAY })).total).toBe(2);
+        expect((await ports.payments.searchPage(tenant, { ...criteria, to: '2026-01-14' })).total).toBe(0);
+
+        // Dos paginas de una fila no pueden devolver la misma: el orden tiene que desempatar.
+        const page1 = await ports.payments.searchPage(tenant, { ...criteria, limit: 1, offset: 0 });
+        const page2 = await ports.payments.searchPage(tenant, { ...criteria, limit: 1, offset: 1 });
+
+        expect(page1.total).toBe(2);
+        expect(page1.payments.map((p) => p.id.value)).not.toEqual(page2.payments.map((p) => p.id.value));
+        expect((await ports.payments.searchPage(TenantId.of(TENANT_B), criteria)).total).toBe(0);
+      });
     });
 
     describe('PaymentPosting', () => {
@@ -172,11 +199,33 @@ export function describeReceivablesPortsContract(implementation: string, createH
         expect(await ports.ledger.customer(tenant, FOREIGN_CUSTOMER)).toBeNull();
       });
 
+      it('filters customers by code or name and never crosses companies', async () => {
+        expect((await ports.ledger.customers(tenant, { text: 'contrato omega' })).map((row) => row.id)).toEqual([OTHER_CUSTOMER]);
+        expect((await ports.ledger.customers(tenant, { text: 'CLI900001' })).map((row) => row.id)).toEqual([CUSTOMER]);
+        expect((await ports.ledger.customers(tenant, { text: 'CONTRATO' })).map((row) => row.id)).toEqual([CUSTOMER, OTHER_CUSTOMER]);
+        expect((await ports.ledger.customers(TenantId.of(TENANT_B), { text: 'contrato' })).map((row) => row.id)).toEqual([FOREIGN_CUSTOMER]);
+      });
+
       it('filters invoices by customer or id and never crosses companies', async () => {
         expect((await ports.ledger.invoices(tenant)).map((row) => row.toPrimitives().code)).toEqual(['FAC900002', 'FAC900001']);
         expect((await ports.ledger.invoices(tenant, { customerId: OTHER_CUSTOMER })).map((row) => row.id)).toEqual([OTHER_INVOICE]);
         expect(await ports.ledger.invoices(tenant, { ids: [FOREIGN_INVOICE] })).toEqual([]);
         expect((await invoice()).toPrimitives()).toEqual({ id: INVOICE, code: 'FAC900002', customerId: CUSTOMER, issueDate: '2026-01-05', dueDate: '2026-01-20', status: 'issued', total: 100, ...DOLLARS, paid: 0 });
+      });
+
+      // El texto busca por codigo de factura y por nombre de cliente; las fechas, por vencimiento.
+      it('filters invoices by text, due date and whether they are still issued', async () => {
+        expect((await ports.ledger.invoices(tenant, { text: 'fac900002' })).map((row) => row.id)).toEqual([INVOICE]);
+        expect((await ports.ledger.invoices(tenant, { text: 'CONTRATO OMEGA' })).map((row) => row.id)).toEqual([OTHER_INVOICE]);
+        expect((await ports.ledger.invoices(tenant, { text: 'contrato' })).map((row) => row.id)).toEqual([INVOICE, OTHER_INVOICE]);
+        expect((await ports.ledger.invoices(tenant, { from: '2026-01-20' })).map((row) => row.id)).toEqual([INVOICE]);
+        expect((await ports.ledger.invoices(tenant, { to: '2026-01-02' })).map((row) => row.id)).toEqual([OTHER_INVOICE]);
+        expect((await ports.ledger.invoices(tenant, { from: '2026-01-03', to: '2026-01-19' }))).toEqual([]);
+
+        await harness.cancelInvoice(TENANT_A, INVOICE);
+
+        expect((await ports.ledger.invoices(tenant, { onlyIssued: true })).map((row) => row.id)).toEqual([OTHER_INVOICE]);
+        expect((await ports.ledger.invoices(tenant, { onlyIssued: true, text: 'fac900002' }))).toEqual([]);
       });
     });
 

@@ -15,23 +15,36 @@ export async function aCreditCustomer(request: APIRequestContext, token: string,
 
   expect(response.status(), await response.text()).toBe(201);
 
-  const { customers } = await (await request.get(`${baseUrl}${CUSTOMERS}`, { headers: auth(token) })).json();
+  // Los listados paginan: hay que pedir el que se acaba de crear, no mirarlos todos.
+  const { customers } = await (
+    await request.get(`${baseUrl}${CUSTOMERS}?q=${encodeURIComponent(name)}`, { headers: auth(token) })
+  ).json();
 
   return customers.find((customer: { name: string }) => customer.name === name) as { id: string; name: string; code: string };
 }
 
 // Un despacho confirmado de `quantity` unidades a `unitPrice`, sin impuesto: lo facturado es
 // quantity * unitPrice exacto. Articulo propio para no chocar con otras pruebas.
-export async function aConfirmedDispatch(request: APIRequestContext, token: string, customerId: string, quantity = 10, unitPrice = 10, baseUrl = '') {
+// La fecha viaja al pedido y al despacho: una factura vieja lo es porque lo que cobra tambien es
+// viejo, no porque se le haya puesto otra fecha encima.
+export async function aConfirmedDispatch(
+  request: APIRequestContext,
+  token: string,
+  customerId: string,
+  quantity = 10,
+  unitPrice = 10,
+  baseUrl = '',
+  date?: string,
+) {
   const item = await aStockedItem(request, token, quantity, baseUrl);
-  const order = await aDraftSalesOrder(request, token, { customerId, lines: [{ itemId: item.id, unitId: ACME_INVENTORY.piece, quantity, unitPrice }] }, baseUrl);
+  const order = await aDraftSalesOrder(request, token, { customerId, date, lines: [{ itemId: item.id, unitId: ACME_INVENTORY.piece, quantity, unitPrice }] }, baseUrl);
 
   expect((await request.put(`${baseUrl}${SALES_ORDERS}/${order.id}/confirm`, { headers: auth(token) })).status()).toBe(200);
 
   const confirmed = (
     await (await request.get(`${baseUrl}${SALES_ORDERS}?customerId=${order.customer.id}`, { headers: auth(token) })).json()
   ).orders.find((row: { id: string }) => row.id === order.id);
-  const dispatch = await aDraftDispatch(request, token, order.id, [{ orderLineId: confirmed.lines[0].id, quantity }], baseUrl);
+  const dispatch = await aDraftDispatch(request, token, order.id, [{ orderLineId: confirmed.lines[0].id, quantity }], baseUrl, date);
 
   expect((await request.put(`${baseUrl}${DISPATCHES}/${dispatch.id}/confirm`, { headers: auth(token) })).status()).toBe(200);
 
@@ -43,12 +56,14 @@ export async function issue(request: APIRequestContext, token: string, dispatchI
 }
 
 export async function anInvoice(request: APIRequestContext, token: string, customerId: string, amount = 100, date?: string, baseUrl = '') {
-  const dispatch = await aConfirmedDispatch(request, token, customerId, 10, amount / 10, baseUrl);
+  const dispatch = await aConfirmedDispatch(request, token, customerId, 10, amount / 10, baseUrl, date);
   const response = await issue(request, token, dispatch.id, date, baseUrl);
 
   expect(response.status(), await response.text()).toBe(201);
 
-  const { invoices } = await (await request.get(`${baseUrl}${INVOICES}`, { headers: auth(token) })).json();
+  const { invoices } = await (
+    await request.get(`${baseUrl}${INVOICES}?customerId=${customerId}`, { headers: auth(token) })
+  ).json();
 
   return invoices.find((invoice: { dispatch: { id: string } }) => invoice.dispatch.id === dispatch.id) as { id: string; code: string; total: number };
 }
@@ -59,7 +74,9 @@ export async function aDraftPayment(request: APIRequestContext, token: string, c
 
   expect(response.status(), await response.text()).toBe(201);
 
-  const { payments } = await (await request.get(`${baseUrl}${PAYMENTS}`, { headers: auth(token) })).json();
+  const { payments } = await (
+    await request.get(`${baseUrl}${PAYMENTS}?q=${encodeURIComponent(reference)}`, { headers: auth(token) })
+  ).json();
 
   return payments.find((payment: { reference: string }) => payment.reference === reference) as { id: string; code: string; amount: number };
 }

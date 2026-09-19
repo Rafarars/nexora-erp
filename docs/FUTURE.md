@@ -600,3 +600,22 @@ y no puede llevar a esa entrada; «En camino» nombra `OC000001` y no puede llev
 **Qué haría falta.** Tres rutas con su permiso, tres casos de uso que reutilicen la resolución de
 nombres de los buscadores —proveedor, bodega, artículos—, sus pruebas, y una fila por ruta en la
 matriz de aislamiento, porque son rutas que aceptan un identificador.
+
+## Unificar los tramos de antigüedad de saldos
+
+**Qué es.** Los cinco tramos —`current`, `days1To30`, `days31To60`, `days61To90`, `over90`— y la
+regla que decide en cuál cae cada factura están escritos **dos veces**:
+`receivables/domain/aging/aging.ts` y `reporting/domain/aging/aging.ts`.
+
+**Por qué no se hizo** (revisión de Cuentas por cobrar, 19-sep-2026). Hoy las dos coinciden, y se
+comprobó con el caso que las habría separado: una factura con 126 días de mora cae en `over90` en
+los tres sitios que la muestran. Unificarlas ahora cruzaría dos contextos que a propósito no se
+importan entre sí.
+
+**Qué haría falta.** Un contrato publicado entre `reporting` y `receivables`, como el que compras y
+el inventario ya usan para escribir el kardex: la regla vive en un sitio, el otro la consume por un
+puerto, y el contrato de puerto comprueba que los dos dicen lo mismo.
+
+**Por qué importa.** Son dos escrituras de la misma regla, y sólo una se actualiza cuando la regla
+cambia. Es exactamente la forma del defecto que la revisión de Ventas encontró en el reservado:
+tres cálculos que coincidían en todo menos en una palabra.

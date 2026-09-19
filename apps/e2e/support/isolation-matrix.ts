@@ -521,6 +521,12 @@ export const ISOLATION_CASES: IsolationCase[] = [
     path: `/api/v1/receivables/invoices?customerId=${GLOBEX.customerId}`,
   },
   {
+    route: 'GET /api/v1/receivables/payments',
+    title: 'filter the payments by a customer of another tenant',
+    method: 'get',
+    path: `/api/v1/receivables/payments?customerId=${GLOBEX.customerId}`,
+  },
+  {
     route: 'GET /api/v1/receivables/customers/:customerId/statement',
     title: 'read the statement of a customer of another tenant',
     method: 'get',

@@ -48,6 +48,36 @@ Es el patrón que en Ventas destapó el defecto grave del reservado, así que se
 **No se dio por bueno porque coincidieran con los datos de la demostración.** Para la antigüedad se
 montó el caso duro y los tres siguieron coincidiendo.
 
+### El documento de la demostración que no se podía anular (defecto encontrado)
+
+Se comprobó que un documento anulado desaparece de las cifras del tablero. El cobro sí:
+anularlo baja «cobrado este mes» de 30 a 0 y sube el saldo por cobrar de 39,60 a 69,60.
+
+Al intentar lo mismo con la factura, **apareció otra cosa**:
+
+```
+PUT /sales/invoices/{FAC000001}/cancel  -> 400 EmptyStringValueError
+     registro: "SalesOrderLineId cannot be empty"
+```
+
+**Y sólo le pasa a la factura de la demostración.** Una creada por la API —pedido, despacho,
+factura— se anula sin problema (`200`). La diferencia está en la base:
+
+```sql
+select code, order_line_id is null from invoice_lines … where code = 'FAC000001';
+FAC000001 | t      <-- sin la línea de pedido que factura
+```
+
+La semilla escribe las líneas de factura **con Prisma directo**, saltándose el dominio, y no
+guardaba `order_line_id`. Sin él, anular no tiene a dónde devolver lo facturado.
+
+**Es exactamente lo que el método avisa**: *los datos de ejemplo suelen documentar el defecto*.
+Aquí documentaban un estado que el sistema **no puede producir por sí mismo** — y cualquiera que
+abriera la demostración e intentara anular esa factura se habría topado con un error que no
+explica nada.
+
+**Corregido en la semilla**, en las dos empresas.
+
 ### Los listados de Acceso
 
 ```

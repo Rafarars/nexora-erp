@@ -19,8 +19,8 @@ export default async function StatementPage({ searchParams }: { searchParams: Pr
   }
 
   const { cliente } = await searchParams;
-  // Los clientes a elegir son los que alguna vez se facturaron.
-  const receivables = can(session, 'receivables.balances.search') ? await receivablesApi().searchReceivables(token) : [];
+  // Los clientes a elegir son los que alguna vez se facturaron, no solo los de una pagina.
+  const receivables = can(session, 'receivables.balances.search') ? await receivablesApi().allReceivables(token) : [];
   const customers = [...new Map(receivables.map((row) => [row.customer.id, row.customer.name])).entries()]
     .map(([id, name]) => ({ id, name }))
     .sort((a, b) => a.name.localeCompare(b.name));

@@ -64,9 +64,16 @@ export async function aDraftSalesOrder(
   return orders.find((order: { notes: string }) => order.notes === notes);
 }
 
-export async function aDraftDispatch(request: APIRequestContext, token: string, orderId: string, lines: { orderLineId: string; quantity: number }[], baseUrl = '') {
+export async function aDraftDispatch(
+  request: APIRequestContext,
+  token: string,
+  orderId: string,
+  lines: { orderLineId: string; quantity: number }[],
+  baseUrl = '',
+  date?: string,
+) {
   const notes = `e2e ${unique()}`;
-  const response = await request.post(`${baseUrl}${DISPATCHES}`, { headers: auth(token), data: { orderId, notes, lines } });
+  const response = await request.post(`${baseUrl}${DISPATCHES}`, { headers: auth(token), data: { orderId, notes, lines, date } });
 
   expect(response.status(), await response.text()).toBe(201);
 

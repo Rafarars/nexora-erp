@@ -94,29 +94,36 @@ Estados: ⬜ pendiente · 🔍 revisado, esperando decisiones · ✅ cerrado (de
 
 | Submódulo | Estado | Informe |
 |---|---|---|
-| Límite de crédito y facturas a crédito | ⬜ | |
-| Facturas por cobrar | ⬜ | |
-| Cobros | ⬜ | |
-| Antigüedad de saldos | ⬜ | |
-| Estado de cuenta | ⬜ | |
+| Límite de crédito y facturas a crédito | ✅ Cerrado. Con una decisión abierta: el cliente de contado se salta el control | [cuentas-por-cobrar/cuentas-por-cobrar.md](cuentas-por-cobrar/cuentas-por-cobrar.md) |
+| Facturas por cobrar | ✅ Cerrado. Listado paginado y con filtros; ya no falla por dentro | [cuentas-por-cobrar/cuentas-por-cobrar.md](cuentas-por-cobrar/cuentas-por-cobrar.md) |
+| Cobros | ✅ Cerrado. Las cuatro guardas comprobadas; listado paginado | [cuentas-por-cobrar/cuentas-por-cobrar.md](cuentas-por-cobrar/cuentas-por-cobrar.md) |
+| Antigüedad de saldos | ✅ Cerrado. Coincide en los tres sitios, comprobado con 126 días de mora | [cuentas-por-cobrar/cuentas-por-cobrar.md](cuentas-por-cobrar/cuentas-por-cobrar.md) |
+| Estado de cuenta | ✅ Cerrado. Ya no responde 500 por un identificador mal escrito | [cuentas-por-cobrar/cuentas-por-cobrar.md](cuentas-por-cobrar/cuentas-por-cobrar.md) |
 
 ### 6. Reportes
 
+**🔶 Auditoría acotada, no revisión completa.** Se comprobaron dos cosas —que ninguna ruta responde
+distinto que sus gemelas, y que las cifras duplicadas coinciden— y se encontró un defecto. Lo que
+no se miró está escrito en el informe.
+
 | Submódulo | Estado | Informe |
 |---|---|---|
-| Tablero | ⬜ | |
-| Antigüedad de saldos | ⬜ | |
-| Estado de cuenta | ⬜ | |
+| Tablero | 🔶 Sus cifras cuadran con los informes de origen; falta revisar periodo y anulados | [reportes/reportes-y-acceso.md](reportes/reportes-y-acceso.md) |
+| Antigüedad de saldos | ✅ Coincide con Cuentas por cobrar, comprobado con el caso duro | [reportes/reportes-y-acceso.md](reportes/reportes-y-acceso.md) |
+| Estado de cuenta | 🔶 Sin revisar a fondo | [reportes/reportes-y-acceso.md](reportes/reportes-y-acceso.md) |
 | Ventas por cliente | ⬜ | |
-| Valuación del inventario | ⬜ | |
+| Valuación del inventario | 🔶 Corregido su error interno; falta la revisión completa | [reportes/reportes-y-acceso.md](reportes/reportes-y-acceso.md) |
 
 ### 7. Acceso
+
+**🔶 Auditoría acotada, no revisión completa.** Sus rutas responden bien a un identificador
+inválido y sus listados no paginan **a propósito**: el porqué está en el informe.
 
 | Submódulo | Estado | Informe |
 |---|---|---|
 | Sesión | ⬜ | |
-| Personas de la empresa | ⬜ | |
-| Roles y permisos | ⬜ | |
+| Personas de la empresa | 🔶 Sin paginar, con el porqué escrito | [reportes/reportes-y-acceso.md](reportes/reportes-y-acceso.md) |
+| Roles y permisos | 🔶 Sin paginar, con el porqué escrito | [reportes/reportes-y-acceso.md](reportes/reportes-y-acceso.md) |
 | Perfil propio | ⬜ | |
 
 ## Temas por investigar y ubicar
