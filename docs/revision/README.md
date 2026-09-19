@@ -108,7 +108,7 @@ no se miró está escrito en el informe.
 
 | Submódulo | Estado | Informe |
 |---|---|---|
-| Tablero | 🔶 Sus cifras cuadran con los informes de origen; falta revisar periodo y anulados | [reportes/reportes-y-acceso.md](reportes/reportes-y-acceso.md) |
+| Tablero | ✅ Cifras cuadradas con sus informes de origen, anulados excluidos y periodo en la zona de la empresa, todo comprobado | [reportes/reportes-y-acceso.md](reportes/reportes-y-acceso.md) |
 | Antigüedad de saldos | ✅ Coincide con Cuentas por cobrar, comprobado con el caso duro | [reportes/reportes-y-acceso.md](reportes/reportes-y-acceso.md) |
 | Estado de cuenta | 🔶 Sin revisar a fondo | [reportes/reportes-y-acceso.md](reportes/reportes-y-acceso.md) |
 | Ventas por cliente | ⬜ | |
@@ -116,14 +116,14 @@ no se miró está escrito en el informe.
 
 ### 7. Acceso
 
-**🔶 Auditoría acotada, no revisión completa.** Sus rutas responden bien a un identificador
-inválido y sus listados no paginan **a propósito**: el porqué está en el informe.
+**🔶 Auditoría acotada, no revisión completa** — pero encontró un defecto grave: una empresa podía
+quedarse **sin nadie capaz de administrarla**. Lo que no se miró está escrito en el informe.
 
 | Submódulo | Estado | Informe |
 |---|---|---|
-| Sesión | ⬜ | |
-| Personas de la empresa | 🔶 Sin paginar, con el porqué escrito | [reportes/reportes-y-acceso.md](reportes/reportes-y-acceso.md) |
-| Roles y permisos | 🔶 Sin paginar, con el porqué escrito | [reportes/reportes-y-acceso.md](reportes/reportes-y-acceso.md) |
+| Sesión | 🔶 Se comprobó que desactivar a alguien corta su sesión al instante; falta revisar caducidad y revocación | [reportes/reportes-y-acceso.md](reportes/reportes-y-acceso.md) |
+| Personas de la empresa | ✅ **Ya no se puede uno quitar su propia administración.** Sin paginar, con el porqué escrito | [reportes/reportes-y-acceso.md](reportes/reportes-y-acceso.md) |
+| Roles y permisos | 🔶 Quitar un permiso surte efecto en la siguiente petición, comprobado; falta el resto | [reportes/reportes-y-acceso.md](reportes/reportes-y-acceso.md) |
 | Perfil propio | ⬜ | |
 
 ## Temas por investigar y ubicar

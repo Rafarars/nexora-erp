@@ -19,6 +19,6 @@ export class UpdateTenantUserPutController {
     @Param('userId') userId: string,
     @Body(new ZodValidationPipe(updateTenantUserRequestSchema)) body: UpdateTenantUserRequestDto,
   ): Promise<void> {
-    await this.updater.run({ ...body, userId, tenantId: session.tenantId });
+    await this.updater.run({ ...body, userId, tenantId: session.tenantId, actorId: session.userId });
   }
 }

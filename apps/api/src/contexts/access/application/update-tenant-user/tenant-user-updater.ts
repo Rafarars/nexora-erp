@@ -1,4 +1,5 @@
 import { Clock } from '../../../../shared/domain/ports/clock.js';
+import { CannotDropOwnAdminRoleError } from '../../domain/errors/cannot-drop-own-admin-role.error.js';
 import { MembershipFinder } from '../../domain/membership/find/membership-finder.js';
 import { MembershipRepository } from '../../domain/membership/membership.repository.js';
 import { RoleFinder } from '../../domain/role/find/role-finder.js';
@@ -11,6 +12,8 @@ import { UserRepository } from '../../domain/user/user.repository.js';
 
 export interface TenantUserUpdaterRequest {
   tenantId: string;
+  // Quien hace el cambio: hace falta para no dejarle quitarse a si mismo la administracion.
+  actorId: string;
   userId: string;
   name: string;
   roleIds: string[];
@@ -39,6 +42,14 @@ export class TenantUserUpdater {
     const roles = await this.roles.findAll(tenantId, request.roleIds.map((id) => RoleId.of(id)));
     const user = await this.users.find(userId);
     const now = this.clock.now();
+
+    // Desactivarse ya esta impedido; quitarse la administracion dejaria igual de fuera, y sin
+    // nadie que pueda devolver el acceso si era el unico administrador.
+    if (request.actorId === request.userId && !roles.some((role) => role.grantsEverything())) {
+      const current = await this.roles.findAll(tenantId, membership.roles());
+
+      if (current.some((role) => role.grantsEverything())) throw new CannotDropOwnAdminRoleError();
+    }
 
     user.rename(UserName.of(request.name), now);
     membership.replaceRoles(roles.map((role) => role.id), now);

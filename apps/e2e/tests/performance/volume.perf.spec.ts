@@ -34,12 +34,22 @@ async function medianMs(call: () => Promise<{ status(): number }>): Promise<numb
 }
 
 test.describe('performance guards on a tenant with volume', () => {
-  test('lists 5,000 receivable invoices under its threshold', async ({ request }) => {
+  // El listado pagina: lo que hay que medir es que traiga UNA pagina de las 5.000 sin degradarse,
+  // y que siga sabiendo cuantas hay. Antes afirmaba que devolvia las 5.000, que es justo lo que
+  // la paginacion vino a evitar.
+  test('pages through 5,000 receivable invoices under its threshold', async ({ request }) => {
     const headers = { authorization: `Bearer ${await volumeToken(request)}` };
-    const { receivables } = await (await request.get('/api/v1/receivables/invoices', { headers })).json();
+    const page = await (await request.get('/api/v1/receivables/invoices', { headers })).json();
 
-    expect(receivables).toHaveLength(5000);
+    expect(page.receivables).toHaveLength(20);
+    expect(page.total).toBe(5000);
+    expect(page.hasMore).toBe(true);
     expect(await medianMs(() => request.get('/api/v1/receivables/invoices', { headers }))).toBeLessThan(THRESHOLDS_MS.receivables);
+
+    // La ultima pagina cuesta lo mismo que la primera: si costara mas, el corte no llega a la base.
+    const last = `/api/v1/receivables/invoices?offset=${4980}`;
+
+    expect(await medianMs(() => request.get(last, { headers }))).toBeLessThan(THRESHOLDS_MS.receivables);
   });
 
   test('builds the dashboard under its threshold', async ({ request }) => {

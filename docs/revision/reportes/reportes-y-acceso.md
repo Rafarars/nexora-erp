@@ -78,6 +78,42 @@ explica nada.
 
 **Corregido en la semilla**, en las dos empresas.
 
+### La empresa que podía quedarse sin nadie que la administre (defecto grave)
+
+El sistema **ya tenía** la regla, y su comentario declara exactamente el riesgo:
+
+> ```
+> // Si el unico administrador pudiera desactivarse, la empresa se quedaria sin nadie
+> // capaz de devolverle el acceso.
+> export class CannotDeactivateSelfError extends ConflictError {
+> ```
+
+**Pero sólo cubría un camino de dos.** Reproducido contra la API:
+
+```
+PUT /users/{ana}/status {active:false}       -> 409  CannotDeactivateSelfError   (bien)
+PUT /users/{ana} {roleIds: []}               -> 200  se quita su propio rol
+GET /users                                   -> 403  PermissionDeniedError
+GET /roles                                   -> 403
+PUT /users/{ana} {roleIds:[administrador]}   -> 403  no puede devolvérselo
+```
+
+Ana se encerró fuera **en la misma sesión**, porque los permisos se releen de la base en cada
+petición. Si hubiera sido la única administradora, la empresa quedaría **sin nadie capaz de
+devolver el acceso** — que es, palabra por palabra, lo que el comentario dice que la regla existe
+para impedir.
+
+**Es el mismo patrón que esta sesión encontró cuatro veces**: el código afirma una intención que no
+cumple. Aquí la afirmación estaba escrita en un comentario, y bastó leerla para saber qué probar.
+
+**Construido:** `CannotDropOwnAdminRoleError`, la otra mitad de la regla. El caso de uso no recibía
+siquiera quién hacía el cambio —por eso no podía compararlo—, así que ahora recibe `actorId`, como
+ya hacía el de desactivación.
+
+**Y no estorba lo que sí debe poder hacerse**, comprobado contra la API: añadirse un rol sin soltar
+la administración pasa (`200`), y quitarle los roles **a otra persona** también (`200`). Lo único
+que se impide es quedarse uno mismo sin poder administrar.
+
 ### Los listados de Acceso
 
 ```
@@ -90,13 +126,34 @@ diseño. El único que crece con el uso es el de usuarios, y crece despacio. Pag
 sería aplicar una receta sin la necesidad que la justifica, que es justo lo que este proyecto
 decidió no hacer con los campos de la bodega y con el tipo «no inventariado».
 
+## Lo que se comprobó después, y salió bien
+
+- **El tablero excluye los anulados y los borradores en seis de sus siete cifras**, con filtro
+  explícito (`status='issued'` o `'confirmed'`). La séptima, `inventoryValue`, **no puede
+  excluirlos porque lee un saldo, no documentos**: depende de que el inventario revierta la
+  existencia al anular, que es justo lo que la revisión de Inventario comprobó.
+- **«Este mes» usa la zona horaria de la empresa, no la del servidor.** Sale del puerto
+  `BusinessCalendar` → `CompanyCalendar` → `Intl.DateTimeFormat('en-CA', { timeZone })`, y las
+  comparaciones son contra columnas de fecha sin hora, así que no hay desfase en la frontera del
+  día 1.
+- **Quitar un permiso a un rol surte efecto en la siguiente petición, sin volver a entrar.** El
+  token lleva los permisos, pero **el guardián no los mira**: sólo usa `userId` y `tenantId` y
+  recarga los roles de la base. Los permisos del token existen para que la interfaz pinte botones.
+- **Desactivar a alguien corta su sesión abierta al instante**, por la misma razón.
+- **Las cuatro exportaciones llaman al mismo caso de uso que la pantalla** con el mismo objeto de
+  petición: no repiten la consulta con otros filtros.
+
 ## Lo que NO se miró, y habría que mirar
 
-- **El tablero**: de dónde sale cada cifra, qué periodo cubre («este mes» contra qué zona horaria),
-  y si un documento anulado desaparece de él.
-- **Roles y permisos**: qué pasa con las personas que tienen un rol cuando ese rol pierde un
-  permiso, y si un rol se puede dejar sin ninguno.
-- **La sesión**: caducidad, renovación y cierre en todos los dispositivos.
-- **Las exportaciones** (PDF y Excel): si usan el mismo cálculo que la pantalla. Ya se sabe que
-  pasan por el mismo modelo de lectura, pero no se comprobó cifra a cifra.
+- **Las exportaciones redondean distinto que la pantalla**: la pantalla usa de 2 a 4 decimales y la
+  exportación fija 2, y **ninguno de los dos usa los decimales que la empresa configura**. Es la
+  misma familia del defecto que la revisión de Existencias encontró en el valor del inventario, y
+  merece su propia comprobación.
+- **La sesión**: dura una hora y **no se renueva ni se puede revocar en el servidor** — cerrar
+  sesión sólo borra la cookie, y el token sigue siendo válido hasta caducar. No existe «cerrar en
+  todos los dispositivos». Tampoco se miró si eso importa para este proyecto.
+- **El bloqueo por intentos fallidos se guarda en memoria del proceso**, así que con varias
+  instancias el límite se multiplica.
+- **Un rol puede quedarse sin ningún permiso**, y un rol no se puede borrar ni desactivar.
+- **Ventas por cliente**: sin revisar.
 - **El sistema de referencia**: no se leyó para ninguno de los dos módulos.

@@ -520,6 +520,34 @@ cliente, el precio mínimo y el precio sugerido en el pedido. Después, la fase 
 
 ---
 
+### Hecho el 19-sep-2026 · Cuatro módulos en una sesión, en revisiones **en lote**
+
+**Lo que se cerró:** Compras, Ventas y Cuentas por cobrar enteros, más una auditoría acotada de
+Reportes y Acceso. **Veintitrés hallazgos, dieciocho construidos**, cada uno reproducido contra la
+API antes de tocar código.
+
+**Los cinco que más pesan:**
+
+1. **Un proveedor se desactivaba con mercancía en camino** y se le seguía recibiendo.
+2. **«En camino» contaba los servicios** como mercancía esperada — y esa fila no se iba nunca,
+   porque un servicio no se puede recibir.
+3. **Lo reservado se calculaba en tres sitios con dos criterios**: la pantalla prometía cinco
+   unidades y el sistema rechazaba un pedido de cinco.
+4. **Un cliente se desactivaba con mercancía por salir** y se le seguía despachando.
+5. **Una empresa podía quedarse sin nadie capaz de administrarla**: desactivarse estaba impedido,
+   quitarse el propio rol no.
+
+**Los cuatro patrones que esta tanda convirtió en método** (escritos en el playbook y en la skill):
+
+- **El código que afirma una intención y no la cumple.** Cuatro veces: un comentario que decía
+  «se redondea igual que en el dominio» y no era igual; otro que declaraba «la empresa se quedaría
+  sin nadie» y sólo cubría un camino de dos; una invariante del estado de cuenta escrita en un
+  comentario; y la documentación funcional del proveedor. **Un comentario que afirma algo es una
+  afirmación verificable, no una explicación.**
+- **El doble que se porta mejor que la base**, que hace pasar el contrato en verde.
+- **La misma cifra calculada en varios sitios**, cinco apariciones.
+- **El maestro que se cierra con documentos vivos**, tres: bodega, proveedor, cliente.
+
 ### Hecho el 19-sep-2026 · Compras y Ventas enteros, en dos revisiones **en lote**
 
 Rafael pidió cambiar el método: auditar **todos los submódulos de un módulo en una sola pasada**,
@@ -549,6 +577,13 @@ el doble en memoria se porta mejor que el adaptador real, el contrato pasa en ve
 piloto. El orden y el estado están en [`revision/README.md`](revision/README.md) § Orden y estado.
 
 **Cinco módulos cerrados enteros**: Catálogo, Inventario, Compras, Ventas y Cuentas por cobrar.
+
+**Acceso dio el hallazgo más grave del día, aun con auditoría acotada:** una empresa podía quedarse
+**sin nadie capaz de administrarla**. Desactivarse estaba impedido, pero **quitarse el propio rol
+no**, y quien lo hacía se encerraba fuera en la misma sesión sin poder devolvérselo. El comentario
+del error que sí existía declaraba textualmente ese riesgo —«la empresa se quedaría sin nadie capaz
+de devolverle el acceso»— y sólo cubría un camino de dos. Construida la otra mitad
+(`CannotDropOwnAdminRoleError`).
 
 **Reportes y Acceso tienen una auditoría acotada, NO la revisión completa**
 ([informe](revision/reportes/reportes-y-acceso.md)). Se les hicieron las dos preguntas que esta
