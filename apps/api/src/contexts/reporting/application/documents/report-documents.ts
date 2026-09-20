@@ -1,7 +1,7 @@
 import { ReportCompany } from '../../domain/read-model/reporting-read-model.js';
 import { AGING_BUCKETS, AgingBucket } from '../../domain/aging/aging.js';
 import { ReportDocument } from '../../domain/document/report-document.js';
-import { formatAmount } from '../../domain/document/report-format.js';
+import { fileNamePart, formatAmount } from '../../domain/document/report-format.js';
 import { CustomerStatementResponse } from '../customer-statement/customer-statement-report.js';
 import { InventoryValuationResponse } from '../inventory-valuation/inventory-valuation-report.js';
 import { ReceivablesAgingResponse } from '../receivables-aging/receivables-aging-report.js';
@@ -88,7 +88,7 @@ export function salesByCustomerDocument(report: SalesByCustomerResponse, company
 
 export function inventoryValuationDocument(report: InventoryValuationResponse, company: string, asOf: string): ReportDocument {
   return {
-    fileName: `valuacion-de-inventario-${report.warehouseName ? `${report.warehouseName.toLowerCase().replace(/[^a-z0-9]+/g, '-')}-` : ''}${asOf}`,
+    fileName: ['valuacion-de-inventario', report.warehouseName ? fileNamePart(report.warehouseName) : '', asOf].filter(Boolean).join('-'),
     title: 'Valuación del inventario',
     subtitle: [company, report.warehouseName ? `Bodega ${report.warehouseName}` : 'Todas las bodegas', `Existencia al costo promedio · ${amountsIn(report.currency)}`],
     decimals: report.decimals,

@@ -20,6 +20,14 @@ describe('Uuid', () => {
     expect(TenantId.of(VALID).value).toBe(VALID);
   });
 
+  // PostgreSQL trata los dos iguales; los dobles en memoria comparan cadenas. Sin normalizar aqui,
+  // el mismo identificador en mayusculas se encontraba en la base y no en el doble, y el contrato
+  // de puerto pasaba en verde con los dos comportandose distinto.
+  it('keeps a uuid in lower case, however it was written', () => {
+    expect(TenantId.of(VALID.toUpperCase()).value).toBe(VALID);
+    expect(TenantId.of(VALID.toUpperCase()).equals(TenantId.of(VALID))).toBe(true);
+  });
+
   it('rejects a malformed uuid naming the concrete type', () => {
     expect(() => TenantId.of('not-a-uuid')).toThrow(InvalidUuidError);
     expect(() => TenantId.of('not-a-uuid')).toThrow(/TenantId must be a valid UUID/);

@@ -9,15 +9,13 @@ de ninguna conversación anterior**.
 
 ## Lo siguiente, en una línea
 
-**Revisar los tres submódulos de Reportes** —ventas por cliente, estado de cuenta y valuación del
-inventario—, que son los tres últimos que quedan. Después **las cuatro decisiones de Rafael**, y
-sólo entonces las **mejoras de diseño**. El detalle está en
+**Las cuatro decisiones que esperan a Rafael**, abajo en «Decisiones esperando a Rafael». Y sólo
+después, las **mejoras de diseño del sistema**. El detalle está en
 [«El plan para cerrar el sistema al 100 %»](#el-plan-para-cerrar-el-sistema-al-100--acordado-el-19-sep-2026).
 
-**Acceso quedó cerrado el 19-sep-2026**: doce hallazgos, once construidos y uno anotado
-([informe](revision/acceso/acceso.md)).
-
-**Veintiséis de veintinueve submódulos están cerrados.** El estado exacto de cada uno, en
+**Los veintinueve submódulos están revisados.** Acceso cerró el 19-sep-2026 con doce hallazgos
+([informe](revision/acceso/acceso.md)) y Reportes ese mismo día con doce, todos construidos
+([informe](revision/reportes/reportes.md)). El estado exacto de cada uno, en
 [`revision/README.md`](revision/README.md).
 
 ---
@@ -59,7 +57,7 @@ un cambio de API o de web no se ve en el navegador ni en la e2e hasta que se eje
 | **H5 — Ventas** | **Completado**. Informe en [`H5-VENTAS.md`](H5-VENTAS.md) |
 | **H6 — Cuentas por cobrar** | **Completado**. Informe en [`H6-CUENTAS-POR-COBRAR.md`](H6-CUENTAS-POR-COBRAR.md) |
 | **H7 — Reportes y tablero** | **Completado**. Informe en [`H7-REPORTES.md`](H7-REPORTES.md) |
-| **Revisión módulo por módulo** | **En curso**: Artículos **cerrado y revisado** (el piloto). El método ya es la skill `module-review`. Ver [la sección de abajo](#revisión-módulo-por-módulo) y [`revision/README.md`](revision/README.md) |
+| **Revisión módulo por módulo** | **Terminada el 19-sep-2026**: los veintinueve submódulos revisados, empezando por Artículos (el piloto). El método ya es la skill `module-review`. Ver [la sección de abajo](#revisión-módulo-por-módulo) y [`revision/README.md`](revision/README.md) |
 
 Lo que ya funciona: monorepo con API, frontend y suite E2E; PostgreSQL en Docker;
 endpoint de salud que verifica la base; CI con cuatro trabajos publicando el reporte;
@@ -593,7 +591,7 @@ Rafael fijó **este orden, y no se altera**:
 | | Qué | Por qué en ese sitio |
 |---|---|---|
 | ~~1º~~ | ~~**Acceso**~~ — **cerrado el 19-sep-2026**, once hallazgos construidos de doce | Era el que tenía peso real, y lo confirmó: una empresa podía quedarse sin nadie que la administrara por tres puertas distintas |
-| **2º** | **Reportes** — ventas por cliente, estado de cuenta, valuación del inventario | Más pequeños, y con un hallazgo ya anotado: las exportaciones redondean distinto que la pantalla |
+| ~~2º~~ | ~~**Reportes**~~ — **cerrado el 19-sep-2026**, doce hallazgos construidos | El hallazgo anotado se confirmó y creció: el PDF no sólo redondeaba distinto, es que **sus filas no sumaban su propio total** |
 | **3º** | **Las cuatro decisiones** que esperan a Rafael | Están abajo, cada una con su síntoma, su `archivo:línea` y su coste |
 | **4º** | **Mejoras de diseño del sistema** | **Sólo después de cerrar el 100 %.** Textual: «eso será luego de cerrar al 100 el sistema como tal» |
 
@@ -636,19 +634,53 @@ propósito —bloquear su correo con cinco intentos sigue siendo posible, y cerr
 retardo creciente en vez de un bloqueo—, llevar el conteo fuera de la memoria del proceso, y poder
 revocar una sesión concreta en vez de todas.
 
-#### 2º · Reportes — qué falta exactamente
+#### 2º · Reportes — cerrado el 19-sep-2026
 
-- **Ventas por cliente**: sin tocar, ni siquiera la auditoría acotada.
-- **Estado de cuenta de Reportes** (distinto del de Cuentas por cobrar): sin revisar a fondo.
-- **Valuación del inventario**: se le corrigió el error interno; falta la revisión completa.
-- **Hallazgo ya anotado, sin construir:** las exportaciones a PDF y Excel **redondean distinto que
-  la pantalla** —fijan 2 decimales (`report-values.ts:3-21`) frente a los 2-4 de la pantalla— y
-  **ninguna de las dos usa los decimales que la empresa configura**. Es la misma familia del
-  defecto que la revisión de Existencias encontró en el valor del inventario.
+Doce hallazgos, **todos construidos**: seis de leer y usar el módulo, y **seis de la revisión
+adversarial** —cinco sobre código de ese mismo día y uno preexistente—. El informe completo está en
+[`revision/reportes/reportes.md`](revision/reportes/reportes.md). Lo que cambió, en corto:
 
-**Ya comprobado y correcto**: seis de las siete cifras del tablero excluyen anulados y borradores;
-«este mes» usa la zona horaria de la empresa y no la del servidor; y las cuatro exportaciones
-llaman al **mismo caso de uso** que la pantalla, con el mismo objeto de petición.
+- **El PDF ya cuadra consigo mismo.** Fijaba dos decimales para los importes aunque la empresa puede
+  configurar cuatro: dos filas de 1,006 salían «1,01» y «1,01» y el total 2,012 salía «2,01», así
+  que lo que se veía sumaba 2,02 y el total decía otra cosa. Ahora los decimales viajan dentro del
+  documento y los escriben igual la pantalla, el PDF y el Excel. **Ojo con la nota vieja**: decía
+  que ninguna vía usaba `amountDecimals` y era inexacta —el SQL sí lo usaba; el formateo, no—.
+- **El PDF de una bodega vacía decía «Todas las bodegas»**, con el total en cero: el nombre salía de
+  la primera fila, y sin filas no había ninguna. Un papel que negaba el inventario de la empresa
+  entera. El puerto pasó de responder «¿existe?» a «¿cómo se llama?».
+- **Una sola notación numérica por documento.** La cabecera del estado de cuenta usaba `toFixed` y
+  escribía `1000.00` frente al `1.000,00` de su propia tabla.
+- **Los cuatro reportes paginan en pantalla y se exportan completos**, por decisión de Rafael. Los
+  totales cubren todas las filas, nunca la página: hay una prueba que lo defiende, y se comprobó
+  que falla si se calculan sobre la página.
+- Las cuatro descargas de valuación ya no se llaman igual, y dos búsquedas lineales dentro de
+  recorridos dejaron de serlo.
+
+**Lo que destapó la revisión adversarial.** Lo más grave NO era de ese día: `report-renderer.ts`
+bautizaba la hoja de Excel con el título del documento, y Excel prohíbe `* ? : \ / [ ]` en el
+nombre de una hoja. **Un cliente llamado «Comercial A/B» hacía que su estado de cuenta en Excel
+respondiera 500.** Llevaba ahí desde que existe el módulo.
+
+Sobre código de ese mismo día: el estado de cuenta
+**paginaba al revés de lo que rotulaba** —«1–2 de 5» enseñando las filas 4 y 5, y el saldo bajando
+al pulsar *Siguientes*—; el paginador **desaparecía** si el desplazamiento se pasaba del total,
+dejando una pantalla vacía sin enlace para volver; y un identificador **en mayúsculas** lo
+encontraba PostgreSQL y no el doble en memoria. Este último se arregló en la raíz —`Uuid` normaliza
+a minúsculas— así que alcanza a todos los contextos. **Es el quinto falso verde de esa familia en
+el proyecto.**
+
+**Ya comprobado y correcto**, para no volver a mirarlo: el valor del inventario coincide en
+Existencias, el informe y el tablero; los dos saldos del estado de cuenta **no pueden** divergir
+—se buscó el caso que los separaría y las dos puertas están cerradas—; la ruta de descarga del
+navegador es una lista blanca de cuatro rutas; seis de las siete cifras del tablero excluyen
+anulados y borradores; y «este mes» usa la zona horaria de la empresa.
+
+**Dos sospechas que se cayeron al comprobarlas**, para que nadie las persiga otra vez: la antigüedad
+**no** suma saldos negativos (`aging.ts:29` los descarta), y las consultas sin `ORDER BY` **no**
+dan orden inestable, porque los casos de uso ordenan en memoria.
+
+**La referencia no sirvió aquí**: `verlumyx/erp` no tiene módulo de reportes, y su tablero renderiza
+una pantalla vacía sin una sola cifra. El contraste se apoyó entero en el sector.
 
 ### Qué sigue
 

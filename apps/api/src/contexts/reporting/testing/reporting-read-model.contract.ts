@@ -193,6 +193,8 @@ export function describeReportingReadModelContract(implementation: string, creat
       // existencia no hay de donde sacarlo.
       expect(await readModel.warehouseNamed(tenant, NORTH)).toBe('Reporte norte');
       expect(await readModel.warehouseNamed(tenant, FOREIGN_WAREHOUSE)).toBe(null);
+      // En mayusculas es el mismo identificador. PostgreSQL ya lo trataba asi y el doble no.
+      expect(await readModel.warehouseNamed(tenant, NORTH.toUpperCase())).toBe('Reporte norte');
     });
   });
 }

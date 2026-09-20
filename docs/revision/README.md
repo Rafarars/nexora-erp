@@ -102,17 +102,20 @@ Estados: ⬜ pendiente · 🔍 revisado, esperando decisiones · ✅ cerrado (de
 
 ### 6. Reportes
 
-**🔶 Auditoría acotada, no revisión completa.** Se comprobaron dos cosas —que ninguna ruta responde
-distinto que sus gemelas, y que las cifras duplicadas coinciden— y se encontró un defecto. Lo que
-no se miró está escrito en el informe.
+**✅ Revisión completa** (19-sep-2026), en modo lote. **Doce hallazgos, todos construidos**: seis
+de leer y usar el módulo, y **seis más de la revisión adversarial** —cinco sobre código de ese mismo
+día y uno preexistente: un cliente llamado «Comercial A/B» tumbaba su estado de cuenta en Excel—. El módulo calculaba bien y enseñaba mal: el camino del número al papel perdía precisión,
+mezclaba notaciones y, en un caso, mentía sobre el alcance del documento. La referencia **no tiene
+informes** —su tablero renderiza una pantalla vacía—, así que el contraste se apoyó entero en el
+sector.
 
 | Submódulo | Estado | Informe |
 |---|---|---|
 | Tablero | ✅ Cifras cuadradas con sus informes de origen, anulados excluidos y periodo en la zona de la empresa, todo comprobado | [reportes/reportes-y-acceso.md](reportes/reportes-y-acceso.md) |
-| Antigüedad de saldos | ✅ Coincide con Cuentas por cobrar, comprobado con el caso duro | [reportes/reportes-y-acceso.md](reportes/reportes-y-acceso.md) |
-| Estado de cuenta | 🔶 Sin revisar a fondo | [reportes/reportes-y-acceso.md](reportes/reportes-y-acceso.md) |
-| Ventas por cliente | ⬜ | |
-| Valuación del inventario | 🔶 Corregido su error interno; falta la revisión completa | [reportes/reportes-y-acceso.md](reportes/reportes-y-acceso.md) |
+| Antigüedad de saldos | ✅ Coincide con Cuentas por cobrar, comprobado con el caso duro; ahora pagina y agrupa una sola vez | [reportes/reportes.md](reportes/reportes.md) |
+| Estado de cuenta | ✅ Cerrado. Una sola notación numérica por documento, paginado en orden de fecha y con el saldo corrido intacto | [reportes/reportes.md](reportes/reportes.md) |
+| Ventas por cliente | ✅ Cerrado. Importes con los decimales de la empresa y listado paginado | [reportes/reportes.md](reportes/reportes.md) |
+| Valuación del inventario | ✅ Cerrado. El PDF de una bodega vacía ya no dice «Todas las bodegas», y cada descarga se llama distinto | [reportes/reportes.md](reportes/reportes.md) |
 
 ### 7. Acceso
 

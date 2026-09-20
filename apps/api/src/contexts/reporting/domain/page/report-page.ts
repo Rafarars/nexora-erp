@@ -6,6 +6,9 @@ export interface ReportPage {
   total: number;
   limit: number;
   offset: number;
+  // Cuantas filas lleva ESTA pagina. Puede ser cero con total mayor que cero, si el desplazamiento
+  // se paso: la pantalla lo necesita para no rotular un rango que no existe.
+  rows: number;
   hasMore: boolean;
 }
 
@@ -24,5 +27,5 @@ export function pageOf<T>(rows: T[], limit?: number, offset?: number): { rows: T
   const size = limit ?? rows.length;
   const shown = rows.slice(from, from + size);
 
-  return { rows: shown, page: { total: rows.length, limit: size, offset: from, hasMore: from + shown.length < rows.length } };
+  return { rows: shown, page: { total: rows.length, limit: size, offset: from, rows: shown.length, hasMore: from + shown.length < rows.length } };
 }

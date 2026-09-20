@@ -71,8 +71,12 @@ export class InMemoryReportingReadModel implements ReportingReadModel {
     return this.of(this.customerRows, tenantId.value).sort((a, b) => a.name.localeCompare(b.name));
   }
 
+  // Sin distinguir mayusculas, como la columna uuid de PostgreSQL: el doble no puede ser mas
+  // estricto que la base, o el contrato pasa en verde con los dos comportandose distinto.
   async warehouseNamed(tenantId: { value: string }, warehouseId: string): Promise<string | null> {
-    return this.warehouseRows.find((row) => row.tenantId === tenantId.value && row.id === warehouseId)?.name ?? null;
+    const wanted = warehouseId.toLowerCase();
+
+    return this.warehouseRows.find((row) => row.tenantId === tenantId.value && row.id.toLowerCase() === wanted)?.name ?? null;
   }
 
   async issuedInvoices(tenantId: { value: string }, decimals: number, customerId?: string): Promise<ReportInvoice[]> {

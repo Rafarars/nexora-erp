@@ -68,9 +68,9 @@ export class CustomerStatementReport {
 
     const owed = invoices.map((invoice) => ({ dueDate: invoice.dueDate, units: amountUnits(invoice.balance) })).filter((row) => row.units > 0n);
 
-    // Se pagina el final, no el principio: el saldo corrido se lee de arriba abajo y lo ultimo es
-    // lo que importa, asi que la primera pagina ensena los movimientos mas recientes.
-    const shown = pageOf([...movements].reverse(), request.limit, request.offset);
+    // En orden de fecha, como se lee un estado de cuenta: el saldo corrido sube y baja de arriba
+    // abajo. Cuanto se debe hoy no depende de la pagina, va en el resumen de cabecera.
+    const shown = pageOf(movements, request.limit, request.offset);
 
     return {
       asOf: today.value,
@@ -80,7 +80,7 @@ export class CustomerStatementReport {
       customer,
       balance: unitsToNumber(owed.reduce((sum, row) => sum + row.units, 0n)),
       overdue: unitsToNumber(owed.filter((row) => row.dueDate < today.value).reduce((sum, row) => sum + row.units, 0n)),
-      movements: [...shown.rows].reverse(),
+      movements: shown.rows,
     };
   }
 }

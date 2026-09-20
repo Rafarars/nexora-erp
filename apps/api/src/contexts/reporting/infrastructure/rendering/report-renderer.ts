@@ -4,6 +4,11 @@ import PDFDocument from 'pdfkit';
 import { ExportFormat, RenderedReport, ReportDocument, ReportRenderer } from '../../domain/document/report-document.js';
 import { excelFormat, formatCell, isNumeric } from './report-values.js';
 
+// Excel prohibe estos caracteres en el nombre de una hoja y no avisa: revienta. El titulo lleva el
+// nombre del cliente, asi que uno llamado "Comercial A/B" tumbaba la descarga con un error interno.
+// El titulo entero se sigue escribiendo en la primera fila; esto solo bautiza la pestaña.
+const sheetName = (title: string) => title.replace(/[*?:\\/[\]]/g, '-').slice(0, 31).trim() || 'Reporte';
+
 // Escribe un documento como PDF (pdfkit, sin navegador) o Excel (exceljs). No decide contenido:
 // titulo, columnas, filas y totales llegan hechos.
 @Injectable()
@@ -18,7 +23,7 @@ export class PdfExcelReportRenderer implements ReportRenderer {
 // En Excel los numeros van como numeros, no como texto: quien lo abre puede sumar y filtrar.
 async function excel(document: ReportDocument): Promise<Uint8Array> {
   const workbook = new ExcelJS.Workbook();
-  const sheet = workbook.addWorksheet(document.title.slice(0, 31));
+  const sheet = workbook.addWorksheet(sheetName(document.title));
 
   sheet.addRow([document.title]).font = { bold: true, size: 14 };
   for (const line of document.subtitle) sheet.addRow([line]);

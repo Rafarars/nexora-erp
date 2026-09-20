@@ -715,3 +715,48 @@ una política de retención. **Ojo con lo que se guarda**: la dirección de red 
 personales, y el propio registro no puede convertirse en la lista de quién tiene cuenta.
 Curiosamente el sistema de referencia tampoco lo hace **en su módulo de acceso**, aunque sí usa
 `created_by` en el resto de sus módulos.
+
+## Enseñar en la valuación los artículos con existencia cero
+
+**Qué es.** El informe de valuación sólo trae lo que tiene existencia distinta de cero
+(`prisma-reporting-read-model.ts:177`). Un artículo que se agotó desaparece del papel, y quien lo
+busca no sabe si vale cero o si no existe.
+
+**Por qué no se hizo** (revisión de Reportes, 19-sep-2026). Excluirlos es el comportamiento por
+omisión del sector, así que el defecto no es excluirlos: es no poder pedirlos. Nadie lo ha pedido
+todavía, y añade una casilla más a una pantalla que hoy sólo filtra por bodega.
+
+**Qué haría falta.** Una casilla «incluir existencia cero» en la pantalla y en el DTO, que llegue
+hasta la consulta. El listado de existencias ya tiene el parámetro resuelto (`includeEmpty`), así
+que hay patrón que copiar. Decidir si la exportación la hereda de la pantalla o sale siempre igual.
+
+## Que la base de datos no lea de más al paginar un reporte
+
+**Qué es.** Los reportes paginan **después** de calcular, en la aplicación
+(`domain/page/report-page.ts`). La página que se envía es pequeña, pero PostgreSQL sigue leyendo y
+sumando todas las filas en cada petición.
+
+**Por qué no se hizo** (revisión de Reportes, 19-sep-2026). Es deliberado, no un descuido: los
+totales de un reporte tienen que cubrir todas las filas, y un total que cambiara al pasar de página
+no serviría para cuadrar nada. Con el volumen de hoy —50 clientes, 5.000 facturas— el informe
+responde de sobra dentro de su umbral.
+
+**Qué haría falta.** Dos consultas en vez de una: una de agregado para los totales y otra con
+`LIMIT`/`OFFSET` para las filas, cuidando que las dos vean lo mismo. Y decidir qué pasa con el
+ordenamiento, que hoy se hace en memoria sobre el conjunto completo —por total descendente en
+ventas por cliente, por nombre de bodega y SKU en la valuación—: llevarlo a SQL cambia el criterio
+de desempate.
+
+## Llevar los decimales de la empresa también al costo y a la cantidad
+
+**Qué es.** Los importes ya se escriben con los decimales que configura la empresa. La **cantidad**
+(hasta 4) y el **costo** (hasta 6) siguen con el suyo escrito a mano en
+`domain/document/report-format.ts`, y la pantalla usa un mínimo distinto: un costo de 0,5 se lee
+`0,5` en la pantalla y `0,50` en el PDF.
+
+**Por qué no se hizo** (revisión de Reportes, 19-sep-2026). No produce un documento que no cuadre
+—que era el defecto de los importes— y la empresa tiene un parámetro propio para los precios
+(`priceDecimals`), así que antes hay que decidir cuál manda sobre el costo de un reporte.
+
+**Qué haría falta.** Decidir el parámetro, hacerlo viajar en el documento como ya viaja
+`decimals`, y alinear los formateadores de la pantalla en el mismo movimiento.

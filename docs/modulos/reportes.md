@@ -27,12 +27,19 @@ hay reportes configurables por el usuario ni envíos programados ([FUTURE.md](..
 2. **El archivo es el mismo reporte, no otro cálculo.** Descargar corre el reporte de la pantalla, lo
    convierte en un documento (título, filtros, columnas, filas, totales) y ese documento se escribe
    como PDF o Excel. Por eso lo que se ve y lo que se descarga no pueden diferir.
-3. **En Excel los números son números.** Se pueden sumar, ordenar y filtrar; el formato (dos
-   decimales, miles) es solo de presentación.
-4. **Todo en enteros.** Sumar miles de facturas en coma flotante deja restos; los importes se llevan en
+3. **Y tampoco difieren al escribirlos.** Los decimales que configura la empresa viajan dentro del
+   documento, así que la pantalla, el PDF y el Excel escriben cada importe igual. Hasta el
+   19-sep-2026 el PDF y el Excel los fijaban en dos por su cuenta, y con una empresa de cuatro las
+   filas visibles dejaban de sumar el total visible.
+4. **En Excel los números son números.** Se pueden sumar, ordenar y filtrar; el formato es solo de
+   presentación.
+5. **Todo en enteros.** Sumar miles de facturas en coma flotante deja restos; los importes se llevan en
    diezmilésimas y se redondean a los decimales de importe de la empresa (`amount_decimals`).
-5. **Todo en la moneda de la empresa** (§0): un reporte nunca suma euros con dólares.
-6. **Cada reporte tiene su permiso.** El que muestra costos (valuación) no lo ve cualquiera.
+6. **Todo en la moneda de la empresa** (§0): un reporte nunca suma euros con dólares.
+7. **Cada reporte tiene su permiso.** El que muestra costos (valuación) no lo ve cualquiera.
+8. **La pantalla pagina; el archivo sale completo.** Un documento impreso tiene que traerlo todo, y
+   una pantalla no puede traer diez mil filas. **Los totales cubren siempre todas las filas**, nunca
+   la página enviada: un total que cambiara al pasar de página no serviría para cuadrar nada.
 
 ---
 
@@ -106,6 +113,10 @@ cliente. Encabezado: empresa, código e identificación fiscal del cliente, plaz
 saldo y vencido. En la pantalla se elige entre los clientes con saldo; por API sirve para cualquier
 cliente de la empresa. Uno de otra empresa responde **404**.
 
+Los movimientos van **en orden de fecha**, y el saldo de cada renglón es el acumulado desde el
+principio: también en la segunda página, donde no empieza de cero. **El saldo y el vencido de la
+cabecera no dependen de la página**: salen de las facturas, no de los movimientos que se envían.
+
 ---
 
 ## 4. Ventas por cliente
@@ -130,6 +141,11 @@ total 69,60.
 Por artículo y bodega con existencia distinta de cero: existencia en **unidad base**, costo promedio y
 valor (existencia × costo, redondeado a céntimos por fila), con el total. Filtro opcional por bodega;
 una bodega de otra empresa responde **404**.
+
+**Una bodega vacía sigue diciendo su nombre.** El documento no lo deduce de las filas —no las hay—,
+lo pregunta. Hasta el 19-sep-2026 el PDF de una bodega vacía se titulaba «Todas las bodegas» con el
+total en cero, y quien lo imprimía tenía un papel que negaba el inventario de la empresa entera. El
+archivo descargado lleva la bodega y la fecha en su nombre.
 
 **Ejemplo (Acme, Principal):** agua 288 un × 0,50 = 144,00.
 

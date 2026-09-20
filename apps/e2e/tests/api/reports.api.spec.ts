@@ -108,6 +108,28 @@ test.describe('exports', () => {
     expect(text).toContain('212,50');
   });
 
+  // El nombre de la bodega salia de la primera fila del reporte. Una bodega vacia no tiene filas,
+  // asi que el PDF decia "Todas las bodegas" con el total en cero: un papel que niega el inventario
+  // de toda la empresa cuando solo se pregunto por una bodega.
+  test('the valuation PDF of an empty warehouse names that warehouse, not all of them', async ({ request }) => {
+    const token = await tokenFor(request, 'ana@acme.com');
+    const name = `Vacia ${Date.now()}`;
+    const created = await request.post('/api/v1/catalog/warehouses', { headers: auth(token), data: { code: `VAC${Date.now() % 100000}`, name } });
+
+    expect(created.status()).toBe(201);
+
+    const list = await (await request.get('/api/v1/catalog/warehouses?limit=200', { headers: auth(token) })).json();
+    const warehouse = list.warehouses.find((row: { name: string }) => row.name === name);
+
+    const report = await (await request.get(`${REPORTS}/inventory-valuation?warehouseId=${warehouse.id}`, { headers: auth(token) })).json();
+    expect([report.rows.length, report.warehouseName]).toEqual([0, name]);
+
+    const text = await pdfText(await (await request.get(`${REPORTS}/inventory-valuation/export?warehouseId=${warehouse.id}&format=pdf`, { headers: auth(token) })).body());
+
+    expect(text).toContain(`Bodega ${name}`);
+    expect(text).not.toContain('Todas las bodegas');
+  });
+
   test('refuses an unknown format and a period longer than a year, in the error contract', async ({ request }) => {
     const token = await tokenFor(request, 'ana@acme.com');
 

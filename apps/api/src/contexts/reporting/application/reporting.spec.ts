@@ -181,6 +181,24 @@ describe('inventory valuation report', () => {
   });
 });
 
+describe('report file names', () => {
+  // Una bodega con tilde daba "dep-sito": la tilde se borraba junto con el resto y se comia la
+  // letra. Y una llamada solo con simbolos dejaba guiones sueltos pegados a la fecha.
+  it.each([
+    ['Norte', 'valuacion-de-inventario-norte-2026-03-15'],
+    ['Depósito 3', 'valuacion-de-inventario-deposito-3-2026-03-15'],
+    ['ALMACÉN #1', 'valuacion-de-inventario-almacen-1-2026-03-15'],
+    ['«»', 'valuacion-de-inventario-2026-03-15'],
+  ])('names the valuation file after the warehouse %s', async (name, expected) => {
+    const s = world();
+    s.readModel.warehouse(TENANT_A, EMPTY, name);
+
+    const report = await s.inventoryValuation.run({ tenantId: TENANT_A, warehouseId: EMPTY });
+
+    expect(inventoryValuationDocument(report, 'Acme', '2026-03-15').fileName).toBe(expected);
+  });
+});
+
 describe('report pages', () => {
   // La regla que puede romperse sin que se note: si los totales se calcularan sobre la pagina, el
   // reporte diria una cifra distinta en cada pantalla y no serviria para cuadrar nada.
@@ -210,15 +228,19 @@ describe('report pages', () => {
     expect(walked).toEqual(whole.customers);
   });
 
-  // El saldo corrido se lee de arriba abajo y lo que importa es como acaba.
-  it('shows the latest movements of a statement first, still in date order', async () => {
+  // El saldo corrido se lee de arriba abajo, asi que las paginas van en orden de fecha. Lo que se
+  // debe hoy no cambia de pagina: sale del resumen, no de los movimientos enviados.
+  it('pages a statement in date order and keeps the balance whole', async () => {
     const s = world();
 
     const whole = await s.customerStatement.run({ tenantId: TENANT_A, customerId: DELTA });
-    const last = await s.customerStatement.run({ tenantId: TENANT_A, customerId: DELTA, limit: 2 });
+    const first = await s.customerStatement.run({ tenantId: TENANT_A, customerId: DELTA, limit: 2 });
+    const second = await s.customerStatement.run({ tenantId: TENANT_A, customerId: DELTA, limit: 2, offset: 2 });
 
-    expect(last.movements.map((row) => row.code)).toEqual(whole.movements.slice(-2).map((row) => row.code));
-    expect(last.balance).toBe(whole.balance);
+    expect([...first.movements, ...second.movements].map((row) => row.code)).toEqual(whole.movements.map((row) => row.code));
+    // El saldo corrido de cada fila es el acumulado desde el principio, tambien en la segunda pagina.
+    expect(second.movements.map((row) => row.balance)).toEqual(whole.movements.slice(2).map((row) => row.balance));
+    expect([first.balance, second.balance]).toEqual([whole.balance, whole.balance]);
   });
 
   it('refuses a page it cannot serve instead of guessing one', async () => {

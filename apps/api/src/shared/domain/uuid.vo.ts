@@ -12,9 +12,12 @@ export class InvalidUuidError extends InvalidArgumentError {
 
 export abstract class Uuid extends StringValueObject {
   protected constructor(value: string) {
-    super(value);
+    // En minusculas siempre. El patron acepta mayusculas y PostgreSQL trata los dos iguales, pero
+    // los dobles en memoria comparan cadenas: sin normalizar aqui, el mismo identificador escrito
+    // en mayusculas se encontraba en la base y no en el doble, y el contrato pasaba en verde.
+    super(value.toLowerCase());
 
-    if (!UUID_PATTERN.test(value)) {
+    if (!UUID_PATTERN.test(this.value)) {
       throw new InvalidUuidError(new.target.name, value);
     }
   }

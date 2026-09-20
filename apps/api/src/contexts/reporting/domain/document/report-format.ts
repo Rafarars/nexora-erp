@@ -33,3 +33,16 @@ export function formatCell(value: ReportCell, kind: ColumnKind, decimals: number
 export const formatAmount = (value: number, decimals: number) => formatCell(value, 'amount', decimals);
 
 export const isNumeric = (kind: ColumnKind) => DIGITS[kind] !== null;
+
+// El nombre de un filtro dentro del nombre del archivo. Se quitan las tildes en vez de borrarlas
+// con el resto: sin esto "Deposito" y "Depósito" daban "dep-sito", y una bodega llamada solo con
+// simbolos dejaba guiones sueltos. Lo que sobrevive es [a-z0-9-], asi que nada puede escaparse a
+// la cabecera de descarga.
+export function fileNamePart(value: string): string {
+  return value
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '');
+}

@@ -18,6 +18,8 @@ export interface ReportPage {
   total: number;
   limit: number;
   offset: number;
+  // Cuantas filas lleva esta pagina: cero con total mayor que cero si el desplazamiento se paso.
+  rows: number;
   hasMore: boolean;
 }
 
@@ -58,6 +60,17 @@ export interface ValuationReport {
   page: ReportPage;
   rows: { warehouse: { id: string; name: string }; item: { id: string; sku: string; name: string }; baseUnit: string; quantity: number; averageCost: number; value: number }[];
   totalValue: number;
+}
+
+// Que rotulo lleva el pie de un listado paginado, y si hay que pintarlo. Se pinta tambien cuando
+// el desplazamiento se paso del total: ahi no hay filas y sin el no queda ningun enlace para
+// volver. El rango va acotado al total, que si no salia "201-120 de 120".
+export function pageLabel(page: ReportPage): { visible: boolean; label: string } {
+  const visible = page.total > page.limit || page.offset > 0;
+
+  if (page.rows === 0) return { visible, label: `Sin filas en esta página, de ${page.total}` };
+
+  return { visible, label: `${Math.min(page.offset + 1, page.total)}–${Math.min(page.offset + page.rows, page.total)} de ${page.total}` };
 }
 
 // Los decimales que configura la empresa, los mismos que escriben el PDF y el Excel: antes la

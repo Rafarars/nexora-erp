@@ -39,6 +39,14 @@ describe('PdfExcelReportRenderer', () => {
     expect(Buffer.from(rendered.content.slice(0, 5)).toString()).toBe('%PDF-');
   });
 
+  // Excel prohibe * ? : \ / [ ] en el nombre de una hoja y lanza en vez de avisar. El titulo lleva
+  // el nombre del cliente, asi que uno llamado "Comercial A/B" tumbaba la descarga con un 500.
+  it.each(['Comercial A/B', 'Delta [SA]', 'A*B', 'A?B', 'A:B', 'C\\D'])('writes the Excel of a customer named %s', async (name) => {
+    const rendered = await new PdfExcelReportRenderer().render({ ...document, title: `Estado de cuenta — ${name}` }, 'xlsx');
+
+    expect(rendered.content.byteLength).toBeGreaterThan(0);
+  });
+
   it('prints amounts with a decimal comma and grouped thousands', () => {
     expect(formatCell(1234.5, 'amount', 2)).toBe('1.234,50');
     expect(formatCell(2.5, 'quantity', 2)).toBe('2,5');
