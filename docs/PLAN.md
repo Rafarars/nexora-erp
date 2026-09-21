@@ -368,6 +368,35 @@ un listado con volumen sembrado.
 
 ---
 
+### H8 — Notas de crédito y devoluciones
+El hueco que un reclutador encuentra clicando: hoy se puede anular una factura, pero no acreditarla.
+
+**Plan detallado, con las reglas de cada submódulo y el esqueleto:**
+[`docs/H8-NOTAS-DE-CREDITO-Y-DEVOLUCIONES.md`](H8-NOTAS-DE-CREDITO-Y-DEVOLUCIONES.md)
+
+- [ ] **0. Esquema y correlativos** · [ ] **1. Revertir líneas sueltas en el kardex**
+- [ ] **2. Devolución de venta** · [ ] **3. Nota de crédito a cliente** · [ ] **4. Devolución de compra**
+- [ ] **5. Restringir la anulación de facturas** · [ ] **6. Semillas y E2E** · [ ] **7. Revisión**
+
+*La decisión que lo define:* una nota de crédito **no resta el saldo por su cuenta**, genera un
+cobro sin dinero. El saldo de una factura se calcula hoy en **nueve sitios independientes**; así no
+hay que tocar ninguno.
+
+### H9 — Contabilidad
+Partida doble generada desde las operaciones. **El puente, no el producto contable.**
+
+**Plan detallado:** [`docs/H9-CONTABILIDAD.md`](H9-CONTABILIDAD.md)
+
+- [ ] **0. Alinear ventas con el patrón declarativo de compras** · [ ] **1. Plan de cuentas**
+- [ ] **2. El asiento y su invariante** · [ ] **3. Determinación de cuentas**
+- [ ] **4. Contabilizar las cinco operaciones** · [ ] **5. Balanza de comprobación**
+- [ ] **6. Semillas** · [ ] **7. Revisión**
+
+*La decisión que lo define:* un asiento **nace cuadrado o no nace**. Como no hay asientos escritos
+a mano, la invariante puede ser absoluta en el constructor, no un estado «borrador».
+
+---
+
 ## 7. El pipeline de CI
 
 Archivo `.github/workflows/ci.yml`, disparado en cada push y pull request:
