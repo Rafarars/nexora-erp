@@ -317,9 +317,9 @@ de cuentas por cobrar.
   a nada.
 - **Construir cuentas por pagar primero**, que es un hito propio del tamaño de Cuentas por cobrar.
 
-**Recomendación: dejarla fuera**, anotarla en `FUTURE.md` con este porqué, y decirlo en el README.
-Un sistema que registra devoluciones al proveedor pero no lleva su saldo es honesto si lo declara;
-lo que no puede es simular que lo lleva.
+**Resuelto el 21-sep-2026:** se construyen **las cuentas por pagar**, y la `NCP` se va con ellas a
+[H9](H9-COMPRAS-HASTA-EL-PAGO.md) §3.10, donde ya hay saldo del que restar. Este hito construye las
+tres que sí tienen dónde apoyarse.
 
 ---
 
@@ -458,7 +458,8 @@ siempre.
 
 ## 9. Lo que este plan NO resuelve
 
-- **Cuentas por pagar**, y con ellas la nota de crédito de proveedor (§4.4).
+- **Cuentas por pagar**, y con ellas la nota de crédito de proveedor (§4.4): son
+  [H9](H9-COMPRAS-HASTA-EL-PAGO.md).
 - **Notas de débito** y **anticipos**.
-- **La contabilidad**, que es el hito siguiente. Este hito la prepara sin saberlo: el costo
+- **La contabilidad**, que es [H10](H10-CONTABILIDAD.md). Este hito la prepara sin saberlo: el costo
   congelado de §3.4 es exactamente lo que necesita el asiento que revierte el costo de ventas.

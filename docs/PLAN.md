@@ -382,10 +382,23 @@ El hueco que un reclutador encuentra clicando: hoy se puede anular una factura, 
 cobro sin dinero. El saldo de una factura se calcula hoy en **nueve sitios independientes**; así no
 hay que tocar ninguno.
 
-### H9 — Contabilidad
+### H9 — Compras hasta el pago: factura, pago y saldo
+El sistema está cojo de un lado: Ventas llega hasta el dinero, Compras se detiene en la mercancía.
+
+**Plan detallado:** [`docs/H9-COMPRAS-HASTA-EL-PAGO.md`](H9-COMPRAS-HASTA-EL-PAGO.md)
+
+- [ ] **0. Esquema y correlativos** · [ ] **1. Factura de compra** · [ ] **2. Conciliación a tres bandas**
+- [ ] **3. La diferencia de precio** · [ ] **4. Pago a proveedor** · [ ] **5. Saldo, antigüedad y estado de cuenta**
+- [ ] **6. Reportes** · [ ] **7. Nota de crédito de proveedor** · [ ] **8. Semillas y E2E** · [ ] **9. Revisión**
+
+*La decisión que lo define:* la factura de compra **se transcribe, no se emite**. La identifica el
+número que le puso el proveedor, y registrarla dos veces se rechaza: es el control antifraude que
+evita pagar dos veces.
+
+### H10 — Contabilidad
 Partida doble generada desde las operaciones. **El puente, no el producto contable.**
 
-**Plan detallado:** [`docs/H9-CONTABILIDAD.md`](H9-CONTABILIDAD.md)
+**Plan detallado:** [`docs/H10-CONTABILIDAD.md`](H10-CONTABILIDAD.md)
 
 - [ ] **0. Alinear ventas con el patrón declarativo de compras** · [ ] **1. Plan de cuentas**
 - [ ] **2. El asiento y su invariante** · [ ] **3. Determinación de cuentas**

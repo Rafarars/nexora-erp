@@ -1,4 +1,4 @@
-# H9 — Contabilidad
+# H10 — Contabilidad
 
 **Estado:** plan aprobado, sin construir · **Escrito el 20-sep-2026**
 
