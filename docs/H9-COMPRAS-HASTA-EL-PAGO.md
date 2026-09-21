@@ -167,6 +167,15 @@ línea del pedido. Es copiar un patrón propio, no inventarlo.
 proveedor, y sus líneas citan la línea de entrada que facturan. Es más trabajo que el camino fácil,
 y el camino fácil no soporta ninguno de los dos casos.
 
+**Aquí vamos por delante de la referencia, y conviene saberlo.** En su modelo **el eje
+entrada-factura no existe**: la cabecera lleva un `entry_id` suelto que **ningún servicio lee jamás**
+—su validación es `nullable|uuid` sin comprobar siquiera que exista—, y la factura cuelga de **una
+sola orden**, sin poder consolidar dos. Las tres cantidades viven en la línea de la orden y
+**nunca se comparan entre sí**.
+
+Nosotros colgamos de la línea de entrada, que es lo que permite los dos casos y lo que hace posible
+la conciliación de §3.9.
+
 ### 3.6 Se puede facturar sin entrada
 
 **Decisión:** una factura de compra puede no tener ninguna entrada detrás.
@@ -235,6 +244,18 @@ propio—, y a medias sería peor que nada.
 **Las tolerancias se anotan**, no se construyen: con una sola empresa y sin política de compras, un
 porcentaje configurable sería una perilla que nadie mueve.
 
+> **Pregunta abierta, que hay que decidir antes de construir la fase 2.** ¿Se rechaza facturar de
+> más, o se permite y se avisa? La referencia tiene las dos respuestas a la vez, y es instructivo:
+> su servicio de dominio **sí lo permite**, con este comentario —*«un proveedor factura a veces de
+> más y el ERP tiene que poder reflejarlo»*— y su pantalla **lo bloquea** sin tolerancia ninguna.
+> La capacidad existe en el dominio y no hay forma de llegar a ella.
+>
+> El argumento de su comentario es bueno: la realidad incluye proveedores que facturan de más, y un
+> sistema que no puede registrarlo obliga a mentirle. El argumento contrario también: sin flujo de
+> excepción, permitirlo es dejar pasar en silencio justo lo que la conciliación existe para
+> detectar. **Recomendado: rechazar**, porque sin aprobación no hay a quién avisar. Pero que la
+> decisión se tome, y no se herede.
+
 ### 3.10 La nota de crédito de proveedor vive aquí
 
 **Decisión:** la `NCP` entra en este hito, no en H8.
@@ -283,6 +304,11 @@ Espejo del cobro, y aquí la simetría **sí** es real: mismo ciclo, mismo repar
 
 **Reparto:** entre varias facturas del mismo proveedor, como el cobro. El sector lo confirma: *un
 solo comprobante se reparte para liquidar parcial o totalmente varias facturas*.
+
+**Una idea de la referencia que vale la pena copiar:** su reparto es único por factura y documento
+—un pago abona una factura **una sola vez**—, así que corregir el importe **reescribe esa fila** en
+vez de añadir otra, y una fila revertida se queda marcada en su sitio en lugar de borrarse. Eso
+deja el historial legible: se ve qué se abonó, qué se corrigió y qué se revirtió.
 
 **Reglas:** no se paga más que el saldo de cada factura; no se pagan facturas de otro proveedor; no
 se paga una factura anulada. Las tres ya existen en cobros y se copian con su porqué.

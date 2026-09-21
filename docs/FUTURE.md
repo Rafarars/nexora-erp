@@ -760,3 +760,32 @@ de desempate.
 
 **Qué haría falta.** Decidir el parámetro, hacerlo viajar en el documento como ya viaja
 `decimals`, y alinear los formateadores de la pantalla en el mismo movimiento.
+
+## Descuento por línea en la factura, y el margen congelado
+
+**Qué es.** Dos huecos de nuestra factura de venta, encontrados el 21-sep-2026 contrastándola
+contra la del sistema de referencia.
+
+**El descuento por línea.** Ellos lo tienen —porcentaje e importe por línea, y la cabecera suma los
+de línea— y nosotros no tenemos ninguno: ni por línea ni global. Conceder un descuento hoy obliga a
+cambiar el precio a mano, que deja el documento diciendo que se vendió más barato en vez de decir
+que se hizo un descuento. Es información de negocio que se pierde.
+
+**El costo y el margen congelados.** Ellos guardan en cada línea el costo unitario, el costo total
+y el margen, congelados contra el kardex al emitir. Nosotros no guardamos ninguno: el costo de lo
+vendido sólo existe en los movimientos del despacho.
+
+**Por qué no se hizo.** Ninguno de los dos se echó en falta hasta que existió con qué compararse.
+El descuento no ha hecho falta porque las listas de precio cubren la mayoría de los casos. El
+margen no ha hecho falta porque no hay ningún reporte de rentabilidad.
+
+**Qué haría falta.** Para el descuento: dos columnas por línea, el cálculo del total en un solo
+sitio, y decidir si existe además un descuento global —la referencia **no** lo tiene como campo
+propio, sólo como suma de los de línea—. Para el margen, la decisión es si se congela en la factura
+o se sigue leyendo del kardex; **[H10](H10-CONTABILIDAD.md) §2.4 elige leer del kardex**, así que
+congelarlo sería un segundo sitio con el mismo número, justo lo que ese plan evita.
+
+**Y dos avisos de lo que NO conviene copiarles**, por si alguien mira su código: su flete está
+declarado en la columna y **no cableado** —no entra en el total, aunque su comentario diga que
+sí—, y su retención se suma en la cabecera pero **nunca se resta**, que es lo que ya destapó la
+revisión de Impuestos.
