@@ -88,5 +88,46 @@ Antes de iniciar la Fase 0, se revisaron a fondo las once decisiones de diseno d
     - Resalable restaura y su anulación revierte.
     - Anulación bloqueada si tiene notas de crédito confirmadas (`SalesReturnWithCreditNoteError`).
 
+---
+
+## Fase 3: Nota de crédito a cliente (`NCC`)
+- **Dominio:**
+  - Creadas entidades `CustomerCreditNote` y `CustomerCreditNoteLine`: ciclo de vida `draft` -> `confirmed` -> `cancelled`.
+  - Validación de motivos (`CREDIT_NOTE_REASONS`): `return`, `subsequent_discount`, `price_correction`, `damaged_goods`, `cancellation`, `other`. Si el motivo es `other`, el campo `reasonDetail` es obligatorio (`CreditNoteReasonDetailRequiredError`).
+  - Entidad `CustomerPayment`: validación y soporte de `creditSourceId`. Obligatorio cuando el método de pago es `credit_note` (`CreditNoteSourceRequiredError`) y prohibido cuando es dinero ordinario (efectivo, transferencia, tarjeta, cheque) (`MoneyPaymentCannotHaveCreditSourceError`).
+  - Moneda y tasa congeladas: el cobro con forma `credit_note` adopta la moneda y tasa de cambio congeladas de la nota de crédito.
+  - Servicios de dominio:
+    - `NoteCredit.available(total, applied)`: cálculo de crédito disponible sin columnas redundantes en base de datos.
+    - `CreditQuota.ensureWithinQuota(invoiceTotal, alreadyCredited, noteTotal, invoiceId)`: control de cupo de importe por factura, contabilizando únicamente notas confirmadas.
+    - El crédito disponible de notas de crédito **no** reduce la exposición del cliente en el control de crédito.
+- **Persistencia e Infraestructura:**
+  - `PrismaCustomerCreditNoteRepository`: almacenamiento atómico separando cabecera y líneas con `createMany`, búsqueda paginada y filtros por cliente, factura, devolución, fechas y texto.
+  - `PrismaCreditNotePosting`:
+    - Bloqueo `FOR UPDATE` para notas y facturas, garantizando aislamiento ante concurrencia.
+    - Validación de cupo de importe contra facturas citadas.
+    - Creación atómica de cobro automático con método `credit_note` topado al saldo vivo de la factura (`Math.min(balance, note.total)`). Si la factura ya no debe nada o la nota no cita factura, no se genera cobro y todo el importe queda disponible como crédito en la nota (§3.10).
+    - Validación de devolución citada: confirmada, del mismo cliente y sin notas de crédito previas.
+    - Cierre del backdoor de anulación directa: el cobro de emisión solo puede anularse al anular su nota (`IssuePaymentCannotBeCancelledDirectlyError`).
+    - Anulación de nota: bloqueada si su crédito se gastó en cobros externos confirmados (`CreditNoteWithApplicationsError`). Al anularse legítimamente, revierte en la misma transacción su cobro de emisión y restaura el saldo vivo de la factura.
+  - `PrismaPaymentPosting`:
+    - Bloqueo `FOR UPDATE` de la nota de crédito cuando un cobro utiliza `credit_note`, evitando sobregiros concurrentes.
+    - Al anular un cobro ordinario que gastó crédito, el crédito se restituye inmediatamente a la nota.
+  - Reportes y Estados de cuenta:
+    - `CustomerStatementSearcher` y `PrismaReportingReadModel` / `CustomerStatementReport` adaptados para rotular `'Nota de crédito ' || cn.code` y calcular `noteRemaining` en los movimientos de ambos estados de cuenta.
+  - Controladores HTTP y Módulo:
+    - 7 controladores registrados en `ReceivablesModule`: creación, edición, confirmación, anulación, búsqueda paginada, consulta individual y consulta de créditos disponibles por cliente.
+    - Permisos en minúsculas en `permissions.catalog.ts`: `receivables.creditnotes.search`, `receivables.creditnotes.create`, `receivables.creditnotes.update`, `receivables.creditnotes.confirm`, `receivables.creditnotes.cancel`.
+- **Frontend Web:**
+  - Actualizados `receivables.ts`, `receivables-api.ts`, `http-receivables-api.ts`, `receivables-error.ts`.
+  - Nueva sección `/cuentas-por-cobrar/notas-de-credito` en menú de navegación `RECEIVABLES_SECTIONS`.
+  - Tablero completo `CreditNotesBoard` con listado, filtros, panel SlideOver para emitir/editar y opciones de confirmar/anular.
+  - Selector de nota de crédito / crédito disponible integrado en `payments-board.tsx`.
+- **Pruebas y Verificación:**
+  - 23/23 tests de contrato en memoria pasando.
+  - 23/23 tests de integración contra PostgreSQL en `prisma-receivables-ports.contract.integration.spec.ts` pasando.
+  - 163 archivos de prueba y 3089 tests en API pasando al 100%.
+  - 23 archivos de prueba y 198 tests en Web pasando al 100%.
+  - Cobertura de aislamiento en `apps/e2e/support/isolation-matrix.ts` ampliada y validada con `isolation-coverage.spec.ts`.
+
 
 

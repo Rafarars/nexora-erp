@@ -9,6 +9,10 @@ import { PrismaPaymentPosting } from '../persistence/prisma-payment-posting.js';
 import { PrismaPaymentRepository } from '../persistence/prisma-payment.repository.js';
 import { PrismaReceivablesCodeSequence } from '../persistence/prisma-receivables-code-sequence.js';
 import { PrismaReceivablesLedger } from '../persistence/prisma-receivables-ledger.js';
+import { PrismaCustomerCreditNoteRepository } from '../persistence/prisma-customer-credit-note.repository.js';
+import { PrismaCreditNotePosting } from '../persistence/prisma-credit-note-posting.js';
+
+import { IdGenerator } from '../../../../shared/domain/ports/id-generator.js';
 
 const WAREHOUSE: Record<string, string> = { [TENANT_A]: 'b7111111-1111-4111-8111-111111111111', [TENANT_B]: 'b7222222-2222-4222-8222-222222222222' };
 
@@ -29,11 +33,16 @@ export class PrismaReceivablesPortsHarness implements ReceivablesPortsHarness {
   private sequence = 0;
 
   ports(): ReceivablesPorts {
+    const codes = new PrismaReceivablesCodeSequence(this.prisma);
+    const ids: IdGenerator = { next: () => crypto.randomUUID() };
+
     return {
       payments: new PrismaPaymentRepository(this.prisma),
       posting: new PrismaPaymentPosting(this.prisma),
       ledger: new PrismaReceivablesLedger(this.prisma),
-      codes: new PrismaReceivablesCodeSequence(this.prisma),
+      codes,
+      creditNotes: new PrismaCustomerCreditNoteRepository(this.prisma),
+      creditNotePosting: new PrismaCreditNotePosting(this.prisma, codes, ids),
     };
   }
 
@@ -79,12 +88,17 @@ export class PrismaReceivablesPortsHarness implements ReceivablesPortsHarness {
   }
 
   async reset(): Promise<void> {
+    await this.prisma.paymentAllocation.deleteMany();
+    await this.prisma.customerCreditNote.updateMany({ data: { issuePaymentId: null } });
     await this.prisma.customerPayment.deleteMany();
+    await this.prisma.customerCreditNoteLine.deleteMany();
+    await this.prisma.customerCreditNote.deleteMany();
+    await this.prisma.invoiceLine.deleteMany();
     await this.prisma.invoice.deleteMany();
     await this.prisma.dispatch.deleteMany();
     await this.prisma.salesOrder.deleteMany();
     await this.prisma.customer.deleteMany();
-    await this.prisma.codeSequence.deleteMany({ where: { prefix: 'COB' } });
+    await this.prisma.codeSequence.deleteMany({ where: { prefix: { in: ['COB', 'NCC'] } } });
 
     for (const [id, slug] of [
       [TENANT_A, 'contract-receivables-a'],

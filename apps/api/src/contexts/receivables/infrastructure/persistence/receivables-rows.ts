@@ -1,6 +1,7 @@
 import { amountUnits, unitsToNumber } from '../../../../shared/domain/amount.js';
 import { ReceivableInvoice } from '../../domain/ledger/receivable-invoice.js';
 import { ReceivableCustomer } from '../../domain/ledger/receivables-ledger.js';
+import { CustomerCreditNote, CreditNoteReason } from '../../domain/credit-note/customer-credit-note.entity.js';
 import { CustomerPayment, PaymentMethod, PaymentStatus } from '../../domain/payment/customer-payment.entity.js';
 
 type Decimalish = { toNumber(): number };
@@ -116,3 +117,81 @@ export function invoiceFromRow(row: {
     paid: unitsToNumber(paid),
   });
 }
+
+export const CREDIT_NOTE_INCLUDE = { lines: { orderBy: { lineNumber: 'asc' as const } } } as const;
+
+export interface CreditNoteRow {
+  id: string;
+  tenantId: string;
+  code: string;
+  customerId: string;
+  invoiceId: string | null;
+  salesReturnId: string | null;
+  issuePaymentId: string | null;
+  issueDate: Date;
+  reason: CreditNoteReason;
+  reasonDetail: string | null;
+  notes: string | null;
+  status: 'draft' | 'confirmed' | 'cancelled';
+  subtotal: Decimalish;
+  tax: Decimalish;
+  total: Decimalish;
+  subtotalVes: Decimalish | null;
+  taxVes: Decimalish | null;
+  totalVes: Decimalish | null;
+  confirmedAt: Date | null;
+  cancelledAt: Date | null;
+  createdAt: Date;
+  updatedAt: Date;
+  currency: string;
+  exchangeRate: Decimalish | null;
+  baseCurrency: string;
+  baseExchangeRate: Decimalish | null;
+  manualExchangeRate: boolean;
+  lines: {
+    id: string;
+    lineNumber: number;
+    itemId: string | null;
+    itemSku: string | null;
+    itemName: string | null;
+    concept: string | null;
+    unitId: string | null;
+    quantity: Decimalish;
+    unitPrice: Decimalish;
+    taxRate: Decimalish;
+    subtotal: Decimalish;
+    tax: Decimalish;
+    total: Decimalish;
+  }[];
+}
+
+export function creditNoteFromRow(row: CreditNoteRow): CustomerCreditNote {
+  return CustomerCreditNote.fromPrimitives({
+    ...row,
+    issueDate: day(row.issueDate),
+    subtotal: row.subtotal.toNumber(),
+    tax: row.tax.toNumber(),
+    total: row.total.toNumber(),
+    subtotalVes: decimalOrNull(row.subtotalVes),
+    taxVes: decimalOrNull(row.taxVes),
+    totalVes: decimalOrNull(row.totalVes),
+    exchangeRate: decimalOrNull(row.exchangeRate),
+    baseExchangeRate: decimalOrNull(row.baseExchangeRate),
+    lines: row.lines.map((l) => ({
+      id: l.id,
+      lineNumber: l.lineNumber,
+      itemId: l.itemId,
+      itemSku: l.itemSku,
+      itemName: l.itemName,
+      concept: l.concept,
+      unitId: l.unitId,
+      quantity: l.quantity.toNumber(),
+      unitPrice: l.unitPrice.toNumber(),
+      taxRate: l.taxRate.toNumber(),
+      subtotal: l.subtotal.toNumber(),
+      tax: l.tax.toNumber(),
+      total: l.total.toNumber(),
+    })),
+  });
+}
+

@@ -33,7 +33,14 @@ class InMemoryReceivablesPortsHarness implements ReceivablesPortsHarness {
   async close(): Promise<void> {}
 
   private build(): ReceivablesPorts {
-    return { payments: this.store.payments, posting: this.store.posting, ledger: this.store.ledger, codes: new InMemoryReceivablesCodeSequence() };
+    return {
+      payments: this.store.payments,
+      posting: this.store.posting,
+      ledger: this.store.ledger,
+      codes: new InMemoryReceivablesCodeSequence(),
+      creditNotes: this.store.creditNotes,
+      creditNotePosting: this.store.creditNotePosting,
+    };
   }
 }
 

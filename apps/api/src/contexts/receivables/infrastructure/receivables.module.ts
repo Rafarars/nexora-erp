@@ -42,6 +42,26 @@ import { PrismaReceivableBalances } from './persistence/prisma-receivable-balanc
 import { PrismaReceivablesCodeSequence } from './persistence/prisma-receivables-code-sequence.js';
 import { PrismaReceivablesLedger } from './persistence/prisma-receivables-ledger.js';
 
+import { CUSTOMER_CREDIT_NOTE_REPOSITORY } from '../domain/credit-note/customer-credit-note.repository.js';
+import type { CustomerCreditNoteRepository } from '../domain/credit-note/customer-credit-note.repository.js';
+import { CREDIT_NOTE_POSTING } from '../domain/credit-note/posting/credit-note-posting.js';
+import type { CreditNotePosting } from '../domain/credit-note/posting/credit-note-posting.js';
+import { CreditNoteCreator } from '../application/create-credit-note/credit-note-creator.js';
+import { CreditNoteUpdater } from '../application/update-credit-note/credit-note-updater.js';
+import { CreditNoteConfirmer } from '../application/confirm-credit-note/credit-note-confirmer.js';
+import { CreditNoteCanceller } from '../application/cancel-credit-note/credit-note-canceller.js';
+import { CreditNoteSearcher } from '../application/search-credit-notes/credit-note-searcher.js';
+import { CustomerAvailableCreditsFinder } from '../application/customer-available-credits/customer-available-credits-finder.js';
+import { CancelCreditNotePutController } from './http/cancel-credit-note-put.controller.js';
+import { ConfirmCreditNotePutController } from './http/confirm-credit-note-put.controller.js';
+import { CreateCreditNotePostController } from './http/create-credit-note-post.controller.js';
+import { CustomerAvailableCreditsGetController } from './http/customer-available-credits-get.controller.js';
+import { FindCreditNoteGetController } from './http/find-credit-note-get.controller.js';
+import { SearchCreditNotesGetController } from './http/search-credit-notes-get.controller.js';
+import { UpdateCreditNotePutController } from './http/update-credit-note-put.controller.js';
+import { PrismaCustomerCreditNoteRepository } from './persistence/prisma-customer-credit-note.repository.js';
+import { PrismaCreditNotePosting } from './persistence/prisma-credit-note-posting.js';
+
 // El cableado de cuentas por cobrar. No importa ventas: lee sus tablas por su propio adaptador.
 // Exporta RECEIVABLE_BALANCES, lo que ventas necesita para facturar a credito y anular.
 @Module({
@@ -55,6 +75,13 @@ import { PrismaReceivablesLedger } from './persistence/prisma-receivables-ledger
     SearchReceivablesGetController,
     SearchCustomerBalancesGetController,
     SearchCustomerStatementGetController,
+    SearchCreditNotesGetController,
+    FindCreditNoteGetController,
+    CreateCreditNotePostController,
+    UpdateCreditNotePutController,
+    ConfirmCreditNotePutController,
+    CancelCreditNotePutController,
+    CustomerAvailableCreditsGetController,
   ],
   providers: [
     { provide: PAYMENT_REPOSITORY, useClass: PrismaPaymentRepository },
@@ -62,6 +89,8 @@ import { PrismaReceivablesLedger } from './persistence/prisma-receivables-ledger
     { provide: RECEIVABLES_LEDGER, useClass: PrismaReceivablesLedger },
     { provide: RECEIVABLES_CODE_SEQUENCE, useClass: PrismaReceivablesCodeSequence },
     { provide: RECEIVABLE_BALANCES, useClass: PrismaReceivableBalances },
+    { provide: CUSTOMER_CREDIT_NOTE_REPOSITORY, useClass: PrismaCustomerCreditNoteRepository },
+    { provide: CREDIT_NOTE_POSTING, useClass: PrismaCreditNotePosting },
 
     { provide: PaymentFinder, useFactory: (r: PaymentRepository) => new PaymentFinder(r), inject: [PAYMENT_REPOSITORY] },
     {
@@ -93,8 +122,42 @@ import { PrismaReceivablesLedger } from './persistence/prisma-receivables-ledger
     },
     {
       provide: CustomerStatementSearcher,
-      useFactory: (l: ReceivablesLedger, r: PaymentRepository, cal: BusinessCalendar, dr: DocumentRates) => new CustomerStatementSearcher(l, r, cal, dr),
-      inject: [RECEIVABLES_LEDGER, PAYMENT_REPOSITORY, BUSINESS_CALENDAR, DOCUMENT_RATES],
+      useFactory: (l: ReceivablesLedger, r: PaymentRepository, cal: BusinessCalendar, dr: DocumentRates, cn: CustomerCreditNoteRepository) => new CustomerStatementSearcher(l, r, cal, dr, cn),
+      inject: [RECEIVABLES_LEDGER, PAYMENT_REPOSITORY, BUSINESS_CALENDAR, DOCUMENT_RATES, CUSTOMER_CREDIT_NOTE_REPOSITORY],
+    },
+    {
+      provide: CreditNoteCreator,
+      useFactory: (repo: CustomerCreditNoteRepository, ledger: ReceivablesLedger, codes: ReceivablesCodeSequence, ids: IdGenerator, clock: Clock, cal: BusinessCalendar, rates: DocumentRates) =>
+        new CreditNoteCreator(repo, ledger, codes, ids, clock, cal, rates),
+      inject: [CUSTOMER_CREDIT_NOTE_REPOSITORY, RECEIVABLES_LEDGER, RECEIVABLES_CODE_SEQUENCE, ID_GENERATOR, CLOCK, BUSINESS_CALENDAR, DOCUMENT_RATES],
+    },
+    {
+      provide: CreditNoteUpdater,
+      useFactory: (repo: CustomerCreditNoteRepository, ledger: ReceivablesLedger, ids: IdGenerator, clock: Clock, cal: BusinessCalendar, rates: DocumentRates) =>
+        new CreditNoteUpdater(repo, ledger, ids, clock, cal, rates),
+      inject: [CUSTOMER_CREDIT_NOTE_REPOSITORY, RECEIVABLES_LEDGER, ID_GENERATOR, CLOCK, BUSINESS_CALENDAR, DOCUMENT_RATES],
+    },
+    {
+      provide: CreditNoteConfirmer,
+      useFactory: (posting: CreditNotePosting, clock: Clock, cal: BusinessCalendar) =>
+        new CreditNoteConfirmer(posting, clock, cal),
+      inject: [CREDIT_NOTE_POSTING, CLOCK, BUSINESS_CALENDAR],
+    },
+    {
+      provide: CreditNoteCanceller,
+      useFactory: (posting: CreditNotePosting, clock: Clock) =>
+        new CreditNoteCanceller(posting, clock),
+      inject: [CREDIT_NOTE_POSTING, CLOCK],
+    },
+    {
+      provide: CreditNoteSearcher,
+      useFactory: (repo: CustomerCreditNoteRepository, ledger: ReceivablesLedger) => new CreditNoteSearcher(repo, ledger),
+      inject: [CUSTOMER_CREDIT_NOTE_REPOSITORY, RECEIVABLES_LEDGER],
+    },
+    {
+      provide: CustomerAvailableCreditsFinder,
+      useFactory: (repo: CustomerCreditNoteRepository, ledger: ReceivablesLedger) => new CustomerAvailableCreditsFinder(repo, ledger),
+      inject: [CUSTOMER_CREDIT_NOTE_REPOSITORY, RECEIVABLES_LEDGER],
     },
   ],
   exports: [RECEIVABLE_BALANCES],

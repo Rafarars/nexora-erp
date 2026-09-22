@@ -1,7 +1,20 @@
 import { afterAll, afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { ConcurrentModificationError } from '../../../shared/domain/concurrent-modification.error.js';
-import { InvoiceNotPayableError, PaymentExceedsBalanceError, PaymentNotEditableError, PaymentNotFoundError } from '../domain/errors/receivables.errors.js';
+import { DocumentCurrency } from '../../../shared/domain/document-currency.js';
+import {
+  CreditNoteExceededError,
+  CreditNoteNotEditableError,
+  CreditNoteWithApplicationsError,
+  CreditQuotaExceededError,
+  InvoiceNotPayableError,
+  IssuePaymentCannotBeCancelledDirectlyError,
+  PaymentExceedsBalanceError,
+  PaymentNotEditableError,
+  PaymentNotFoundError,
+} from '../domain/errors/receivables.errors.js';
 import { CustomerPayment, PaymentDetails, PaymentId } from '../domain/payment/customer-payment.entity.js';
+import { CreditNoteId, CustomerCreditNote } from '../domain/credit-note/customer-credit-note.entity.js';
+import { NoteCredit } from '../domain/credit-note/note-credit.service.js';
 import { ReceivablesDate } from '../domain/shared/receivables-date.vo.js';
 import { TenantId } from '../domain/shared/tenant-id.vo.js';
 import { CUSTOMER, DOLLARS, INVOICE, NOW, OTHER_CUSTOMER, OTHER_INVOICE, TENANT_A, TENANT_B, TODAY, aPaymentRates } from '../domain/testing/receivables.mother.js';
@@ -55,6 +68,73 @@ export function describeReceivablesPortsContract(implementation: string, createH
     const confirm = (id: PaymentId) => ports.posting.post(tenant, id, (payment, invoices) => payment.confirm(invoices, aPaymentRates(), NOW, TODAY));
     const cancel = (id: PaymentId) => ports.posting.post(tenant, id, (payment) => payment.cancel(NOW));
     const invoice = async (id = INVOICE) => (await ports.ledger.invoices(tenant, { ids: [id] }))[0];
+
+    async function draftNote(params: {
+      customerId?: string;
+      invoiceId?: string | null;
+      salesReturnId?: string | null;
+      total: number;
+    }): Promise<CreditNoteId> {
+      const id = CreditNoteId.of(`cc000000-0000-4000-8000-${next()}`);
+      const code = `NCC${next().slice(-6)}`;
+      const note = CustomerCreditNote.draft(
+        id,
+        tenant,
+        code,
+        {
+          customerId: params.customerId ?? CUSTOMER,
+          invoiceId: params.invoiceId ?? null,
+          salesReturnId: params.salesReturnId ?? null,
+          issueDate: ReceivablesDate.of(TODAY),
+          reason: 'subsequent_discount',
+          reasonDetail: null,
+          notes: 'contrato nota',
+          currency: DocumentCurrency.fromPrimitives({
+            currency: 'USD',
+            exchangeRate: 1,
+            baseCurrency: 'USD',
+            baseExchangeRate: 1,
+            manualExchangeRate: false,
+          }),
+          lines: [
+            {
+              id: `ca000000-0000-4000-8000-${next()}`,
+              concept: 'Descuento',
+              quantity: 1,
+              unitPrice: params.total,
+              taxRate: 0,
+            },
+          ],
+        },
+        NOW,
+        TODAY,
+      );
+      await ports.creditNotes.save(note);
+      return id;
+    }
+
+    const confirmNote = (id: CreditNoteId) => ports.creditNotePosting.confirm(tenant, id, NOW, TODAY);
+    const cancelNote = (id: CreditNoteId) => ports.creditNotePosting.cancel(tenant, id, NOW);
+
+    async function creditPaymentDraft(allocations: PaymentDetails['allocations'], creditSourceId: string, customerId = CUSTOMER): Promise<PaymentId> {
+      const id = PaymentId.of(`d0000000-0000-4000-8000-${next()}`);
+      const invoices = await ports.ledger.invoices(tenant, { ids: allocations.map((row) => row.invoiceId) });
+
+      await ports.payments.save(
+        CustomerPayment.draft(
+          id,
+          tenant,
+          `COB${next().slice(-6)}`,
+          { customerId, date: ReceivablesDate.of(TODAY), method: 'credit_note', reference: null, notes: 'contrato cn', allocations, creditSourceId },
+          invoices,
+          aPaymentRates(),
+          NOW,
+          TODAY,
+        ),
+      );
+
+      return id;
+    }
 
     describe('PaymentRepository', () => {
       it('saves a draft with what it applies, and rewrites it when edited', async () => {
@@ -229,11 +309,226 @@ export function describeReceivablesPortsContract(implementation: string, createH
       });
     });
 
+    describe('CustomerCreditNoteRepository', () => {
+      it('saves a draft with its lines, and rewrites it when edited', async () => {
+        const id = await draftNote({ total: 50 });
+        const stored = (await ports.creditNotes.find(tenant, id))!;
+
+        expect(stored.toPrimitives()).toMatchObject({ status: 'draft', total: 50, issueDate: TODAY, reason: 'subsequent_discount' });
+        expect(stored.toPrimitives().lines).toHaveLength(1);
+
+        stored.update(
+          {
+            customerId: CUSTOMER,
+            invoiceId: null,
+            salesReturnId: null,
+            issueDate: ReceivablesDate.of('2026-01-12'),
+            reason: 'other',
+            reasonDetail: 'Detalle de prueba',
+            notes: 'editada',
+            currency: DocumentCurrency.fromPrimitives({
+              currency: 'USD',
+              exchangeRate: 1,
+              baseCurrency: 'USD',
+              baseExchangeRate: 1,
+              manualExchangeRate: false,
+            }),
+            lines: [
+              {
+                id: stored.toPrimitives().lines[0].id,
+                concept: 'Concepto corregido',
+                quantity: 2,
+                unitPrice: 30,
+                taxRate: 0,
+              },
+            ],
+          },
+          NOW,
+          TODAY,
+        );
+        await ports.creditNotes.save(stored);
+
+        const updated = (await ports.creditNotes.find(tenant, id))!;
+        expect(updated.toPrimitives()).toMatchObject({ total: 60, issueDate: '2026-01-12', reason: 'other', reasonDetail: 'Detalle de prueba' });
+        expect(await ports.creditNotes.find(TenantId.of(TENANT_B), id)).toBeNull();
+      });
+
+      it('refuses to overwrite a credit note confirmed in the meantime', async () => {
+        const id = await draftNote({ total: 50 });
+        const stale = (await ports.creditNotes.find(tenant, id))!;
+        await confirmNote(id);
+
+        await expect(ports.creditNotes.save(stale)).rejects.toThrow(CreditNoteNotEditableError);
+      });
+
+      it('pages the credit notes and filters them by text, customer, invoice and status', async () => {
+        const first = await draftNote({ total: 50 });
+        const second = await draftNote({ customerId: OTHER_CUSTOMER, invoiceId: OTHER_INVOICE, total: 20 });
+        await confirmNote(second);
+        const code = (await ports.creditNotes.find(tenant, first))!.toPrimitives().code;
+
+        const all = await ports.creditNotes.searchPage(tenant, {});
+        expect(all.total).toBe(2);
+
+        const byCode = await ports.creditNotes.searchPage(tenant, { text: code.toLowerCase() });
+        expect(byCode.notes.map((n) => n.id.value)).toEqual([first.value]);
+
+        const byCustomer = await ports.creditNotes.searchPage(tenant, { customerId: OTHER_CUSTOMER });
+        expect(byCustomer.notes.map((n) => n.id.value)).toEqual([second.value]);
+
+        const byInvoice = await ports.creditNotes.searchPage(tenant, { invoiceId: OTHER_INVOICE });
+        expect(byInvoice.notes.map((n) => n.id.value)).toEqual([second.value]);
+
+        const byStatus = await ports.creditNotes.searchPage(tenant, { status: 'confirmed' });
+        expect(byStatus.notes.map((n) => n.id.value)).toEqual([second.value]);
+      });
+    });
+
+    describe('CreditNotePosting', () => {
+      it('caps issue payment allocation at invoice remaining balance and keeps remainder as available credit', async () => {
+        // Factura de 100 cobrada 60 -> saldo vivo 40
+        const paymentId = await draft([allocation(INVOICE, 60)]);
+        await confirm(paymentId);
+        expect((await invoice()).balance()).toBe(40);
+
+        // Nota de 100 sobre la factura de 100
+        const noteId = await draftNote({ invoiceId: INVOICE, total: 100 });
+        await confirmNote(noteId);
+
+        // La factura queda totalmente saldada
+        expect((await invoice()).balance()).toBe(0);
+        expect((await invoice()).toPrimitives().paid).toBe(100);
+
+        const note = (await ports.creditNotes.find(tenant, noteId))!;
+        expect(note.currentStatus()).toBe('confirmed');
+        expect(note.toPrimitives().issuePaymentId).not.toBeNull();
+
+        // El cobro de emision se creo automaticamente por 40 (el saldo vivo)
+        const issuePayment = (await ports.payments.find(tenant, PaymentId.of(note.toPrimitives().issuePaymentId!)))!;
+        expect(issuePayment.toPrimitives()).toMatchObject({
+          amount: 40,
+          method: 'credit_note',
+          creditSourceId: noteId.value,
+          status: 'confirmed',
+        });
+
+        // Credito disponible en la nota: 100 - 40 = 60
+        const applied = await ports.creditNotes.appliedPaymentsSum(tenant, noteId);
+        expect(applied).toBe(40);
+        expect(NoteCredit.available(note, applied)).toBe(60);
+
+        const available = await ports.creditNotes.findAvailableCreditsByCustomer(tenant, CUSTOMER);
+        expect(available.map((n) => n.id.value)).toContain(noteId.value);
+      });
+
+      it('refuses to confirm a credit note that exceeds invoice amount quota', async () => {
+        const noteId = await draftNote({ invoiceId: INVOICE, total: 150 });
+        await expect(confirmNote(noteId)).rejects.toThrow(CreditQuotaExceededError);
+      });
+
+      it('spends available credit from Collections on another invoice of the customer', async () => {
+        // Factura de 100 cobrada 60 -> saldo 40. Nota de 100 -> abona 40, sobran 60 de credito.
+        const paymentId = await draft([allocation(INVOICE, 60)]);
+        await confirm(paymentId);
+        const noteId = await draftNote({ invoiceId: INVOICE, total: 100 });
+        await confirmNote(noteId);
+
+        // Creamos una segunda factura para el mismo cliente de 60
+        const SECOND_INVOICE = 'fa000000-0000-4000-8000-000000000002';
+        await harness.invoice(TENANT_A, { id: SECOND_INVOICE, code: 'FAC900003', customerId: CUSTOMER, issueDate: '2026-01-06', dueDate: '2026-01-20', status: 'issued', total: 60, ...DOLLARS });
+
+        // Cobro con credit_note que gasta los 60 de credito en la segunda factura
+        const creditPayId = await creditPaymentDraft([allocation(SECOND_INVOICE, 60)], noteId.value);
+        await confirm(creditPayId);
+
+        const secondInv = (await ports.ledger.invoices(tenant, { ids: [SECOND_INVOICE] }))[0];
+        expect(secondInv.balance()).toBe(0);
+
+        const applied = await ports.creditNotes.appliedPaymentsSum(tenant, noteId);
+        expect(applied).toBe(100);
+        const note = (await ports.creditNotes.find(tenant, noteId))!;
+        expect(NoteCredit.available(note, applied)).toBe(0);
+
+        const available = await ports.creditNotes.findAvailableCreditsByCustomer(tenant, CUSTOMER);
+        expect(available.map((n) => n.id.value)).not.toContain(noteId.value);
+      });
+
+      it('lets only one of two concurrent credit note payments through when available credit is not enough for both', async () => {
+        // Factura de 100 cobrada 60. Nota de 100 -> abona 40, sobran 60 de credito.
+        const p0 = await draft([allocation(INVOICE, 60)]);
+        await confirm(p0);
+        const noteId = await draftNote({ invoiceId: INVOICE, total: 100 });
+        await confirmNote(noteId);
+
+        // Dos facturas para el cliente, cada una de 50
+        const INV_A = 'fa000000-0000-4000-8000-000000000010';
+        const INV_B = 'fa000000-0000-4000-8000-000000000011';
+        await harness.invoice(TENANT_A, { id: INV_A, code: 'FAC900010', customerId: CUSTOMER, issueDate: '2026-01-06', dueDate: '2026-01-20', status: 'issued', total: 50, ...DOLLARS });
+        await harness.invoice(TENANT_A, { id: INV_B, code: 'FAC900011', customerId: CUSTOMER, issueDate: '2026-01-06', dueDate: '2026-01-20', status: 'issued', total: 50, ...DOLLARS });
+
+        // Dos cobros simultaneos de 40 cada uno sobre la nota que solo tiene 60 de credito disponible
+        const [first, second] = [
+          await creditPaymentDraft([allocation(INV_A, 40)], noteId.value),
+          await creditPaymentDraft([allocation(INV_B, 40)], noteId.value),
+        ];
+
+        const results = await Promise.allSettled([confirm(first), confirm(second)]);
+
+        expect(results.map((r) => r.status).sort()).toEqual(['fulfilled', 'rejected']);
+        expect((results.find((r) => r.status === 'rejected') as PromiseRejectedResult).reason).toBeInstanceOf(CreditNoteExceededError);
+
+        const applied = await ports.creditNotes.appliedPaymentsSum(tenant, noteId);
+        expect(applied).toBe(80); // 40 de emision + 40 del cobro ganador
+      });
+
+      it('cancelling a payment that spent credit restores it; cancelling a note with external payments is refused', async () => {
+        // Factura de 100 cobrada 60. Nota de 100 -> abona 40, sobran 60.
+        const p0 = await draft([allocation(INVOICE, 60)]);
+        await confirm(p0);
+        const noteId = await draftNote({ invoiceId: INVOICE, total: 100 });
+        await confirmNote(noteId);
+
+        const INV_C = 'fa000000-0000-4000-8000-000000000020';
+        await harness.invoice(TENANT_A, { id: INV_C, code: 'FAC900020', customerId: CUSTOMER, issueDate: '2026-01-06', dueDate: '2026-01-20', status: 'issued', total: 50, ...DOLLARS });
+
+        const extPayment = await creditPaymentDraft([allocation(INV_C, 30)], noteId.value);
+        await confirm(extPayment);
+
+        // Si intentamos anular la nota con el cobro externo activo: se rechaza
+        await expect(cancelNote(noteId)).rejects.toThrow(CreditNoteWithApplicationsError);
+
+        // Al anular el cobro externo: el credito se restaura en la nota
+        await cancel(extPayment);
+        const note = (await ports.creditNotes.find(tenant, noteId))!;
+        const applied = await ports.creditNotes.appliedPaymentsSum(tenant, noteId);
+        expect(NoteCredit.available(note, applied)).toBe(60);
+
+        // Y ahora si se puede anular la nota de credito: revierte su cobro de emision
+        await cancelNote(noteId);
+        expect((await invoice()).balance()).toBe(40); // Restaurado el saldo de la factura a 40
+        expect(note.currentStatus()).toBe('confirmed'); // La instancia vieja
+        expect((await ports.creditNotes.find(tenant, noteId))?.currentStatus()).toBe('cancelled');
+      });
+
+      it('closes the backdoor: issue payment cannot be cancelled directly from Collections', async () => {
+        const noteId = await draftNote({ invoiceId: INVOICE, total: 50 });
+        await confirmNote(noteId);
+
+        const note = (await ports.creditNotes.find(tenant, noteId))!;
+        const issuePaymentId = PaymentId.of(note.toPrimitives().issuePaymentId!);
+
+        await expect(cancel(issuePaymentId)).rejects.toThrow(IssuePaymentCannotBeCancelledDirectlyError);
+      });
+    });
+
     describe('ReceivablesCodeSequence', () => {
       it('counts per tenant', async () => {
         expect(await ports.codes.next(tenant, 'COB')).toBe(1);
         expect(await ports.codes.next(tenant, 'COB')).toBe(2);
         expect(await ports.codes.next(TenantId.of(TENANT_B), 'COB')).toBe(1);
+        expect(await ports.codes.next(tenant, 'NCC')).toBe(1);
+        expect(await ports.codes.next(tenant, 'NCC')).toBe(2);
+        expect(await ports.codes.next(TenantId.of(TENANT_B), 'NCC')).toBe(1);
       });
     });
   });

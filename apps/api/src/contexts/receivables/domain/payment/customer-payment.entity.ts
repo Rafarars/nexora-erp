@@ -4,9 +4,11 @@ import { DocumentCurrency, DocumentCurrencyPrimitives, rateUnits } from '../../.
 import { MissingExchangeRateError } from '../../../../shared/domain/ports/document-rates.js';
 import { Uuid } from '../../../../shared/domain/uuid.vo.js';
 import {
+  CreditNotePaymentWithoutSourceError,
   DuplicatePaymentInvoiceError,
   EmptyPaymentError,
   InvalidPaymentMethodError,
+  MoneyPaymentWithCreditSourceError,
   PaymentAlreadyCancelledError,
   PaymentNotConfirmableError,
   PaymentNotEditableError,
@@ -195,6 +197,7 @@ export class CustomerPayment {
       method: this.row.method,
       reference: this.row.reference,
       notes: this.row.notes,
+      creditSourceId: this.row.creditSourceId,
       allocations: this.row.allocations.map(({ id, invoiceId, amount }) => ({ id, invoiceId, amount })),
     };
     const valuedRow = { ...this.row, ...valued(details, invoices, rates, today) };
@@ -214,6 +217,8 @@ export class CustomerPayment {
 
 function valued(details: PaymentDetails, invoices: ReceivableInvoice[], rates: PaymentRates, today: string): Body {
   if (!PAYMENT_METHODS.includes(details.method as PaymentMethod)) throw new InvalidPaymentMethodError(details.method);
+  if (details.method === 'credit_note' && !details.creditSourceId) throw new CreditNotePaymentWithoutSourceError();
+  if (details.method !== 'credit_note' && details.creditSourceId) throw new MoneyPaymentWithCreditSourceError();
   if (details.allocations.length === 0) throw new EmptyPaymentError();
 
   details.date.ensureNotAfter(today);

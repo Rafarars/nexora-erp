@@ -128,6 +128,11 @@ export const RECEIVABLES_PERMISSIONS: PermissionDefinition[] = [
   { code: 'receivables.payments.cancel', description: 'Anular cobros, devolviendo el saldo' },
   { code: 'receivables.balances.search', description: 'Consultar saldos, vencidas y antigüedad' },
   { code: 'receivables.statements.search', description: 'Consultar el estado de cuenta de un cliente' },
+  { code: 'receivables.creditnotes.search', description: 'Consultar notas de crédito a clientes' },
+  { code: 'receivables.creditnotes.create', description: 'Crear notas de crédito a clientes en borrador' },
+  { code: 'receivables.creditnotes.update', description: 'Editar notas de crédito a clientes en borrador' },
+  { code: 'receivables.creditnotes.confirm', description: 'Confirmar notas de crédito a clientes' },
+  { code: 'receivables.creditnotes.cancel', description: 'Anular notas de crédito a clientes' },
 ];
 
 export const REPORTS_PERMISSIONS: PermissionDefinition[] = [

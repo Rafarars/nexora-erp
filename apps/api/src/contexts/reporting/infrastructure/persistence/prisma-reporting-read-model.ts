@@ -87,28 +87,54 @@ export class PrismaReportingReadModel implements ReportingReadModel {
   // Un cobro rebaja lo que valia el saldo de cada factura antes menos lo que vale despues, como en
   // cobranza: convertir cada abono por su cuenta perderia centimos y el saldo corrido no cerraria.
   async statementEntries(tenantId: TenantId, customerId: string, decimals: number): Promise<ReportStatementEntry[]> {
-    const rows = await this.prisma.$queryRaw<{ date: Date; type: 'invoice' | 'payment'; code: string; amount: string }[]>`
+    const rows = await this.prisma.$queryRaw<{ date: Date; type: 'invoice' | 'payment'; code: string; amount: string; note_remaining: string | null }[]>`
       WITH applied AS (
-        SELECT a.invoice_id, a.amount, p.payment_date, p.code,
+        SELECT a.invoice_id, a.amount, p.payment_date, p.id AS payment_id, p.code, p.method, p.credit_source_id,
+               cn.code AS credit_note_code,
+               cn.total AS credit_note_total,
                SUM(a.amount) OVER (PARTITION BY a.invoice_id ORDER BY p.payment_date, p.code, a.id) AS paid_after
         FROM payment_allocations a
         JOIN customer_payments p ON p.tenant_id = a.tenant_id AND p.id = a.payment_id
+        LEFT JOIN customer_credit_notes cn ON cn.tenant_id = p.tenant_id AND cn.id = p.credit_source_id
         WHERE a.tenant_id = ${tenantId.value}::uuid AND p.customer_id = ${customerId}::uuid AND p.status = 'confirmed'
+      ),
+      note_applied AS (
+        SELECT p.credit_source_id, SUM(a.amount) AS total_applied
+        FROM payment_allocations a
+        JOIN customer_payments p ON p.tenant_id = a.tenant_id AND p.id = a.payment_id
+        WHERE a.tenant_id = ${tenantId.value}::uuid AND p.status = 'confirmed' AND p.credit_source_id IS NOT NULL
+        GROUP BY p.credit_source_id
       )
-      SELECT i.issue_date AS date, 'invoice' AS type, i.code, ROUND(i.total * ${IN_COMPANY_CURRENCY}, ${decimals}::int)::text AS amount
+      SELECT i.issue_date AS date, 'invoice' AS type, i.code, ROUND(i.total * ${IN_COMPANY_CURRENCY}, ${decimals}::int)::text AS amount, NULL::text AS note_remaining
       FROM invoices i
       WHERE i.tenant_id = ${tenantId.value}::uuid AND i.customer_id = ${customerId}::uuid AND i.status = 'issued'
       UNION ALL
-      SELECT applied.payment_date, 'payment', applied.code,
+      SELECT applied.payment_date, 'payment',
+             CASE
+               WHEN applied.method = 'credit_note' AND applied.credit_note_code IS NOT NULL THEN 'Nota de crédito ' || applied.credit_note_code
+               ELSE applied.code
+             END AS code,
              SUM(
                ROUND((i.total - applied.paid_after + applied.amount) * ${IN_COMPANY_CURRENCY}, ${decimals}::int)
                - ROUND((i.total - applied.paid_after) * ${IN_COMPANY_CURRENCY}, ${decimals}::int)
-             )::text
+             )::text AS amount,
+             CASE
+               WHEN applied.method = 'credit_note' AND applied.credit_source_id IS NOT NULL
+               THEN ROUND(GREATEST(0, applied.credit_note_total - COALESCE(na.total_applied, 0)), ${decimals}::int)::text
+               ELSE NULL
+             END AS note_remaining
       FROM applied
       JOIN invoices i ON i.tenant_id = ${tenantId.value}::uuid AND i.id = applied.invoice_id
-      GROUP BY applied.payment_date, applied.code`;
+      LEFT JOIN note_applied na ON na.credit_source_id = applied.credit_source_id
+      GROUP BY applied.payment_date, applied.code, applied.method, applied.credit_note_code, applied.credit_source_id, applied.credit_note_total, na.total_applied`;
 
-    return rows.map((row) => ({ date: day(row.date), type: row.type, code: row.code, amount: num(row.amount) }));
+    return rows.map((row) => ({
+      date: day(row.date),
+      type: row.type,
+      code: row.code,
+      amount: num(row.amount),
+      ...(row.note_remaining !== null ? { noteRemaining: num(row.note_remaining) } : {}),
+    }));
   }
 
   async salesTotal(tenantId: TenantId, period: ReportPeriod, decimals: number): Promise<number> {

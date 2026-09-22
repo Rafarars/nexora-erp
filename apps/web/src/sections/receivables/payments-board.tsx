@@ -238,6 +238,7 @@ function PaymentFields({
 }) {
   const baseCurrency = settings.baseCurrency.code;
   const [customerId, setCustomerId] = useState(payment?.customer.id ?? '');
+  const [method, setMethod] = useState<PaymentMethod>(payment?.method ?? 'transfer');
   const [currency, setCurrency] = useState(payment?.currency ?? baseCurrency);
   const invoices = payableInvoices(receivables, customerId, payment);
 
@@ -286,7 +287,8 @@ function PaymentFields({
           <select
             id="payment-method"
             name="method"
-            defaultValue={payment?.method ?? 'transfer'}
+            value={method}
+            onChange={(event) => setMethod(event.target.value as PaymentMethod)}
             data-testid="payment-method"
             className="border-line bg-background w-full rounded-md border px-3 py-2 text-sm"
           >
@@ -298,6 +300,23 @@ function PaymentFields({
           </select>
         </div>
       </div>
+
+      {method === 'credit_note' ? (
+        <div className="space-y-1.5">
+          <label htmlFor="payment-credit-source" className="text-sm font-medium">
+            ID de la nota de crédito origen
+          </label>
+          <input
+            id="payment-credit-source"
+            name="creditSourceId"
+            defaultValue={payment?.creditSourceId ?? ''}
+            placeholder="UUID de la nota de crédito..."
+            data-testid="payment-credit-source"
+            className="border-line w-full rounded-md border bg-transparent px-3 py-2 text-sm"
+            required
+          />
+        </div>
+      ) : null}
 
       <div className="space-y-1.5">
         <label htmlFor="payment-reference" className="text-sm font-medium">

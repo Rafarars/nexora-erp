@@ -28,6 +28,8 @@ export const GLOBEX = {
   exchangeRateId: 'f6000000-0000-4000-8000-000000000101',
   draftSalesReturnId: 'f7000000-0000-4000-8000-000000000101',
   confirmedSalesReturnId: 'f7000000-0000-4000-8000-000000000102',
+  confirmedCreditNoteId: 'f8000000-0000-4000-8000-000000000101',
+  draftCreditNoteId: 'f8000000-0000-4000-8000-000000000102',
 };
 
 export const ACME = {
@@ -603,5 +605,59 @@ export const ISOLATION_CASES: IsolationCase[] = [
     title: 'download the stock valuation of a warehouse of another tenant',
     method: 'get',
     path: `/api/v1/reports/inventory-valuation/export?format=xlsx&warehouseId=${GLOBEX.warehouseId}`,
+  },
+  {
+    route: 'POST /api/v1/receivables/credit-notes',
+    title: 'create a credit note for a customer and an invoice of another tenant',
+    method: 'post',
+    path: '/api/v1/receivables/credit-notes',
+    body: {
+      customerId: GLOBEX.customerId,
+      invoiceId: GLOBEX.issuedInvoiceId,
+      reason: 'subsequent_discount',
+      lines: [{ concept: 'Ajuste', quantity: 1, unitPrice: 10, taxRate: 0 }],
+    },
+  },
+  {
+    route: 'PUT /api/v1/receivables/credit-notes/:creditNoteId',
+    title: 'rewrite a draft credit note of another tenant',
+    method: 'put',
+    path: `/api/v1/receivables/credit-notes/${GLOBEX.draftCreditNoteId}`,
+    body: {
+      customerId: GLOBEX.customerId,
+      invoiceId: GLOBEX.issuedInvoiceId,
+      reason: 'subsequent_discount',
+      lines: [{ concept: 'Ajuste', quantity: 1, unitPrice: 20, taxRate: 0 }],
+    },
+  },
+  {
+    route: 'PUT /api/v1/receivables/credit-notes/:creditNoteId/confirm',
+    title: 'confirm a credit note of another tenant',
+    method: 'put',
+    path: `/api/v1/receivables/credit-notes/${GLOBEX.draftCreditNoteId}/confirm`,
+  },
+  {
+    route: 'PUT /api/v1/receivables/credit-notes/:creditNoteId/cancel',
+    title: 'cancel a credit note of another tenant',
+    method: 'put',
+    path: `/api/v1/receivables/credit-notes/${GLOBEX.confirmedCreditNoteId}/cancel`,
+  },
+  {
+    route: 'GET /api/v1/receivables/credit-notes/:creditNoteId',
+    title: 'read a credit note of another tenant',
+    method: 'get',
+    path: `/api/v1/receivables/credit-notes/${GLOBEX.confirmedCreditNoteId}`,
+  },
+  {
+    route: 'GET /api/v1/receivables/credit-notes',
+    title: 'filter credit notes by a customer of another tenant',
+    method: 'get',
+    path: `/api/v1/receivables/credit-notes?customerId=${GLOBEX.customerId}`,
+  },
+  {
+    route: 'GET /api/v1/receivables/customers/:customerId/available-credits',
+    title: 'read available credits of a customer of another tenant',
+    method: 'get',
+    path: `/api/v1/receivables/customers/${GLOBEX.customerId}/available-credits`,
   },
 ];

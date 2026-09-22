@@ -9,6 +9,10 @@ import { ReceivablesDate } from '../../domain/shared/receivables-date.vo.js';
 import { TenantId } from '../../domain/shared/tenant-id.vo.js';
 import { CustomerBalanceResponse, customerBalance } from '../search-customer-balances/customer-balance-searcher.js';
 
+import { CustomerCreditNoteRepository } from '../../domain/credit-note/customer-credit-note.repository.js';
+import { NoteCredit } from '../../domain/credit-note/note-credit.service.js';
+import { CreditNoteId } from '../../domain/credit-note/customer-credit-note.entity.js';
+
 export interface StatementMovement {
   date: string;
   type: 'invoice' | 'payment';
@@ -19,6 +23,8 @@ export interface StatementMovement {
   balance: number;
   // De un cobro, en bolivares; null si no lo tiene.
   exchangeDifference: number | null;
+  // Si el movimiento proviene de una nota de credito, el credito que le queda disponible.
+  noteRemaining?: number | null;
 }
 
 // El estado de cuenta de un cliente: sus facturas emitidas y sus cobros confirmados por fecha, con
@@ -31,6 +37,7 @@ export class CustomerStatementSearcher {
     private readonly payments: PaymentRepository,
     private readonly calendar: BusinessCalendar,
     private readonly rates: DocumentRates,
+    private readonly creditNotes?: CustomerCreditNoteRepository,
   ) {}
 
   async run(request: { tenantId: string; customerId: string }): Promise<{ summary: CustomerBalanceResponse; movements: StatementMovement[] }> {
@@ -62,28 +69,47 @@ export class CustomerStatementSearcher {
 
       return inCompanyCurrency(invoiceId, before) - inCompanyCurrency(invoiceId, after);
     };
+    const creditNoteMap = new Map<string, { code: string; remaining: number }>();
+    if (this.creditNotes) {
+      const { notes } = await this.creditNotes.searchPage(tenantId, { customerId: customer.id, limit: 1000 });
+      for (const note of notes) {
+        if (note.currentStatus() === 'confirmed') {
+          const appliedSum = payments
+            .map((p) => p.toPrimitives())
+            .filter((p) => p.status === 'confirmed' && p.creditSourceId === note.id.value)
+            .flatMap((p) => p.allocations)
+            .reduce((sum, a) => sum + a.amount, 0);
+          const remaining = NoteCredit.available(note, appliedSum);
+          creditNoteMap.set(note.id.value, { code: note.toPrimitives().code, remaining });
+        }
+      }
+    }
+
     const entries = [
       ...invoices
         .filter((invoice) => invoice.toPrimitives().status === 'issued')
         .map((invoice) => {
           const row = invoice.toPrimitives();
 
-          return { date: row.issueDate, type: 'invoice' as const, code: row.code, invoiceId: row.id, total: row.total, allocations: [], difference: null };
+          return { date: row.issueDate, type: 'invoice' as const, code: row.code, invoiceId: row.id, total: row.total, allocations: [], difference: null, noteRemaining: null };
         }),
       ...payments
         .map((payment) => payment.toPrimitives())
         .filter((payment) => payment.customerId === customer.id && payment.status === 'confirmed')
         .map((payment) => {
           const differences = payment.allocations.map((allocation) => allocation.exchangeDifference).filter((value): value is number => value !== null);
+          const creditInfo = payment.creditSourceId ? creditNoteMap.get(payment.creditSourceId) : null;
+          const displayCode = creditInfo ? `Nota de crédito ${creditInfo.code}` : payment.code;
 
           return {
             date: payment.paymentDate,
             type: 'payment' as const,
-            code: payment.code,
+            code: displayCode,
             invoiceId: null,
             total: 0,
             allocations: payment.allocations,
             difference: differences.length === 0 ? null : unitsToNumber(differences.reduce((sum, value) => sum + amountUnits(value), 0n)),
+            noteRemaining: creditInfo ? creditInfo.remaining : null,
           };
         }),
     ].sort((a, b) => a.date.localeCompare(b.date) || (a.type === b.type ? a.code.localeCompare(b.code) : a.type === 'invoice' ? -1 : 1));
@@ -110,6 +136,7 @@ export class CustomerStatementSearcher {
           credit: units < 0n ? unitsToNumber(-units) : 0,
           balance: unitsToNumber(running),
           exchangeDifference: entry.difference,
+          noteRemaining: entry.noteRemaining,
         };
       }),
     };

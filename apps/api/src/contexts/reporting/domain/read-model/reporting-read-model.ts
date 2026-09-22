@@ -30,6 +30,7 @@ export interface ReportStatementEntry {
   type: 'invoice' | 'payment';
   code: string;
   amount: number;
+  noteRemaining?: number | null;
 }
 
 export interface ReportCustomerSales {

@@ -1,7 +1,10 @@
 import { AccessError } from '../../access/domain/access-error';
 import type { AccessErrorBody } from '../../access/domain/access-error';
-import type { CustomerBalance, Receivable, Statement } from '../domain/receivables';
+import type { AvailableCredit, CreditNote, CustomerBalance, Receivable, Statement } from '../domain/receivables';
 import type {
+  CreditNoteFilters,
+  CreditNoteInput,
+  CreditNotePage,
   CustomerBalanceFilters,
   CustomerBalancePage,
   PaymentFilters,
@@ -84,6 +87,47 @@ export class HttpReceivablesApi implements ReceivablesApi {
 
   async searchStatement(token: string, customerId: string): Promise<Statement> {
     return this.request('GET', `${BASE}/customers/${encodeURIComponent(customerId)}/statement`, token);
+  }
+
+  async searchCreditNotes(token: string, filters: CreditNoteFilters = {}): Promise<CreditNotePage> {
+    return this.request<CreditNotePage>('GET', `${BASE}/credit-notes${queryOf(filters)}`, token);
+  }
+
+  async findCreditNote(token: string, id: string): Promise<CreditNote> {
+    const result = await this.request<{ creditNote: CreditNote }>('GET', `${BASE}/credit-notes/${id}`, token);
+    return result.creditNote;
+  }
+
+  async saveCreditNote(token: string, id: string | null, input: CreditNoteInput): Promise<void> {
+    const body = {
+      ...input,
+      exchangeRate: input.exchangeRate == null ? null : numeric(input.exchangeRate),
+      lines: input.lines.map((l) => ({
+        ...l,
+        quantity: numeric(l.quantity),
+        unitPrice: numeric(l.unitPrice),
+        taxRate: numeric(l.taxRate),
+      })),
+    };
+
+    await this.request(id ? 'PUT' : 'POST', id ? `${BASE}/credit-notes/${id}` : `${BASE}/credit-notes`, token, body);
+  }
+
+  async confirmCreditNote(token: string, id: string): Promise<void> {
+    await this.request('PUT', `${BASE}/credit-notes/${id}/confirm`, token);
+  }
+
+  async cancelCreditNote(token: string, id: string): Promise<void> {
+    await this.request('PUT', `${BASE}/credit-notes/${id}/cancel`, token);
+  }
+
+  async availableCredits(token: string, customerId: string): Promise<AvailableCredit[]> {
+    const result = await this.request<{ credits: AvailableCredit[] }>(
+      'GET',
+      `${BASE}/customers/${encodeURIComponent(customerId)}/available-credits`,
+      token,
+    );
+    return result.credits;
   }
 
   private async request<T>(method: string, path: string, token: string, body?: unknown): Promise<T> {

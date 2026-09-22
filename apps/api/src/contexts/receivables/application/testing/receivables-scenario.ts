@@ -14,6 +14,12 @@ import { CustomerStatementSearcher } from '../search-customer-statement/customer
 import { PaymentSearcher } from '../search-payments/payment-searcher.js';
 import { ReceivableSearcher } from '../search-receivables/receivable-searcher.js';
 import { PaymentUpdater } from '../update-payment/payment-updater.js';
+import { CreditNoteCreator } from '../create-credit-note/credit-note-creator.js';
+import { CreditNoteUpdater } from '../update-credit-note/credit-note-updater.js';
+import { CreditNoteConfirmer } from '../confirm-credit-note/credit-note-confirmer.js';
+import { CreditNoteCanceller } from '../cancel-credit-note/credit-note-canceller.js';
+import { CreditNoteSearcher } from '../search-credit-notes/credit-note-searcher.js';
+import { CustomerAvailableCreditsFinder } from '../customer-available-credits/customer-available-credits-finder.js';
 
 // El mundo de una prueba de aplicacion de cuentas por cobrar: clientes y facturas que en la base
 // escribe ventas, reloj congelado y sin base de datos ni NestJS.
@@ -39,7 +45,13 @@ export function aReceivablesScenario() {
     searchPayments: new PaymentSearcher(store.payments, store.ledger),
     searchReceivables: new ReceivableSearcher(store.ledger, calendar, rates),
     searchCustomerBalances: new CustomerBalanceSearcher(store.ledger, calendar, rates),
-    searchCustomerStatement: new CustomerStatementSearcher(store.ledger, store.payments, calendar, rates),
+    searchCustomerStatement: new CustomerStatementSearcher(store.ledger, store.payments, calendar, rates, store.creditNotes),
+    createCreditNote: new CreditNoteCreator(store.creditNotes, store.ledger, codes, ids, clock, calendar, rates),
+    updateCreditNote: new CreditNoteUpdater(store.creditNotes, store.ledger, ids, clock, calendar, rates),
+    confirmCreditNote: new CreditNoteConfirmer(store.creditNotePosting, clock, calendar),
+    cancelCreditNote: new CreditNoteCanceller(store.creditNotePosting, clock),
+    searchCreditNotes: new CreditNoteSearcher(store.creditNotes, store.ledger),
+    availableCredits: new CustomerAvailableCreditsFinder(store.creditNotes, store.ledger),
   };
 }
 

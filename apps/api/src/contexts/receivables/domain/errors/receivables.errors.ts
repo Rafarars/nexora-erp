@@ -110,3 +110,113 @@ export class PaymentBeforeInvoiceError extends ConflictError {
     super(`Payment dated <${date}> is earlier than invoice <${invoiceId}>.`, 'A payment cannot be dated before the invoices it pays.');
   }
 }
+
+// ---------------------------------------------------------------- notas de credito
+
+export class CreditNoteNotFoundError extends NotFoundError {
+  constructor(id: string) {
+    super(`Credit note <${id}> does not exist.`, 'The credit note does not exist.');
+  }
+}
+
+export class CreditNoteNotEditableError extends ConflictError {
+  constructor(id: string, status: string) {
+    super(`Credit note <${id}> is <${status}> and cannot be edited.`, 'Only a draft credit note can be edited.');
+  }
+}
+
+export class CreditNoteNotConfirmableError extends ConflictError {
+  constructor(id: string, status: string) {
+    super(`Credit note <${id}> is <${status}> and cannot be confirmed.`, 'Only a draft credit note can be confirmed.');
+  }
+}
+
+export class CreditNoteAlreadyCancelledError extends ConflictError {
+  constructor(id: string) {
+    super(`Credit note <${id}> is already cancelled.`, 'The credit note is already cancelled.');
+  }
+}
+
+export class CreditNoteReasonDetailRequiredError extends InvalidArgumentError {
+  constructor() {
+    super("Credit note with reason 'other' requires reasonDetail.", 'The reason detail is required.');
+  }
+}
+
+export class CreditNoteWithApplicationsError extends ConflictError {
+  constructor(id: string) {
+    super(`Credit note <${id}> has been applied to confirmed payments.`, 'The credit note has been applied to payments.');
+  }
+}
+
+export class CreditNotePaymentWithoutSourceError extends InvalidArgumentError {
+  constructor() {
+    super('A credit note payment must specify creditSourceId.', 'A credit note payment requires a credit note source.');
+  }
+}
+
+export class MoneyPaymentWithCreditSourceError extends InvalidArgumentError {
+  constructor() {
+    super('A money payment cannot specify creditSourceId.', 'A payment with money cannot specify a credit note source.');
+  }
+}
+
+export class CreditNoteNotConfirmedError extends ConflictError {
+  constructor(id: string, status: string) {
+    super(`Credit note <${id}> is <${status}> and cannot be used as credit.`, 'The credit note is not confirmed.');
+  }
+}
+
+export class CreditNoteCustomerMismatchError extends ConflictError {
+  constructor(noteId: string, customerId: string) {
+    super(`Credit note <${noteId}> belongs to another customer <${customerId}>.`, 'The credit note belongs to a different customer.');
+  }
+}
+
+export class CreditNoteExceededError extends ConflictError {
+  constructor(id: string, available: number, requested: number) {
+    super(`Credit note <${id}> has only <${available}> available, requested <${requested}>.`, 'The requested amount exceeds the credit note balance.');
+  }
+}
+
+export class CreditNoteCurrencyMismatchError extends ConflictError {
+  constructor(noteCurrency: string, paymentCurrency: string) {
+    super(`Credit note currency <${noteCurrency}> does not match payment currency <${paymentCurrency}>.`, 'The credit note currency does not match the payment currency.');
+  }
+}
+
+export class CreditNoteReturnCustomerMismatchError extends ConflictError {
+  constructor(returnId: string, customerId: string) {
+    super(`Sales return <${returnId}> belongs to another customer <${customerId}>.`, 'The sales return belongs to a different customer.');
+  }
+}
+
+export class CreditNoteReturnNotConfirmedError extends ConflictError {
+  constructor(returnId: string, status: string) {
+    super(`Sales return <${returnId}> is <${status}> and cannot be credited.`, 'The sales return is not confirmed.');
+  }
+}
+
+export class CreditQuotaExceededError extends ConflictError {
+  constructor(invoiceId: string, available: number, requested: number) {
+    super(`Invoice <${invoiceId}> has only <${available}> credit quota, requested <${requested}>.`, 'The credit note exceeds the invoice balance.');
+  }
+}
+
+export class IssuePaymentCannotBeCancelledDirectlyError extends ConflictError {
+  constructor(paymentId: string, noteId: string) {
+    super(`Payment <${paymentId}> is the issue payment of credit note <${noteId}> and cannot be cancelled directly.`, 'The issue payment cannot be cancelled directly.');
+  }
+}
+
+export class EmptyCreditNoteError extends InvalidArgumentError {
+  constructor() {
+    super('A credit note needs at least one line.', 'The credit note needs at least one line.');
+  }
+}
+
+export class InvalidCreditNoteLineAmountError extends InvalidArgumentError {
+  constructor() {
+    super('Credit note line quantity and unit price must be positive.', 'Line amounts must be greater than zero.');
+  }
+}
