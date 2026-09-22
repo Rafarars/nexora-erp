@@ -1,7 +1,7 @@
 import { amountUnits, unitsToNumber } from '../../../../shared/domain/amount.js';
 import { ReceivableInvoice } from '../../domain/ledger/receivable-invoice.js';
 import { ReceivableCustomer } from '../../domain/ledger/receivables-ledger.js';
-import { CustomerPayment, PaymentStatus } from '../../domain/payment/customer-payment.entity.js';
+import { CustomerPayment, PaymentMethod, PaymentStatus } from '../../domain/payment/customer-payment.entity.js';
 
 type Decimalish = { toNumber(): number };
 
@@ -18,7 +18,8 @@ export interface PaymentRow {
   code: string;
   customerId: string;
   paymentDate: Date;
-  method: 'cash' | 'transfer' | 'card' | 'check';
+  method: PaymentMethod;
+  creditSourceId: string | null;
   reference: string | null;
   notes: string | null;
   amount: Decimalish;

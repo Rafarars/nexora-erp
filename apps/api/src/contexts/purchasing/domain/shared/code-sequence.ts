@@ -2,7 +2,7 @@ import { TenantId } from './tenant-id.vo.js';
 
 export const PURCHASING_CODE_SEQUENCE = Symbol('PurchasingCodeSequence');
 
-export type PurchasingCodePrefix = 'PRV' | 'OC' | 'ENT';
+export type PurchasingCodePrefix = 'PRV' | 'OC' | 'ENT' | 'DVC';
 
 // Mismo contrato que el del catalogo y el inventario, declarado aqui para no depender de
 // ellos: numero siguiente, atomico, por empresa y prefijo.

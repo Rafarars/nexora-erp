@@ -24,7 +24,7 @@ export class PaymentId extends Uuid {
   }
 }
 
-export const PAYMENT_METHODS = ['cash', 'transfer', 'card', 'check'] as const;
+export const PAYMENT_METHODS = ['cash', 'transfer', 'card', 'check', 'credit_note'] as const;
 
 export type PaymentMethod = (typeof PAYMENT_METHODS)[number];
 
@@ -49,6 +49,7 @@ export interface PaymentPrimitives extends DocumentCurrencyPrimitives {
   customerId: string;
   paymentDate: string;
   method: PaymentMethod;
+  creditSourceId?: string | null;
   reference: string | null;
   notes: string | null;
   // En la moneda del cobro: lo aplicado a cada factura convertido por el bolivar.
@@ -66,6 +67,7 @@ export interface PaymentDetails {
   customerId: string;
   date: ReceivablesDate;
   method: string;
+  creditSourceId?: string | null;
   reference?: string | null;
   notes?: string | null;
   // Cada importe en la moneda de su factura.
@@ -256,6 +258,7 @@ function valued(details: PaymentDetails, invoices: ReceivableInvoice[], rates: P
     customerId: details.customerId,
     paymentDate: details.date.value,
     method: details.method as PaymentMethod,
+    creditSourceId: details.creditSourceId ?? null,
     reference: optionalText(details.reference, 100, 'PaymentReference'),
     notes: optionalText(details.notes, 500, 'PaymentNotes'),
     ...rates.currency.toPrimitives(),
