@@ -22,7 +22,7 @@ export interface DocumentStockEntry {
 }
 
 export interface StockDocument {
-  type: 'receipt' | 'dispatch';
+  type: 'receipt' | 'dispatch' | 'sales_return' | 'purchase_return';
   id: string;
   // El dia que el documento declara, "2026-08-10". El kardex lo guarda junto al instante en
   // que se publico: el saldo corre por el orden de publicacion, pero quien lee quiere ver la
@@ -32,6 +32,26 @@ export interface StockDocument {
 
 // Una salida: el costo no viaja, el inventario la valora al promedio vigente.
 export type DocumentStockExit = Omit<DocumentStockEntry, 'unitCost'>;
+
+// Una devolucion que restituye lineas originales a su costo congelado.
+export interface DocumentStockRestore {
+  lineId: string;
+  itemId: string;
+  warehouseId: string;
+  // En unidad base, con hasta cuatro decimales.
+  quantity: number;
+  // El ID del movimiento de kardex original que se esta devolviendo.
+  originalMovementId: string;
+}
+
+export interface DocumentStockMovement {
+  id: string;
+  lineId: string | null;
+  itemId: string;
+  warehouseId: string;
+  unitCost: number;
+  quantity: number;
+}
 
 export interface DocumentStockPosting {
   // Bloquea las existencias en orden fijo y registra una entrada por linea.
@@ -46,4 +66,8 @@ export interface DocumentStockPosting {
   // Revierte todo lo que el documento escribio. Lanza InsufficientStockError si la
   // mercancia ya salio.
   reverse(tx: TransactionClient, tenantId: string, document: StockDocument, now: Date): Promise<void>;
+  // Restituye lineas originales a su costo congelado. Devuelve mapa lineId -> movementId registrado.
+  restore(tx: TransactionClient, tenantId: string, document: StockDocument, restores: DocumentStockRestore[], now: Date): Promise<Map<string, string>>;
+  // Lee los movimientos de kardex originales de un documento (p. ej. un despacho o recepcion).
+  movementsOf(tx: TransactionClient, tenantId: string, type: 'receipt' | 'dispatch', originId: string): Promise<DocumentStockMovement[]>;
 }

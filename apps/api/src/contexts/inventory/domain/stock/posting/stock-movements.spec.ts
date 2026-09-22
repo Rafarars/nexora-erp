@@ -127,6 +127,60 @@ describe('StockMovements', () => {
 
     expect(() => movements.reverse(inactive, origin, NOW)).toThrow(InactiveStockItemError);
   });
+
+  it('restores individual lines citing the original movement with restoresMovementId and no reversalOfId', () => {
+    const movements = new StockMovements(new SequentialIdGenerator());
+    const ledger = aLedger();
+    const receiptDoc = { type: 'receipt' as const, id: 'eb000000-0000-4000-8000-000000000001', date: TODAY };
+    const { movements: [receiptMv] } = movements.record(ledger, receiptDoc, [entry(MAIN, 'in', 10, 2.5)], NOW);
+
+    const returnDoc = { type: 'purchase_return' as const, id: 'pr000000-0000-4000-8000-000000000001', date: TODAY };
+    const { movements: [returnMv] } = movements.restore(
+      ledger,
+      returnDoc,
+      [{ lineId: '11111111-cccc-4ccc-8ccc-000000000001', originalMovement: receiptMv, quantity: Quantity.of(3) }],
+      NOW,
+    );
+
+    expect(returnMv.toPrimitives()).toMatchObject({
+      originType: 'purchase_return',
+      direction: 'out',
+      quantity: 3,
+      unitCost: 2.5,
+      balanceQuantity: 7,
+      reversalOfId: null,
+      restoresMovementId: receiptMv.id.value,
+    });
+    expect(ledger.stock(ItemRef.of(WATER), WarehouseRef.of(MAIN)).available().toNumber()).toBe(7);
+  });
+
+  it('cancelling a return reverses its movements citing reversalOfId', () => {
+    const movements = new StockMovements(new SequentialIdGenerator());
+    const ledger = aLedger();
+    const receiptDoc = { type: 'receipt' as const, id: 'eb000000-0000-4000-8000-000000000001', date: TODAY };
+    const { movements: [receiptMv] } = movements.record(ledger, receiptDoc, [entry(MAIN, 'in', 10, 2.5)], NOW);
+
+    const returnDoc = { type: 'purchase_return' as const, id: 'pr000000-0000-4000-8000-000000000001', date: TODAY };
+    const { movements: [returnMv] } = movements.restore(
+      ledger,
+      returnDoc,
+      [{ lineId: '11111111-cccc-4ccc-8ccc-000000000001', originalMovement: receiptMv, quantity: Quantity.of(3) }],
+      NOW,
+    );
+
+    // Anular la devolucion invoca reverse sobre sus movimientos
+    const { movements: [cancelMv] } = movements.reverse(aLedgerSharing(ledger, [returnMv]), returnDoc, NOW);
+
+    expect(cancelMv.toPrimitives()).toMatchObject({
+      originType: 'purchase_return',
+      direction: 'in',
+      quantity: 3,
+      unitCost: 2.5,
+      balanceQuantity: 10,
+      reversalOfId: returnMv.id.value,
+    });
+    expect(ledger.stock(ItemRef.of(WATER), WarehouseRef.of(MAIN)).available().toNumber()).toBe(10);
+  });
 });
 
 // El mismo libro, pero sabiendo que movimientos escribio el documento que se revierte.

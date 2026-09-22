@@ -30,5 +30,25 @@ Antes de iniciar la Fase 0, se revisaron a fondo las once decisiones de diseno d
 ---
 
 ## Fase 1: Inventario — revertir líneas sueltas
+- **Dominio:**
+  - Soportados los orígenes `sales_return` y `purchase_return` en `MovementOriginType`.
+  - Agregado campo `restoresMovementId` en `InventoryMovement` y sus primitivas, sin restricción única (permitiendo múltiples devoluciones parciales sucesivas sobre un mismo despacho o entrada).
+  - Implementado `ItemStock.restore(original, quantity, origin, id, now)`:
+    - En devoluciones de venta (salidas restauradas): entra mercancía (`direction: 'in'`) al costo congelado original y pondera el costo promedio de la bodega.
+    - En devoluciones de compra (entradas restauradas, H8 §3.8): sale mercancía (`direction: 'out'`) al costo congelado original (distinto del promedio) y recalcula el costo promedio del inventario remanente.
+    - Anular una devolución usa `reverse()` normal, generando contrapartida que referencia `reversalOfId = devolucionMovement.id`.
+  - Implementado `StockMovements.restore(ledger, document, entries, now)`.
+- **Infraestructura y contrato compartido:**
+  - Ampliada la interfaz `DocumentStockPosting` con `restore(...)` y `movementsOf(...)`.
+  - Implementado en `PrismaDocumentStockPosting` con bloqueo ordenado determinista vía `lockedLedger`.
+- **Pruebas:**
+  - Pruebas unitarias en `item-stock.entity.spec.ts` y `stock-movements.spec.ts`.
+  - Prueba de integración contra PostgreSQL en `prisma-document-stock-posting.integration.spec.ts` validando el recálculo exacto del costo promedio congelado (§3.8) y la anulación en base de datos real.
+  - `make verify` completo en verde (416 tests E2E y todas las verificaciones).
+
+---
+
+## Fase 2: Devolución de venta (`DVV`)
 *(En progreso)*
+
 
