@@ -1,6 +1,7 @@
 # H10 — Contabilidad
 
-**Estado:** plan aprobado, sin construir · **Escrito el 20-sep-2026**
+**Estado:** plan aprobado, sin construir · **Escrito el 20-sep-2026**, corregido el 21 y el 22-sep-2026
+tras dos validaciones multiagente
 
 Especificación ejecutable del hito, escrita para que **otra sesión la ejecute** y esta la revise.
 Se construye **después** de [H8](H8-NOTAS-DE-CREDITO-Y-DEVOLUCIONES.md), que le deja resuelta una
@@ -155,18 +156,26 @@ grupo y termina en la empresa.
 | Clientes por cobrar | Factura de venta, cobro, nota de crédito a cliente |
 | Proveedores por pagar | Factura de compra, pago, nota de crédito de proveedor |
 | Caja y banco | Cobro y pago con dinero |
-| Ajuste de inventario | Ajuste, y la pérdida de una devolución `scrap` |
+| Ajuste de inventario | Ajuste, revaluación manual y devolución de venta sin origen |
 | **Notas de crédito por aplicar** | Emisión de la `NCC` y su cobro sin dinero |
 | **Notas de crédito de proveedor por aplicar** | Emisión de la `NCP` y su pago sin dinero |
 | **Mercancía por facturar** | Entrada de mercancía, y la factura de compra que la liquida |
-| **Diferencia de precio de compra** | La parte de la diferencia sobre mercancía ya vendida |
+| **Diferencia de precio de compra** | La diferencia de precio sobre mercancía ya vendida, **en los dos sentidos** |
+| **Gasto de compras** | Factura de compra de servicios o gastos, y la nota de crédito que la rebaja |
 
-**Las cuatro últimas faltaban**, y su ausencia no era cosmética: §2.5 rechaza la operación cuando
+**Las cinco en negrita faltaban**, y su ausencia no era cosmética: §2.5 rechaza la operación cuando
 ninguna cuenta resuelve, así que el cobro por nota de crédito —que §3.6 ya nombraba— **habría sido
 imposible de registrar**.
 
 **Y «Mercancía por facturar» es nueva por otra razón**, que §3.1 explica: sin ella, la entrada y la
 factura de compra acreditan la misma deuda dos veces.
+
+**«Gasto de compras» se añadió el 22-sep-2026.** §3.4 mandaba la factura de servicios a «la cuenta
+de gasto del artículo o categoría», pero ningún nivel la tenía, tampoco la empresa, que es el nivel
+que siempre responde. **Toda factura de servicios se habría rechazado.**
+
+**Y la pérdida de una devolución `scrap` no tiene cuenta propia**, aunque la versión anterior de
+esta tabla se la daba a «Ajuste de inventario»: queda en Costo de ventas, y §3.10 explica por qué.
 
 **Y por qué rechazar en vez de inventar una cuenta por omisión:** una cuenta inventada produce un
 asiento que cuadra y **miente**, que es peor que no poder operar. El error público dice qué falta
@@ -213,6 +222,11 @@ documento**, que no definía el asiento del pago.
 
 Esta tabla es la especificación: lo que se construya tiene que producir exactamente esto.
 
+**Revisada otra vez el 22-sep-2026**, tras la segunda validación. Los cambios de fondo: la factura
+de compra cuadra cuando el precio difiere del costo (§3.4), la devolución de compra ya no toca el
+saldo del proveedor y la nota de crédito ya no la duplica (§3.9 y §3.10), y la devolución de venta
+sin origen tiene asiento propio (§3.10).
+
 ### La comprobación que evita que vuelva a pasar
 
 Antes de dar §3 por terminada, **por cada cuenta del plan se comprueba que alguna operación la
@@ -222,17 +236,18 @@ prueba de §6 y es lo que habría detectado el defecto original.
 | Cuenta | La debita | La acredita |
 |---|---|---|
 | Inventario | Entrada · Devolución de venta · Ajuste + · Revaluación + | Despacho · Devolución de compra · Ajuste − · Revaluación − |
-| Mercancía por facturar | Factura de compra | Entrada |
-| Proveedores por pagar | Pago · Nota de crédito de proveedor | Factura de compra |
-| Clientes por cobrar | Factura de venta | Cobro · Nota de crédito a cliente |
-| Costo de ventas | Despacho | Devolución de venta |
+| Mercancía por facturar | Factura de compra · Devolución de compra · Revaluación − de un precio de compra | Entrada · Revaluación + de un precio de compra · Nota de crédito de proveedor |
+| Proveedores por pagar | Pago · Pago sin dinero de la `NCP` | Factura de compra |
+| Clientes por cobrar | Factura de venta | Cobro · Cobro sin dinero de la `NCC` |
+| Costo de ventas | Despacho | Devolución de venta con origen |
 | Ingresos por ventas | Nota de crédito a cliente | Factura de venta |
-| Impuesto por pagar | Notas de crédito a cliente · Factura de compra | Factura de venta · Nota de crédito de proveedor |
+| Impuesto por pagar | Nota de crédito a cliente · Factura de compra | Factura de venta · Nota de crédito de proveedor |
 | Notas de crédito por aplicar | Cobro sin dinero | Emisión de la `NCC` |
 | Notas de crédito de proveedor por aplicar | Emisión de la `NCP` | Pago sin dinero |
 | Caja y banco | Cobro con dinero | Pago con dinero |
-| Ajuste de inventario | Ajuste − · Pérdida por `scrap` | Ajuste + |
-| Diferencia de precio de compra | Factura de compra más cara de lo ya vendido | Factura de compra más barata de lo ya vendido |
+| Ajuste de inventario | Ajuste − · Revaluación − manual | Ajuste + · Revaluación + manual · Devolución de venta sin origen |
+| Diferencia de precio de compra | Factura más cara sobre lo vendido · `NCP` por menos que el costo devuelto | Factura más barata sobre lo vendido · `NCP` de rebaja sobre lo vendido · `NCP` por más que el costo devuelto |
+| Gasto de compras | Factura de compra de servicios | Nota de crédito de proveedor sobre servicios |
 
 ### 3.1 Confirmar una entrada de mercancía
 
@@ -244,7 +259,7 @@ prueba de §6 y es lo que habría detectado el defecto original.
 **Cambió respecto a la primera versión**, que acreditaba directamente Proveedores por pagar. Está
 mal: en ese momento **el proveedor todavía no ha facturado**, así que no hay deuda exigible, sólo
 mercancía recibida pendiente de documento. Es la cuenta puente que el sector llama de recepción, y
-es la que hace que §3.6 pueda reconciliar la diferencia de precio.
+es la que hace que §3.4 pueda reconciliar la diferencia de precio.
 
 ### 3.2 Confirmar un despacho
 
@@ -269,19 +284,34 @@ es la que hace que §3.6 pueda reconciliar la diferencia de precio.
 
 | | Cuenta | Importe |
 |---|---|---|
-| Debe | **Mercancía por facturar** | Costo con que entró la mercancía |
+| Debe | **Mercancía por facturar** | Costo con que entró la mercancía, **más la diferencia sobre lo que sigue en bodega** |
+| Debe | Diferencia de precio de compra | La diferencia sobre lo ya vendido, si la factura es **más cara** |
+| Debe | Gasto de compras | Las líneas de servicio o gasto, que no pasan por bodega |
 | Debe | Impuesto por pagar | Impuesto de la factura |
-| Debe | Diferencia de precio de compra | Si la factura es más cara y la mercancía ya se vendió |
+| Haber | Diferencia de precio de compra | La diferencia sobre lo ya vendido, si la factura es **más barata** |
 | Haber | Proveedores por pagar | Total de la factura |
 
-**Así cierra la cuenta puente**: la entrada la acreditó al costo de recepción y la factura la
-debita por lo mismo, dejándola en cero. Lo que sobra o falta es la diferencia de precio.
+**Así cierra la cuenta puente, corregido el 22-sep-2026.** La versión anterior la debitaba sólo
+por el costo de entrada y decía que eso la dejaba en cero. **No la dejaba**: con la mercancía en
+bodega, la revaluación de H9 §3.3 ya le había acreditado la diferencia (§3.11), y el asiento de la
+factura **descuadraba justo por esa cifra**. Con números: recibo 100 y la factura llega por 110,
+todo en bodega. La entrada acredita 100 a la puente y la revaluación 10 más; la factura debitaba
+100 y acreditaba 110 a proveedores. Debe 100, haber 110: **la invariante de §2.1 la rechazaba** y la
+factura no se podía confirmar. Ahora la puente se debita por 110 y queda en cero.
 
-**Si la mercancía sigue en bodega**, la diferencia no va a esta cuenta: la absorbe el ajuste de
-revaluación de H9 §3.3, que genera su propio asiento por §3.8.
+**Cómo se reparte la diferencia** entre la factura y el costo de entrada, con `PriceVariance`
+(H9 §5.3): lo que sigue en bodega va a la puente, y su revaluación la salda; lo ya vendido va a
+«Diferencia de precio de compra» **con signo**, al debe si la factura es más cara y al haber si es
+más barata. Faltaba esa segunda fila: la cuenta prometía acreditarse y ningún asiento lo hacía.
 
-**Una factura de sólo servicios** no toca «Mercancía por facturar»: debita directamente la cuenta
-de gasto del artículo o categoría de servicio, resuelta por la precedencia de §2.5.
+**Mientras la revaluación esté en borrador**, la puente queda con la diferencia de lo que sigue en
+bodega. No es un descuadre —el asiento de la factura cuadra igual—, es la consecuencia de la
+pregunta que H9 §3.3 deja abierta a propósito, y la puente vuelve a cero cuando la revaluación se
+confirma. La revaluación genera su propio asiento por §3.11.
+
+**Una factura de sólo servicios** no toca «Mercancía por facturar»: debita «Gasto de compras»,
+resuelta por la precedencia de §2.5, que ahora sí termina en la empresa. Una factura mixta hace las
+dos cosas, línea por línea.
 
 ### 3.5 Confirmar un cobro
 
@@ -328,29 +358,72 @@ Emisión:
 |---|---|---|
 | Debe | **Notas de crédito de proveedor por aplicar** | Total |
 | Haber | Impuesto por pagar | Impuesto |
-| Haber | Inventario o la cuenta de gasto | Subtotal |
+| Haber | **Mercancía por facturar** | Si acredita una devolución: el costo con que salió la mercancía devuelta. Si rebaja el precio de mercancía que sigue en bodega: esa parte de la rebaja |
+| Haber o Debe | Diferencia de precio de compra | La rebaja sobre lo ya vendido, al haber. O lo que el importe de la nota se separa del costo devuelto: al haber si lo supera, al debe si se queda corto |
+| Haber | Gasto de compras | Las líneas de servicio o gasto |
 
 Y su aplicación, el pago sin dinero: **Debe Proveedores por pagar · Haber Notas de crédito de
 proveedor por aplicar.**
 
+**Corregido el 22-sep-2026: la nota ya no acredita Inventario.** La versión anterior decía *«Haber
+Inventario o la cuenta de gasto»*, y eso fallaba de dos maneras:
+
+- **Con devolución, duplicaba.** La devolución de compra ya había sacado la mercancía de Inventario
+  (§3.10) y la nota la volvía a sacar; a la vez, las dos bajaban Proveedores. Una devolución de 30
+  con su nota dejaba Inventario 60 más abajo y la deuda 60 más abajo.
+- **Sin devolución, separaba la cuenta del kardex.** Una nota **nunca toca el kardex** (H8 §3.1),
+  así que la cuenta Inventario bajaba y la valuación del kardex no.
+
+Ahora una rebaja de precio hace exactamente lo que hace una factura más barata (§3.4): lo que sigue
+en bodega pasa por la puente y H9 genera la revaluación negativa que la salda, bajando cuenta y
+kardex juntos; lo vendido va a resultado. Es el mismo `PriceVariance`, leído al revés.
+
 ### 3.10 Confirmar una devolución
 
-**De venta**, que reingresa mercancía:
+**De venta, con movimiento de origen**, que reingresa mercancía:
 
 | | Cuenta | Importe |
 |---|---|---|
-| Debe | Inventario | Costo congelado del movimiento que revierte |
+| Debe | Inventario | Costo congelado del movimiento del que procede (`restoresMovementId`) |
 | Haber | Costo de ventas | El mismo |
 
 Es el espejo exacto de §3.2, y por eso H8 §3.4 congela el costo: con el promedio de hoy este
 asiento **no sería el reverso** del que salió.
 
-**De compra**, que saca mercancía: el espejo de §3.1, contra Proveedores por pagar o contra la
-cuenta puente según haya factura o no.
+**De venta, sin movimiento de origen** (H8 §4.1, regla 3), añadido el 22-sep-2026:
 
-**Y la devolución `scrap`**, que no reingresa nada: **no genera asiento de inventario**, porque la
-mercancía ya salió con el despacho y el kardex ya lo refleja. La nota de crédito que la acredita sí
-lleva el suyo por §3.7. Ver H8 §3.5, corregido el mismo día.
+| | Cuenta | Importe |
+|---|---|---|
+| Debe | Inventario | El costo escrito |
+| Haber | Ajuste de inventario | El mismo |
+
+No revierte ningún costo de ventas de este sistema: no hubo despacho que lo cargara. Acreditar
+Costo de ventas bajaría un gasto que nunca se registró, que es el margen ficticio que §2.4 prohíbe.
+H8 ya la define como «una entrada por ajuste», y se contabiliza como tal (§3.11).
+
+**Y la devolución `scrap`**, que no reingresa nada: **no genera asiento**. **La pérdida no se
+pierde: ya está en Costo de ventas.** El despacho la cargó ahí (§3.2), y como la mercancía no
+reingresa, ese costo no se revierte. La nota de crédito revierte el ingreso (§3.7). Entre las dos
+queda exactamente lo perdido: el costo de una mercancía por la que se devolvió el dinero y que no
+se recuperó. La versión anterior de §2.5 y de la tabla de arriba la cargaba a «Ajuste de
+inventario», y **ninguna operación lo hacía**: una fila que la prueba de §6 habría buscado en vano.
+
+**De compra**, que saca mercancía, **haya factura o no**:
+
+| | Cuenta | Importe |
+|---|---|---|
+| Debe | **Mercancía por facturar** | Costo congelado del movimiento de entrada del que procede |
+| Haber | Inventario | El mismo |
+
+**Corregido el 22-sep-2026.** La versión anterior la llevaba contra Proveedores por pagar cuando
+había factura. Eso **tocaba el saldo del proveedor**, que H8 §3.1 reserva a la nota de crédito —la
+devolución mueve mercancía, la nota mueve dinero—, y la nota de §3.9 lo volvía a tocar: la misma
+rebaja contada dos veces.
+
+Ahora la puente lo resuelve en los dos casos. Sin factura, baja lo que ya no se va a facturar. Con
+factura, queda con saldo deudor —mercancía devuelta que el proveedor todavía no ha acreditado—
+hasta que llega su nota y lo salda. **Una devolución sin nota deja ese saldo a la vista**, que es
+justo lo que alguien tiene que ir a reclamar.
 
 ### 3.11 Confirmar un ajuste de inventario
 
@@ -358,11 +431,13 @@ lleva el suyo por §3.7. Ver H8 §3.5, corregido el mismo día.
 |---|---|---|
 | Positivo | Inventario | Ajuste de inventario |
 | Negativo | Ajuste de inventario | Inventario |
-| Revaluación + | Inventario | **Mercancía por facturar** si nace de una factura de compra; si no, Ajuste de inventario |
-| Revaluación − | Lo contrario | |
+| Revaluación + | Inventario | **Mercancía por facturar** si nace de un precio de compra; si es manual, Ajuste de inventario |
+| Revaluación − | La misma contrapartida | Inventario |
 
-**La revaluación tiene contrapartida propia** cuando la origina una diferencia de precio (H9 §3.3):
-ahí lo que se corrige es la cuenta puente, no un ajuste de existencia.
+**La revaluación tiene contrapartida propia** cuando la origina un precio de compra —una factura
+distinta del costo de entrada (H9 §3.3) o una nota de crédito de proveedor que rebaja el precio
+(§3.9)—: ahí lo que se corrige es la cuenta puente, no un ajuste de existencia. El evento dice cuál
+de los dos casos es (§4.4).
 
 ### 3.12 Anular cualquiera de las anteriores
 
@@ -429,9 +504,18 @@ model JournalEntryLine {
 }
 ```
 
-**Y las cuentas por omisión de la empresa**, ocho columnas nullable en la configuración que ya
-existe: inventario, costo de ventas, ingresos, impuesto por pagar, clientes, proveedores, caja y
-ajuste de inventario. Más dos nullable en artículo y en categoría, para la precedencia (§2.5).
+**Y las cuentas por omisión de la empresa**, trece columnas nullable en la configuración que ya
+existe, **una por cada fila de §2.5**: inventario, costo de ventas, ingresos, impuesto por pagar,
+clientes, proveedores, caja, ajuste de inventario, notas de crédito por aplicar, notas de crédito de
+proveedor por aplicar, mercancía por facturar, diferencia de precio de compra y gasto de compras.
+
+**Corregido el 22-sep-2026: decía ocho**, las de la primera versión, y las cinco cuentas nuevas no
+tenían dónde configurarse. Como §2.5 rechaza lo que no resuelve, **toda entrada de mercancía se
+habría rechazado**, porque su asiento necesita «Mercancía por facturar».
+
+**Y cuatro nullable en artículo y en categoría**, las que tiene sentido cambiar por artículo:
+inventario, costo de ventas, ingresos por ventas y gasto de compras. Las demás son de la empresa y
+la precedencia no baja a buscarlas: no existe «clientes por cobrar» distinto por artículo.
 
 ### 4.3 Dominio
 
@@ -454,22 +538,56 @@ export interface AccountingPosting {
   entryFor(tenantId: TenantId, event: AccountingEvent): Promise<JournalInstruction>;
 }
 
+// Las lineas llevan el articulo: sin el, contabilidad no puede resolver la cuenta por precedencia.
+export type CostedLine = { itemId: string; quantity: Quantity; unitCost: Money };
+export type PricedLine = { itemId: string; subtotal: Money; tax: Money };
+export type ReturnedLine = CostedLine & { restoresMovementId: string | null };
+
+// Lo que sale de PriceVariance (H9 §5.3), igual en la factura y en la nota del proveedor.
+// Invariante: baseCost + stockDifference + soldDifference + servicios = subtotal.
+export type PurchasePricing = {
+  baseCost: Money;          // costo de entrada, o el costo con que salio la devolucion acreditada
+  stockDifference: Money;   // con signo: la parte sobre lo que sigue en bodega
+  soldDifference: Money;    // con signo: la parte sobre lo ya vendido
+  serviceLines: PricedLine[];
+  tax: Money;
+  total: Money;
+};
+
 // Lo que cada contexto entrega. Un evento describe QUE PASO en el idioma del negocio, nunca
 // cuentas: quien las resuelve es el contexto de contabilidad (§2.5).
 export type AccountingEvent =
   | { kind: 'goods-received'; documentId: string; date: ReportDate; lines: CostedLine[] }
   | { kind: 'goods-dispatched'; documentId: string; date: ReportDate; lines: CostedLine[] }
-  | { kind: 'sales-invoice-issued'; documentId: string; date: ReportDate; customerId: string; subtotal: Money; tax: Money }
-  | { kind: 'purchase-invoice-confirmed'; documentId: string; date: ReportDate; supplierId: string; receivedCost: Money; tax: Money; total: Money; soldDifference: Money }
+  | { kind: 'sales-invoice-issued'; documentId: string; date: ReportDate; customerId: string; lines: PricedLine[] }
+  | { kind: 'purchase-invoice-confirmed'; documentId: string; date: ReportDate; supplierId: string; pricing: PurchasePricing }
   | { kind: 'payment-received'; documentId: string; date: ReportDate; method: PaymentMethod; amount: Money }
   | { kind: 'payment-made'; documentId: string; date: ReportDate; method: PaymentMethod; amount: Money }
-  | { kind: 'credit-note-issued'; documentId: string; date: ReportDate; side: 'customer' | 'supplier'; subtotal: Money; tax: Money }
-  | { kind: 'goods-returned'; documentId: string; date: ReportDate; side: 'customer' | 'supplier'; lines: CostedLine[] }
-  | { kind: 'stock-adjusted'; documentId: string; date: ReportDate; reason: AdjustmentType; lines: CostedLine[] }
-  | { kind: 'document-cancelled'; reversesEntryId: string; date: ReportDate };
+  | { kind: 'customer-credit-note-issued'; documentId: string; date: ReportDate; customerId: string; lines: PricedLine[] }
+  | { kind: 'supplier-credit-note-issued'; documentId: string; date: ReportDate; supplierId: string; pricing: PurchasePricing }
+  // Solo las lineas que movieron kardex: una devolucion scrap no publica nada (H8 §4.1).
+  | { kind: 'goods-returned'; documentId: string; date: ReportDate; side: 'customer' | 'supplier'; lines: ReturnedLine[] }
+  | { kind: 'stock-adjusted'; documentId: string; date: ReportDate; reason: AdjustmentType; origin: 'manual' | 'purchase-price'; lines: CostedLine[] }
+  | { kind: 'document-cancelled'; originType: string; originId: string; date: ReportDate };
 ```
 
-**El tipo faltaba**, y sin él cada contexto habría inventado el suyo. La regla que lo gobierna:
+**El tipo faltaba**, y sin él cada contexto habría inventado el suyo.
+
+**Corregido el 22-sep-2026.** La primera versión tenía una variante por operación, pero **no los
+datos que su asiento necesita**:
+
+- Las facturas y las notas no llevaban líneas, así que no se podía resolver la cuenta de ingresos
+  ni la de gasto por artículo o categoría (§2.5).
+- La factura de compra no traía la diferencia sobre lo que sigue en bodega, y sin ella no se sabe
+  por cuánto debitar la puente (§3.4).
+- El ajuste no decía si nacía de un precio de compra o era manual, que es lo que decide su
+  contrapartida (§3.11).
+- La devolución no decía si tenía origen, que decide entre Costo de ventas y Ajuste (§3.10).
+- La anulación pedía el identificador del asiento, que **ningún contexto guarda**. Ahora cita el
+  documento, que es lo que el asiento ya indexa (`originType`, `originId`, §4.2).
+
+La nota de crédito se parte en dos variantes porque sus datos ya no se parecen: la del cliente
+revierte ingresos por línea; la del proveedor reparte como una factura de compra. La regla que lo gobierna:
 **un evento dice qué pasó, nunca contra qué cuenta**. Si un contexto necesitara nombrar una cuenta,
 la frontera estaría mal puesta.
 
@@ -504,7 +622,10 @@ debe no iguala la del haber, hay un defecto. Esa comprobación es una prueba, no
 - [ ] **5b. Asientos de apertura** — el sistema lleva nueve hitos de operaciones **sin asiento**:
       inventario en bodega, facturas por cobrar, facturas por pagar. Sin esto la balanza arranca
       describiendo una empresa que no existe. Una operación que genera el asiento de apertura por
-      cada saldo vivo a una fecha de corte, y **la decisión de desde cuándo se contabiliza**.
+      cada saldo vivo a una fecha de corte, y **la decisión de desde cuándo se contabiliza**. Los
+      saldos se leen por los puertos que ya los calculan en un solo sitio —`RECEIVABLE_BALANCES`
+      (H6), `PAYABLE_BALANCES` (H9 §5.3) y la valuación del kardex—: recalcularlos aquí sería la
+      segunda resta que H9 prohíbe.
 - [ ] **6. Semillas** — plan de cuentas de ejemplo en las dos empresas de demostración y las
       cuentas por omisión configuradas.
 - [ ] **7. Revisión** con `module-review`, modo «fase ya construida».
@@ -523,10 +644,16 @@ debe no iguala la del haber, hay un defecto. Esa comprobación es una prueba, no
 | §2.4.1 | **Facturar antes de despachar**: la factura lleva sólo ingreso, y el despacho posterior lleva el costo. Entre las dos, ni se pierde ni se duplica |
 | §2.4.1 | Una factura de sólo servicios lleva asiento de ingreso y **ninguno** de costo |
 | §3.1 y §3.4 | Recibir y luego facturar deja **«Mercancía por facturar» en cero** |
+| §3.4 | Factura **más cara** y **más barata** que el costo de entrada, con la mercancía en bodega, vendida y repartida entre las dos: **el asiento cuadra** en los seis casos, y la puente queda en cero una vez confirmada la revaluación |
+| §3.4 | Una factura de sólo servicios sin cuenta de gasto en el artículo ni en la categoría resuelve la de la empresa |
+| §3.9 y §3.10 | Devolver 30 a un proveedor y recibir su nota: Inventario baja **30, una vez**, la deuda baja **una vez**, y la puente vuelve a cero |
+| §3.9 | Una nota de rebaja sin devolución deja la cuenta Inventario **igual a la valuación del kardex** |
+| §3.10 | Una devolución `scrap` no genera asiento, y el costo de ventas de su despacho **sigue ahí** |
+| §3.10 | Una devolución de venta sin origen va contra Ajuste de inventario, **no** contra Costo de ventas |
 | §3.7 y §3.6 | Emitir una nota y aplicarla entera deja **«Notas de crédito por aplicar» en cero** |
 | §2.5 | Con la cuenta en el artículo gana el artículo; sin ella gana la categoría; sin ninguna, la empresa; sin nada, **se rechaza la operación** |
 | §2.6 | Anular genera un reverso y el original **sigue ahí**; no se puede revertir dos veces |
-| §3.3 | Un cobro con forma `credit_note` **no toca caja** |
+| §3.6 | Un cobro con forma `credit_note` **no toca caja** |
 | §4.5 | La balanza cuadra después de una tanda de operaciones de todos los tipos |
 
 ---

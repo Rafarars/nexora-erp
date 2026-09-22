@@ -1,6 +1,7 @@
 # H8 — Notas de crédito y devoluciones
 
-**Estado:** plan aprobado, sin construir · **Escrito el 20-sep-2026**
+**Estado:** plan aprobado, sin construir · **Escrito el 20-sep-2026**, corregido el 21 y el 22-sep-2026
+tras dos validaciones multiagente
 
 Este documento es la **especificación ejecutable** del hito: contiene las reglas de negocio de
 cada submódulo, el esqueleto técnico y el orden de construcción. Está escrito para que **otra
@@ -183,8 +184,11 @@ comparten columna**.
 
 - `reversalOfId` se queda **exactamente como está**, con su unicidad, para lo que se construyó:
   anular un documento entero. Esa invariante es correcta y no se toca.
-- La devolución usa una columna nueva, `restoresMovementId`, **sin unicidad**, que dice de qué
-  salida procede el costo congelado. Varias devoluciones pueden citar la misma salida.
+- La devolución usa una columna nueva en el kardex, `restoresMovementId`, **sin unicidad**, que
+  dice de qué salida procede el costo congelado. Varias devoluciones pueden citar la misma salida.
+- **Las dos conviven sin pisarse.** El movimiento que publica una devolución cita su origen por
+  `restoresMovementId`. Si después se anula la devolución, su movimiento se revierte por
+  `reversalOfId`, uno a uno, como cualquier anulación: la unicidad se sigue cumpliendo.
 
 **Quien impide devolver de más no es la base de datos, es el cupo de cantidad** (§3.3). Confundir
 las dos cosas fue el error: una restricción de unicidad estaba haciendo de tope de negocio, y por
@@ -210,8 +214,10 @@ eso topaba en uno.
 > (`item-stock.entity.ts:120`), porque no hay existencia que quitar.
 >
 > Y no hace falta porque **la pérdida de un `scrap` no es de inventario, es financiera**: se
-> devuelve dinero al cliente sin recuperar mercancía vendible. Esa pérdida la registra la **nota de
-> crédito**, con el asiento de H10 §3.7. El inventario ya estaba bien.
+> devuelve dinero al cliente sin recuperar mercancía vendible. **La pérdida ya está contabilizada**:
+> el despacho cargó su costo a Costo de ventas, y como la mercancía no reingresa, ese costo no se
+> revierte nunca. La **nota de crédito** revierte el ingreso (H10 §3.7), y entre las dos queda
+> exactamente lo perdido (H10 §3.10). El inventario ya estaba bien.
 >
 > Lo que sí queda anotado es la condición, para que alguien pueda preguntar cuánto se acreditó sin
 > recuperar nada.
@@ -264,7 +270,7 @@ el mismo número calculado en dos sitios que se separan.
 **Al construir hay que comprobarlo explícitamente**, no darlo por hecho: una prueba que devuelva y
 después consulte la valuación.
 
-### 3.9 Los cuatro documentos son simétricos
+### 3.9 Compras y ventas son simétricas
 
 **Decisión:** compras y ventas se construyen con la misma estructura, los mismos estados y las
 mismas reglas, salvo donde el negocio obligue a diferir.
@@ -275,9 +281,9 @@ en un lado y ausente en el otro.
 
 ---
 
-## 4. Los cuatro submódulos, regla por regla
+## 4. Los submódulos, regla por regla
 
-Los cuatro comparten ciclo de vida: **borrador → confirmado → anulado**. En borrador se edita todo;
+Los tres comparten ciclo de vida, y la `NCP` de H9 también: **borrador → confirmado → anulado**. En borrador se edita todo;
 confirmado no se edita, sólo se anula; anulado no se toca.
 
 ### 4.1 Devolución de venta (`DVV`) — contexto `sales`
@@ -287,7 +293,8 @@ confirmado no se edita, sólo se anula; anulado no se toca.
 **Cabecera:** cliente (obligatorio), factura de origen (opcional), despacho de origen (opcional),
 **bodega de reingreso** (obligatoria), fecha, motivo, condición (§3.5), notas.
 
-**Líneas:** artículo, cantidad, **costo unitario congelado**, movimiento de kardex que revierte.
+**Líneas:** artículo, cantidad, **costo unitario congelado**, y el movimiento de salida del que
+procede ese costo, `restoresMovementId` (§3.4). Nulo en la devolución sin origen.
 
 **Reglas al confirmar:**
 
@@ -301,12 +308,14 @@ confirmado no se edita, sólo se anula; anulado no se toca.
    Esa devolución **no es una reversión de nada**: es mercancía que entra, y se comporta como una
    entrada por ajuste. Hay que tratarla como caso propio, con su prueba.
 4. Si la condición es `resalable` o `damaged`, **publica en el kardex** un movimiento de entrada
-   que cita al original vía `reversalOfId`. Si es `scrap`, **no publica nada**.
+   que cita al original vía `restoresMovementId`, **nunca** vía `reversalOfId` (§3.4). Si es
+   `scrap`, **no publica nada**. *Corregido el 22-sep-2026: decía `reversalOfId`, que es la columna
+   con unicidad; construida así, la segunda devolución parcial de una línea habría reventado.*
 5. La bodega tiene que estar activa. Esta regla ya existe en Catálogo y hay que reutilizarla, no
    reescribirla.
 
-**Al anular:** revierte su propio movimiento de kardex, si lo hubo. Una devolución **acreditada por
-una nota de crédito confirmada no se anula**: primero se anula la nota.
+**Al anular:** revierte su propio movimiento de kardex, si lo hubo, por `reversalOfId`. Una
+devolución **acreditada por una nota de crédito confirmada no se anula**: primero se anula la nota.
 
 ### 4.2 Nota de crédito a cliente (`NCC`) — contexto `receivables`
 
@@ -376,10 +385,11 @@ Espejo de §4.1, con la mercancía saliendo en vez de entrando.
 **Diferencias reales, no de nombre:**
 
 - La bodega es **de donde sale**, y tiene que tener existencia suficiente (§3.7).
-- El costo se congela **del movimiento de entrada** que revierte.
+- El costo se congela **del movimiento de entrada** del que procede, citado por
+  `restoresMovementId`, igual que en §4.1.
 - No hay condición: la mercancía se va. El motivo sigue siendo obligatorio.
 
-### 4.4 Nota de crédito de proveedor (`NCP`) — contexto `purchasing`
+### 4.4 Nota de crédito de proveedor (`NCP`) — en H9, contexto `payables`
 
 Espejo de §4.2. **Y aquí hay un hueco que hay que mirar antes de construir:** nosotros no tenemos
 cuentas por pagar. Hay órdenes y entradas, pero **no hay un saldo con el proveedor** equivalente al
@@ -412,7 +422,7 @@ enum PaymentMethod {
   transfer
   card
   check
-  credit_note   // Un cobro que no trae dinero: lo cancela un saldo a favor que ya existe.
+  credit_note   // Un cobro que no trae dinero: lo cancela el credito de una nota.
 }
 
 model CustomerPayment {
@@ -421,7 +431,14 @@ model CustomerPayment {
 }
 
 model InventoryMovement {
-  // Ya existe reversalOfId con su @@unique. No hay que tocar nada aquí.
+  // reversalOfId sigue como esta, con su @@unique: anular un documento entero.
+  // De que salida procede el costo de una devolucion. Sin unicidad: dos devoluciones parciales
+  // citan la misma salida, y el tope lo pone el cupo de cantidad, no la base de datos.
+  restoresMovementId String? @map("restores_movement_id") @db.Uuid
+  restores  InventoryMovement?  @relation("Restores", fields: [restoresMovementId], references: [id], onDelete: Restrict)
+  restoredBy InventoryMovement[] @relation("Restores")
+
+  @@index([restoresMovementId])
 }
 ```
 
@@ -450,7 +467,8 @@ Por cada documento, en su contexto:
 
 ```ts
 // Revertir líneas sueltas, no el documento entero. Hoy StockMovements.reverse() revierte todo.
-// Cada línea cita el movimiento original y hereda SU costo, no el promedio de hoy.
+// Cada línea cita su salida por restoresMovementId y hereda SU costo, no el promedio de hoy.
+// No escribe reversalOfId: esa columna es de la anulación.
 reverseLines(ledger: Ledger, lines: ReversalLine[], document: DocumentRef, now: Date): StockChanges
 ```
 
@@ -478,8 +496,8 @@ el texto de la API.
 
 Cada una cierra con `make verify` en verde y su commit.
 
-- [ ] **0. Esquema y correlativos** — migración de las ocho tablas, el método de pago nuevo y los
-      tres prefijos. Sin lógica.
+- [ ] **0. Esquema y correlativos** — migración de las seis tablas, la columna
+      `restoresMovementId` del kardex, el método de pago nuevo y los tres prefijos. Sin lógica.
 - [ ] **1. Inventario: revertir líneas sueltas** — `reverseLines` con su contrato de puerto contra
       el doble **y** contra PostgreSQL. Va primero porque todo lo demás se apoya en ella.
 - [ ] **2. Devolución de venta** — dominio, aplicación, API, pantallas.
@@ -506,6 +524,7 @@ se quita la regla**:
 | §3.4 | Vender a un costo, subir el promedio con una compra cara, devolver: el reingreso vale **el costo de la venta**, no el promedio nuevo |
 | §3.5 | Una devolución `scrap` no genera movimiento de kardex y **sí** puede acreditarse |
 | §3.4 | **Dos devoluciones parciales** contra la misma línea: las dos se registran, y la tercera que pasa del cupo se rechaza |
+| §3.4 | Anular una de esas dos devoluciones revierte **sólo su movimiento**, y la otra sigue citando la misma salida |
 | §4.2 | Una nota por más de lo que la factura todavía debe **no revienta**: reparte hasta el saldo y el resto queda a favor |
 | §4.2 | Un cobro nacido de una nota **no se anula** desde Cuentas por cobrar |
 | §3.6 | Una factura con una devolución confirmada **y sin nota** tampoco se anula |

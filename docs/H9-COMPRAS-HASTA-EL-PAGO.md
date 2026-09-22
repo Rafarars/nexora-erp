@@ -1,6 +1,7 @@
 # H9 — Compras hasta el pago: factura, pago y saldo
 
-**Estado:** plan aprobado, sin construir · **Escrito el 21-sep-2026**
+**Estado:** plan aprobado, sin construir · **Escrito el 21-sep-2026**, corregido el 21 y el 22-sep-2026
+tras dos validaciones multiagente
 
 Especificación ejecutable, escrita para que **otra sesión la ejecute** y esta la revise. Va después
 de [H8](H8-NOTAS-DE-CREDITO-Y-DEVOLUCIONES.md) y antes de [H10](H10-CONTABILIDAD.md), que la
@@ -30,8 +31,9 @@ Cualquiera que conozca un ERP lo nota: la simetría es lo que se lee como «comp
 
 ### 1.2 Y la contabilidad no se sostiene sin esto
 
-El asiento de recibir mercancía es *Debe Inventario · Haber Proveedores por pagar*. Sin pagos a
-proveedores, **ninguna operación debita esa cuenta**: sólo crece, nunca baja. La balanza cuadraría
+El asiento de la factura de compra es *Debe Mercancía por facturar · Haber Proveedores por pagar*
+(H10 §3.4). Sin pagos a proveedores, **ninguna operación debita esa cuenta**: sólo crece, nunca
+baja. La balanza cuadraría
 —es una identidad, siempre cuadra— retratando una empresa que compra sin pagar jamás.
 
 Por eso este hito va **antes** que la contabilidad y no después.
@@ -119,8 +121,8 @@ posterior. Leer una migración no es leer el esquema.*
 ### 3.3 La diferencia de precio se resuelve con un ajuste de revaluación
 
 **Decisión:** al confirmar una factura cuyo precio difiere del costo con que entró la mercancía, el
-sistema **genera un ajuste de revaluación** por la existencia que todavía queda, y deja anotada la
-diferencia que corresponde a mercancía ya vendida.
+sistema **genera un ajuste de revaluación** por la existencia que todavía queda, y guarda en
+`soldDifference` la diferencia que corresponde a mercancía ya vendida.
 
 **Por qué, y aquí nos separamos de la referencia porque tiene un hueco entero.**
 
@@ -153,10 +155,13 @@ diferencia sobre mercancía ya vendida *«queda anotada»*, y eso no significaba
 la guardaba y ningún asiento la recogía. Ahora sí tiene sitio:
 
 - **La factura la guarda**, en una columna propia de la cabecera, `soldDifference`, con el importe
-  que no pudo absorber el inventario.
+  que no pudo absorber el inventario **y con signo**: positivo si la factura es más cara, negativo
+  si es más barata. Las dos cosas pasan, y la versión anterior sólo contemplaba la primera.
 - **Y tiene cuenta**: H10 §3.4 la lleva a «Diferencia de precio de compra», que es una cuenta de
   resultado. Es lo que el sector llama *price difference account*, y es lo que impide que la
-  cuenta puente de recepción quede con un saldo residual.
+  cuenta puente de recepción quede con un saldo residual. La otra mitad de esa garantía la pone el
+  asiento: la factura debita la puente por el costo de entrada **más** la diferencia de lo que sigue
+  en bodega, que es lo que la revaluación le acredita (H10 §3.4, corregido el 22-sep-2026).
 
 Sin las dos piezas, la diferencia desaparecía y la contabilidad no cerraba — que es justo lo que el
 sector advierte que pasa cuando se ignora.
@@ -290,6 +295,19 @@ pregunta se resuelve sola.
 pago sin dinero** con forma `credit_note`. Así la máquina de saldo, antigüedad y estado de cuenta no
 se entera de que existe un documento nuevo.
 
+**Y nunca toca el kardex** (H8 §3.1), pero puede cambiar el costo, añadido el 22-sep-2026. Una
+`NCP` hace una de dos cosas:
+
+- **Acredita una devolución de compra.** La mercancía ya salió con la devolución, al costo con que
+  entró; la nota sólo baja la deuda. No revalúa nada.
+- **Rebaja el precio** sin que vuelva nada. Es una factura más barata que llega tarde, y se trata
+  igual que §3.3: `PriceVariance` reparte la rebaja, **la parte sobre lo que sigue en bodega genera
+  una revaluación negativa** y la parte sobre lo vendido va a resultado. Sin esto, la deuda bajaría
+  y el costo de la mercancía en bodega seguiría siendo el viejo: el mismo hueco que §3.3 cierra en
+  la factura, abierto por la puerta de atrás.
+
+Cómo se contabiliza cada caso está en H10 §3.9.
+
 ---
 
 ## 4. Los submódulos, regla por regla
@@ -362,6 +380,11 @@ H9, no de después: un tablero que enseña lo que cobramos y no lo que debemos e
 Las reglas de H8 §4.2, con proveedor en vez de cliente y pago en vez de cobro. Y el cupo de
 importe contra la factura de compra (H8 §3.3).
 
+**Y las dos propias** (§3.10): si acredita una devolución, la devolución existe, está confirmada,
+es del mismo proveedor y no la acredita ya otra nota confirmada; si rebaja el precio, genera la
+revaluación de lo que sigue en bodega con las mismas reglas que la factura, incluida su anulación
+según el estado del ajuste (§4.1).
+
 ---
 
 ## 5. El esqueleto
@@ -377,7 +400,8 @@ automático**: dos contextos con la misma frontera que sus espejos se entienden 
 
 ### 5.2 Base de datos
 
-Cuatro tablas de cabecera y tres de líneas, con el patrón exacto de `Invoice` / `InvoiceLine`:
+Tres tablas de cabecera y tres de líneas —factura, pago y nota de crédito, cada una con las
+suyas—, con el patrón exacto de `Invoice` / `InvoiceLine`:
 `id` uuid, `tenantId`, `code`, moneda con sus cuatro columnas congeladas, importes
 `Decimal(18, 4)`, `@@unique([tenantId, id])` y relaciones compuestas por `[tenantId, id]`.
 
@@ -387,10 +411,25 @@ model PurchaseInvoice {
   supplierInvoiceNumber String  @map("supplier_invoice_number") @db.VarChar(60)
   supplierInvoiceSeries String? @map("supplier_invoice_series") @db.VarChar(20)
 
-  // Registrar dos veces la misma factura es la forma mas comun de pagar dos veces.
-  @@unique([tenantId, supplierId, supplierInvoiceNumber])
+  // Se guarda ya normalizado (sin espacios en los extremos y en mayusculas): lo hace la entidad
+  // al construirse, asi la unicidad compara lo mismo que compara una persona.
+  // Registrar dos veces la misma factura es la forma mas comun de pagar dos veces. La unicidad NO
+  // va aqui: Prisma no expresa indices parciales, y la anulada tiene que liberar su numero (§3.1).
+  // Va en la migracion, como invoices_one_issued_per_dispatch en ventas.
 }
+```
 
+```sql
+CREATE UNIQUE INDEX "purchase_invoices_one_active_number_per_supplier"
+  ON "purchase_invoices" ("tenant_id", "supplier_id", "supplier_invoice_number")
+  WHERE "status" <> 'cancelled';
+```
+
+*Corregido el 22-sep-2026: el esquema traía `@@unique([tenantId, supplierId,
+supplierInvoiceNumber])`, una unicidad simple que no libera el número al anular y compara sin
+normalizar, justo lo contrario de lo que decide §3.1.*
+
+```prisma
 model PurchaseInvoiceLine {
   // Que linea de que entrada factura. Nula en servicios y gastos, que no pasan por bodega.
   receiptLineId String? @map("receipt_line_id") @db.Uuid
@@ -398,7 +437,7 @@ model PurchaseInvoiceLine {
 
 model PurchaseInvoice {
   // La parte de la diferencia de precio que el inventario no pudo absorber porque la mercancia ya
-  // se vendio. Va a resultado del periodo por H10 3.4; sin esta columna no tenia donde quedarse.
+  // se vendio. Con signo: negativa si la factura es mas barata. Va a resultado por H10 3.4.
   soldDifference Decimal @default(0) @map("sold_difference") @db.Decimal(18, 4)
 }
 
@@ -409,7 +448,9 @@ model PurchaseOrderLine {
 ```
 
 Más `SupplierPayment` y `SupplierPaymentAllocation`, calcados de `CustomerPayment` y
-`PaymentAllocation`, con `credit_note` en su enum de formas de pago y la columna de origen.
+`PaymentAllocation`, con `credit_note` en su enum de formas de pago y la columna de origen. Y
+`SupplierCreditNote` con sus líneas, calcadas de las de la `NCC` de H8, con la devolución que
+acredita (opcional) y la misma columna `soldDifference` que la factura.
 
 ### 5.3 Dominio
 
@@ -430,6 +471,8 @@ Más `SupplierPayment` y `SupplierPaymentAllocation`, calcados de `CustomerPayme
   ```
 - `ThreeWayMatch`: el servicio que compara orden, entrada y factura y devuelve las diferencias.
 - `PriceVariance`: reparte la diferencia entre lo que sigue en bodega y lo ya vendido (§3.3).
+  **La usan la factura y la nota de crédito** (§3.10), y lo que devuelve es lo que viaja en el
+  evento de contabilidad (H10 §4.4).
 - Los errores, con `publicMessage` sin identificadores y **dados de alta en el
   `error-categories.spec.ts`** de su contexto.
 
@@ -475,7 +518,8 @@ componente, errores traducidos por código.
 | §3.1 | Registrar dos veces la misma factura del mismo proveedor **se rechaza**; el mismo número de **otro** proveedor se acepta |
 | §3.2 | Confirmar una factura de compra **no cambia ninguna existencia** |
 | §3.3 | Factura más cara que la entrada, con mercancía en bodega: se genera la revaluación y la valuación del inventario sube |
-| §3.3 | El mismo caso con la mercancía **ya vendida**: no hay revaluación, y la diferencia queda anotada |
+| §3.3 | El mismo caso con la mercancía **ya vendida**: no hay revaluación, y la diferencia va a `soldDifference` |
+| §3.3 | Factura **más barata** que la entrada, en bodega y vendida: revaluación negativa, y `soldDifference` **negativa** |
 | §3.4 | Facturar más cantidad de la recibida se rechaza |
 | §3.5 | Una factura cubre dos entradas; y una entrada se factura en dos facturas. **Los dos casos** |
 | §3.6 | Una factura de sólo servicios, sin ninguna entrada, se confirma |
@@ -485,6 +529,7 @@ componente, errores traducidos por código.
 | §4.1 | Anular una factura cuyo ajuste de revaluación está **en borrador** lo descarta; si está confirmado lo revierte |
 | §3.3 | La diferencia sobre mercancía ya vendida **queda en `soldDifference`** y llega al asiento de H10 §3.4 |
 | §4.2 | Pagar más que el saldo se rechaza; pagar facturas de otro proveedor se rechaza |
+| §3.10 | Una `NCP` de rebaja sobre mercancía en bodega **baja su costo** por revaluación; una que acredita una devolución **no** revalúa |
 
 ---
 

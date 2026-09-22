@@ -53,6 +53,24 @@ imposibles las devoluciones parciales— eran exclusivos de un solo modelo cada 
 documentos quedaron corregidos, con la sección de asientos de H10 reescrita de cinco operaciones a
 doce. El detalle completo está en Engram, proyecto `nexora-erp`.
 
+**Y una segunda validación, el 22-sep-2026**, para comprobar las correcciones. Encontró que se había
+corregido **la prosa pero no los esqueletos**: el texto decía una cosa y el bloque de esquema o de
+código, la contraria. Lo más grave que destapó, corregido el mismo día:
+
+- **La factura de compra no cuadraba** cuando su precio difería del costo con la mercancía en
+  bodega, así que la invariante la habría rechazado (H10 §3.4).
+- **La devolución de compra y su nota contaban la misma rebaja dos veces**: las dos bajaban
+  Inventario y la deuda. Ahora la devolución va siempre contra la cuenta puente y la nota la salda
+  (H10 §3.9 y §3.10). Lo vio un solo modelo de nueve.
+- **Toda entrada de mercancía se habría rechazado** porque las cuentas nuevas no tenían columna
+  donde configurarse (H10 §4.2).
+- **La regla de la devolución seguía usando `reversalOfId`** y el esquema no traía
+  `restoresMovementId` (H8 §4.1 y §5.1).
+
+**Del propio validador**, tres defectos por arreglar: contó como votos «sin hallazgos» un brazo que
+falló por autenticación (codex) y otro que no entendió la tarea (cohere), y descartó los trece
+hallazgos de nemotron porque llegaron sin cita.
+
 ---
 
 ## Cómo retomar
