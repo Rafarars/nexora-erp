@@ -46,6 +46,18 @@ const cases: Array<[DomainError, typeof DomainError]> = [
   [new errors.GoodsReceiptNotConfirmableError(ID, 'cancelled'), ConflictError],
   [new errors.GoodsReceiptAlreadyCancelledError(ID), ConflictError],
   [new errors.ReceivedGoodsAlreadyUsedError(ID), ConflictError],
+  [new errors.PurchaseReturnNotFoundError(ID), NotFoundError],
+  [new errors.PurchaseReturnNotEditableError(ID, 'confirmed'), ConflictError],
+  [new errors.PurchaseReturnNotConfirmableError(ID, 'cancelled'), ConflictError],
+  [new errors.PurchaseReturnAlreadyCancelledError(ID), ConflictError],
+  [new errors.EmptyPurchaseReturnError(), InvalidArgumentError],
+  [new errors.DuplicatePurchaseReturnLineError(ID), InvalidArgumentError],
+  [new errors.PurchaseReturnSupplierMismatchError(ID, ID), InvalidArgumentError],
+  [new errors.ReceiptNotReturnableError(ID, 'draft'), ConflictError],
+  [new errors.ReturnBeforeReceiptError(ID, '2026-01-01', '2026-01-02'), InvalidArgumentError],
+  [new errors.QuantityExceedsReceiptReturnQuotaError(ID, 1, 2), ConflictError],
+  [new errors.ReceiptLineNotFoundError(ID), NotFoundError],
+  [new errors.DuplicatePurchaseReturnCodeError('DVC-0001'), ConflictError],
 ];
 
 describe('purchasing domain errors', () => {

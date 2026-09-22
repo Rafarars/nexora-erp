@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { formatAmount, orderActions, paymentTermLabel, receiptActions, receivableLines, summarizeOrderLines } from './purchasing';
+import { formatAmount, orderActions, paymentTermLabel, purchaseReturnActions, receiptActions, receivableLines, summarizeOrderLines, summarizePurchaseReturnLines } from './purchasing';
 import type { GoodsReceipt, OrderLine, PurchaseOrder } from './purchasing';
 
 const line = (overrides: Partial<OrderLine>): OrderLine => ({
@@ -110,3 +110,21 @@ describe('formatAmount', () => {
     expect(formatAmount(149.2)).toBe('149,20');
   });
 });
+
+describe('purchaseReturnActions', () => {
+  it('offers edit, confirm, cancel on draft and only cancel on confirmed', () => {
+    expect(purchaseReturnActions({ status: 'draft' })).toEqual({ edit: true, confirm: true, cancel: true });
+    expect(purchaseReturnActions({ status: 'confirmed' })).toEqual({ edit: false, confirm: false, cancel: true });
+    expect(purchaseReturnActions({ status: 'cancelled' })).toEqual({ edit: false, confirm: false, cancel: false });
+  });
+});
+
+describe('summarizePurchaseReturnLines', () => {
+  it('formats lines concisely', () => {
+    const lines = [
+      { id: '1', lineNumber: 1, receiptLineId: 'r1', itemId: 'i1', sku: 'AGUA-500', itemName: 'Agua', unitId: 'u1', unitAbbreviation: 'cja', quantity: 2, baseQuantity: 48, unitCost: 12, restoresMovementId: null },
+    ];
+    expect(summarizePurchaseReturnLines(lines)).toBe('2 cja AGUA-500');
+  });
+});
+

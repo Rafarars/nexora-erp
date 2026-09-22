@@ -34,8 +34,10 @@ class InMemoryPurchasingPortsHarness implements PurchasingPortsHarness {
       suppliers: new InMemorySupplierRepository(),
       orders: this.store.orders,
       receipts: this.store.receipts,
+      returns: this.store.returns,
       orderPosting: this.store.orderPosting,
       receiptPosting: this.store.receiptPosting,
+      returnPosting: this.store.returnPosting,
       codes: new InMemoryPurchasingCodeSequence(),
     };
   }

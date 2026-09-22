@@ -30,6 +30,8 @@ export const GLOBEX = {
   confirmedSalesReturnId: 'f7000000-0000-4000-8000-000000000102',
   confirmedCreditNoteId: 'f8000000-0000-4000-8000-000000000101',
   draftCreditNoteId: 'f8000000-0000-4000-8000-000000000102',
+  draftPurchaseReturnId: 'f9000000-0000-4000-8000-000000000101',
+  confirmedPurchaseReturnId: 'f9000000-0000-4000-8000-000000000102',
 };
 
 export const ACME = {
@@ -659,5 +661,49 @@ export const ISOLATION_CASES: IsolationCase[] = [
     title: 'read available credits of a customer of another tenant',
     method: 'get',
     path: `/api/v1/receivables/customers/${GLOBEX.customerId}/available-credits`,
+  },
+  {
+    route: 'GET /api/v1/purchasing/receipts/:receiptId/return-quota',
+    title: 'query the return quota of a goods receipt of another tenant',
+    method: 'get',
+    path: `/api/v1/purchasing/receipts/${GLOBEX.draftReceiptId}/return-quota`,
+  },
+  {
+    route: 'POST /api/v1/purchasing/returns',
+    title: 'create a purchase return for a goods receipt of another tenant',
+    method: 'post',
+    path: '/api/v1/purchasing/returns',
+    body: {
+      supplierId: GLOBEX.supplierId,
+      receiptId: GLOBEX.draftReceiptId,
+      lines: [{ receiptLineId: 'ec000000-0000-4000-8000-000000000101', quantity: 1 }],
+    },
+  },
+  {
+    route: 'PUT /api/v1/purchasing/returns/:returnId',
+    title: 'rewrite a draft purchase return of another tenant',
+    method: 'put',
+    path: `/api/v1/purchasing/returns/${GLOBEX.draftPurchaseReturnId}`,
+    body: {
+      lines: [{ receiptLineId: 'ec000000-0000-4000-8000-000000000101', quantity: 1 }],
+    },
+  },
+  {
+    route: 'PUT /api/v1/purchasing/returns/:returnId/confirm',
+    title: 'confirm a purchase return of another tenant',
+    method: 'put',
+    path: `/api/v1/purchasing/returns/${GLOBEX.draftPurchaseReturnId}/confirm`,
+  },
+  {
+    route: 'PUT /api/v1/purchasing/returns/:returnId/cancel',
+    title: 'cancel a purchase return of another tenant',
+    method: 'put',
+    path: `/api/v1/purchasing/returns/${GLOBEX.confirmedPurchaseReturnId}/cancel`,
+  },
+  {
+    route: 'GET /api/v1/purchasing/returns',
+    title: 'filter the purchase returns by a supplier of another tenant',
+    method: 'get',
+    path: `/api/v1/purchasing/returns?supplierId=${GLOBEX.supplierId}`,
   },
 ];

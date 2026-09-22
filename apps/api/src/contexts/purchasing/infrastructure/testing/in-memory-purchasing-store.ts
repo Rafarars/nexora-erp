@@ -4,7 +4,16 @@ import {
   GoodsReceiptNotFoundError,
   PurchaseOrderNotEditableError,
   PurchaseOrderNotFoundError,
+  PurchaseReturnAlreadyCancelledError,
+  PurchaseReturnNotConfirmableError,
+  PurchaseReturnNotEditableError,
+  PurchaseReturnNotFoundError,
+  PurchaseReturnSupplierMismatchError,
+  QuantityExceedsReceiptReturnQuotaError,
+  ReceiptLineNotFoundError,
+  ReceiptNotReturnableError,
   ReceivedGoodsAlreadyUsedError,
+  ReturnBeforeReceiptError,
 } from '../../domain/errors/purchasing.errors.js';
 import { PurchaseOrderPosting } from '../../domain/order/posting/purchase-order-posting.js';
 import { PurchaseOrder, PurchaseOrderId, PurchaseOrderPrimitives } from '../../domain/order/purchase-order.entity.js';
@@ -12,13 +21,17 @@ import { PurchaseOrderRepository } from '../../domain/order/purchase-order.repos
 import { ReceiptPosting, ReceiptPostingResult } from '../../domain/receipt/posting/receipt-posting.js';
 import { GoodsReceipt, GoodsReceiptId, GoodsReceiptPrimitives } from '../../domain/receipt/goods-receipt.entity.js';
 import { GoodsReceiptRepository } from '../../domain/receipt/goods-receipt.repository.js';
+import { PurchaseReturnPosting } from '../../domain/return/posting/purchase-return-posting.js';
+import { PurchaseReturn, PurchaseReturnId, PurchaseReturnPrimitives } from '../../domain/return/purchase-return.entity.js';
+import { PurchaseReturnRepository } from '../../domain/return/purchase-return.repository.js';
 import { TenantId } from '../../domain/shared/tenant-id.vo.js';
 import { InMemoryPurchasingCatalog } from './in-memory-purchasing-catalog.js';
 
 const key = (tenantId: string, itemId: string, warehouseId: string) => `${tenantId}|${itemId}|${warehouseId}`;
 
 interface StockLine {
-  receiptId: string;
+  receiptId?: string;
+  returnId?: string;
   tenantId: string;
   itemId: string;
   warehouseId: string;
@@ -35,6 +48,7 @@ interface StockLine {
 export class InMemoryPurchasingStore {
   private readonly orderRows = new Map<string, PurchaseOrderPrimitives>();
   private readonly receiptRows = new Map<string, GoodsReceiptPrimitives>();
+  private readonly returnRows = new Map<string, PurchaseReturnPrimitives>();
   private readonly stockLines: StockLine[] = [];
   private readonly withdrawn = new Map<string, number>();
   private queue: Promise<unknown> = Promise.resolve();
@@ -57,7 +71,7 @@ export class InMemoryPurchasingStore {
   }
 
   // Borradores: no pisan una orden o una entrada que entretanto cambio de estado.
-  private async saveDraft(document: PurchaseOrder | GoodsReceipt): Promise<void> {
+  private async saveDraft(document: PurchaseOrder | GoodsReceipt | PurchaseReturn): Promise<void> {
     if (document instanceof PurchaseOrder) {
       const stored = this.orderRows.get(document.id.value);
 
@@ -65,6 +79,16 @@ export class InMemoryPurchasingStore {
       if (stored && stored.updatedAt.getTime() !== document.version()?.getTime()) throw new ConcurrentModificationError(stored.id);
 
       this.orderRows.set(document.id.value, structuredClone(document.toPrimitives()));
+      return;
+    }
+
+    if (document instanceof PurchaseReturn) {
+      const stored = this.returnRows.get(document.id.value);
+
+      if (stored && stored.status !== 'draft') throw new PurchaseReturnNotEditableError(stored.id, stored.status);
+      if (stored && stored.updatedAt.getTime() !== document.version()?.getTime()) throw new ConcurrentModificationError(stored.id);
+
+      this.returnRows.set(document.id.value, structuredClone(document.toPrimitives()));
       return;
     }
 
@@ -163,6 +187,145 @@ export class InMemoryPurchasingStore {
     return row && row.tenantId === tenantId.value ? GoodsReceipt.fromPrimitives(structuredClone(row)) : null;
   }
 
+  private loadReturn(tenantId: TenantId, id: PurchaseReturnId): PurchaseReturn | null {
+    const row = this.returnRows.get(id.value);
+
+    return row && row.tenantId === tenantId.value ? PurchaseReturn.fromPrimitives(structuredClone(row)) : null;
+  }
+
+  get returns(): PurchaseReturnRepository {
+    return {
+      save: (document) => this.saveDraft(document),
+      find: async (tenantId, id) => this.loadReturn(tenantId, id),
+      searchPage: async (tenantId, criteria) => {
+        const text = criteria.text?.toLowerCase() ?? null;
+        const matches = [...this.returnRows.values()]
+          .filter((row) => row.tenantId === tenantId.value)
+          .filter((row) => !criteria.supplierId || row.supplierId === criteria.supplierId)
+          .filter((row) => !criteria.receiptId || row.receiptId === criteria.receiptId)
+          .filter((row) => !criteria.status || row.status === criteria.status)
+          .filter((row) => !criteria.from || row.returnDate >= criteria.from)
+          .filter((row) => !criteria.to || row.returnDate <= criteria.to)
+          .filter((row) => text === null || row.code.toLowerCase().includes(text))
+          .sort((a, b) => b.code.localeCompare(a.code));
+
+        return {
+          returns: matches
+            .slice(criteria.offset, criteria.offset + criteria.limit)
+            .map((row) => PurchaseReturn.fromPrimitives(structuredClone(row))),
+          total: matches.length,
+        };
+      },
+      returnedQuantitiesByReceipt: async (tenantId, receiptId, excludeReturnId) => {
+        const result = new Map<string, number>();
+        for (const row of this.returnRows.values()) {
+          if (
+            row.tenantId === tenantId.value &&
+            row.receiptId === receiptId &&
+            row.status === 'confirmed' &&
+            (!excludeReturnId || row.id !== excludeReturnId)
+          ) {
+            for (const line of row.lines) {
+              result.set(line.receiptLineId, (result.get(line.receiptLineId) ?? 0) + line.quantity);
+            }
+          }
+        }
+        return result;
+      },
+    };
+  }
+
+  get returnPosting(): PurchaseReturnPosting {
+    return {
+      confirm: (tenantId, returnId, now) =>
+        this.serial(async () => {
+          const returnDoc = this.loadReturn(tenantId, returnId);
+          if (!returnDoc) throw new PurchaseReturnNotFoundError(returnId.value);
+          if (returnDoc.currentStatus() !== 'draft') {
+            throw new PurchaseReturnNotConfirmableError(returnDoc.id.value, returnDoc.currentStatus());
+          }
+
+          const receipt = this.loadReceipt(tenantId, returnDoc.receiptId);
+          if (!receipt) throw new ReceiptNotReturnableError(returnDoc.receiptId.value, 'none');
+          if (receipt.currentStatus() !== 'confirmed') {
+            throw new ReceiptNotReturnableError(receipt.id.value, receipt.currentStatus());
+          }
+
+          const order = this.loadOrder(tenantId, receipt.orderId);
+          if (!order || order.supplierId().value !== returnDoc.supplierId.value) {
+            throw new PurchaseReturnSupplierMismatchError(receipt.id.value, returnDoc.supplierId.value);
+          }
+
+          if (returnDoc.returnDate().value < receipt.date().value) {
+            throw new ReturnBeforeReceiptError(receipt.id.value, returnDoc.returnDate().value, receipt.date().value);
+          }
+
+          const returnedMap = await this.returns.returnedQuantitiesByReceipt(tenantId, returnDoc.receiptId.value, returnDoc.id.value);
+          const receiptPrimitives = receipt.toPrimitives();
+
+          for (const line of returnDoc.lines()) {
+            const receiptLine = receiptPrimitives.lines.find((rl) => rl.id === line.receiptLineId);
+            if (!receiptLine) {
+              throw new ReceiptLineNotFoundError(line.receiptLineId);
+            }
+            const alreadyReturned = returnedMap.get(line.receiptLineId) ?? 0;
+            const availableQuota = receiptLine.quantity - alreadyReturned;
+
+            if (line.quantity.toNumber() > availableQuota + 1e-6) {
+              throw new QuantityExceedsReceiptReturnQuotaError(
+                line.receiptLineId,
+                availableQuota,
+                line.quantity.toNumber(),
+              );
+            }
+
+            if (this.stockOf(tenantId.value, line.itemId.value, returnDoc.warehouseId.value) < line.baseQuantity.toNumber()) {
+              throw new ReceivedGoodsAlreadyUsedError(returnDoc.receiptId.value);
+            }
+          }
+
+          const restoreMap = new Map<string, string>();
+          for (const line of returnDoc.lines()) {
+            restoreMap.set(line.id.value, `mv-${line.id.value}`);
+            this.stockLines.push({
+              returnId: returnDoc.id.value,
+              tenantId: tenantId.value,
+              itemId: line.itemId.value,
+              warehouseId: returnDoc.warehouseId.value,
+              quantity: -line.baseQuantity.toNumber(),
+              reversed: false,
+            });
+          }
+
+          returnDoc.confirm(now, restoreMap);
+          this.returnRows.set(returnDoc.id.value, structuredClone(returnDoc.toPrimitives()));
+          return returnDoc;
+        }),
+
+      cancel: (tenantId, returnId, now) =>
+        this.serial(async () => {
+          const returnDoc = this.loadReturn(tenantId, returnId);
+          if (!returnDoc) throw new PurchaseReturnNotFoundError(returnId.value);
+          if (returnDoc.currentStatus() === 'cancelled') {
+            throw new PurchaseReturnAlreadyCancelledError(returnDoc.id.value);
+          }
+
+          const wasConfirmed = returnDoc.currentStatus() === 'confirmed';
+          if (wasConfirmed) {
+            for (const line of this.stockLines) {
+              if (line.returnId === returnDoc.id.value && !line.reversed) {
+                line.reversed = true;
+              }
+            }
+          }
+
+          returnDoc.cancel(now);
+          this.returnRows.set(returnDoc.id.value, structuredClone(returnDoc.toPrimitives()));
+          return returnDoc;
+        }),
+    };
+  }
+
   get orderPosting(): PurchaseOrderPosting {
     return {
       post: (tenantId, orderId, work) =>
@@ -233,7 +396,7 @@ export class InMemoryPurchasingStore {
   }
 
   // En serie, como el bloqueo de filas de la base.
-  private serial(run: () => Promise<void>): Promise<void> {
+  private serial<T = void>(run: () => Promise<T>): Promise<T> {
     const next = this.queue.then(run);
 
     this.queue = next.catch(() => undefined);

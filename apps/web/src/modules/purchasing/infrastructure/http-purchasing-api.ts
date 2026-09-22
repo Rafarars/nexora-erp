@@ -1,12 +1,15 @@
 import { AccessError } from '../../access/domain/access-error';
 import type { AccessErrorBody } from '../../access/domain/access-error';
-import type { PurchaseOrder, Supplier } from '../domain/purchasing';
+import type { PurchaseOrder, ReceiptReturnQuota, Supplier } from '../domain/purchasing';
 import type {
   IncomingFilters,
   IncomingPage,
   OrderFilters,
   OrderInput,
   OrderPage,
+  PurchaseReturnFilters,
+  PurchaseReturnInput,
+  PurchaseReturnPage,
   PurchasingApi,
   ReceiptFilters,
   ReceiptInput,
@@ -112,6 +115,40 @@ export class HttpPurchasingApi implements PurchasingApi {
 
   async searchIncoming(token: string, filters: IncomingFilters = {}): Promise<IncomingPage> {
     return this.request<IncomingPage>('GET', `${BASE}/incoming${queryOf(filters)}`, token);
+  }
+
+  async searchReturns(token: string, filters: PurchaseReturnFilters = {}): Promise<PurchaseReturnPage> {
+    return this.request<PurchaseReturnPage>('GET', `${BASE}/returns${queryOf(filters)}`, token);
+  }
+
+  async createReturn(token: string, input: PurchaseReturnInput): Promise<{ id: string }> {
+    return this.request<{ id: string }>('POST', `${BASE}/returns`, token, {
+      ...input,
+      lines: input.lines.map((line) => ({ ...line, quantity: numeric(line.quantity) })),
+    });
+  }
+
+  async updateReturn(
+    token: string,
+    id: string,
+    input: { date?: string | null; reason?: string | null; notes?: string | null; lines: { receiptLineId: string; quantity: number }[] },
+  ): Promise<void> {
+    await this.request('PUT', `${BASE}/returns/${id}`, token, {
+      ...input,
+      lines: input.lines.map((line) => ({ ...line, quantity: numeric(line.quantity) })),
+    });
+  }
+
+  async confirmReturn(token: string, id: string): Promise<void> {
+    await this.request('PUT', `${BASE}/returns/${id}/confirm`, token);
+  }
+
+  async cancelReturn(token: string, id: string): Promise<void> {
+    await this.request('PUT', `${BASE}/returns/${id}/cancel`, token);
+  }
+
+  async getReceiptReturnQuota(token: string, receiptId: string): Promise<ReceiptReturnQuota> {
+    return this.request<ReceiptReturnQuota>('GET', `${BASE}/receipts/${receiptId}/return-quota`, token);
   }
 
   private receiptBody(input: ReceiptInput) {

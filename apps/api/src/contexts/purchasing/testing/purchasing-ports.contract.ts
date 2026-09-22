@@ -9,8 +9,16 @@ import {
   PurchaseOrderNotEditableError,
   PurchaseOrderNotFoundError,
   PurchaseOrderWithReceiptsError,
+  PurchaseReturnAlreadyCancelledError,
+  PurchaseReturnNotConfirmableError,
+  PurchaseReturnNotEditableError,
+  PurchaseReturnNotFoundError,
+  PurchaseReturnSupplierMismatchError,
+  QuantityExceedsReceiptReturnQuotaError,
   ReceiptExceedsPendingError,
+  ReceiptNotReturnableError,
   ReceivedGoodsAlreadyUsedError,
+  ReturnBeforeReceiptError,
 } from '../domain/errors/purchasing.errors.js';
 import { ensureOrderMatchesCatalog } from '../domain/order/posting/ordered-items-check.js';
 import { PurchaseOrderLine } from '../domain/order/purchase-order-line.js';
@@ -19,6 +27,8 @@ import { GoodsReceiptLine, GoodsReceiptLineId } from '../domain/receipt/goods-re
 import { GoodsReceipt, GoodsReceiptId } from '../domain/receipt/goods-receipt.entity.js';
 import { ReceiptCancellation } from '../domain/receipt/posting/receipt-cancellation.js';
 import { ReceiptConfirmation } from '../domain/receipt/posting/receipt-confirmation.js';
+import { PurchaseReturnLine, PurchaseReturnLineId } from '../domain/return/purchase-return-line.js';
+import { PurchaseReturn, PurchaseReturnId } from '../domain/return/purchase-return.entity.js';
 import { DocumentCurrency } from '../../../shared/domain/document-currency.js';
 import { PurchaseDate } from '../domain/shared/purchase-date.vo.js';
 import { Quantity } from '../domain/shared/quantity.vo.js';
@@ -105,6 +115,51 @@ export function describePurchasingPortsContract(implementation: string, createHa
 
     const confirm = (id: GoodsReceiptId) => ports.receiptPosting.post(tenant, id, (r, o) => new ReceiptConfirmation().apply(r, o, NOW));
     const cancel = (id: GoodsReceiptId) => ports.receiptPosting.post(tenant, id, (r, o) => new ReceiptCancellation().apply(r, o, NOW));
+
+    const confirmReturn = (id: PurchaseReturnId) => ports.returnPosting.confirm(tenant, id, NOW);
+    const cancelReturn = (id: PurchaseReturnId) => ports.returnPosting.cancel(tenant, id, NOW);
+
+    async function draftReturn(receipt: GoodsReceipt, quantities: number[], date = TODAY, reason = 'defect'): Promise<PurchaseReturnId> {
+      const id = PurchaseReturnId.of(`0c000000-0000-4000-8000-${next()}`);
+      const lines = receipt.lines().slice(0, quantities.length).map((line, index) => {
+        const quantity = Quantity.of(quantities[index]);
+
+        return PurchaseReturnLine.of({
+          id: PurchaseReturnLineId.of(`0b000000-0000-4000-8000-${next()}`),
+          lineNumber: index + 1,
+          receiptLineId: line.id.value,
+          itemId: line.itemId,
+          itemSku: line.itemSku,
+          itemName: line.itemName,
+          unitId: line.unitId,
+          quantity,
+          baseQuantity: quantity.times(24),
+          unitCost: line.unitCost,
+          restoresMovementId: null,
+        });
+      });
+
+      await ports.returns.save(
+        PurchaseReturn.draft(
+          id,
+          tenant,
+          `DVC${next().slice(-6)}`,
+          { id: SupplierId.of(SUPPLIER) },
+          { id: receipt.id, warehouseId: receipt.warehouseId, date: receipt.date() },
+          receipt.currency(),
+          {
+            date: PurchaseDate.of(date),
+            reason,
+            notes: 'Devolucion contrato',
+            lines,
+          },
+          NOW,
+          TODAY,
+        ),
+      );
+
+      return id;
+    }
 
     describe('SupplierRepository', () => {
       it('returns what it saved and hides it from another tenant', async () => {
@@ -371,6 +426,275 @@ export function describePurchasingPortsContract(implementation: string, createHa
           GoodsReceiptNotFoundError,
         );
         expect((await ports.receipts.searchByTenant(tenant, order.id)).map((r) => r.id.value)).toEqual([id.value]);
+      });
+    });
+
+    describe('PurchaseReturnRepository', () => {
+      it('returns what it saved with its lines, and hides it from another tenant', async () => {
+        const order = await confirmedOrder();
+        const receiptId = await draftReceipt(order, [5]);
+        await confirm(receiptId);
+        const receipt = (await ports.receipts.find(tenant, receiptId))!;
+
+        const returnId = await draftReturn(receipt, [2]);
+        const found = await ports.returns.find(tenant, returnId);
+
+        expect(found?.toPrimitives()).toMatchObject({
+          id: returnId.value,
+          supplierId: SUPPLIER,
+          receiptId: receiptId.value,
+          warehouseId: MAIN,
+          status: 'draft',
+          notes: 'Devolucion contrato',
+        });
+        expect(found?.lines()).toHaveLength(1);
+        expect(found?.lines()[0].quantity.toNumber()).toBe(2);
+        expect(await ports.returns.find(TenantId.of(TENANT_B), returnId)).toBeNull();
+      });
+
+      it('refuses to overwrite a draft that someone else saved in the meantime', async () => {
+        const order = await confirmedOrder();
+        const receiptId = await draftReceipt(order, [5]);
+        await confirm(receiptId);
+        const receipt = (await ports.receipts.find(tenant, receiptId))!;
+
+        const returnId = await draftReturn(receipt, [2]);
+        const first = (await ports.returns.find(tenant, returnId))!;
+        const second = (await ports.returns.find(tenant, returnId))!;
+
+        first.rewrite(
+          {
+            date: first.returnDate(),
+            reason: null,
+            notes: 'primero',
+            lines: first.lines(),
+          },
+          receipt.date(),
+          new Date(NOW.getTime() + 1000),
+          TODAY,
+        );
+        await ports.returns.save(first);
+
+        second.rewrite(
+          {
+            date: second.returnDate(),
+            reason: null,
+            notes: 'segundo',
+            lines: second.lines(),
+          },
+          receipt.date(),
+          new Date(NOW.getTime() + 2000),
+          TODAY,
+        );
+        await expect(ports.returns.save(second)).rejects.toThrow(ConcurrentModificationError);
+      });
+
+      it('refuses to overwrite a return that was confirmed in the meantime', async () => {
+        const order = await confirmedOrder();
+        const receiptId = await draftReceipt(order, [5]);
+        await confirm(receiptId);
+        const receipt = (await ports.receipts.find(tenant, receiptId))!;
+
+        const returnId = await draftReturn(receipt, [2]);
+        const stale = (await ports.returns.find(tenant, returnId))!;
+        await confirmReturn(returnId);
+
+        await expect(ports.returns.save(stale)).rejects.toThrow(PurchaseReturnNotEditableError);
+      });
+
+      it('searches by criteria and counts confirmed returned quantities', async () => {
+        const order = await confirmedOrder();
+        const receiptId = await draftReceipt(order, [6]);
+        await confirm(receiptId);
+        const receipt = (await ports.receipts.find(tenant, receiptId))!;
+
+        const return1 = await draftReturn(receipt, [2]);
+        await draftReturn(receipt, [1]);
+        await confirmReturn(return1);
+
+        const page = await ports.returns.searchPage(tenant, {
+          supplierId: SUPPLIER,
+          receiptId: receiptId.value,
+          limit: 10,
+          offset: 0,
+        });
+
+        expect(page.total).toBe(2);
+        expect(page.returns).toHaveLength(2);
+
+        const returned = await ports.returns.returnedQuantitiesByReceipt(tenant, receiptId.value);
+        const receiptLineId = receipt.lines()[0].id.value;
+        expect(returned.get(receiptLineId)).toBe(2);
+      });
+    });
+
+    describe('PurchaseReturnPosting', () => {
+      it('confirms a return: stock decreases and purchase order is untouched (H8 §3.11)', async () => {
+        const order = await confirmedOrder([anOrderLine({ quantity: 10, unitCost: 12 })]);
+        const receiptId = await draftReceipt(order, [10]);
+        await confirm(receiptId);
+        expect(await harness.stockOf(WATER, MAIN)).toBe(240);
+
+        const receipt = (await ports.receipts.find(tenant, receiptId))!;
+        const returnId = await draftReturn(receipt, [2]);
+        const confirmed = await confirmReturn(returnId);
+
+        expect(confirmed.currentStatus()).toBe('confirmed');
+        expect(confirmed.lines()[0].restoresMovementId).toBeTruthy();
+        expect(await harness.stockOf(WATER, MAIN)).toBe(192);
+
+        // La orden de compra NO se modifica en absoluto (§3.11)
+        const refreshedOrder = (await ports.orders.find(tenant, order.id))!;
+        expect(refreshedOrder.currentStatus()).toBe('received');
+        expect(refreshedOrder.toPrimitives().lines[0].receivedQuantity).toBe(10);
+      });
+
+      it('refuses to return more than receipt quantity (quantity quota H8 §3.3)', async () => {
+        const order = await confirmedOrder([anOrderLine({ quantity: 10, unitCost: 12 })]);
+        const receiptId = await draftReceipt(order, [4]);
+        await confirm(receiptId);
+        const receipt = (await ports.receipts.find(tenant, receiptId))!;
+
+        const return1 = await draftReturn(receipt, [3]);
+        await confirmReturn(return1);
+
+        const return2 = await draftReturn(receipt, [2]);
+        await expect(confirmReturn(return2)).rejects.toThrow(QuantityExceedsReceiptReturnQuotaError);
+      });
+
+      it('lets only one of two concurrent returns through when both exceed the remaining quota', async () => {
+        const order = await confirmedOrder([anOrderLine({ quantity: 10, unitCost: 12 })]);
+        const receiptId = await draftReceipt(order, [5]);
+        await confirm(receiptId);
+        const receipt = (await ports.receipts.find(tenant, receiptId))!;
+
+        const return1 = await draftReturn(receipt, [3]);
+        const return2 = await draftReturn(receipt, [3]);
+
+        const results = await Promise.allSettled([confirmReturn(return1), confirmReturn(return2)]);
+        expect(results.map((r) => r.status).sort()).toEqual(['fulfilled', 'rejected']);
+        expect((results.find((r) => r.status === 'rejected') as PromiseRejectedResult).reason).toBeInstanceOf(QuantityExceedsReceiptReturnQuotaError);
+      });
+
+      it('refuses to return goods from a receipt of another supplier', async () => {
+        const order = await confirmedOrder();
+        const receiptId = await draftReceipt(order, [5]);
+        await confirm(receiptId);
+        const receipt = (await ports.receipts.find(tenant, receiptId))!;
+
+        const otherSupplierId = SupplierId.of(`0a000000-0000-4000-8000-${next()}`);
+        await ports.suppliers.save(Supplier.create(otherSupplierId, tenant, `PRV${next().slice(-6)}`, { name: `Otro Proveedor ${next()}` }, NOW));
+        const invalidReturn = PurchaseReturn.draft(
+          PurchaseReturnId.of(`0c000000-0000-4000-8000-${next()}`),
+          tenant,
+          `DVC${next().slice(-6)}`,
+          { id: otherSupplierId },
+          { id: receipt.id, warehouseId: receipt.warehouseId, date: receipt.date() },
+          receipt.currency(),
+          {
+            date: PurchaseDate.of(TODAY),
+            reason: 'defect',
+            notes: null,
+            lines: [
+              PurchaseReturnLine.of({
+                id: PurchaseReturnLineId.of(`0b000000-0000-4000-8000-${next()}`),
+                lineNumber: 1,
+                receiptLineId: receipt.lines()[0].id.value,
+                itemId: receipt.lines()[0].itemId,
+                itemSku: receipt.lines()[0].itemSku,
+                itemName: receipt.lines()[0].itemName,
+                unitId: receipt.lines()[0].unitId,
+                quantity: Quantity.of(1),
+                baseQuantity: Quantity.of(24),
+                unitCost: receipt.lines()[0].unitCost,
+                restoresMovementId: null,
+              }),
+            ],
+          },
+          NOW,
+          TODAY,
+        );
+        await ports.returns.save(invalidReturn);
+
+        await expect(confirmReturn(invalidReturn.id)).rejects.toThrow(PurchaseReturnSupplierMismatchError);
+      });
+
+      it('refuses to return with a date earlier than the receipt date', async () => {
+        const order = await confirmedOrder();
+        const receiptId = await draftReceipt(order, [5]);
+        await confirm(receiptId);
+        const receipt = (await ports.receipts.find(tenant, receiptId))!;
+
+        await expect(draftReturn(receipt, [1], '2020-01-01')).rejects.toThrow(ReturnBeforeReceiptError);
+      });
+
+      it('refuses to return if receipt is not confirmed', async () => {
+        const order = await confirmedOrder();
+        const receiptId = await draftReceipt(order, [5]);
+        const draftReceiptDoc = (await ports.receipts.find(tenant, receiptId))!;
+
+        const returnId = await draftReturn(draftReceiptDoc, [1]);
+        await expect(confirmReturn(returnId)).rejects.toThrow(ReceiptNotReturnableError);
+      });
+
+      it('refuses to return when stock has already been used/withdrawn', async () => {
+        const order = await confirmedOrder();
+        const receiptId = await draftReceipt(order, [4]);
+        await confirm(receiptId);
+        const receipt = (await ports.receipts.find(tenant, receiptId))!;
+
+        // Hay 4 cajas * 24 = 96 botellas. Retiramos 80, quedan 16.
+        await harness.withdraw(WATER, MAIN, 80);
+
+        // Devolver 1 caja = 24 botellas > 16 disponibles.
+        const returnId = await draftReturn(receipt, [1]);
+        await expect(confirmReturn(returnId)).rejects.toThrow(ReceivedGoodsAlreadyUsedError);
+      });
+
+      it('cancels a confirmed return: goods re-enter stock and status becomes cancelled', async () => {
+        const order = await confirmedOrder();
+        const receiptId = await draftReceipt(order, [5]);
+        await confirm(receiptId);
+        const receipt = (await ports.receipts.find(tenant, receiptId))!;
+
+        const returnId = await draftReturn(receipt, [2]);
+        await confirmReturn(returnId);
+        expect(await harness.stockOf(WATER, MAIN)).toBe(72);
+
+        const cancelled = await cancelReturn(returnId);
+        expect(cancelled.currentStatus()).toBe('cancelled');
+        expect(await harness.stockOf(WATER, MAIN)).toBe(120);
+
+        await expect(cancelReturn(returnId)).rejects.toThrow(PurchaseReturnAlreadyCancelledError);
+      });
+
+      it('recalculates weighted average cost at frozen cost on return, matching valuation (H8 §3.8 and §7)', async () => {
+        // Entrada 1: 10 cajas a costo 12 ($120). Stock: 240, costo prom: 12/24 = 0.50
+        const order1 = await confirmedOrder([anOrderLine({ quantity: 10, unitCost: 12 })]);
+        const receipt1Id = await draftReceipt(order1, [10]);
+        await confirm(receipt1Id);
+        const receipt1 = (await ports.receipts.find(tenant, receipt1Id))!;
+
+        // Entrada 2: 10 cajas a costo 24 ($240). Stock: 480, valor: $360, costo prom: 360/480 = 0.75
+        const order2 = await confirmedOrder([anOrderLine({ quantity: 10, unitCost: 24 })]);
+        const receipt2Id = await draftReceipt(order2, [10]);
+        await confirm(receipt2Id);
+
+        expect(await harness.stockOf(WATER, MAIN)).toBe(480);
+        if (harness.averageCostOf) {
+          expect(await harness.averageCostOf(WATER, MAIN)).toBeCloseTo(0.75, 4);
+        }
+
+        // Devolucion de 5 cajas de la Entrada 1 (120 botellas al costo congelado de 0.50 = $60)
+        // Valor restante = $360 - $60 = $300 para 360 botellas
+        // Costo promedio nuevo = 300 / 360 = 0.833333
+        const returnId = await draftReturn(receipt1, [5]);
+        await confirmReturn(returnId);
+
+        expect(await harness.stockOf(WATER, MAIN)).toBe(360);
+        if (harness.averageCostOf) {
+          expect(await harness.averageCostOf(WATER, MAIN)).toBeCloseTo(0.833333, 4);
+        }
       });
     });
 

@@ -2,6 +2,8 @@ import { PurchaseOrderPosting } from '../domain/order/posting/purchase-order-pos
 import { PurchaseOrderRepository } from '../domain/order/purchase-order.repository.js';
 import { GoodsReceiptRepository } from '../domain/receipt/goods-receipt.repository.js';
 import { ReceiptPosting } from '../domain/receipt/posting/receipt-posting.js';
+import { PurchaseReturnPosting } from '../domain/return/posting/purchase-return-posting.js';
+import { PurchaseReturnRepository } from '../domain/return/purchase-return.repository.js';
 import { PurchasingCodeSequence } from '../domain/shared/code-sequence.js';
 import { SupplierRepository } from '../domain/supplier/supplier.repository.js';
 
@@ -9,8 +11,10 @@ export interface PurchasingPorts {
   suppliers: SupplierRepository;
   orders: PurchaseOrderRepository;
   receipts: GoodsReceiptRepository;
+  returns: PurchaseReturnRepository;
   orderPosting: PurchaseOrderPosting;
   receiptPosting: ReceiptPosting;
+  returnPosting: PurchaseReturnPosting;
   codes: PurchasingCodeSequence;
 }
 
@@ -19,6 +23,7 @@ export interface PurchasingPorts {
 export interface PurchasingPortsHarness {
   ports(): PurchasingPorts;
   stockOf(itemId: string, warehouseId: string): Promise<number>;
+  averageCostOf?(itemId: string, warehouseId: string): Promise<number>;
   // Simula que parte de la mercancia salio por otro documento.
   withdraw(itemId: string, warehouseId: string, quantity: number): Promise<void>;
   reset(): Promise<void>;

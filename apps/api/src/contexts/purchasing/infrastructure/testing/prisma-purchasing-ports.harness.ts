@@ -10,6 +10,8 @@ import { PurchasingPorts, PurchasingPortsHarness } from '../../testing/purchasin
 import { PrismaGoodsReceiptRepository } from '../persistence/prisma-goods-receipt.repository.js';
 import { PrismaPurchaseOrderPosting } from '../persistence/prisma-purchase-order-posting.js';
 import { PrismaPurchaseOrderRepository } from '../persistence/prisma-purchase-order.repository.js';
+import { PrismaPurchaseReturnPosting } from '../persistence/prisma-purchase-return-posting.js';
+import { PrismaPurchaseReturnRepository } from '../persistence/prisma-purchase-return.repository.js';
 import { PrismaPurchasingCodeSequence } from '../persistence/prisma-purchasing-code-sequence.js';
 import { PrismaReceiptPosting } from '../persistence/prisma-receipt-posting.js';
 import { PrismaSupplierRepository } from '../persistence/prisma-supplier.repository.js';
@@ -28,13 +30,16 @@ export class PrismaPurchasingPortsHarness implements PurchasingPortsHarness {
   ports(): PurchasingPorts {
     // Identificadores distintos a los del contrato del inventario, que usa la misma base.
     const ids = new SequentialIdGenerator();
+    const stockPosting = new PrismaDocumentStockPosting({ next: () => `9${ids.next().slice(1)}` });
 
     return {
       suppliers: new PrismaSupplierRepository(this.prisma),
       orders: new PrismaPurchaseOrderRepository(this.prisma),
       receipts: new PrismaGoodsReceiptRepository(this.prisma),
+      returns: new PrismaPurchaseReturnRepository(this.prisma),
       orderPosting: new PrismaPurchaseOrderPosting(this.prisma),
-      receiptPosting: new PrismaReceiptPosting(this.prisma, new PrismaDocumentStockPosting({ next: () => `9${ids.next().slice(1)}` })),
+      receiptPosting: new PrismaReceiptPosting(this.prisma, stockPosting),
+      returnPosting: new PrismaPurchaseReturnPosting(this.prisma, stockPosting),
       codes: new PrismaPurchasingCodeSequence(this.prisma),
     };
   }
@@ -45,23 +50,34 @@ export class PrismaPurchasingPortsHarness implements PurchasingPortsHarness {
     return row ? row.quantity.toNumber() : 0;
   }
 
+  async averageCostOf(itemId: string, warehouseId: string): Promise<number> {
+    const row = await this.prisma.itemStock.findFirst({ where: { tenantId: TENANT_A, itemId, warehouseId } });
+
+    return row ? row.averageCost.toNumber() : 0;
+  }
+
   // Resta la existencia sin kardex: solo para provocar que revertir no alcance.
   async withdraw(itemId: string, warehouseId: string, quantity: number): Promise<void> {
     await this.prisma.itemStock.updateMany({ where: { tenantId: TENANT_A, itemId, warehouseId }, data: { quantity: { decrement: quantity } } });
   }
 
   async reset(): Promise<void> {
+    await this.prisma.customerCreditNote.deleteMany();
+    await this.prisma.paymentAllocation.deleteMany();
+    await this.prisma.customerPayment.deleteMany();
     await this.prisma.invoice.deleteMany();
+    await this.prisma.salesReturn.deleteMany();
     await this.prisma.dispatch.deleteMany();
     await this.prisma.salesOrder.deleteMany();
     await this.prisma.customer.deleteMany();
+    await this.prisma.purchaseReturn.deleteMany();
     await this.prisma.goodsReceipt.deleteMany();
     await this.prisma.purchaseOrder.deleteMany();
     await this.prisma.supplier.deleteMany();
-    await this.prisma.inventoryMovement.updateMany({ data: { reversalOfId: null } });
+    await this.prisma.inventoryMovement.updateMany({ data: { reversalOfId: null, restoresMovementId: null } });
     await this.prisma.inventoryMovement.deleteMany();
     await this.prisma.itemStock.deleteMany();
-    await this.prisma.codeSequence.deleteMany({ where: { prefix: { in: ['PRV', 'OC', 'ENT'] } } });
+    await this.prisma.codeSequence.deleteMany({ where: { prefix: { in: ['PRV', 'OC', 'ENT', 'DVC'] } } });
 
     for (const [id, slug] of [
       [TENANT_A, 'contract-purchasing-a'],

@@ -91,6 +91,11 @@ export const PURCHASING_PERMISSIONS: PermissionDefinition[] = [
   { code: 'purchasing.receipts.confirm', description: 'Confirmar entradas: sube la existencia' },
   { code: 'purchasing.receipts.cancel', description: 'Anular entradas, revirtiendo la existencia' },
   { code: 'purchasing.incoming.search', description: 'Consultar la mercancía en camino' },
+  { code: 'purchasing.returns.search', description: 'Consultar las devoluciones de compra' },
+  { code: 'purchasing.returns.create', description: 'Crear devoluciones de compra en borrador' },
+  { code: 'purchasing.returns.update', description: 'Editar devoluciones de compra en borrador' },
+  { code: 'purchasing.returns.confirm', description: 'Confirmar devoluciones: baja la existencia al costo congelado' },
+  { code: 'purchasing.returns.cancel', description: 'Anular devoluciones de compra' },
 ];
 
 export const SALES_PERMISSIONS: PermissionDefinition[] = [

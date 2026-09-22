@@ -1,5 +1,6 @@
 import { GoodsReceipt } from '../../domain/receipt/goods-receipt.entity.js';
 import { PurchaseOrder } from '../../domain/order/purchase-order.entity.js';
+import { PurchaseReturn } from '../../domain/return/purchase-return.entity.js';
 
 type Decimalish = { toNumber(): number };
 
@@ -120,3 +121,58 @@ export function receiptFromRow(row: GoodsReceiptRow): GoodsReceipt {
     })),
   });
 }
+
+export const PURCHASE_RETURN_INCLUDE = { lines: { orderBy: { lineNumber: 'asc' } } } as const;
+
+export interface PurchaseReturnRow extends CurrencyColumns {
+  id: string;
+  tenantId: string;
+  code: string;
+  supplierId: string;
+  receiptId: string;
+  warehouseId: string;
+  returnDate: Date;
+  reason: string | null;
+  notes: string | null;
+  status: 'draft' | 'confirmed' | 'cancelled';
+  confirmedAt: Date | null;
+  cancelledAt: Date | null;
+  createdAt: Date;
+  updatedAt: Date;
+  lines: {
+    id: string;
+    lineNumber: number;
+    receiptLineId: string;
+    itemId: string;
+    itemSku: string;
+    itemName: string;
+    unitId: string;
+    quantity: Decimalish;
+    baseQuantity: Decimalish;
+    unitCost: Decimalish;
+    restoresMovementId: string | null;
+  }[];
+}
+
+export function purchaseReturnFromRow(row: PurchaseReturnRow): PurchaseReturn {
+  return PurchaseReturn.fromPrimitives({
+    ...row,
+    returnDate: day(row.returnDate),
+    exchangeRate: rate(row.exchangeRate),
+    baseExchangeRate: rate(row.baseExchangeRate),
+    lines: row.lines.map((line) => ({
+      id: line.id,
+      lineNumber: line.lineNumber,
+      receiptLineId: line.receiptLineId,
+      itemId: line.itemId,
+      itemSku: line.itemSku,
+      itemName: line.itemName,
+      unitId: line.unitId,
+      quantity: n(line.quantity),
+      baseQuantity: n(line.baseQuantity),
+      unitCost: n(line.unitCost),
+      restoresMovementId: line.restoresMovementId,
+    })),
+  });
+}
+

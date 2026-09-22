@@ -49,8 +49,19 @@ const BY_CODE: Record<string, string> = {
   InvalidExchangeRateError: 'La tasa tiene que ser mayor que cero, con hasta 8 decimales.',
   UnknownCurrencyError: 'Esa moneda no existe.',
   InactiveCurrencyError: 'Esa moneda ya no está disponible: elige otra.',
-  InvalidCurrencyCodeError: 'La moneda no es válida.',
   ReceivedGoodsAlreadyUsedError: 'Parte de la mercancía de esta entrada ya salió de la bodega: no se puede anular.',
+  PurchaseReturnNotFoundError: 'Esa devolución de compra ya no existe en esta empresa.',
+  PurchaseReturnNotEditableError: 'Solo se puede editar una devolución de compra en borrador.',
+  PurchaseReturnNotConfirmableError: 'Solo se puede confirmar una devolución de compra en borrador.',
+  PurchaseReturnNotCancellableError: 'Esta devolución de compra ya no se puede anular.',
+  ReceiptNotConfirmedError: 'Solo se puede devolver mercancía de una entrada confirmada.',
+  SupplierReceiptMismatchError: 'La entrada de mercancía no pertenece a ese proveedor.',
+  ReturnDateBeforeReceiptError: 'La fecha de la devolución no puede ser anterior a la de la entrada de mercancía.',
+  QuantityExceedsReceiptReturnQuotaError: 'La cantidad a devolver excede el cupo disponible de la entrada.',
+  EmptyPurchaseReturnError: 'La devolución debe incluir al menos una línea con cantidad mayor a cero.',
+  DuplicatePurchaseReturnLineError: 'Cada línea de la entrada solo puede figurar una vez en la devolución.',
+  ReceiptLineNotInReceiptError: 'Una de las líneas seleccionadas no pertenece a la entrada de mercancía.',
+  InactiveReturnWarehouseError: 'La bodega de la devolución no está activa.',
 };
 
 // Los mensajes de compras y, para lo demas, los del inventario, el catalogo y el acceso.

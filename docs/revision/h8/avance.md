@@ -127,7 +127,56 @@ Antes de iniciar la Fase 0, se revisaron a fondo las once decisiones de diseno d
   - 23/23 tests de integración contra PostgreSQL en `prisma-receivables-ports.contract.integration.spec.ts` pasando.
   - 163 archivos de prueba y 3089 tests en API pasando al 100%.
   - 23 archivos de prueba y 198 tests en Web pasando al 100%.
-  - Cobertura de aislamiento en `apps/e2e/support/isolation-matrix.ts` ampliada y validada con `isolation-coverage.spec.ts`.
+---
 
-
-
+## Fase 4: Devolución de compras a proveedor (`DVC`)
+- **Dominio:**
+  - Creadas entidades `PurchaseReturn` y `PurchaseReturnLine` con ciclo de vida `draft` -> `confirmed` -> `cancelled`.
+  - Puerto `PurchaseReturnRepository` para búsqueda paginada y cálculo de cupo ya devuelto (`returnedQuantitiesByReceipt`).
+  - Puerto `PurchaseReturnPosting` para confirmación y anulación transaccional con impacto en inventario.
+  - Fábrica de líneas `PurchaseReturnLineFactory` validando que la bodega esté activa, que las líneas pertenezcan a la entrada de mercancía citada y que las cantidades no superen el cupo restante de cada línea.
+  - Reglas de negocio obligatorias aplicadas:
+    - La entrada de mercancía (`goods_receipt`) debe estar confirmada y pertenecer al mismo proveedor (`PurchaseReturnSupplierMismatchError`, `ReceiptNotReturnableError`).
+    - La fecha de la devolución no puede ser anterior a la fecha de la entrada (`ReturnBeforeReceiptError`).
+    - La bodega de la recepción debe estar activa (`InactivePurchaseWarehouseError`).
+    - La devolución de compras **no toca la orden de compra** (§3.11): las cantidades recibidas de las líneas de orden y el estado de la orden permanecen intactos.
+    - La salida de inventario sale al costo congelado de la entrada (`unitCost`), distinto del costo promedio, y recalcula ponderadamente el costo promedio de las existencias remanentes en la bodega y en el maestro de artículos (H8 §3.8 y prueba §7).
+    - Anulación: revierte el movimiento en inventario mediante `ItemStock.reverse(...)` siempre que no se haya comprometido la existencia.
+- **Aplicación:**
+  - `PurchaseReturnCreator`: valida proveedor, entrada, fecha, bodega, líneas y asigna correlativo `DVC`.
+  - `PurchaseReturnUpdater`: edición de devoluciones en borrador.
+  - `PurchaseReturnConfirmer`: confirmación y publicación en inventario al costo congelado.
+  - `PurchaseReturnCanceller`: anulación y reversión de salidas.
+  - `PurchaseReturnSearcher`: listado paginado con filtros.
+  - `ReceiptReturnQuotaFinder`: consulta de cupos disponibles por línea de entrada.
+- **Persistencia e Infraestructura:**
+  - `PrismaPurchaseReturnRepository`: persistencia de cabecera y líneas en PostgreSQL con orden determinista y paginación.
+  - `PrismaPurchaseReturnPosting`: transacción atómica con `SELECT ... FOR UPDATE` sobre la entrada y existencias, validación de cupo en caliente, baja de stock con costo congelado mediante `stock.restore(...)`, actualización del costo promedio en `items` y `item_stocks`, y anulación con `stock.reverse(...)`.
+  - Implementación en memoria en `InMemoryPurchasingStore` para pruebas de puerto rápidas y sin base de datos.
+  - Contrato ampliado en `purchasing-ports.contract.ts` cubriendo todas las reglas de persistencia, concurrencia, cupos, orden intacta e invariante de valuación §3.8 / §7.
+  - 6 controladores HTTP implementados:
+    - `POST /api/v1/purchasing/returns`
+    - `PUT /api/v1/purchasing/returns/:id`
+    - `PUT /api/v1/purchasing/returns/:id/confirm`
+    - `PUT /api/v1/purchasing/returns/:id/cancel`
+    - `GET /api/v1/purchasing/returns`
+    - `GET /api/v1/purchasing/receipts/:id/return-quota`
+  - Permisos en minúsculas en `permissions.catalog.ts`:
+    - `purchasing.returns.search`, `purchasing.returns.create`, `purchasing.returns.update`, `purchasing.returns.confirm`, `purchasing.returns.cancel`.
+  - Matriz de aislamiento (`apps/e2e/support/isolation-matrix.ts`) actualizada y validada con `isolation-coverage.spec.ts`.
+- **Frontend Web:**
+  - Modelos y utilidades en `purchasing.ts`: `PurchaseReturn`, `PurchaseReturnLine`, `ReceiptReturnQuota`, `purchaseReturnActions`, `summarizePurchaseReturnLines`.
+  - Métodos API en `purchasing-api.ts` e `http-purchasing-api.ts`.
+  - Traducción de errores amigables en `purchasing-error.ts`.
+  - Acciones del servidor `savePurchaseReturn` y `changePurchaseReturn` en `apps/web/src/app/(app)/compras/actions.ts`.
+  - Vista completa y tablero `PurchaseReturnsBoard` en `/compras/devoluciones`.
+  - Pestaña "Devoluciones" añadida a `PURCHASING_SECTIONS` en barra de navegación de compras.
+- **Pruebas y Verificación:**
+  - 33/33 tests de contrato en memoria pasando.
+  - 33/33 tests de integración contra PostgreSQL real pasando.
+  - `make verify` completo en verde:
+    - 454/454 tests E2E de Playwright pasando.
+    - 253/253 tests de contrato en integración pasando.
+    - 3184/3184 tests unitarios de API pasando.
+    - 30/30 tests unitarios de Web pasando.
+    - Gitleaks sin secretos y Oxlint sin errores.

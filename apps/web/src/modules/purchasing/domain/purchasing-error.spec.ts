@@ -48,4 +48,11 @@ describe('readablePurchasingError', () => {
     expect(readablePurchasingError(AccessError.fromStatus(409, { code: 'ItemWithStockError' }), FALLBACK)).toContain('existencia');
     expect(readablePurchasingError(new Error('boom'), FALLBACK)).toBe(FALLBACK);
   });
+
+  it('explains the return quota error', () => {
+    expect(
+      readablePurchasingError(AccessError.fromStatus(409, { code: 'QuantityExceedsReceiptReturnQuotaError' }), FALLBACK),
+    ).toContain('excede el cupo disponible');
+  });
 });
+

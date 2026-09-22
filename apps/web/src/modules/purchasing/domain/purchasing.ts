@@ -151,3 +151,71 @@ export function paymentTermLabel(days: number): string {
 export function formatAmount(value: number): string {
   return value.toLocaleString('es', { minimumFractionDigits: 2, maximumFractionDigits: 4, useGrouping: false });
 }
+
+export type PurchaseReturnStatus = 'draft' | 'confirmed' | 'cancelled';
+
+export const PURCHASE_RETURN_STATUS_LABELS: Record<PurchaseReturnStatus, string> = {
+  draft: 'Borrador',
+  confirmed: 'Confirmada',
+  cancelled: 'Anulada',
+};
+
+export interface PurchaseReturnLine {
+  id: string;
+  lineNumber: number;
+  receiptLineId: string;
+  itemId: string;
+  sku: string;
+  itemName: string;
+  unitId: string;
+  unitAbbreviation: string;
+  quantity: number;
+  baseQuantity: number;
+  unitCost: number;
+  restoresMovementId: string | null;
+}
+
+export interface PurchaseReturn extends DocumentCurrency {
+  id: string;
+  code: string;
+  supplier: { id: string; name: string };
+  receipt: { id: string; code: string };
+  warehouse: { id: string; name: string };
+  date: string;
+  reason: string | null;
+  notes: string | null;
+  status: PurchaseReturnStatus;
+  confirmedAt: string | null;
+  cancelledAt: string | null;
+  lines: PurchaseReturnLine[];
+}
+
+export interface ReceiptReturnQuota {
+  receiptId: string;
+  supplierId: string;
+  warehouseId: string;
+  lines: {
+    receiptLineId: string;
+    itemId: string;
+    sku: string;
+    itemName: string;
+    unitId: string;
+    unitAbbreviation: string;
+    receivedQuantity: number;
+    returnedQuantity: number;
+    availableQuantity: number;
+    unitCost: number;
+  }[];
+}
+
+export function purchaseReturnActions(ret: Pick<PurchaseReturn, 'status'>): { edit: boolean; confirm: boolean; cancel: boolean } {
+  return {
+    edit: ret.status === 'draft',
+    confirm: ret.status === 'draft',
+    cancel: ret.status !== 'cancelled',
+  };
+}
+
+export function summarizePurchaseReturnLines(lines: PurchaseReturnLine[]): string {
+  return lines.map((line) => `${formatQuantity(line.quantity)} ${line.unitAbbreviation} ${line.sku}`).join(' · ');
+}
