@@ -26,6 +26,8 @@ export const GLOBEX = {
   confirmedPaymentId: 'd3000000-0000-4000-8000-000000000101',
   draftPaymentId: 'd3000000-0000-4000-8000-000000000102',
   exchangeRateId: 'f6000000-0000-4000-8000-000000000101',
+  draftSalesReturnId: 'f7000000-0000-4000-8000-000000000101',
+  confirmedSalesReturnId: 'f7000000-0000-4000-8000-000000000102',
 };
 
 export const ACME = {
@@ -487,6 +489,52 @@ export const ISOLATION_CASES: IsolationCase[] = [
     title: 'filter the invoices by a customer of another tenant',
     method: 'get',
     path: `/api/v1/sales/invoices?customerId=${GLOBEX.customerId}`,
+  },
+  {
+    route: 'GET /api/v1/sales/returns',
+    title: 'filter the sales returns by a customer of another tenant',
+    method: 'get',
+    path: `/api/v1/sales/returns?customerId=${GLOBEX.customerId}`,
+  },
+  {
+    route: 'GET /api/v1/sales/dispatches/:dispatchId/return-quota',
+    title: 'query the return quota of a dispatch of another tenant',
+    method: 'get',
+    path: `/api/v1/sales/dispatches/${GLOBEX.confirmedDispatchId}/return-quota`,
+  },
+  {
+    route: 'POST /api/v1/sales/returns',
+    title: 'create a sales return for a dispatch of another tenant',
+    method: 'post',
+    path: '/api/v1/sales/returns',
+    body: {
+      customerId: GLOBEX.customerId,
+      dispatchId: GLOBEX.confirmedDispatchId,
+      condition: 'resalable',
+      lines: [{ dispatchLineId: 'f2000000-0000-4000-8000-000000000101', quantity: 1 }],
+    },
+  },
+  {
+    route: 'PUT /api/v1/sales/returns/:returnId',
+    title: 'rewrite a draft sales return of another tenant',
+    method: 'put',
+    path: `/api/v1/sales/returns/${GLOBEX.draftSalesReturnId}`,
+    body: {
+      condition: 'damaged',
+      lines: [{ dispatchLineId: 'f2000000-0000-4000-8000-000000000101', quantity: 1 }],
+    },
+  },
+  {
+    route: 'PUT /api/v1/sales/returns/:returnId/confirm',
+    title: 'confirm a sales return of another tenant',
+    method: 'put',
+    path: `/api/v1/sales/returns/${GLOBEX.draftSalesReturnId}/confirm`,
+  },
+  {
+    route: 'PUT /api/v1/sales/returns/:returnId/cancel',
+    title: 'cancel a sales return of another tenant',
+    method: 'put',
+    path: `/api/v1/sales/returns/${GLOBEX.confirmedSalesReturnId}/cancel`,
   },
   {
     route: 'POST /api/v1/receivables/payments',

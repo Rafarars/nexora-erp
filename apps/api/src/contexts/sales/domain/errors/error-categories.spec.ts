@@ -66,7 +66,21 @@ const cases: Array<[DomainError, typeof DomainError]> = [
   [new errors.CustomerWithOverdueInvoicesError(ID), ConflictError],
   [new errors.CreditLimitExceededError(ID, 10, 5, 6), ConflictError],
   [new errors.InvoiceWithPaymentsError(ID), ConflictError],
+  [new errors.SalesReturnNotFoundError(ID), NotFoundError],
+  [new errors.SalesReturnNotEditableError(ID, 'confirmed'), ConflictError],
+  [new errors.SalesReturnNotConfirmableError(ID, 'confirmed'), ConflictError],
+  [new errors.SalesReturnAlreadyCancelledError(ID), ConflictError],
+  [new errors.EmptySalesReturnError(), InvalidArgumentError],
+  [new errors.DuplicateSalesReturnLineError(ID), InvalidArgumentError],
+  [new errors.ReturnBeforeDispatchError('2026-10-01', '2026-10-05'), InvalidArgumentError],
+  [new errors.ReturnCustomerMismatchError(ID, ID), ConflictError],
+  [new errors.DispatchNotReturnableError(ID, 'draft'), ConflictError],
+  [new errors.QuantityExceedsDispatchedReturnQuotaError(ID, 5, 10), ConflictError],
+  [new errors.DispatchLineNotFoundError(ID), NotFoundError],
+  [new errors.InvalidReturnConditionError('invalid'), InvalidArgumentError],
+  [new errors.SalesReturnWithCreditNoteError(ID), ConflictError],
 ];
+
 
 describe('sales domain errors', () => {
   it('covers every error the context declares', () => {

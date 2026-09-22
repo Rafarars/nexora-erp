@@ -125,3 +125,45 @@ export async function changeDispatch(_state: FormState, form: FormData): Promise
 export async function cancelInvoice(_state: FormState, form: FormData): Promise<FormState> {
   return attempt('No se pudo anular la factura.', (token) => salesApi().cancelInvoice(token, text(form, 'id')));
 }
+
+export async function saveSalesReturn(_state: FormState, form: FormData): Promise<FormState> {
+  const dispatchLines = form.getAll('dispatchLineId').map(String);
+  const quantities = form.getAll('returnQuantity').map(String);
+  const condition = (text(form, 'condition') || 'resalable') as 'resalable' | 'damaged' | 'scrap';
+
+  const input = {
+    date: optional(form, 'date'),
+    condition,
+    reason: optional(form, 'reason'),
+    notes: optional(form, 'notes'),
+    lines: dispatchLines
+      .map((dispatchLineId, index) => ({ dispatchLineId, raw: (quantities[index] ?? '').trim() }))
+      .filter(({ raw }) => raw !== '' && raw !== '0')
+      .map(({ dispatchLineId, raw }) => ({ dispatchLineId, quantity: parseDecimal(raw) })),
+  };
+
+  const returnId = optional(form, 'id');
+
+  return attempt('No se pudo guardar la devolución.', async (token) => {
+    if (returnId) {
+      await salesApi().updateReturn(token, returnId, input);
+    } else {
+      await salesApi().createReturn(token, {
+        customerId: text(form, 'customerId'),
+        dispatchId: text(form, 'dispatchId'),
+        ...input,
+      });
+    }
+  });
+}
+
+
+export async function changeSalesReturn(_state: FormState, form: FormData): Promise<FormState> {
+  const id = text(form, 'id');
+  const extra = form.get('extra');
+
+  if (extra === 'confirm') return attempt('No se pudo confirmar la devolución.', (token) => salesApi().confirmReturn(token, id));
+
+  return attempt('No se pudo anular la devolución.', (token) => salesApi().cancelReturn(token, id));
+}
+

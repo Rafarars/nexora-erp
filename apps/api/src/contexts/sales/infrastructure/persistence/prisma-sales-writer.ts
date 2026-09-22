@@ -1,8 +1,10 @@
 import type { TransactionClient } from '../../../../shared/prisma/document-stock-posting.js';
-import { DispatchNotFoundError, SalesOrderNotFoundError } from '../../domain/errors/sales.errors.js';
+import { DispatchNotFoundError, SalesOrderNotFoundError, SalesReturnNotFoundError } from '../../domain/errors/sales.errors.js';
 import { Dispatch } from '../../domain/dispatch/dispatch.entity.js';
 import { SalesOrder } from '../../domain/order/sales-order.entity.js';
-import { dispatchFromRow, orderFromRow } from './sales-rows.js';
+import { SalesReturn } from '../../domain/return/sales-return.entity.js';
+import { dispatchFromRow, orderFromRow, salesReturnFromRow } from './sales-rows.js';
+
 
 // Lo que comparten las publicaciones de ventas: bloquear un pedido o un despacho y escribir su
 // estado y lo despachado de cada linea.
@@ -44,3 +46,30 @@ export async function writeDispatchState(tx: TransactionClient, dispatch: Dispat
 
   await tx.dispatch.update({ where: { tenantId_id: { tenantId, id } }, data: { status, confirmedAt, cancelledAt, updatedAt } });
 }
+
+export async function lockSalesReturn(tx: TransactionClient, tenantId: string, returnId: string): Promise<SalesReturn> {
+  const locked = await tx.$queryRaw<{ id: string }[]>`
+    SELECT id FROM sales_returns WHERE tenant_id = ${tenantId}::uuid AND id = ${returnId}::uuid FOR UPDATE`;
+
+  if (locked.length === 0) throw new SalesReturnNotFoundError(returnId);
+
+  return salesReturnFromRow(await tx.salesReturn.findFirstOrThrow({ where: { tenantId, id: returnId }, include: { lines: true } }));
+}
+
+export async function writeSalesReturnState(tx: TransactionClient, returnEntity: SalesReturn): Promise<void> {
+  const { tenantId, id, status, confirmedAt, cancelledAt, updatedAt, lines } = returnEntity.toPrimitives();
+
+  await tx.salesReturn.update({
+    where: { tenantId_id: { tenantId, id } },
+    data: { status, confirmedAt, cancelledAt, updatedAt },
+  });
+
+  for (const line of lines) {
+    await tx.salesReturnLine.update({
+      where: { id: line.id },
+      data: { unitCost: line.unitCost, restoresMovementId: line.restoresMovementId },
+    });
+  }
+
+}
+

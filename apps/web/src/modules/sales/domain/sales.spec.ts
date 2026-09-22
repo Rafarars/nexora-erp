@@ -95,7 +95,9 @@ describe('visibleSalesSections', () => {
   });
 
   it('shows every section to an administrator and only what a role can read otherwise', () => {
-    expect(visibleSalesSections(session({ grantsAll: true }))).toHaveLength(5);
+    expect(visibleSalesSections(session({ grantsAll: true }))).toHaveLength(6);
     expect(visibleSalesSections(session({ permissions: ['sales.invoices.search'] })).map((s) => s.label)).toEqual(['Facturas']);
+    expect(visibleSalesSections(session({ permissions: ['sales.returns.search'] })).map((s) => s.label)).toEqual(['Devoluciones']);
   });
+
 });

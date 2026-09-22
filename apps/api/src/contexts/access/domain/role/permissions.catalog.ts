@@ -112,7 +112,13 @@ export const SALES_PERMISSIONS: PermissionDefinition[] = [
   { code: 'sales.invoices.issue', description: 'Emitir facturas de despachos confirmados' },
   { code: 'sales.invoices.cancel', description: 'Anular facturas' },
   { code: 'sales.availability.search', description: 'Consultar la existencia disponible para vender' },
+  { code: 'sales.returns.search', description: 'Consultar las devoluciones de venta' },
+  { code: 'sales.returns.create', description: 'Crear devoluciones de venta en borrador' },
+  { code: 'sales.returns.update', description: 'Editar devoluciones de venta en borrador' },
+  { code: 'sales.returns.confirm', description: 'Confirmar devoluciones: reingresa la mercancía' },
+  { code: 'sales.returns.cancel', description: 'Anular devoluciones de venta' },
 ];
+
 
 export const RECEIVABLES_PERMISSIONS: PermissionDefinition[] = [
   { code: 'receivables.payments.search', description: 'Consultar los cobros' },

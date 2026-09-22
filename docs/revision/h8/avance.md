@@ -49,6 +49,44 @@ Antes de iniciar la Fase 0, se revisaron a fondo las once decisiones de diseno d
 ---
 
 ## Fase 2: Devolución de venta (`DVV`)
-*(En progreso)*
+- **Dominio:**
+  - Creadas entidades `SalesReturn` y `SalesReturnLine` con soporte de condiciones (`resalable`, `damaged`, `scrap`).
+  - Ciclo de vida: `draft` -> `confirmed` -> `cancelled`.
+  - Puerto `SalesReturnRepository` con búsqueda paginada y cálculo de cupo ya devuelto (`returnedQuantitiesByDispatch`).
+  - Puerto `SalesReturnPosting` para confirmar y anular devoluciones.
+  - Puerto `SalesReturnCreditedChecker` para verificar si la devolución está acreditada por notas de crédito confirmadas.
+  - Fábrica de líneas `SalesReturnLineFactory` que valida bodega activa vía `SalesCatalog`, despacho confirmado, cupo disponible y calcula `baseQuantity`.
+- **Aplicación:**
+  - `SalesReturnCreator`: valida despacho del mismo cliente, confirmado, fecha no anterior al despacho, cupo y genera código `DVV`.
+  - `SalesReturnUpdater`: permite editar borradores.
+  - `SalesReturnConfirmer`: confirma y aplica reingreso al inventario.
+  - `SalesReturnCanceller`: anula la devolución y revierte movimientos si no tiene notas de crédito confirmadas.
+  - `SalesReturnSearcher`: búsqueda y paginación desde el primer día.
+  - `DispatchReturnQuotaFinder`: calcula cupos restantes por línea de despacho.
+- **Infraestructura y Persistencia:**
+  - Mapeo `salesReturnFromRow` y `writeSalesReturnState` en `sales-rows.ts` y `prisma-sales-writer.ts`.
+  - `PrismaSalesReturnRepository` implementando almacenamiento y cupos en PostgreSQL.
+  - `PrismaSalesReturnPosting` implementando transacciones atómicas con `SELECT ... FOR UPDATE`, validación de cupo en caliente, reingreso al kardex con costo congelado mediante `stock.restore(...)` (sin reingreso para `scrap`, §3.5), reversión de movimientos al anular mediante `stock.reverse(...)`, y garantizando que el pedido de venta **no se toca** (§3.11).
+  - `PrismaSalesReturnCreditedChecker` consultando notas de crédito confirmadas.
+  - 6 controladores HTTP implementados bajo `/api/v1/sales/returns` y `/api/v1/sales/dispatches/:id/return-quota`.
+  - Permisos registrados en `permissions.catalog.ts` en minúsculas (`sales.returns.search`, `sales.returns.create`, `sales.returns.update`, `sales.returns.confirm`, `sales.returns.cancel`).
+- **Frontend Web:**
+  - Métodos añadidos a `HttpSalesApi` y types en `sales.ts` / `sales-api.ts`.
+  - Traducción de errores específicos en `sales-error.ts`.
+  - Server actions `saveSalesReturn` y `changeSalesReturn` en `apps/web/src/app/(app)/ventas/actions.ts`.
+  - Pantalla completa y tablero `SalesReturnsBoard` en `/ventas/devoluciones`.
+  - Enlace "Devoluciones" añadido a `SALES_SECTIONS` y validado en navegación.
+- **Pruebas:**
+  - Suite de pruebas unitarias `sales-return.spec.ts` verificando:
+    - Despacho de otro cliente rechazado (`ReturnCustomerMismatchError`).
+    - Despacho en borrador rechazado (`DispatchNotReturnableError`).
+    - Fecha anterior al despacho rechazada (`ReturnBeforeDispatchError`).
+    - Bodega inactiva rechazada (`InactiveSalesWarehouseError`).
+    - Pedido de venta intacto (§3.11).
+    - Cupos: dos devoluciones parciales aceptadas, tercera excedida rechazada (`QuantityExceedsDispatchedReturnQuotaError`).
+    - Scrap no restaura movimientos en inventario (§3.5).
+    - Resalable restaura y su anulación revierte.
+    - Anulación bloqueada si tiene notas de crédito confirmadas (`SalesReturnWithCreditNoteError`).
+
 
 
