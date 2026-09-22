@@ -35,8 +35,8 @@ efecto dejando rastro de las dos acciones. Nosotros sí dejamos anular —con la
 factura con cobros confirmados no se anula—. **Esa incoherencia se decide en §3.6.**
 
 **Qué tiene el sistema de referencia.** `verlumyx/erp` tiene los cuatro documentos y los anticipos.
-Se leyó su código, no su documentación, y de ahí salen las decisiones de §3 —incluidas **tres donde
-nos separamos de él a propósito**, porque se le encontraron defectos.
+Se leyó su código, no su documentación, y de ahí salen las decisiones de §3 —incluidas **cuatro donde
+nos separamos de él a propósito**, porque se le encontraron defectos: dos en §3.3, uno en §3.4 y otro en §3.8.
 
 ---
 
@@ -70,7 +70,7 @@ nos separamos de él a propósito**, porque se le encontraron defectos.
 
 ## 3. Las decisiones de diseño, con su porqué
 
-Estas nueve decisiones son **lo que hay que respetar al construir**. Si al ejecutar alguna resulta
+Estas once decisiones son **lo que hay que respetar al construir**. Si al ejecutar alguna resulta
 imposible o equivocada, se para y se consulta: no se improvisa una alternativa.
 
 ### 3.1 La nota de crédito y la devolución son dos documentos distintos
@@ -99,9 +99,11 @@ sabe si acabará acreditada.
 
 ### 3.2 La nota de crédito NO toca el saldo directamente: genera un cobro sin dinero
 
-**Decisión:** confirmar una nota de crédito a cliente **crea un cobro confirmado** con forma de
-pago `credit_note`, cuyo origen apunta a la nota, repartido entre las facturas que acredita. El
-saldo baja por la máquina de siempre.
+**Decisión:** confirmar una nota de crédito a cliente que cita una factura **crea un cobro
+confirmado** con forma de pago `credit_note`, cuyo origen apunta a la nota, aplicado a esa factura
+hasta lo que todavía debe. Lo que sobra queda como crédito de la nota y se gasta después desde
+Cobros, con otros cobros sin dinero iguales a éste (§3.10). El saldo baja siempre por la máquina de
+siempre.
 
 **Por qué, y es la decisión más importante del hito.** El mapa del código encontró que **el saldo
 de una factura se toca en dieciséis sitios independientes** —nueve que lo calculan y siete que lo
@@ -131,14 +133,16 @@ ninguno de los cálculos**: todos leen repartos de cobros confirmados, y el de u
 no diga «Cobro NCC000001» sino «Nota de crédito NCC000001». Son dos sitios, los dos estados de
 cuenta, y es presentación, no cálculo.
 
-**Y prepara los anticipos**: un anticipo es otro cobro sin dinero con otro origen.
+**Y prepara los anticipos**: un anticipo será otra fuente de crédito que se gasta desde Cobros,
+exactamente como la nota (§3.10).
 
 ### 3.3 El cupo de cantidad y el cupo de importe son distintos
 
 **Decisión:** dos topes separados, cada uno con su guarda.
 
-- **Cupo de cantidad**, por línea de factura: la suma de lo devuelto no puede superar lo facturado.
-  Lo consumen **las devoluciones**.
+- **Cupo de cantidad**, por línea **de despacho** en ventas y por línea **de entrada** en compras:
+  la suma de lo devuelto no puede superar lo que salió o lo que entró. Lo consumen **las
+  devoluciones**.
 - **Cupo de importe**, por factura: la suma de lo acreditado no puede superar el total. Lo consumen
   **las notas de crédito**.
 
@@ -150,6 +154,18 @@ Sumarlos en un solo cupo sería peor: una nota que acredita una devolución se r
 unidades**, y contarlas dos veces impediría lo normal. Separar los ejes resuelve los dos casos: un
 descuento global gasta importe sin gastar unidades, una devolución gasta unidades, y el tope de
 importe sigue cerrando el total.
+
+**Por qué el cupo de cantidad va por despacho y no por factura**, decidido con Rafael el
+22-sep-2026. La referencia lo pone por línea de factura, y en los dos sistemas **se puede facturar
+antes de despachar**: aquí `linesToInvoice(null)` factura todo lo pendiente de un pedido confirmado
+(`sales-order.entity.ts:206-209`), y allí la factura nace del pedido y, sin despacho, se queda con
+un *«costo provisional»* (`SalesInvoicePostingService`). Con el cupo por factura, **se podría
+devolver mercancía que nunca salió**: reingresaría existencia que no existe, a un costo que nadie
+pagó. Es el cuarto defecto de la referencia que no copiamos.
+
+Con el cupo por despacho el problema no puede aparecer: sólo se devuelve lo que salió, y el
+movimiento de kardex de esa línea de despacho es el que da el costo (§3.4). La factura sigue
+teniendo su tope, que es el de importe.
 
 ### 3.4 La mercancía devuelta se valora al costo congelado, en los dos lados
 
@@ -243,8 +259,10 @@ Hoy la guarda es `if (paid > 0) throw InvoiceWithPaymentsError`. Como una nota g
 se anula.
 
 **Falta cubrir la devolución sin nota, y así se hace:** `InvoiceCanceller` consulta un puerto nuevo
-—`SalesReturnsOfInvoice`— que responde cuántas devoluciones confirmadas cita esa factura, y lanza
-`InvoiceWithReturnsError` si hay alguna. El puerto vive en el dominio de ventas y lo implementa el
+—`SalesReturnsOfInvoice`— que responde cuántas devoluciones confirmadas devuelven mercancía de
+**alguna línea de pedido que esa factura facturó**, y lanza `InvoiceWithReturnsError` si hay alguna.
+Se pregunta por línea de pedido y no por factura porque la devolución cita el despacho (§3.3), no la
+factura, y una factura emitida antes de despachar no tiene despacho propio. El puerto vive en el dominio de ventas y lo implementa el
 adaptador que ya lee las devoluciones; **ventas no aprende de devoluciones**, sólo pregunta.
 
 ### 3.7 La devolución de compra puede dejar existencia negativa: no se permite
@@ -279,6 +297,50 @@ mismas reglas, salvo donde el negocio obligue a diferir.
 construido un lado primero y no haber vuelto al otro. Se nota en que el razonamiento está escrito
 en un lado y ausente en el otro.
 
+### 3.10 Lo que sobra de una nota queda como crédito, y se gasta desde Cobros
+
+**Decisión, tomada con Rafael el 22-sep-2026:**
+
+- **Al confirmarse, la nota sólo abona la factura que cita**, hasta lo que esa factura todavía debe.
+  Una nota sin factura —un descuento global— no abona nada al emitirse.
+- **Lo que no abona queda como crédito disponible de la nota.** Con números: factura de 100 ya
+  cobrada 60 y nota de 100. La nota abona 40 y le quedan 60 de crédito.
+- **Ese crédito se gasta desde la pantalla de Cobros que ya existe**, con forma `credit_note` y la
+  nota como origen: quien cobra elige las facturas del cliente y reparte, cada una hasta su saldo,
+  como en cualquier cobro. Es el mismo cobro sin dinero de §3.2, nacido en otro momento.
+- **El crédito disponible se calcula, no se guarda**: total de la nota menos lo repartido por sus
+  cobros confirmados. Es la misma regla que el saldo de las facturas (§3.2): un número guardado al
+  lado de la fórmula que lo produce acaba separándose de ella.
+- **Devolver ese crédito en dinero no entra en H8.** Se anota en `FUTURE.md`, junto a los anticipos,
+  que se construirán con este mismo mecanismo.
+
+**Por qué así.** Es como lo resuelve la referencia (`SalesCreditNoteApplicationService` y
+`ClientCollectionCreditSourceService`), y es lo que menos construye: el cobro de H6 ya reparte, ya
+topa cada factura en su saldo y ya sabe anularse. Lo único nuevo es que un cobro con `credit_note`
+compruebe de dónde sale su crédito. **Y no toca ninguna regla de H6**: el cobro sigue sin poder
+existir sin repartos (`EmptyPaymentError`), porque el crédito no vive en un cobro, vive en la nota.
+
+**Lo que nos separamos de la referencia:** ella guarda `applied_amount` y `balance` en la nota y los
+reescribe en cada cobro. Nosotros los calculamos.
+
+### 3.11 Una devolución no toca el pedido ni la orden
+
+**Decisión, tomada con Rafael el 22-sep-2026:** devolver no cambia lo despachado de un pedido de
+venta ni lo recibido de una orden de compra. La devolución es un hecho posterior, y si el cliente
+quiere reposición, es un pedido nuevo.
+
+**Por qué.** Es lo que hace la referencia —su devolución sólo apunta lo devuelto en su propia
+línea de origen—, y reabrir cantidades cambiaría el estado de pedidos ya cerrados y las reglas de H4
+y H5 que dependen de él.
+
+**Dos consecuencias que hay que decir en voz alta:**
+
+- **En ventas**, si se devuelve antes de facturar, la factura del despacho factura lo que salió, y
+  lo devuelto se acredita con una nota. La factura no resta devoluciones.
+- **En compras**, H9 tiene que topar lo facturable en **lo recibido menos lo devuelto** de cada
+  línea de entrada (H9 §3.4): si no, se podría registrar una factura del proveedor por mercancía
+  que ya se le devolvió.
+
 ---
 
 ## 4. Los submódulos, regla por regla
@@ -290,21 +352,26 @@ confirmado no se edita, sólo se anula; anulado no se toca.
 
 **Qué es.** Mercancía que el cliente devuelve y reingresa a una bodega.
 
-**Cabecera:** cliente (obligatorio), factura de origen (opcional), despacho de origen (opcional),
-**bodega de reingreso** (obligatoria), fecha, motivo, condición (§3.5), notas.
+**Cabecera:** cliente (obligatorio), **despacho de origen** (obligatorio, salvo en la devolución
+sin origen de la regla 3), **bodega de reingreso** (obligatoria), fecha, motivo, condición (§3.5),
+notas. La factura no se cita: se llega a ella por el pedido del despacho (§3.3).
 
-**Líneas:** artículo, cantidad, **costo unitario congelado**, y el movimiento de salida del que
-procede ese costo, `restoresMovementId` (§3.4). Nulo en la devolución sin origen.
+**Líneas:** artículo, cantidad, **la línea de despacho que devuelve**, **costo unitario
+congelado**, y el movimiento de salida del que procede ese costo, `restoresMovementId` (§3.4).
+Línea de despacho y movimiento son nulos en la devolución sin origen.
 
 **Reglas al confirmar:**
 
-1. La fecha no es futura —regla que ya existe en todos los documentos— ni **anterior a la factura
-   de origen**, si la hay. El sistema ya tiene este patrón en despachos y facturas.
-2. Cada línea con factura de origen **no supera el cupo de cantidad** de su línea (§3.3), contando
-   las devoluciones confirmadas anteriores.
-3. El costo unitario **se copia del movimiento de salida original**, no se captura ni se calcula.
-   Sin movimiento de origen —devolución sin factura ni despacho— **se pide escribirlo**, igual que
-   hace el Ajuste cuando no hay de dónde sacarlo, y la línea queda con `restoresMovementId` nulo.
+1. La fecha no es futura —regla que ya existe en todos los documentos— ni **anterior al despacho
+   de origen**. El sistema ya tiene este patrón en despachos y facturas.
+2. El despacho es **del mismo cliente** y está confirmado, y cada línea **no supera el cupo de
+   cantidad** de su línea de despacho (§3.3), contando las devoluciones confirmadas anteriores.
+3. El costo unitario **se copia del movimiento de kardex de su línea de despacho**, no se captura
+   ni se calcula. El despacho ya graba un movimiento por línea, con la línea en `originLineId`
+   (`dispatch-confirmation.ts:21`), así que la búsqueda es directa.
+   Sin despacho de origen —mercancía que se vendió antes de que existiera el sistema, por ejemplo—
+   **se pide escribirlo**, igual que hace el Ajuste cuando no hay de dónde sacarlo, y la línea
+   queda con `restoresMovementId` nulo.
    Esa devolución **no es una reversión de nada**: es mercancía que entra, y se comporta como una
    entrada por ajuste. Hay que tratarla como caso propio, con su prueba.
 4. Si la condición es `resalable` o `damaged`, **publica en el kardex** un movimiento de entrada
@@ -313,6 +380,7 @@ procede ese costo, `restoresMovementId` (§3.4). Nulo en la devolución sin orig
    con unicidad; construida así, la segunda devolución parcial de una línea habría reventado.*
 5. La bodega tiene que estar activa. Esta regla ya existe en Catálogo y hay que reutilizarla, no
    reescribirla.
+6. **No toca el pedido** (§3.11): lo despachado sigue siendo lo despachado.
 
 **Al anular:** revierte su propio movimiento de kardex, si lo hubo, por `reversalOfId`. Una
 devolución **acreditada por una nota de crédito confirmada no se anula**: primero se anula la nota.
@@ -338,17 +406,19 @@ líneas, nunca se capturan**.
 1. Con factura de origen, el total **no supera el cupo de importe** (§3.3) contando las notas
    confirmadas anteriores.
 2. Con devolución enlazada: la devolución existe, está confirmada, es **del mismo cliente**, y **no
-   está ya acreditada por otra nota confirmada**.
+   está ya acreditada por otra nota confirmada**. Si la nota cita además una factura, la devolución
+   devuelve mercancía **del mismo pedido** que esa factura.
 
 > **Todos los bloqueos de este hito cuentan sólo documentos confirmados, nunca anulados.** Se dice
 > aquí una vez y vale para §3.3, §3.6 y esta regla. Sin ello, una nota anulada por error dejaría la
 > devolución sin poder acreditarse nunca más, y una factura quedaría sin poder anularse por culpa
 > de documentos que ya no existen.
-3. **Genera un cobro confirmado** con forma de pago `credit_note` y origen la nota, repartido
-   entre las facturas que acredita **hasta el saldo vivo de cada una**, nunca por encima. Todo
-   dentro de **la misma transacción**.
-4. Lo que no cabe en ningún saldo —un descuento global, o una nota mayor que lo que la factura
-   todavía debe— queda como **saldo a favor del cliente**.
+3. **Si cita una factura, genera un cobro confirmado** con forma de pago `credit_note` y origen
+   la nota, aplicado a esa factura **hasta lo que todavía debe**, nunca por encima. Todo dentro de
+   **la misma transacción**. La nota guarda cuál es ese cobro, su cobro de emisión. Si la factura
+   ya no debe nada, o la nota no cita ninguna, no genera cobro.
+4. Lo que no abona queda como **crédito disponible de la nota** (§3.10), que se gasta desde
+   Cobros.
 
 > **Dos correcciones del 21-sep-2026, y las dos vienen de comprobar el código en vez de suponerlo.**
 >
@@ -363,20 +433,37 @@ líneas, nunca se capturan**.
 > código sin comprobarla, que es exactamente el patrón que este proyecto persigue en el código
 > ajeno.
 >
-> **Consecuencia para las fases:** el saldo a favor **no existe hoy** y hay que construirlo. La
-> fase 3 tiene que decidir cómo: o se permite un cobro sin repartos —cambiando una regla de H6 que
-> tiene su porqué— o el saldo a favor es **otra cosa** que no es un cobro, y entonces §3.2 deja de
-> cubrirlo y hay que decir dónde vive. **Recomendado: lo segundo**, y que la nota conserve un
-> remanente propio, porque tocar una invariante de un hito cerrado para acomodar uno nuevo es cómo
-> se rompen los sistemas.
+> **Consecuencia, resuelta el 22-sep-2026:** el saldo a favor no existía y había que decidir dónde
+> vivía. Vive **en la nota**, como crédito disponible calculado, y se gasta con cobros normales
+> desde Cobros (§3.10). La regla de H6 que rechaza un cobro sin repartos no se toca.
 5. **Nunca toca el kardex.** Ni con motivo «devolución»: quien mueve mercancía es la `DVV`.
 
-**Al anular:** anula su cobro, y con él los repartos. La máquina de cobros ya sabe hacerlo.
+**Gastar su crédito desde Cobros.** Un cobro con forma `credit_note` exige, al confirmarse:
 
-**Y la puerta de atrás, que hay que cerrar:** un cobro nacido de una nota **no se anula desde
-Cuentas por cobrar**. Si se pudiera, la nota quedaría viva consumiendo cupo y sin efecto sobre el
-saldo. La guarda es la misma que ya distingue el origen: un cobro con `creditSourceId` sólo lo
-anula quien anula su nota.
+- `creditSourceId` apunta a una nota **confirmada** y **del mismo cliente**: un cobro no cruza
+  clientes.
+- Lo que reparte **no supera el crédito disponible** de la nota. Es una lectura seguida de una
+  escritura, así que **se toma la nota con `FOR UPDATE`** antes de sumar sus cobros, igual que los
+  órdenes de bloqueo de H4, H5 y H6, con su prueba de concurrencia en el contrato del puerto: dos
+  cobros confirmados a la vez sobre la misma nota no gastan más de lo que tiene.
+- Lleva **la moneda y la tasa congeladas de la nota**: el crédito vale lo que valía cuando se
+  emitió.
+- Un cobro con dinero no lleva `creditSourceId`, y uno con `credit_note` no puede ir sin él.
+
+**Dónde se ve el crédito.** En la pantalla de Cobros, al elegir cliente, junto al saldo por cobrar:
+*«Crédito disponible»*, la suma del de sus notas. Y en los dos estados de cuenta del cliente, la
+nota muestra lo que le queda. **No reduce la exposición del control de crédito**: se cuenta cuando se
+aplica, no antes.
+
+**Al anular la nota:** anula su cobro de emisión, y con él sus repartos. Si ya se gastó parte de su
+crédito desde Cobros, **se rechaza**: primero se anulan esos cobros. Explícito sobre automático: no
+se anulan en cascada cobros que alguien hizo en otra pantalla.
+
+**Y la puerta de atrás, que hay que cerrar:** el **cobro de emisión** de una nota **no se anula
+desde Cuentas por cobrar**. Si se pudiera, la nota quedaría viva consumiendo cupo con su crédito
+devuelto sin que nadie lo decidiera. Sólo lo anula quien anula su nota. **Los cobros que gastan
+crédito desde Cobros sí se anulan como cualquier cobro**, y lo que repartieron vuelve a estar
+disponible en la nota: es un reparto que se deshace, no una nota que pierde su efecto.
 
 ### 4.3 Devolución de compra (`DVC`) — contexto `purchasing`
 
@@ -384,10 +471,17 @@ Espejo de §4.1, con la mercancía saliendo en vez de entrando.
 
 **Diferencias reales, no de nombre:**
 
+- Cita **la entrada** de la que sale, que es obligatoria, y cada línea **la línea de entrada** que
+  devuelve. El cupo de cantidad es por línea de entrada (§3.3), y la entrada es del mismo proveedor.
 - La bodega es **de donde sale**, y tiene que tener existencia suficiente (§3.7).
-- El costo se congela **del movimiento de entrada** del que procede, citado por
-  `restoresMovementId`, igual que en §4.1.
+- El costo se congela **del movimiento de kardex de su línea de entrada**, citado por
+  `restoresMovementId`, igual que en §4.1. La entrada graba un movimiento por línea, con la línea en
+  `originLineId` (`receipt-confirmation.ts:23`).
+- **No hay devolución de compra sin origen.** Devolverle a un proveedor mercancía que no consta que
+  entrara de él no es una devolución; si hay que sacar existencia sin documento, para eso está el
+  Ajuste.
 - No hay condición: la mercancía se va. El motivo sigue siendo obligatorio.
+- **No toca la orden** (§3.11): lo recibido sigue siendo lo recibido.
 
 ### 4.4 Nota de crédito de proveedor (`NCP`) — en H9, contexto `payables`
 
@@ -413,6 +507,16 @@ la cuarta no está aquí.
 clave primaria `id` uuid, `tenantId`, `code` de doce caracteres, moneda con sus cuatro columnas
 congeladas (`currency`, `exchangeRate`, `baseCurrency`, `baseExchangeRate`), importes
 `Decimal(18, 4)`, `@@unique([tenantId, id])` y las relaciones compuestas por `[tenantId, id]`.
+
+**Qué cita cada documento**, que es lo que el patrón no dice:
+
+| Documento | Cabecera | Línea |
+|---|---|---|
+| `DVV` | `dispatchId` (nulo sólo sin origen), `warehouseId`, `condition` | `dispatchLineId` y `restoresMovementId` (nulos sólo sin origen), `unitCost` |
+| `NCC` | `invoiceId` (opcional), `salesReturnId` (opcional), `issuePaymentId` (su cobro de emisión, nulo si no lo tuvo) | artículo o concepto, cantidad, precio, impuesto |
+| `DVC` | `receiptId` (obligatorio), `warehouseId` | `receiptLineId`, `restoresMovementId`, `unitCost` |
+
+La nota **no** guarda lo aplicado ni lo disponible (§3.10).
 
 **Cambios sobre tablas existentes, los tres mínimos:**
 
@@ -457,8 +561,12 @@ export type PurchasingCodePrefix = /* los de hoy */ | 'DVC';
 Por cada documento, en su contexto:
 
 - La **entidad** con su ciclo de vida y sus invariantes, sin NestJS ni Prisma.
-- Un **servicio de dominio para el cupo**: `ReturnQuota` (cantidades) y `CreditQuota` (importes).
-  Cada uno en un solo sitio, como la política de administración de Acceso.
+- Un **servicio de dominio para el cupo**: `ReturnQuota` (cantidades, por línea de despacho o de
+  entrada) y `CreditQuota` (importes, por factura). Cada uno en un solo sitio, como la política de
+  administración de Acceso.
+- **`NoteCredit`: el crédito disponible de una nota, en un solo sitio** (§3.10): total menos lo
+  repartido por sus cobros confirmados. Lo leen el cobro que lo gasta, la pantalla de Cobros y los
+  estados de cuenta, y ninguno lo recalcula por su cuenta.
 - Los **errores**, con `message` y `publicMessage` sin identificadores, y **dados de alta en
   `error-categories.spec.ts`** del contexto: esa prueba compara la lista con el directorio y va a
   fallar si se olvida. Que falle es correcto.
@@ -501,13 +609,14 @@ Cada una cierra con `make verify` en verde y su commit.
 - [ ] **1. Inventario: revertir líneas sueltas** — `reverseLines` con su contrato de puerto contra
       el doble **y** contra PostgreSQL. Va primero porque todo lo demás se apoya en ella.
 - [ ] **2. Devolución de venta** — dominio, aplicación, API, pantallas.
-- [ ] **3. Nota de crédito a cliente** — incluido el cobro sin dinero, el reparto topado al saldo
-      vivo, **la decisión sobre el saldo a favor** (§4.2) y el nombre en los **dos** estados de
-      cuenta.
+- [ ] **3. Nota de crédito a cliente** — incluido el cobro de emisión topado al saldo vivo, el
+      crédito disponible (`NoteCredit`), **gastarlo desde Cobros** con forma `credit_note` y su
+      bloqueo (§3.10 y §4.2), y el nombre en los **dos** estados de cuenta.
 - [ ] **4. Devolución de compra** — espejo de la 2.
 - [ ] **5. Restringir la anulación de facturas** (§3.6).
 - [ ] **6. Semillas y extremo a extremo** — datos de demostración con los tres casos que separan
-      los ejes: devolución sin nota, nota sin devolución, y devolución `scrap`.
+      los ejes —devolución sin nota, nota sin devolución, y devolución `scrap`—, y una nota con
+      crédito sobrante gastado después desde Cobros.
 - [ ] **7. Revisión** — con la skill `module-review`, modo «fase ya construida».
 
 ---
@@ -525,12 +634,18 @@ se quita la regla**:
 | §3.5 | Una devolución `scrap` no genera movimiento de kardex y **sí** puede acreditarse |
 | §3.4 | **Dos devoluciones parciales** contra la misma línea: las dos se registran, y la tercera que pasa del cupo se rechaza |
 | §3.4 | Anular una de esas dos devoluciones revierte **sólo su movimiento**, y la otra sigue citando la misma salida |
-| §4.2 | Una nota por más de lo que la factura todavía debe **no revienta**: reparte hasta el saldo y el resto queda a favor |
+| §4.2 | Una nota por más de lo que la factura todavía debe **no revienta**: abona hasta el saldo y el resto queda como crédito disponible |
+| §3.10 | Ese crédito se gasta desde Cobros en **otra** factura del cliente; gastar más del disponible se rechaza; y una nota sin factura no genera cobro al emitirse |
+| §3.10 | Dos cobros confirmados **a la vez** sobre la misma nota no gastan más que su crédito |
+| §3.10 | Anular un cobro que gastó crédito lo devuelve a la nota; anular una nota con crédito ya gastado se rechaza |
+| §3.3 | Devolver más de lo que salió en una línea de despacho se rechaza, aunque la factura diga más |
+| §3.3 | Una factura emitida **antes de despachar** no permite devolver nada hasta que exista su despacho |
+| §3.11 | Devolver no cambia lo despachado ni lo pendiente del pedido, ni lo recibido de la orden |
 | §4.2 | Un cobro nacido de una nota **no se anula** desde Cuentas por cobrar |
-| §3.6 | Una factura con una devolución confirmada **y sin nota** tampoco se anula |
+| §3.6 | Una factura con una devolución confirmada de alguna de sus líneas de pedido **y sin nota** tampoco se anula, también si se facturó antes de despachar |
 | §3.3 y §3.6 | Los documentos **anulados no bloquean**: se puede acreditar una devolución cuya nota anterior se anuló |
-| §3.6 | Una factura con una devolución confirmada no se anula |
 | §3.7 | Devolver al proveedor más de lo que hay se rechaza |
+| §4.3 | Devolver al proveedor más de lo que entró en una línea de entrada se rechaza |
 | §3.8 | Tras una devolución de compra, la valuación del inventario y la pantalla de existencias **siguen coincidiendo** |
 
 ---
@@ -558,5 +673,7 @@ para siempre.
 - **Cuentas por pagar**, y con ellas la nota de crédito de proveedor (§4.4): son
   [H9](H9-COMPRAS-HASTA-EL-PAGO.md).
 - **Notas de débito** y **anticipos**.
+- **Devolver en dinero el crédito disponible de una nota** (§3.10): se gasta en facturas, no se
+  reembolsa. Anotado en `FUTURE.md`.
 - **La contabilidad**, que es [H10](H10-CONTABILIDAD.md). Este hito la prepara sin saberlo: el costo
   congelado de §3.4 es exactamente lo que necesita el asiento que revierte el costo de ventas.

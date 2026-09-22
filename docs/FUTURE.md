@@ -260,7 +260,11 @@ escrito. Se hace cuando se revise cada módulo, o de golpe al revisar Acceso.
 
 **Qué habría que hacer:**
 - **Anticipos y pagos de más**: hoy el importe de un cobro es la suma de lo que aplica a facturas
-- **Notas de crédito** que bajen el saldo sin dinero (devoluciones, descuentos posteriores)
+- **Notas de crédito** que bajen el saldo sin dinero (devoluciones, descuentos posteriores). *Las
+  planea [H8](H8-NOTAS-DE-CREDITO-Y-DEVOLUCIONES.md); lo que sigue fuera es **devolver en dinero**
+  el crédito disponible de una nota: H8 §3.10 decide que se gasta en facturas desde Cobros, no que
+  se reembolse. Haría falta un documento de reembolso que sea un pago al cliente y consuma ese
+  crédito, y se construiría junto a los anticipos, que comparten el mecanismo.*
 - **Avisar del crédito en el pedido**: hoy se frena al facturar, que es cuando nace la deuda
 - **Días de gracia** antes de bloquear por vencidas, e **intereses de mora**
 - **Recibo de cobro** imprimible y estado de cuenta en PDF (encaja con el H7)

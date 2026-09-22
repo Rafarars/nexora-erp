@@ -181,6 +181,11 @@ sector se cumple siempre.
 **Ventas ya hace exactamente esto**: emitir una factura actualiza la cantidad facturada de cada
 línea del pedido. Es copiar un patrón propio, no inventarlo.
 
+**Y lo devuelto no se vuelve a facturar**, añadido el 22-sep-2026. Una devolución de compra no toca
+la orden (H8 §3.11): lo recibido sigue siendo lo recibido. Así que el tope de cada línea de entrada
+es **lo recibido menos lo devuelto** con devoluciones confirmadas. Sin eso, una entrada de 10 con 3
+devueltas admitiría una factura del proveedor por las 10.
+
 ### 3.5 Una factura cubre varias entradas, y una entrada se factura en partes
 
 **Decisión:** la relación entre entradas y facturas es de muchos a muchos, por línea.
@@ -326,8 +331,8 @@ factura** (opcional: sin ella es un servicio o un gasto).
 1. **No existe ya** una factura de ese proveedor con ese número (§3.1).
 2. La fecha no es futura, y el vencimiento no es anterior a la fecha de la factura. Las dos reglas
    ya existen en Ventas y se reutilizan.
-3. Cada línea con entrada de origen: la cantidad facturada **no supera la recibida**, contando las
-   facturas confirmadas anteriores (§3.4). Es una lectura seguida de una escritura, así que
+3. Cada línea con entrada de origen: la cantidad facturada **no supera la recibida menos la
+   devuelta**, contando las facturas confirmadas anteriores (§3.4). Es una lectura seguida de una escritura, así que
    **necesita su orden de bloqueo**, como lo tienen H4, H5 y H6: factura → líneas de entrada →
    líneas de orden, tomadas con `FOR UPDATE` dentro de la misma transacción. Sin él, dos facturas
    confirmadas a la vez sobre las mismas líneas pasan las dos la comprobación y **suman por encima
@@ -520,7 +525,7 @@ componente, errores traducidos por código.
 | §3.3 | Factura más cara que la entrada, con mercancía en bodega: se genera la revaluación y la valuación del inventario sube |
 | §3.3 | El mismo caso con la mercancía **ya vendida**: no hay revaluación, y la diferencia va a `soldDifference` |
 | §3.3 | Factura **más barata** que la entrada, en bodega y vendida: revaluación negativa, y `soldDifference` **negativa** |
-| §3.4 | Facturar más cantidad de la recibida se rechaza |
+| §3.4 | Facturar más cantidad de la recibida se rechaza, y también facturar lo que ya se devolvió |
 | §3.5 | Una factura cubre dos entradas; y una entrada se factura en dos facturas. **Los dos casos** |
 | §3.6 | Una factura de sólo servicios, sin ninguna entrada, se confirma |
 | §3.8 | El saldo que dicen el listado, la antigüedad, el estado de cuenta y el tablero es **el mismo** |

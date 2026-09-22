@@ -330,6 +330,11 @@ dos cosas, línea por línea.
 **No toca caja.** Sin esta distinción una nota de crédito aparecería como dinero entrado y **el
 asiento cuadraría mintiendo**.
 
+**Es el mismo asiento** para el cobro que nace con la nota y para los que gastan después su crédito
+desde Cobros (H8 §3.10). Por eso el saldo de «Notas de crédito por aplicar» es, en todo momento,
+**la suma del crédito disponible de las notas**: una comprobación gratis entre el libro y
+`NoteCredit`.
+
 ### 3.7 Emitir una nota de crédito a cliente
 
 | | Cuenta | Importe |
@@ -651,6 +656,7 @@ debe no iguala la del haber, hay un defecto. Esa comprobación es una prueba, no
 | §3.10 | Una devolución `scrap` no genera asiento, y el costo de ventas de su despacho **sigue ahí** |
 | §3.10 | Una devolución de venta sin origen va contra Ajuste de inventario, **no** contra Costo de ventas |
 | §3.7 y §3.6 | Emitir una nota y aplicarla entera deja **«Notas de crédito por aplicar» en cero** |
+| §3.6 | Con notas a medio gastar, el saldo de «Notas de crédito por aplicar» es **igual a la suma de su crédito disponible** |
 | §2.5 | Con la cuenta en el artículo gana el artículo; sin ella gana la categoría; sin ninguna, la empresa; sin nada, **se rechaza la operación** |
 | §2.6 | Anular genera un reverso y el original **sigue ahí**; no se puede revertir dos veces |
 | §3.6 | Un cobro con forma `credit_note` **no toca caja** |
