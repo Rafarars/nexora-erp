@@ -27,7 +27,7 @@ de **inventario**, no de asientos. Así que todo este plan se apoya en el sector
 |---|---|
 | Plan de cuentas | Cierre de ejercicio |
 | Asiento con la invariante debe = haber | Estados financieros |
-| Contabilización automática de las cinco operaciones | Impuestos y declaraciones |
+| Contabilización automática de las doce operaciones | Impuestos y declaraciones |
 | Determinación de cuentas con precedencia | Asientos escritos a mano |
 | Balanza de comprobación | Centros de costo y presupuestos |
 | Asiento de reverso al anular | Conciliación bancaria |

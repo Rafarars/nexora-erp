@@ -103,8 +103,8 @@ pago `credit_note`, cuyo origen apunta a la nota, repartido entre las facturas q
 saldo baja por la máquina de siempre.
 
 **Por qué, y es la decisión más importante del hito.** El mapa del código encontró que **el saldo
-de una factura se calcula en nueve sitios independientes**, en tres familias que hoy coinciden por
-construcción y no por compartir código:
+de una factura se toca en dieciséis sitios independientes** —nueve que lo calculan y siete que lo
+consumen—, en tres familias que hoy coinciden por construcción y no por compartir código:
 
 | Familia | Dónde | Sitios |
 |---|---|---|
@@ -385,16 +385,12 @@ Espejo de §4.2. **Y aquí hay un hueco que hay que mirar antes de construir:** 
 cuentas por pagar. Hay órdenes y entradas, pero **no hay un saldo con el proveedor** equivalente al
 de cuentas por cobrar.
 
-**Consecuencia:** la `NCP` no tiene dónde restar. Hay dos salidas y **la decisión es de Rafael**:
-
-- **Dejar la `NCP` fuera del hito** y construir sólo las tres que sí tienen dónde apoyarse. Es
-  coherente: sin cuentas por pagar, una nota de crédito de proveedor es un documento que no afecta
-  a nada.
-- **Construir cuentas por pagar primero**, que es un hito propio del tamaño de Cuentas por cobrar.
+**Consecuencia:** la `NCP` no tendría dónde restar.
 
 **Resuelto el 21-sep-2026:** se construyen **las cuentas por pagar**, y la `NCP` se va con ellas a
-[H9](H9-COMPRAS-HASTA-EL-PAGO.md) §3.10, donde ya hay saldo del que restar. Este hito construye las
-tres que sí tienen dónde apoyarse.
+[H9](H9-COMPRAS-HASTA-EL-PAGO.md) §3.10, donde ya hay saldo del que restar. **Este hito construye
+las tres que sí tienen dónde apoyarse**, y esta sección se conserva sólo para dejar dicho por qué
+la cuarta no está aquí.
 
 ---
 
@@ -505,7 +501,7 @@ se quita la regla**:
 
 | Qué defiende | La prueba |
 |---|---|
-| §3.2 | Confirmar una nota baja el saldo **en los nueve sitios**: cuentas por cobrar, las dos antigüedades, los dos estados de cuenta y el tablero dicen lo mismo |
+| §3.2 | Confirmar una nota baja el saldo **en los nueve cálculos**: cuentas por cobrar, las dos antigüedades, los dos estados de cuenta y el tablero dicen lo mismo |
 | §3.3 | Devolver diez unidades y luego acreditar diez más de la misma línea **de diez**: lo segundo se rechaza por importe |
 | §3.4 | Vender a un costo, subir el promedio con una compra cara, devolver: el reingreso vale **el costo de la venta**, no el promedio nuevo |
 | §3.5 | Una devolución `scrap` no genera movimiento de kardex y **sí** puede acreditarse |
@@ -531,10 +527,10 @@ kardex, costo promedio, saldo del cliente y anulación de facturas.
 construida», donde **la primera fuente que hay que desconfiar es este documento**. Un «✅» describe
 la intención, no el resultado.
 
-**El segundo: nueve implementaciones del saldo.** La decisión §3.2 las esquiva, pero **sólo mientras
-se respete**. Si al construir aparece la tentación de «restar directamente porque es más simple»,
-ese atajo cuesta nueve sitios y dos implementaciones de antigüedad que mantener coincidiendo para
-siempre.
+**El segundo: nueve cálculos del saldo repartidos por dieciséis sitios.** La decisión §3.2 los
+esquiva, pero **sólo mientras se respete**. Si al construir aparece la tentación de «restar directamente porque es más simple»,
+ese atajo cuesta dieciséis sitios y dos implementaciones de antigüedad que mantener coincidiendo
+para siempre.
 
 ---
 

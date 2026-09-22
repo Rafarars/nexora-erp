@@ -235,9 +235,9 @@ La referencia guarda el saldo: `paid_amount` y `balance` en la factura, más `cu
 proveedor. **Tres cifras que alguien tiene que mantener coincidiendo**, y nada las obliga.
 
 Nosotros elegimos lo contrario en cuentas por cobrar: el saldo se calcula. Y la revisión de
-Reportes midió el precio de haberlo hecho sin disciplina: **nueve implementaciones independientes de
-la misma resta**, en tres familias, con dos antigüedades y dos estados de cuenta distintos, que hoy
-coinciden por construcción y no por compartir código.
+Reportes midió el precio de haberlo hecho sin disciplina: **nueve cálculos independientes de la
+misma resta repartidos por dieciséis sitios**, en tres familias, con dos antigüedades y dos estados
+de cuenta distintos, que hoy coinciden por construcción y no por compartir código.
 
 **Ninguno de los dos extremos es la respuesta.** Guardarlo cuesta sincronía; calcularlo sin un solo
 sitio cuesta duplicación. Cuentas por pagar nace de cero, así que puede hacerlo bien desde el
