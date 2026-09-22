@@ -3,20 +3,55 @@
 Documento de traspaso: contiene lo necesario para continuar el proyecto **sin depender
 de ninguna conversación anterior**.
 
-**Actualizado:** 19 de septiembre de 2026
+**Actualizado:** 22 de septiembre de 2026
 
 ---
 
 ## Lo siguiente, en una línea
 
-**Las cuatro decisiones que esperan a Rafael**, abajo en «Decisiones esperando a Rafael». Y sólo
-después, las **mejoras de diseño del sistema**. El detalle está en
-[«El plan para cerrar el sistema al 100 %»](#el-plan-para-cerrar-el-sistema-al-100--acordado-el-19-sep-2026).
+**Construir H8**, empezando por su fase 0. El plan está escrito, investigado y corregido:
+[`docs/H8-NOTAS-DE-CREDITO-Y-DEVOLUCIONES.md`](H8-NOTAS-DE-CREDITO-Y-DEVOLUCIONES.md). Después
+sigue [H9](H9-COMPRAS-HASTA-EL-PAGO.md) y luego [H10](H10-CONTABILIDAD.md); el porqué de ese orden
+está en cada documento. **Nada de los tres está construido todavía** — son planes aprobados, no
+código.
+
+Las **cuatro decisiones que esperaban a Rafael** (abajo, «Decisiones esperando a Rafael») y las
+**mejoras de diseño del sistema** quedaron aparcadas a propósito: Rafael pidió investigar y
+planear H8/H9/H10 antes de volver a ellas.
 
 **Los veintinueve submódulos están revisados.** Acceso cerró el 19-sep-2026 con doce hallazgos
-([informe](revision/acceso/acceso.md)) y Reportes ese mismo día con doce, todos construidos
+([informe](revision/acceso/acceso.md)) y Reportes el mismo día con doce, todos construidos
 ([informe](revision/reportes/reportes.md)). El estado exacto de cada uno, en
 [`revision/README.md`](revision/README.md).
+
+### Por qué existen H8, H9 y H10
+
+Rafael preguntó si el sistema estaba «al 100 % para portafolio». La respuesta destapó dos huecos
+reales, no cosméticos:
+
+- **No hay notas de crédito ni devoluciones.** Un cliente puede devolver mercancía y el sistema no
+  tiene cómo registrarlo; lo único parecido es anular la factura entera.
+- **El sistema está cojo de un lado completo.** Ventas llega hasta el dinero (factura, cobro,
+  saldo); Compras se detiene en la mercancía (no hay factura de compra, ni pago a proveedor, ni
+  saldo por pagar). Rafael pensó que sí existían.
+
+De ahí salieron tres hitos, investigados con el mismo método que las revisiones —código del
+sistema de referencia `verlumyx/erp`, más el consenso del sector vía `agy`— y escritos como
+especificación ejecutable para que otra sesión los construya y ésta los revise:
+
+| Hito | Qué cierra | Documento |
+|---|---|---|
+| **H8** | Notas de crédito y devoluciones, de venta y de compra | [`H8-NOTAS-DE-CREDITO-Y-DEVOLUCIONES.md`](H8-NOTAS-DE-CREDITO-Y-DEVOLUCIONES.md) |
+| **H9** | Factura de compra, pago a proveedor, saldo por pagar | [`H9-COMPRAS-HASTA-EL-PAGO.md`](H9-COMPRAS-HASTA-EL-PAGO.md) |
+| **H10** | Partida doble generada desde las operaciones | [`H10-CONTABILIDAD.md`](H10-CONTABILIDAD.md) |
+
+**Los tres pasaron una validación multiagente** (9 modelos, 41 hallazgos) el 21-sep-2026, verificada
+uno a uno contra el código real antes de corregir. Encontró que H10 se había escrito cuando sólo
+existía H8 y no absorbía lo que H8/H9 creaban después; los dos hallazgos más graves —que facturar
+antes de despachar pierde el costo de ventas para siempre, y que la unicidad del kardex hacía
+imposibles las devoluciones parciales— eran exclusivos de un solo modelo cada uno. Los tres
+documentos quedaron corregidos, con la sección de asientos de H10 reescrita de cinco operaciones a
+doce. El detalle completo está en Engram, proyecto `nexora-erp`.
 
 ---
 
@@ -58,6 +93,7 @@ un cambio de API o de web no se ve en el navegador ni en la e2e hasta que se eje
 | **H6 — Cuentas por cobrar** | **Completado**. Informe en [`H6-CUENTAS-POR-COBRAR.md`](H6-CUENTAS-POR-COBRAR.md) |
 | **H7 — Reportes y tablero** | **Completado**. Informe en [`H7-REPORTES.md`](H7-REPORTES.md) |
 | **Revisión módulo por módulo** | **Terminada el 19-sep-2026**: los veintinueve submódulos revisados, empezando por Artículos (el piloto). El método ya es la skill `module-review`. Ver [la sección de abajo](#revisión-módulo-por-módulo) y [`revision/README.md`](revision/README.md) |
+| **H8, H9, H10** | **Planeados el 21-sep-2026, sin construir.** Notas de crédito y devoluciones, compras hasta el pago, contabilidad. Ver [«Por qué existen H8, H9 y H10»](#por-qué-existen-h8-h9-y-h10) arriba |
 
 Lo que ya funciona: monorepo con API, frontend y suite E2E; PostgreSQL en Docker;
 endpoint de salud que verifica la base; CI con cuatro trabajos publicando el reporte;
@@ -584,16 +620,26 @@ cliente—, encontrados con la misma pregunta: *¿qué le pasa a lo que ya lo us
 se cierra?* Y tres falsos verdes del mismo tipo, que ahora están escritos en el playbook: **cuando
 el doble en memoria se porta mejor que el adaptador real, el contrato pasa en verde**.
 
-### El plan para cerrar el sistema al 100 % (acordado el 19-sep-2026)
+### El plan para cerrar el sistema al 100 % (acordado el 19-sep-2026, reordenado el 21-sep-2026)
 
-Rafael fijó **este orden, y no se altera**:
+Rafael fijó este orden el 19-sep. El 21-sep, tras preguntar si el sistema estaba «al 100 % para
+portafolio», decidió insertar tres hitos nuevos **antes** de las cuatro decisiones y las mejoras de
+diseño: primero cerrar los huecos de cobertura que esa pregunta destapó.
 
 | | Qué | Por qué en ese sitio |
 |---|---|---|
 | ~~1º~~ | ~~**Acceso**~~ — **cerrado el 19-sep-2026**, once hallazgos construidos de doce | Era el que tenía peso real, y lo confirmó: una empresa podía quedarse sin nadie que la administrara por tres puertas distintas |
 | ~~2º~~ | ~~**Reportes**~~ — **cerrado el 19-sep-2026**, doce hallazgos construidos | El hallazgo anotado se confirmó y creció: el PDF no sólo redondeaba distinto, es que **sus filas no sumaban su propio total** |
-| **3º** | **Las cuatro decisiones** que esperan a Rafael | Están abajo, cada una con su síntoma, su `archivo:línea` y su coste |
-| **4º** | **Mejoras de diseño del sistema** | **Sólo después de cerrar el 100 %.** Textual: «eso será luego de cerrar al 100 el sistema como tal» |
+| **3º** | **H8 — Notas de crédito y devoluciones**. Plan escrito y corregido, **sin construir**: [`H8-NOTAS-DE-CREDITO-Y-DEVOLUCIONES.md`](H8-NOTAS-DE-CREDITO-Y-DEVOLUCIONES.md) | No hay cómo acreditar una venta, sólo anularla entera |
+| **4º** | **H9 — Compras hasta el pago**. Plan escrito y corregido, **sin construir**: [`H9-COMPRAS-HASTA-EL-PAGO.md`](H9-COMPRAS-HASTA-EL-PAGO.md) | Compras se detiene en la mercancía: no hay factura de compra, ni pago, ni saldo por pagar |
+| **5º** | **H10 — Contabilidad**. Plan escrito y corregido, **sin construir**: [`H10-CONTABILIDAD.md`](H10-CONTABILIDAD.md) | Partida doble generada desde las operaciones; necesita H9 construido primero (sin pagos, «Proveedores por pagar» sólo crece) |
+| **6º** | **Las cuatro decisiones** que esperan a Rafael | Están abajo, cada una con su síntoma, su `archivo:línea` y su coste |
+| **7º** | **Mejoras de diseño del sistema** | **Sólo después de cerrar el 100 %.** Textual: «eso será luego de cerrar al 100 el sistema como tal» |
+
+**Cómo arrancar H8:** su documento tiene la especificación completa —decisiones de diseño con su
+porqué, reglas por submódulo, esqueleto de Prisma y dominio, y ocho fases numeradas empezando por
+«0. Esquema y correlativos»—. Se construye fase por fase, cada una con `make verify` en verde y su
+commit, igual que cualquier otro hito.
 
 #### 1º · Acceso — cerrado el 19-sep-2026
 
