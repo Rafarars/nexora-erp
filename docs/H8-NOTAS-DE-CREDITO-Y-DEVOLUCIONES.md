@@ -47,8 +47,10 @@ nos separamos de él a propósito**, porque se le encontraron defectos.
 |---|---|---|
 | Nota de crédito a cliente | `NCC` | Dinero: baja lo que el cliente debe |
 | Devolución de venta | `DVV` | Mercancía: reingresa a bodega |
-| Nota de crédito de proveedor | `NCP` | Dinero: baja lo que le debemos |
 | Devolución de compra | `DVC` | Mercancía: sale de bodega |
+
+**Tres documentos, no cuatro.** La nota de crédito de proveedor se fue a
+[H9](H9-COMPRAS-HASTA-EL-PAGO.md) §3.10, que es donde existe el saldo del que restar (§4.4).
 
 ### No entra, y por qué
 
@@ -104,18 +106,25 @@ saldo baja por la máquina de siempre.
 de una factura se calcula en nueve sitios independientes**, en tres familias que hoy coinciden por
 construcción y no por compartir código:
 
-| Familia | Dónde | Cuántos |
+| Familia | Dónde | Sitios |
 |---|---|---|
 | SQL | `receivables` y `reporting` | 5 |
-| TypeScript sobre `ReceivableInvoice` | `receivables` | 7 puntos en 4 archivos |
+| TypeScript sobre `ReceivableInvoice` | `receivables` | 7 |
 | TypeScript sobre el modelo de lectura | `reporting` (código separado) | 4 |
+| **Total** | | **16** |
+
+**Dieciséis sitios, de los cuales nueve calculan la resta y siete la consumen.** La versión anterior
+de esta sección decía «nueve» junto a una tabla que suma dieciséis, sin reconciliar las dos cifras.
+La distinción importa: los que **calculan** hay que mantenerlos coincidiendo; los que **consumen**
+—`ensureAccepts`, `collectionStatus`, `daysOverdue`, el control de crédito— heredan el resultado, y
+rompen igual si el número cambia.
 
 Hay **dos implementaciones distintas de la antigüedad de saldos** y **dos del estado de cuenta**.
 Todas parten de la misma resta: `total − suma de repartos de cobros confirmados`.
 
-Un documento nuevo que redujera el saldo por su cuenta obligaría a **tocar los nueve**, y a
-mantenerlos coincidiendo para siempre. Un cobro sin dinero **no obliga a tocar ninguno**: los nueve
-leen repartos de cobros confirmados, y el de una nota lo es.
+Un documento nuevo que redujera el saldo por su cuenta obligaría a **tocar los dieciséis**, y a
+mantener coincidiendo para siempre los nueve que calculan. Un cobro sin dinero **no obliga a tocar
+ninguno de los cálculos**: todos leen repartos de cobros confirmados, y el de una nota lo es.
 
 **Lo único que sí hay que tocar** es donde se *nombra* el movimiento, para que el estado de cuenta
 no diga «Cobro NCC000001» sino «Nota de crédito NCC000001». Son dos sitios, los dos estados de
@@ -160,10 +169,26 @@ siquiera tiene columna de costo, y la mercancía sale al promedio vigente.
 El argumento vale igual en los dos lados. **Nosotros lo hacemos simétrico.**
 
 **Lo que ya tenemos a favor.** El kardex (`inventory_movements`) guarda por movimiento:
-`unitCost`, `originType`, `originId`, `originLineId`, y **`reversalOfId` con la invariante escrita
-de que un movimiento se revierte una sola vez** (`@@unique([reversalOfId])`). El concepto existe;
-falta **revertir líneas sueltas**, porque hoy `StockMovements.reverse()` revierte el documento
-entero.
+`unitCost`, `originType`, `originId`, `originLineId`, y `reversalOfId`. El concepto existe; falta
+**revertir líneas sueltas**, porque hoy `StockMovements.reverse()` revierte el documento entero.
+
+**Y una invariante que hay que cambiar, descubierta el 21-sep-2026.** El esquema declara
+`@@unique([reversalOfId])` con el comentario *«Un movimiento se revierte una sola vez: anular dos
+veces no puede duplicar la contrapartida»*. Esa restricción **hace imposibles las devoluciones
+parciales**, que son el caso normal: devolver tres unidades de diez y después dos más genera dos
+movimientos que citan **el mismo** original, y el segundo viola la unicidad.
+
+**Decisión:** la reversión por anulación y la devolución parcial son **dos cosas distintas y no
+comparten columna**.
+
+- `reversalOfId` se queda **exactamente como está**, con su unicidad, para lo que se construyó:
+  anular un documento entero. Esa invariante es correcta y no se toca.
+- La devolución usa una columna nueva, `restoresMovementId`, **sin unicidad**, que dice de qué
+  salida procede el costo congelado. Varias devoluciones pueden citar la misma salida.
+
+**Quien impide devolver de más no es la base de datos, es el cupo de cantidad** (§3.3). Confundir
+las dos cosas fue el error: una restricción de unicidad estaba haciendo de tope de negocio, y por
+eso topaba en uno.
 
 ### 3.5 La devolución declara en qué estado vuelve la mercancía
 
@@ -175,9 +200,21 @@ entero.
 | `damaged` | Reingresa igual, marcada: se puede consultar y decidir después |
 | `scrap` | **No reingresa nada.** La mercancía se destruye |
 
-**Por qué.** Es de la referencia y es buena: separa «volvió» de «vale algo». Con `scrap`, la
-pérdida se registra **por Ajuste**, que es el módulo que ya existe para eso y ya tiene motivo
-obligatorio y rastro de autor. No se inventa un camino nuevo para perder mercancía.
+**Por qué.** Es de la referencia y es buena: separa «volvió» de «vale algo».
+
+> **Corregido el 21-sep-2026.** Esta sección decía que con `scrap` *«la pérdida se registra por
+> Ajuste»*. **Es imposible, y además no hace falta.**
+>
+> Imposible porque la mercancía **ya salió con el despacho** y nunca reingresó: el kardex la da por
+> ida. Un ajuste que intentara descontarla otra vez chocaría con `InsufficientStockError`
+> (`item-stock.entity.ts:120`), porque no hay existencia que quitar.
+>
+> Y no hace falta porque **la pérdida de un `scrap` no es de inventario, es financiera**: se
+> devuelve dinero al cliente sin recuperar mercancía vendible. Esa pérdida la registra la **nota de
+> crédito**, con el asiento de H10 §3.7. El inventario ya estaba bien.
+>
+> Lo que sí queda anotado es la condición, para que alguien pueda preguntar cuánto se acreditó sin
+> recuperar nada.
 
 **Ojo al construir:** con `scrap` la devolución **no genera movimiento de kardex**, pero sí puede
 generar nota de crédito. Es el caso que separa los dos ejes y **tiene que tener prueba propia**.
@@ -197,7 +234,12 @@ posterior, y anularla dejaría las notas apuntando a un documento que ya no exis
 
 Hoy la guarda es `if (paid > 0) throw InvoiceWithPaymentsError`. Como una nota genera un cobro
 (§3.2), **esa guarda ya cubre la mitad del caso sola**: una factura acreditada tiene un cobro y no
-se anula. Falta cubrir la devolución sin nota.
+se anula.
+
+**Falta cubrir la devolución sin nota, y así se hace:** `InvoiceCanceller` consulta un puerto nuevo
+—`SalesReturnsOfInvoice`— que responde cuántas devoluciones confirmadas cita esa factura, y lanza
+`InvoiceWithReturnsError` si hay alguna. El puerto vive en el dominio de ventas y lo implementa el
+adaptador que ya lee las devoluciones; **ventas no aprende de devoluciones**, sólo pregunta.
 
 ### 3.7 La devolución de compra puede dejar existencia negativa: no se permite
 
@@ -254,8 +296,10 @@ confirmado no se edita, sólo se anula; anulado no se toca.
 2. Cada línea con factura de origen **no supera el cupo de cantidad** de su línea (§3.3), contando
    las devoluciones confirmadas anteriores.
 3. El costo unitario **se copia del movimiento de salida original**, no se captura ni se calcula.
-   Sin movimiento de origen —devolución sin factura— se pide escribirlo, igual que hace el Ajuste
-   cuando no hay de dónde sacarlo.
+   Sin movimiento de origen —devolución sin factura ni despacho— **se pide escribirlo**, igual que
+   hace el Ajuste cuando no hay de dónde sacarlo, y la línea queda con `restoresMovementId` nulo.
+   Esa devolución **no es una reversión de nada**: es mercancía que entra, y se comporta como una
+   entrada por ajuste. Hay que tratarla como caso propio, con su prueba.
 4. Si la condición es `resalable` o `damaged`, **publica en el kardex** un movimiento de entrada
    que cita al original vía `reversalOfId`. Si es `scrap`, **no publica nada**.
 5. La bodega tiene que estar activa. Esta regla ya existe en Catálogo y hay que reutilizarla, no
@@ -285,14 +329,45 @@ líneas, nunca se capturan**.
 1. Con factura de origen, el total **no supera el cupo de importe** (§3.3) contando las notas
    confirmadas anteriores.
 2. Con devolución enlazada: la devolución existe, está confirmada, es **del mismo cliente**, y **no
-   está ya acreditada por otra nota**.
-3. **Genera un cobro confirmado** con forma de pago `credit_note` y origen la nota, por el total,
-   repartido entre las facturas que acredita. Todo dentro de **la misma transacción**.
-4. Si no hay factura de origen —un descuento global—, el cobro queda **sin repartir**: es saldo a
-   favor del cliente. Eso ya lo soporta el reparto actual.
+   está ya acreditada por otra nota confirmada**.
+
+> **Todos los bloqueos de este hito cuentan sólo documentos confirmados, nunca anulados.** Se dice
+> aquí una vez y vale para §3.3, §3.6 y esta regla. Sin ello, una nota anulada por error dejaría la
+> devolución sin poder acreditarse nunca más, y una factura quedaría sin poder anularse por culpa
+> de documentos que ya no existen.
+3. **Genera un cobro confirmado** con forma de pago `credit_note` y origen la nota, repartido
+   entre las facturas que acredita **hasta el saldo vivo de cada una**, nunca por encima. Todo
+   dentro de **la misma transacción**.
+4. Lo que no cabe en ningún saldo —un descuento global, o una nota mayor que lo que la factura
+   todavía debe— queda como **saldo a favor del cliente**.
+
+> **Dos correcciones del 21-sep-2026, y las dos vienen de comprobar el código en vez de suponerlo.**
+>
+> **La primera:** la versión anterior repartía el cobro **por el total** de la nota.
+> `receivable-invoice.ts:89` rechaza aplicar más que el saldo con `PaymentExceedsBalanceError`, así
+> que una nota de 100 sobre una factura de 100 ya cobrada 60 **habría reventado**. Por eso ahora el
+> reparto se topa al saldo vivo.
+>
+> **La segunda, peor:** la versión anterior decía que un cobro sin repartir *«ya lo soporta el
+> reparto actual»*. **No lo soporta.** `customer-payment.entity.ts:215` dice
+> `if (details.allocations.length === 0) throw new EmptyPaymentError();`. Afirmé una capacidad del
+> código sin comprobarla, que es exactamente el patrón que este proyecto persigue en el código
+> ajeno.
+>
+> **Consecuencia para las fases:** el saldo a favor **no existe hoy** y hay que construirlo. La
+> fase 3 tiene que decidir cómo: o se permite un cobro sin repartos —cambiando una regla de H6 que
+> tiene su porqué— o el saldo a favor es **otra cosa** que no es un cobro, y entonces §3.2 deja de
+> cubrirlo y hay que decir dónde vive. **Recomendado: lo segundo**, y que la nota conserve un
+> remanente propio, porque tocar una invariante de un hito cerrado para acomodar uno nuevo es cómo
+> se rompen los sistemas.
 5. **Nunca toca el kardex.** Ni con motivo «devolución»: quien mueve mercancía es la `DVV`.
 
 **Al anular:** anula su cobro, y con él los repartos. La máquina de cobros ya sabe hacerlo.
+
+**Y la puerta de atrás, que hay que cerrar:** un cobro nacido de una nota **no se anula desde
+Cuentas por cobrar**. Si se pudiera, la nota quedaría viva consumiendo cupo y sin efecto sobre el
+saldo. La guarda es la misma que ya distingue el origen: un cobro con `creditSourceId` sólo lo
+anula quien anula su nota.
 
 ### 4.3 Devolución de compra (`DVC`) — contexto `purchasing`
 
@@ -327,7 +402,8 @@ tres que sí tienen dónde apoyarse.
 
 ### 5.1 Base de datos
 
-Cuatro tablas de cabecera y cuatro de líneas, **con el patrón exacto de `Invoice` / `InvoiceLine`**:
+**Tres** tablas de cabecera y tres de líneas —la `NCP` es de H9—, **con el patrón exacto de
+`Invoice` / `InvoiceLine`**:
 clave primaria `id` uuid, `tenantId`, `code` de doce caracteres, moneda con sus cuatro columnas
 congeladas (`currency`, `exchangeRate`, `baseCurrency`, `baseExchangeRate`), importes
 `Decimal(18, 4)`, `@@unique([tenantId, id])` y las relaciones compuestas por `[tenantId, id]`.
@@ -411,8 +487,9 @@ Cada una cierra con `make verify` en verde y su commit.
 - [ ] **1. Inventario: revertir líneas sueltas** — `reverseLines` con su contrato de puerto contra
       el doble **y** contra PostgreSQL. Va primero porque todo lo demás se apoya en ella.
 - [ ] **2. Devolución de venta** — dominio, aplicación, API, pantallas.
-- [ ] **3. Nota de crédito a cliente** — incluido el cobro sin dinero y el nombre en los **dos**
-      estados de cuenta.
+- [ ] **3. Nota de crédito a cliente** — incluido el cobro sin dinero, el reparto topado al saldo
+      vivo, **la decisión sobre el saldo a favor** (§4.2) y el nombre en los **dos** estados de
+      cuenta.
 - [ ] **4. Devolución de compra** — espejo de la 2.
 - [ ] **5. Restringir la anulación de facturas** (§3.6).
 - [ ] **6. Semillas y extremo a extremo** — datos de demostración con los tres casos que separan
@@ -432,6 +509,11 @@ se quita la regla**:
 | §3.3 | Devolver diez unidades y luego acreditar diez más de la misma línea **de diez**: lo segundo se rechaza por importe |
 | §3.4 | Vender a un costo, subir el promedio con una compra cara, devolver: el reingreso vale **el costo de la venta**, no el promedio nuevo |
 | §3.5 | Una devolución `scrap` no genera movimiento de kardex y **sí** puede acreditarse |
+| §3.4 | **Dos devoluciones parciales** contra la misma línea: las dos se registran, y la tercera que pasa del cupo se rechaza |
+| §4.2 | Una nota por más de lo que la factura todavía debe **no revienta**: reparte hasta el saldo y el resto queda a favor |
+| §4.2 | Un cobro nacido de una nota **no se anula** desde Cuentas por cobrar |
+| §3.6 | Una factura con una devolución confirmada **y sin nota** tampoco se anula |
+| §3.3 y §3.6 | Los documentos **anulados no bloquean**: se puede acreditar una devolución cuya nota anterior se anuló |
 | §3.6 | Una factura con una devolución confirmada no se anula |
 | §3.7 | Devolver al proveedor más de lo que hay se rechaza |
 | §3.8 | Tras una devolución de compra, la valuación del inventario y la pantalla de existencias **siguen coincidiendo** |

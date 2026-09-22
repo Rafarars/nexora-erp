@@ -89,6 +89,15 @@ referirnos a él por dentro; quien lo identifica de verdad es el par proveedor +
 Y esa restricción de unicidad no es higiene de base de datos: **es un control antifraude real**.
 Registrar dos veces la misma factura es la forma más común de pagar dos veces.
 
+**Dos detalles sin los cuales el control se rodea solo**, añadidos el 21-sep-2026:
+
+- **El número se normaliza antes de comparar**: sin espacios en los extremos y en mayúsculas. Sin
+  eso, transcribir `fac-001` después de `FAC-001` esquiva el control sin querer, y el que quiera
+  esquivarlo a propósito lo tiene aún más fácil.
+- **Una factura anulada libera su número.** Si no, un error de captura quema el número del
+  proveedor para siempre y obliga a inventarse uno. Se consigue con un índice parcial, igual que
+  el `invoices_one_issued_per_dispatch` que ya existe en ventas.
+
 ### 3.2 La factura de compra no mueve inventario. Nunca
 
 **Decisión:** ningún documento comercial mueve existencia. Sólo la mueven **el Ajuste, la Entrada y
@@ -138,6 +147,19 @@ construido, revisado, con motivo obligatorio y rastro de autor.
 
 Y el patrón tampoco es nuevo para la referencia: **su módulo de Importación ya genera un ajuste
 espejo de revaluación** para repartir flete y aduana. Simplemente no lo aplicó a este caso.
+
+**Dónde va la parte ya vendida, corregido el 21-sep-2026.** La versión anterior decía que la
+diferencia sobre mercancía ya vendida *«queda anotada»*, y eso no significaba nada: ninguna columna
+la guardaba y ningún asiento la recogía. Ahora sí tiene sitio:
+
+- **La factura la guarda**, en una columna propia de la cabecera, `soldDifference`, con el importe
+  que no pudo absorber el inventario.
+- **Y tiene cuenta**: H10 §3.4 la lleva a «Diferencia de precio de compra», que es una cuenta de
+  resultado. Es lo que el sector llama *price difference account*, y es lo que impide que la
+  cuenta puente de recepción quede con un saldo residual.
+
+Sin las dos piezas, la diferencia desaparecía y la contabilidad no cerraba — que es justo lo que el
+sector advierte que pasa cuando se ignora.
 
 **Lo que hay que decidir al construir, y que consta como pregunta abierta:** si el ajuste se genera
 **confirmado** o **en borrador para que alguien lo apruebe**. La referencia lo deja en borrador en
@@ -287,14 +309,22 @@ factura** (opcional: sin ella es un servicio o un gasto).
 2. La fecha no es futura, y el vencimiento no es anterior a la fecha de la factura. Las dos reglas
    ya existen en Ventas y se reutilizan.
 3. Cada línea con entrada de origen: la cantidad facturada **no supera la recibida**, contando las
-   facturas confirmadas anteriores (§3.4).
+   facturas confirmadas anteriores (§3.4). Es una lectura seguida de una escritura, así que
+   **necesita su orden de bloqueo**, como lo tienen H4, H5 y H6: factura → líneas de entrada →
+   líneas de orden, tomadas con `FOR UPDATE` dentro de la misma transacción. Sin él, dos facturas
+   confirmadas a la vez sobre las mismas líneas pasan las dos la comprobación y **suman por encima
+   de lo recibido**. Lleva prueba de concurrencia en el contrato del puerto, que es donde este
+   proyecto ya demostró que esas pruebas son deterministas.
 4. Todas las entradas citadas son **del mismo proveedor** y están confirmadas.
 5. Los totales se derivan de las líneas más los cargos globales. **Nunca se capturan.**
 6. Si algún precio difiere del costo de entrada, **genera el ajuste de revaluación** (§3.3).
 7. **No toca el inventario** por ninguna otra vía (§3.2).
 
-**Al anular:** devuelve la cantidad facturada a las líneas de la orden, y **revierte el ajuste de
-revaluación** si lo hubo. Una factura con pagos confirmados no se anula —misma regla que Ventas—.
+**Al anular:** devuelve la cantidad facturada a las líneas de la orden, y **trata el ajuste de
+revaluación según su estado**: si está en borrador lo descarta, si está confirmado lo revierte, y
+si ya estaba anulado no hace nada. Sin esa distinción, revertir uno ya anulado choca con la
+unicidad del reverso que el kardex hereda, y un borrador huérfano se queda esperando a alguien.
+Una factura con pagos confirmados no se anula —misma regla que Ventas—.
 
 ### 4.2 Pago a proveedor (`PAG`)
 
@@ -366,6 +396,12 @@ model PurchaseInvoiceLine {
   receiptLineId String? @map("receipt_line_id") @db.Uuid
 }
 
+model PurchaseInvoice {
+  // La parte de la diferencia de precio que el inventario no pudo absorber porque la mercancia ya
+  // se vendio. Va a resultado del periodo por H10 3.4; sin esta columna no tenia donde quedarse.
+  soldDifference Decimal @default(0) @map("sold_difference") @db.Decimal(18, 4)
+}
+
 model PurchaseOrderLine {
   // Espejo de invoicedQuantity en la linea del pedido de venta.
   invoicedQuantity Decimal @default(0) @map("invoiced_quantity") @db.Decimal(18, 4)
@@ -379,7 +415,19 @@ Más `SupplierPayment` y `SupplierPaymentAllocation`, calcados de `CustomerPayme
 
 - `PurchaseInvoice` con su ciclo de vida y sus invariantes.
 - **`PayableBalance`: la fórmula del saldo, en un solo sitio** (§3.8). Es la pieza que decide si
-  este hito envejece bien.
+  este hito envejece bien. Y se publica como puerto, con nombre, porque decir «por un puerto» sin
+  nombrarlo es como no decirlo:
+
+  ```ts
+  export const PAYABLE_BALANCES = Symbol('PayableBalances');
+
+  // El unico sitio del sistema que resta lo pagado de lo facturado. Reporting y contabilidad lo
+  // consumen por aqui; si aparece una segunda resta en una consulta, esta mal.
+  export interface PayableBalances {
+    ofSupplier(tenantId: TenantId, supplierId: SupplierId): Promise<SupplierExposure>;
+    ofInvoice(tenantId: TenantId, invoiceId: PurchaseInvoiceId): Promise<Money>;
+  }
+  ```
 - `ThreeWayMatch`: el servicio que compara orden, entrada y factura y devuelve las diferencias.
 - `PriceVariance`: reparte la diferencia entre lo que sigue en bodega y lo ya vendido (§3.3).
 - Los errores, con `publicMessage` sin identificadores y **dados de alta en el
@@ -432,6 +480,10 @@ componente, errores traducidos por código.
 | §3.5 | Una factura cubre dos entradas; y una entrada se factura en dos facturas. **Los dos casos** |
 | §3.6 | Una factura de sólo servicios, sin ninguna entrada, se confirma |
 | §3.8 | El saldo que dicen el listado, la antigüedad, el estado de cuenta y el tablero es **el mismo** |
+| §3.1 | `FAC-001` y `fac-001` del mismo proveedor son **la misma factura**; anular una **libera** su número |
+| §4.1 | Dos facturas confirmadas **a la vez** sobre las mismas líneas de entrada no suman por encima de lo recibido |
+| §4.1 | Anular una factura cuyo ajuste de revaluación está **en borrador** lo descarta; si está confirmado lo revierte |
+| §3.3 | La diferencia sobre mercancía ya vendida **queda en `soldDifference`** y llega al asiento de H10 §3.4 |
 | §4.2 | Pagar más que el saldo se rechaza; pagar facturas de otro proveedor se rechaza |
 
 ---

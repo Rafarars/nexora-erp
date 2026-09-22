@@ -379,8 +379,9 @@ El hueco que un reclutador encuentra clicando: hoy se puede anular una factura, 
 - [ ] **5. Restringir la anulación de facturas** · [ ] **6. Semillas y E2E** · [ ] **7. Revisión**
 
 *La decisión que lo define:* una nota de crédito **no resta el saldo por su cuenta**, genera un
-cobro sin dinero. El saldo de una factura se calcula hoy en **nueve sitios independientes**; así no
-hay que tocar ninguno.
+cobro sin dinero. El saldo de una factura se toca hoy en **dieciséis sitios** —nueve que lo
+calculan y siete que lo consumen—; así no hay que tocar ningún cálculo, sólo cómo se nombra el
+movimiento en los dos estados de cuenta.
 
 ### H9 — Compras hasta el pago: factura, pago y saldo
 El sistema está cojo de un lado: Ventas llega hasta el dinero, Compras se detiene en la mercancía.
@@ -402,8 +403,8 @@ Partida doble generada desde las operaciones. **El puente, no el producto contab
 
 - [ ] **0. Alinear ventas con el patrón declarativo de compras** · [ ] **1. Plan de cuentas**
 - [ ] **2. El asiento y su invariante** · [ ] **3. Determinación de cuentas**
-- [ ] **4. Contabilizar las cinco operaciones** · [ ] **5. Balanza de comprobación**
-- [ ] **6. Semillas** · [ ] **7. Revisión**
+- [ ] **4. Contabilizar las doce operaciones** · [ ] **5. Balanza de comprobación**
+- [ ] **5b. Asientos de apertura** · [ ] **6. Semillas** · [ ] **7. Revisión**
 
 *La decisión que lo define:* un asiento **nace cuadrado o no nace**. Como no hay asientos escritos
 a mano, la invariante puede ser absoluta en el constructor, no un estado «borrador».
