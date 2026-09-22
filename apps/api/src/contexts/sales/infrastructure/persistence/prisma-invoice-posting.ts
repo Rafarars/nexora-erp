@@ -67,7 +67,11 @@ export class PrismaInvoicePosting implements InvoicePosting {
     }
   }
 
-  async cancel(tenantId: TenantId, invoiceId: InvoiceId, work: (invoice: Invoice, order: SalesOrder, paid: number) => void): Promise<void> {
+  async cancel(
+    tenantId: TenantId,
+    invoiceId: InvoiceId,
+    work: (invoice: Invoice, order: SalesOrder, paid: number) => Promise<void> | void,
+  ): Promise<void> {
     const tenant = tenantId.value;
 
     await this.prisma.$transaction(async (tx) => {
@@ -81,7 +85,7 @@ export class PrismaInvoicePosting implements InvoicePosting {
       const order = await lockOrder(tx, tenant, invoice.orderId().value);
 
       // Un cobro que se confirma bloquea sus facturas: con esta bloqueada, lo cobrado no cambia.
-      work(invoice, order, await this.balances.paidOf(tx, tenant, invoiceId.value));
+      await work(invoice, order, await this.balances.paidOf(tx, tenant, invoiceId.value));
 
       const { status, cancelledAt, updatedAt } = invoice.toPrimitives();
 

@@ -80,6 +80,9 @@ export class PrismaSalesPortsHarness implements SalesPortsHarness {
   }
 
   async reset(): Promise<void> {
+    await this.prisma.customerCreditNote.deleteMany();
+    await this.prisma.salesReturn.deleteMany();
+    await this.prisma.purchaseReturn.deleteMany();
     await this.prisma.customerPayment.deleteMany();
     await this.prisma.invoice.deleteMany();
     await this.prisma.dispatch.deleteMany();
@@ -88,12 +91,12 @@ export class PrismaSalesPortsHarness implements SalesPortsHarness {
     await this.prisma.goodsReceipt.deleteMany();
     await this.prisma.purchaseOrder.deleteMany();
     await this.prisma.supplier.deleteMany();
-    await this.prisma.inventoryMovement.updateMany({ data: { reversalOfId: null } });
+    await this.prisma.inventoryMovement.updateMany({ data: { reversalOfId: null, restoresMovementId: null } });
     await this.prisma.inventoryMovement.deleteMany();
     await this.prisma.itemStock.deleteMany();
     await this.prisma.itemPrice.deleteMany();
     await this.prisma.priceList.deleteMany();
-    await this.prisma.codeSequence.deleteMany({ where: { prefix: { in: ['CLI', 'PED', 'DES', 'FAC'] } } });
+    await this.prisma.codeSequence.deleteMany({ where: { prefix: { in: ['CLI', 'PED', 'DES', 'FAC', 'DVV', 'DVC', 'NCC'] } } });
 
     for (const [id, slug] of [
       [TENANT_A, 'contract-sales-a'],

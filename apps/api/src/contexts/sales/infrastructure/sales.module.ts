@@ -113,6 +113,9 @@ import type { SalesReturnRepository } from '../domain/return/sales-return.reposi
 import { PrismaSalesReturnCreditedChecker } from './persistence/prisma-sales-return-credited-checker.js';
 import { PrismaSalesReturnPosting } from './persistence/prisma-sales-return-posting.js';
 import { PrismaSalesReturnRepository } from './persistence/prisma-sales-return.repository.js';
+import { SALES_RETURNS_OF_INVOICE } from '../domain/invoice/returns/sales-returns-of-invoice.js';
+import type { SalesReturnsOfInvoice } from '../domain/invoice/returns/sales-returns-of-invoice.js';
+import { PrismaSalesReturnsOfInvoice } from './persistence/prisma-sales-returns-of-invoice.js';
 
 
 // El cableado de ventas. Como compras, importa el modulo del inventario solo por
@@ -252,7 +255,12 @@ import { PrismaSalesReturnRepository } from './persistence/prisma-sales-return.r
         new InvoiceIssuer(d, o, v, p, u, s, i, k, cal, dr),
       inject: [DispatchFinder, SalesOrderFinder, INVOICE_REPOSITORY, INVOICE_POSTING, InvoiceIssuance, SALES_CODE_SEQUENCE, ID_GENERATOR, CLOCK, BUSINESS_CALENDAR, DOCUMENT_RATES],
     },
-    { provide: InvoiceCanceller, useFactory: (p: InvoicePosting, u: InvoiceIssuance, k: Clock) => new InvoiceCanceller(p, u, k), inject: [INVOICE_POSTING, InvoiceIssuance, CLOCK] },
+    {
+      provide: InvoiceCanceller,
+      useFactory: (p: InvoicePosting, u: InvoiceIssuance, r: SalesReturnsOfInvoice, k: Clock) => new InvoiceCanceller(p, u, r, k),
+      inject: [INVOICE_POSTING, InvoiceIssuance, SALES_RETURNS_OF_INVOICE, CLOCK],
+    },
+    { provide: SALES_RETURNS_OF_INVOICE, useClass: PrismaSalesReturnsOfInvoice },
     {
       provide: InvoiceSearcher,
       useFactory: (v: InvoiceRepository, d: DispatchRepository, o: SalesOrderRepository, c: CustomerRepository, k: SalesCatalog) => new InvoiceSearcher(v, d, o, c, k),

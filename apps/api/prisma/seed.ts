@@ -551,6 +551,9 @@ async function removeCatalogLeftovers(
 // confirman y anulan documentos, y dejar sus existencias haria que el seed no fuera el mismo
 // dos veces. Compras primero: sus documentos apuntan a articulos y bodegas.
 async function removeInventory(prisma: PrismaClient): Promise<void> {
+  await prisma.customerCreditNote.deleteMany();
+  await prisma.salesReturn.deleteMany();
+  await prisma.purchaseReturn.deleteMany();
   await prisma.customerPayment.deleteMany();
   await prisma.invoice.deleteMany();
   await prisma.dispatch.deleteMany();
@@ -559,7 +562,7 @@ async function removeInventory(prisma: PrismaClient): Promise<void> {
   await prisma.goodsReceipt.deleteMany();
   await prisma.purchaseOrder.deleteMany();
   await prisma.supplier.deleteMany();
-  await prisma.inventoryMovement.updateMany({ data: { reversalOfId: null } });
+  await prisma.inventoryMovement.updateMany({ data: { reversalOfId: null, restoresMovementId: null } });
   await prisma.inventoryMovement.deleteMany();
   await prisma.itemStock.deleteMany();
   await prisma.adjustment.deleteMany();

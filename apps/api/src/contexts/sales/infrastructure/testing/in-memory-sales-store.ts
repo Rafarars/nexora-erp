@@ -19,6 +19,7 @@ import { CustomerCredit } from '../../domain/invoice/credit/customer-credit.js';
 import { Invoice, InvoicePrimitives } from '../../domain/invoice/invoice.entity.js';
 import { InvoiceRepository } from '../../domain/invoice/invoice.repository.js';
 import { InvoicePosting } from '../../domain/invoice/posting/invoice-posting.js';
+import { SalesReturnsOfInvoice } from '../../domain/invoice/returns/sales-returns-of-invoice.js';
 import { SalesOrderPosting } from '../../domain/order/posting/sales-order-posting.js';
 import { SalesOrder, SalesOrderPrimitives } from '../../domain/order/sales-order.entity.js';
 import { SalesOrderRepository } from '../../domain/order/sales-order.repository.js';
@@ -43,6 +44,7 @@ export class InMemorySalesStore {
   private readonly onHand = new Map<string, number>();
   private readonly released: { dispatchId: string; key: string; quantity: number; reversed: boolean }[] = [];
   private readonly paid = new Map<string, number>();
+  private readonly confirmedReturnOrderLineIds = new Set<string>();
   private queue: Promise<unknown> = Promise.resolve();
 
   // El catalogo de la prueba hace de tabla de articulos: la reserva lo lee como si lo tuviera
@@ -54,6 +56,14 @@ export class InMemorySalesStore {
 
   pay(invoiceId: string, amount: number): void {
     this.paid.set(invoiceId, (this.paid.get(invoiceId) ?? 0) + amount);
+  }
+
+  confirmReturnOfOrderLine(orderLineId: string): void {
+    this.confirmedReturnOrderLineIds.add(orderLineId);
+  }
+
+  cancelReturnOfOrderLine(orderLineId: string): void {
+    this.confirmedReturnOrderLineIds.delete(orderLineId);
   }
 
   stock(tenantId: string, itemId: string, warehouseId: string, quantity: number): void {
@@ -312,10 +322,18 @@ export class InMemorySalesStore {
 
           const order = this.loadOrder(tenantId, invoice.orderId().value) as SalesOrder;
 
-          work(invoice, order, this.paid.get(invoice.id.value) ?? 0);
+          await work(invoice, order, this.paid.get(invoice.id.value) ?? 0);
           this.invoiceRows.set(invoice.id.value, invoice.toPrimitives());
           this.orderRows.set(order.id.value, order.toPrimitives());
         }),
+    };
+  }
+
+  get returnsOfInvoice(): SalesReturnsOfInvoice {
+    return {
+      countConfirmedReturnsOf: async (_tenantId, orderLineIds) => {
+        return orderLineIds.filter((id) => this.confirmedReturnOrderLineIds.has(id.value)).length;
+      },
     };
   }
 

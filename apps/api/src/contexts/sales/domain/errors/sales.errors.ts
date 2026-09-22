@@ -509,3 +509,12 @@ export class SalesReturnWithCreditNoteError extends ConflictError {
   }
 }
 
+export class InvoiceWithReturnsError extends ConflictError {
+  constructor(invoiceId: string) {
+    super(
+      `Invoice <${invoiceId}> has confirmed sales returns on its lines.`,
+      'The invoice has goods returned: issue a credit note for the rest instead of cancelling it.',
+    );
+  }
+}
+

@@ -79,6 +79,7 @@ const cases: Array<[DomainError, typeof DomainError]> = [
   [new errors.DispatchLineNotFoundError(ID), NotFoundError],
   [new errors.InvalidReturnConditionError('invalid'), InvalidArgumentError],
   [new errors.SalesReturnWithCreditNoteError(ID), ConflictError],
+  [new errors.InvoiceWithReturnsError(ID), ConflictError],
 ];
 
 

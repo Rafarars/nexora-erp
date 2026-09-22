@@ -64,6 +64,7 @@ const BY_CODE: Record<string, string> = {
   DispatchLineNotFoundError: 'Una línea del despacho a devolver no existe.',
   InvalidReturnConditionError: 'El estado de la mercancía devuelta no es válido (debe ser apta, dañada o desecho).',
   SalesReturnWithCreditNoteError: 'La devolución tiene notas de crédito confirmadas: anula primero las notas de crédito.',
+  InvoiceWithReturnsError: 'La factura tiene mercancía devuelta: emite una nota de crédito por el resto en vez de anularla.',
 };
 
 

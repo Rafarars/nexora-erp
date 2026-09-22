@@ -180,3 +180,34 @@ Antes de iniciar la Fase 0, se revisaron a fondo las once decisiones de diseno d
     - 3184/3184 tests unitarios de API pasando.
     - 30/30 tests unitarios de Web pasando.
     - Gitleaks sin secretos y Oxlint sin errores.
+
+---
+
+## Fase 5: Restringir anulación de facturas (§3.6)
+- **Dominio:**
+  - Creado el puerto `SalesReturnsOfInvoice` (`apps/api/src/contexts/sales/domain/invoice/returns/sales-returns-of-invoice.ts`) con el método `countConfirmedReturnsOf(tenantId, orderLineIds)`. «Ventas no aprende de devoluciones, solo pregunta».
+  - Creado el error de dominio `InvoiceWithReturnsError` en `sales.errors.ts` con mensaje público amigable y registrado en `error-categories.spec.ts`.
+  - Ampliado `InvoicePosting.cancel` para soportar callbacks asíncronos (`Promise<void> | void`).
+- **Aplicación:**
+  - Actualizado `InvoiceCanceller`: ahora consulta `SalesReturnsOfInvoice` con las líneas de pedido facturadas (`invoicedLines().map(l => l.orderLineId)`). Si hay devoluciones confirmadas sobre dichas líneas, rechaza la anulación lanzando `InvoiceWithReturnsError`.
+- **Persistencia e Infraestructura:**
+  - Implementado `PrismaSalesReturnsOfInvoice` consultando a través de Prisma las líneas de devolución de venta con estado `confirmed` asociadas a las líneas de despacho correspondientes a los `orderLineIds`.
+  - Actualizado `PrismaInvoicePosting.cancel` e `InMemorySalesStore.cancel` para esperar de forma asíncrona el trabajo de cancelación.
+  - Implementado `returnsOfInvoice` y métodos de prueba en `InMemorySalesStore`.
+  - Cableado de dependencias en `SalesModule` proveyendo `SALES_RETURNS_OF_INVOICE`.
+  - Actualizados `prisma-sales-ports.harness.ts` y `seed.ts` (`removeInventory`) para limpiar en cascada segura `customer_credit_notes`, `sales_returns` y `purchase_returns` antes de pedidos, despachos y entradas, garantizando integridad referencial.
+- **Frontend:**
+  - Añadida la traducción en español de `InvoiceWithReturnsError` en `apps/web/src/modules/sales/domain/sales-error.ts`: *«La factura tiene mercancía devuelta: emite una nota de crédito por el resto en vez de anularla.»*
+- **Pruebas y Verificación:**
+  - Pruebas unitarias en `sales-cycle.spec.ts`:
+    - `an invoice with confirmed returns on its lines cannot be cancelled (§3.6)`.
+    - `does not block cancelling an invoice when returns belong to another order (§3.6)`.
+    - Validación de que los documentos anulados no bloquean: al anular la devolución, la factura se anula exitosamente.
+  - Prueba de integración contra PostgreSQL real en `prisma-sales-returns-of-invoice.integration.spec.ts` validando el ciclo completo contra la base de datos real.
+  - `make verify` completo en verde:
+    - 454/454 tests E2E de Playwright pasando.
+    - 254 tests de contrato en integración pasando.
+    - 3186 tests unitarios de API pasando.
+    - 202 tests unitarios de Web pasando.
+    - Gitleaks sin secretos y Oxlint sin errores.
+
