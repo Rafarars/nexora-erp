@@ -12,6 +12,7 @@ import {
   DispatchNotEditableError,
   DispatchNotFoundError,
   DispatchNotReturnableError,
+  InactiveSalesWarehouseError,
   InsufficientStockForDispatchError,
   InvoiceNotFoundError,
   QuantityExceedsDispatchedReturnQuotaError,
@@ -24,6 +25,7 @@ import {
   SalesReturnNotEditableError,
   SalesReturnNotFoundError,
   SalesReturnWithCreditNoteError,
+  SalesWarehouseNotFoundError,
 } from '../../domain/errors/sales.errors.js';
 import { CustomerCredit } from '../../domain/invoice/credit/customer-credit.js';
 import { Invoice, InvoicePrimitives } from '../../domain/invoice/invoice.entity.js';
@@ -442,7 +444,7 @@ export class InMemorySalesStore {
             throw new SalesReturnNotConfirmableError(returnEntity.id.value, returnEntity.currentStatus());
           }
 
-          const linesWithValuation: { lineId: string; unitCost: number; restoresMovementId: string }[] = [];
+          const linesWithValuation: { lineId: string; unitCost: number; restoresMovementId: string | null }[] = [];
 
           if (returnEntity.dispatchId) {
             const dispatch = this.loadDispatch(tenantId, returnEntity.dispatchId.value);
@@ -487,6 +489,18 @@ export class InMemorySalesStore {
                 restoresMovementId: movementId,
               });
             }
+          } else {
+            const [warehouse] = await this.catalog.findWarehouses(tenantId, [returnEntity.warehouseId]);
+            if (!warehouse) throw new SalesWarehouseNotFoundError(returnEntity.warehouseId.value);
+            if (!warehouse.isActive) throw new InactiveSalesWarehouseError(returnEntity.warehouseId.value);
+
+            for (const line of returnEntity.lines()) {
+              linesWithValuation.push({
+                lineId: line.id.value,
+                unitCost: line.unitCost ?? 0,
+                restoresMovementId: null,
+              });
+            }
           }
 
           returnEntity.confirm(linesWithValuation, now);
@@ -494,24 +508,22 @@ export class InMemorySalesStore {
 
           if (returnEntity.condition() !== 'scrap') {
             for (const line of returnEntity.lines()) {
-              if (line.restoresMovementId) {
-                const movementId = `mv-ret-${line.id.value}`;
-                this.movements.push({
-                  id: movementId,
-                  originType: 'sales_return',
-                  originId: returnEntity.id.value,
-                  lineId: line.id.value,
-                  itemId: line.itemId.value,
-                  warehouseId: returnEntity.warehouseId.value,
-                  direction: 'in',
-                  quantity: line.baseQuantity.toNumber(),
-                  unitCost: line.unitCost,
-                  restoresMovementId: line.restoresMovementId,
-                  reversalOfId: null,
-                });
-                const k = key(tenantId.value, line.itemId.value, returnEntity.warehouseId.value);
-                this.onHand.set(k, (this.onHand.get(k) ?? 0) + line.baseQuantity.toNumber());
-              }
+              const movementId = `mv-ret-${line.id.value}`;
+              this.movements.push({
+                id: movementId,
+                originType: 'sales_return',
+                originId: returnEntity.id.value,
+                lineId: line.id.value,
+                itemId: line.itemId.value,
+                warehouseId: returnEntity.warehouseId.value,
+                direction: 'in',
+                quantity: line.baseQuantity.toNumber(),
+                unitCost: line.unitCost ?? 0,
+                restoresMovementId: line.restoresMovementId,
+                reversalOfId: null,
+              });
+              const k = key(tenantId.value, line.itemId.value, returnEntity.warehouseId.value);
+              this.onHand.set(k, (this.onHand.get(k) ?? 0) + line.baseQuantity.toNumber());
             }
           }
 

@@ -111,12 +111,21 @@ export interface SalesApi {
 
 export interface SalesReturnInput {
   customerId: string;
-  dispatchId: string;
+  dispatchId?: string | null;
+  warehouseId?: string | null;
+  currency?: string | null;
+  exchangeRate?: number | null;
   date: string | null;
   condition: 'resalable' | 'damaged' | 'scrap';
   reason: string | null;
   notes: string | null;
-  lines: { dispatchLineId?: string | null; itemId?: string; quantity: number }[];
+  lines: {
+    dispatchLineId?: string | null;
+    itemId?: string;
+    unitId?: string;
+    quantity: number;
+    unitCost?: number;
+  }[];
 }
 
 export type SalesReturnFilters = {

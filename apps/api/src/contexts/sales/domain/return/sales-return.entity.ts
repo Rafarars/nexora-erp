@@ -188,10 +188,11 @@ export class SalesReturn {
     this.updatedAt = now;
   }
 
-  confirm(linesWithValuation: { lineId: string; unitCost: number; restoresMovementId: string }[], now: Date): void {
+  confirm(linesWithValuation: { lineId: string; unitCost: number; restoresMovementId: string | null }[], now: Date): void {
     if (this.status !== 'draft') {
       throw new SalesReturnNotConfirmableError(this.id.value, this.status);
     }
+
 
     const valuationMap = new Map(linesWithValuation.map((v) => [v.lineId, v]));
     const updatedLines = this.details.lines.map((line) => {

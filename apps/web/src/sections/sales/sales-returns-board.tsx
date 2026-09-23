@@ -15,9 +15,12 @@ import {
   summarizeReturnLines,
 } from '@/modules/sales/domain/sales';
 import type {
+  Customer,
   Dispatch,
   SalesReturn,
 } from '@/modules/sales/domain/sales';
+import type { Warehouse } from '@/modules/catalog/domain/catalog';
+import type { Item } from '@/modules/inventory/domain/item';
 import { Filter, Pager } from '@/sections/shared/filters';
 
 export interface SalesReturnSearch {
@@ -35,6 +38,9 @@ export function SalesReturnsBoard({
   returns,
   search,
   dispatches,
+  customers,
+  warehouses,
+  items,
   today,
   canCreate,
   canConfirm,
@@ -43,6 +49,9 @@ export function SalesReturnsBoard({
   returns: SalesReturn[];
   search: SalesReturnSearch;
   dispatches: Dispatch[];
+  customers?: Customer[];
+  warehouses?: Warehouse[];
+  items?: Item[];
   today: string;
   canCreate: boolean;
   canConfirm: boolean;
@@ -50,6 +59,9 @@ export function SalesReturnsBoard({
 }) {
   const [creating, setCreating] = useState(false);
   const [selectedDispatchId, setSelectedDispatchId] = useState<string>('');
+  const [originlessLines, setOriginlessLines] = useState<{ itemId: string; unitId: string; quantity: string; unitCost: string }[]>([
+    { itemId: '', unitId: '', quantity: '1', unitCost: '' },
+  ]);
 
   const [saveState, save, saving] = useActionState(async (previous: FormState, form: FormData) => {
     const result = await saveSalesReturn(previous, form);
@@ -219,14 +231,15 @@ export function SalesReturnsBoard({
             </label>
             <select
               id="dispatchSelect"
-              name="dispatchId"
+              name={selectedDispatchId === 'none' ? undefined : 'dispatchId'}
               required
               value={selectedDispatchId}
               onChange={(e) => setSelectedDispatchId(e.target.value)}
               className="border-line bg-surface mt-1 w-full rounded border px-3 py-1.5 text-sm"
               data-testid="sales-return-dispatch-select"
             >
-              <option value="">Selecciona un despacho...</option>
+              <option value="">Selecciona un despacho o devolución sin origen...</option>
+              <option value="none">Sin despacho (ajuste con costo manual)</option>
               {dispatches.map((d) => (
                 <option key={d.id} value={d.id}>
                   {d.code} — {d.customer.name} ({d.date})
@@ -234,6 +247,234 @@ export function SalesReturnsBoard({
               ))}
             </select>
           </div>
+
+          {selectedDispatchId === 'none' ? (
+            <>
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label htmlFor="returnCustomer" className="block text-xs font-medium uppercase tracking-wide">
+                    Cliente *
+                  </label>
+                  <select
+                    id="returnCustomer"
+                    name="customerId"
+                    required
+                    className="border-line bg-surface mt-1 w-full rounded border px-3 py-1.5 text-sm"
+                    data-testid="sales-return-customer-select"
+                  >
+                    <option value="">Selecciona un cliente...</option>
+                    {customers?.map((c) => (
+                      <option key={c.id} value={c.id}>
+                        {c.name}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                <div>
+                  <label htmlFor="returnWarehouse" className="block text-xs font-medium uppercase tracking-wide">
+                    Bodega de reingreso *
+                  </label>
+                  <select
+                    id="returnWarehouse"
+                    name="warehouseId"
+                    required
+                    className="border-line bg-surface mt-1 w-full rounded border px-3 py-1.5 text-sm"
+                    data-testid="sales-return-warehouse-select"
+                  >
+                    <option value="">Selecciona una bodega...</option>
+                    {warehouses?.map((w) => (
+                      <option key={w.id} value={w.id}>
+                        {w.name}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label htmlFor="returnDate" className="block text-xs font-medium uppercase tracking-wide">
+                    Fecha
+                  </label>
+                  <input
+                    id="returnDate"
+                    type="date"
+                    name="date"
+                    defaultValue={today}
+                    max={today}
+                    className="border-line bg-surface mt-1 w-full rounded border px-3 py-1.5 text-sm"
+                    data-testid="sales-return-date-input"
+                  />
+                </div>
+                <div>
+                  <label htmlFor="returnCondition" className="block text-xs font-medium uppercase tracking-wide">
+                    Condición *
+                  </label>
+                  <select
+                    id="returnCondition"
+                    name="condition"
+                    defaultValue="resalable"
+                    className="border-line bg-surface mt-1 w-full rounded border px-3 py-1.5 text-sm"
+                    data-testid="sales-return-condition-select"
+                  >
+                    <option value="resalable">Apta para reventa</option>
+                    <option value="damaged">Dañada</option>
+                    <option value="scrap">Desecho / Scrap</option>
+                  </select>
+                </div>
+              </div>
+
+              <div>
+                <label htmlFor="returnReason" className="block text-xs font-medium uppercase tracking-wide">
+                  Motivo
+                </label>
+                <input
+                  id="returnReason"
+                  type="text"
+                  name="reason"
+                  placeholder="Ej. Producto vendido antes del sistema..."
+                  className="border-line bg-surface mt-1 w-full rounded border px-3 py-1.5 text-sm"
+                  data-testid="sales-return-reason-input"
+                />
+              </div>
+
+              <div>
+                <label htmlFor="returnNotes" className="block text-xs font-medium uppercase tracking-wide">
+                  Notas
+                </label>
+                <textarea
+                  id="returnNotes"
+                  name="notes"
+                  rows={2}
+                  className="border-line bg-surface mt-1 w-full rounded border px-3 py-1.5 text-sm"
+                  data-testid="sales-return-notes-input"
+                />
+              </div>
+
+              <div>
+                <div className="flex items-center justify-between mb-2">
+                  <h3 className="text-xs font-medium uppercase tracking-wide">Líneas a devolver</h3>
+                  <button
+                    type="button"
+                    onClick={() => setOriginlessLines([...originlessLines, { itemId: '', unitId: '', quantity: '1', unitCost: '' }])}
+                    className="text-xs text-primary hover:underline"
+                    data-testid="btn-add-return-line"
+                  >
+                    + Agregar línea
+                  </button>
+                </div>
+                <div className="space-y-3">
+                  {originlessLines.map((row, index) => {
+                    const selectedItem = items?.find((it) => it.id === row.itemId);
+                    return (
+                      <div key={index} className="border-line bg-surface/30 space-y-2 rounded border p-3">
+                        <div className="grid grid-cols-2 gap-2">
+                          <div>
+                            <label className="block text-[10px] text-muted uppercase">Artículo</label>
+                            <select
+                              name="itemId"
+                              required
+                              value={row.itemId}
+                              onChange={(e) => {
+                                const newId = e.target.value;
+                                const it = items?.find((x) => x.id === newId);
+                                const newLines = [...originlessLines];
+                                newLines[index].itemId = newId;
+                                newLines[index].unitId = it?.units[0]?.unitId ?? '';
+                                setOriginlessLines(newLines);
+                              }}
+                              className="border-line bg-surface mt-0.5 w-full rounded border px-2 py-1 text-sm"
+                              data-testid={`sales-return-item-${index}`}
+                            >
+                              <option value="">Selecciona un artículo...</option>
+                              {items?.filter((it) => it.type === 'inventoried' && it.isActive).map((it) => (
+                                <option key={it.id} value={it.id}>
+                                  {it.sku} — {it.name}
+                                </option>
+                              ))}
+                            </select>
+                          </div>
+                          <div>
+                            <label className="block text-[10px] text-muted uppercase">Unidad</label>
+                            <select
+                              name="unitId"
+                              required
+                              value={row.unitId}
+                              onChange={(e) => {
+                                const newLines = [...originlessLines];
+                                newLines[index].unitId = e.target.value;
+                                setOriginlessLines(newLines);
+                              }}
+                              className="border-line bg-surface mt-0.5 w-full rounded border px-2 py-1 text-sm"
+                              data-testid={`sales-return-unit-${index}`}
+                            >
+                              <option value="">Selecciona unidad...</option>
+                              {selectedItem?.units.map((u) => (
+                                <option key={u.unitId} value={u.unitId}>
+                                  {u.name} ({u.abbreviation})
+                                </option>
+                              ))}
+                            </select>
+                          </div>
+                        </div>
+                        <div className="grid grid-cols-2 gap-2">
+                          <div>
+                            <label className="block text-[10px] text-muted uppercase">Cantidad</label>
+                            <input
+                              type="number"
+                              name="returnQuantity"
+                              required
+                              step="any"
+                              min="0.0001"
+                              value={row.quantity}
+                              onChange={(e) => {
+                                const newLines = [...originlessLines];
+                                newLines[index].quantity = e.target.value;
+                                setOriginlessLines(newLines);
+                              }}
+                              className="border-line bg-surface mt-0.5 w-full rounded border px-2 py-1 text-right text-sm"
+                              data-testid={`sales-return-qty-${index}`}
+                            />
+                          </div>
+                          <div>
+                            <label className="block text-[10px] text-muted uppercase">Costo unitario ($)</label>
+                            <input
+                              type="number"
+                              name="unitCost"
+                              required
+                              step="any"
+                              min="0"
+                              value={row.unitCost}
+                              onChange={(e) => {
+                                const newLines = [...originlessLines];
+                                newLines[index].unitCost = e.target.value;
+                                setOriginlessLines(newLines);
+                              }}
+                              className="border-line bg-surface mt-0.5 w-full rounded border px-2 py-1 text-right text-sm"
+                              data-testid={`sales-return-unit-cost-${index}`}
+                            />
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+
+              <div className="flex justify-end gap-2 pt-2">
+                <button
+                  type="button"
+                  onClick={() => setCreating(false)}
+                  className="border-line rounded border px-3 py-1.5 text-sm font-medium hover:bg-surface"
+                >
+                  Cancelar
+                </button>
+                <SubmitButton pending={saving} testId="btn-save-sales-return">
+                  Guardar devolución
+                </SubmitButton>
+              </div>
+            </>
+          ) : null}
 
           {selectedDispatch ? (
             <>

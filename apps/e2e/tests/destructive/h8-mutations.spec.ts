@@ -212,7 +212,7 @@ test.describe('destructive H8 credit note and return mutations', () => {
     const cancelRes = await request.put(`${SALES_RETURNS}/${returnId}/cancel`, { headers: auth(token) });
     expect(cancelRes.status()).toBe(200);
 
-    // El kardex debe mostrar la contrapartida de la devolucion (direction: out, isReversal: true)
+    // Kardex: debe mostrar la contrapartida de la devolucion (direction: out, isReversal: true)
     const movementsAfterCancel = (
       await (await request.get(`/api/v1/inventory/items/${item.id}/movements`, { headers: auth(token) })).json()
     ).movements;
@@ -220,6 +220,58 @@ test.describe('destructive H8 credit note and return mutations', () => {
       direction: 'out',
       isReversal: true,
       quantity: 1,
+    });
+  });
+
+  test('creates, confirms and cancels an originless sales return via API (H8 §4.1 rule 3)', async ({ request }) => {
+    const token = await tokenFor(request, 'ana@acme.com');
+
+    // Cliente y articulo propio
+    const customer = await aFreshCustomer(request, token);
+    const item = await aStockedItem(request, token, 10);
+
+    // Crear devolucion de venta sin despacho de origen con costo manual escrito
+    const returnRes = await request.post(SALES_RETURNS, {
+      headers: auth(token),
+      data: {
+        customerId: customer.id,
+        dispatchId: null,
+        warehouseId: ACME_INVENTORY.mainWarehouse,
+        condition: 'resalable',
+        reason: 'Devolucion sin despacho previo',
+        lines: [{ itemId: item.id, unitId: ACME_INVENTORY.piece, quantity: 3, unitCost: 4.5 }],
+      },
+    });
+    expect(returnRes.status()).toBe(201);
+    const { id: returnId } = await returnRes.json();
+
+    // Confirmar la devolucion sin despacho
+    const confirmRes = await request.put(`${SALES_RETURNS}/${returnId}/confirm`, { headers: auth(token) });
+    expect(confirmRes.status()).toBe(200);
+
+    // Kardex: debe reflejar entrada por la devolucion con el costo unitario escrito (4.5)
+    const movementsAfterConfirm = (
+      await (await request.get(`/api/v1/inventory/items/${item.id}/movements`, { headers: auth(token) })).json()
+    ).movements;
+    expect(movementsAfterConfirm[0]).toMatchObject({
+      direction: 'in',
+      isReversal: false,
+      quantity: 3,
+      unitCost: 4.5,
+    });
+
+    // Anular la devolucion sin despacho
+    const cancelRes = await request.put(`${SALES_RETURNS}/${returnId}/cancel`, { headers: auth(token) });
+    expect(cancelRes.status()).toBe(200);
+
+    // Kardex: reversion de salida
+    const movementsAfterCancel = (
+      await (await request.get(`/api/v1/inventory/items/${item.id}/movements`, { headers: auth(token) })).json()
+    ).movements;
+    expect(movementsAfterCancel[0]).toMatchObject({
+      direction: 'out',
+      isReversal: true,
+      quantity: 3,
     });
   });
 });

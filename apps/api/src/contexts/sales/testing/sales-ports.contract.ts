@@ -31,7 +31,7 @@ import { SalesReturnLine, SalesReturnLineId } from '../domain/return/sales-retur
 import { ReturnCondition, SalesReturn, SalesReturnId } from '../domain/return/sales-return.entity.js';
 
 import { Quantity } from '../domain/shared/quantity.vo.js';
-import { WarehouseRef } from '../domain/shared/references.vo.js';
+import { ItemRef, UnitRef, WarehouseRef } from '../domain/shared/references.vo.js';
 import { SalesDate } from '../domain/shared/sales-date.vo.js';
 import { TenantId } from '../domain/shared/tenant-id.vo.js';
 import { aDocumentCurrency, BOX, CUSTOMER, MAIN, NOW, PIECE, RETAIL_LIST, TENANT_A, TENANT_B, TODAY, WATER, anOrderLine } from '../domain/testing/sales.mother.js';
@@ -165,6 +165,55 @@ export function describeSalesPortsContract(implementation: string, createHarness
             reason: 'defect',
             notes: 'Devolucion contrato',
             lines,
+          },
+          NOW,
+          TODAY,
+        ),
+      );
+
+      return id;
+    }
+
+    async function draftOriginlessReturn(
+      itemId: string,
+      warehouseId: string,
+      quantity: number,
+      unitCost: number,
+      condition: ReturnCondition = 'resalable',
+      date = TODAY,
+    ): Promise<SalesReturnId> {
+      const id = SalesReturnId.of(`5c000000-0000-4000-8000-${next()}`);
+      const q = Quantity.of(quantity);
+      const line = SalesReturnLine.of({
+        id: SalesReturnLineId.of(`5c100000-0000-4000-8000-${next()}`),
+        lineNumber: 1,
+        dispatchLineId: null,
+        itemId: ItemRef.of(itemId),
+        itemSku: 'AGUA',
+        itemName: 'Agua Mineral',
+        unitId: UnitRef.of(PIECE),
+        quantity: q,
+        baseQuantity: q,
+        unitCost,
+        restoresMovementId: null,
+      });
+
+      const customer = (await ports.customers.find(tenant, CustomerId.of(CUSTOMER)))!;
+      await ports.returns.save(
+        SalesReturn.draft(
+          id,
+          tenant,
+          `DVV${next().slice(-6)}`,
+          { id: customer.id },
+          null,
+          WarehouseRef.of(warehouseId),
+          aDocumentCurrency(),
+          {
+            date: SalesDate.of(date),
+            condition,
+            reason: 'Venta antes de tener sistema',
+            notes: null,
+            lines: [line],
           },
           NOW,
           TODAY,
@@ -776,6 +825,41 @@ export function describeSalesPortsContract(implementation: string, createHarness
         }
 
         await expect(cancelReturn(return2Id)).rejects.toThrow(SalesReturnAlreadyCancelledError);
+      });
+
+      it('creates and confirms an originless return, restoring stock at written unitCost without dispatch or restoresMovementId (H8 §4.1 rule 3)', async () => {
+        expect(await harness.stockOf(WATER, MAIN)).toBe(0);
+
+        const returnId = await draftOriginlessReturn(WATER, MAIN, 5, 2.75, 'resalable');
+        const confirmed = await confirmReturn(returnId);
+        expect(confirmed.currentStatus()).toBe('confirmed');
+        expect(confirmed.dispatchId).toBeNull();
+        expect(confirmed.lines()[0].dispatchLineId).toBeNull();
+        expect(confirmed.lines()[0].unitCost).toBe(2.75);
+        expect(confirmed.lines()[0].restoresMovementId).toBeNull();
+
+        expect(await harness.stockOf(WATER, MAIN)).toBe(5);
+
+        if (harness.movementsOf) {
+          const movements = await harness.movementsOf('sales_return', returnId.value);
+          expect(movements).toHaveLength(1);
+          expect(movements[0]).toMatchObject({
+            direction: 'in',
+            quantity: 5,
+            unitCost: 2.75,
+            restoresMovementId: null,
+            reversalOfId: null,
+          });
+        }
+
+        await cancelReturn(returnId);
+        expect(await harness.stockOf(WATER, MAIN)).toBe(0);
+        if (harness.movementsOf) {
+          const movements = await harness.movementsOf('sales_return', returnId.value);
+          expect(movements).toHaveLength(2);
+          const revMove = movements.find((m) => m.direction === 'out')!;
+          expect(revMove.reversalOfId).toBe(movements.find((m) => m.direction === 'in')!.id);
+        }
       });
     });
 

@@ -296,8 +296,9 @@ import { PrismaSalesReturnsOfInvoice } from './persistence/prisma-sales-returns-
         i: IdGenerator,
         k: Clock,
         cal: BusinessCalendar,
-      ) => new SalesReturnCreator(cu, d, o, r, f, c, i, k, cal),
-      inject: [CUSTOMER_REPOSITORY, DISPATCH_REPOSITORY, SalesOrderFinder, SALES_RETURN_REPOSITORY, SalesReturnLineFactory, SALES_CODE_SEQUENCE, ID_GENERATOR, CLOCK, BUSINESS_CALENDAR],
+        dr: DocumentRates,
+      ) => new SalesReturnCreator(cu, d, o, r, f, c, i, k, cal, dr),
+      inject: [CUSTOMER_REPOSITORY, DISPATCH_REPOSITORY, SalesOrderFinder, SALES_RETURN_REPOSITORY, SalesReturnLineFactory, SALES_CODE_SEQUENCE, ID_GENERATOR, CLOCK, BUSINESS_CALENDAR, DOCUMENT_RATES],
     },
     {
       provide: SalesReturnUpdater,

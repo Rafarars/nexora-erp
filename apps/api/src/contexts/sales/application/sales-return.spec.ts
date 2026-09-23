@@ -24,7 +24,7 @@ import { SalesReturnCreditedChecker } from '../domain/return/credited/sales-retu
 import { SalesReturnFinder } from '../domain/return/find/sales-return-finder.js';
 import { SalesReturnLineFactory } from '../domain/return/lines/sales-return-line-factory.js';
 import { SalesReturnPosting } from '../domain/return/posting/sales-return-posting.js';
-import { SalesReturn } from '../domain/return/sales-return.entity.js';
+import { SalesReturn, SalesReturnId } from '../domain/return/sales-return.entity.js';
 import { SalesReturnRepository } from '../domain/return/sales-return.repository.js';
 import { SalesCodeSequence } from '../domain/shared/code-sequence.js';
 import { TenantId } from '../domain/shared/tenant-id.vo.js';
@@ -172,6 +172,16 @@ describe('SalesReturn application rules', () => {
           return { id: ref.value, name: 'Main', isActive: true };
         });
       },
+      findItems: async (_t: any, itemIds: any[]) => {
+        return itemIds.map((itemId) => ({
+          id: itemId.value,
+          sku: 'WAT',
+          name: 'Water',
+          type: 'inventoried',
+          isActive: true,
+          units: [{ unitId: UNIT_BOX, conversionFactor: 1 }],
+        }));
+      },
       findItemOrThrow: async (_t: any, itemId: any) => ({
         id: itemId.value,
         sku: 'WAT',
@@ -254,7 +264,11 @@ describe('SalesReturn application rules', () => {
         }
 
         ret.confirm(
-          ret.lines().map((l) => ({ lineId: l.id.value, unitCost: 3.5, restoresMovementId: 'mov-1' })),
+          ret.lines().map((l) => ({
+            lineId: l.id.value,
+            unitCost: ret.dispatchId ? 3.5 : (l.unitCost ?? 0),
+            restoresMovementId: ret.dispatchId ? 'mov-1' : null,
+          })),
           now,
         );
         await returnsRepo.save(ret);
@@ -512,4 +526,30 @@ describe('SalesReturn application rules', () => {
 
     await expect(s.canceller.run({ tenantId: TENANT, returnId })).rejects.toThrow(SalesReturnWithCreditNoteError);
   });
+
+  it('creates and confirms an originless sales return without dispatch, requiring written unitCost and checking active warehouse', async () => {
+    const s = makeSetup();
+
+    const returnId = await s.creator.run({
+      tenantId: TENANT,
+      customerId: CUSTOMER_A,
+      dispatchId: null,
+      warehouseId: WAREHOUSE_MAIN,
+      condition: 'resalable',
+      lines: [{ itemId: ITEM_WATER, unitId: UNIT_BOX, quantity: 2, unitCost: 1.5 }],
+    });
+
+    const created = (await s.returnsRepo.find(TenantId.of(TENANT), SalesReturnId.of(returnId)))!;
+    expect(created.dispatchId).toBeNull();
+    expect(created.lines()[0].dispatchLineId).toBeNull();
+    expect(created.lines()[0].unitCost).toBe(1.5);
+    expect(created.lines()[0].restoresMovementId).toBeNull();
+
+    await s.confirmer.run({ tenantId: TENANT, returnId });
+    const confirmed = (await s.returnsRepo.find(TenantId.of(TENANT), SalesReturnId.of(returnId)))!;
+    expect(confirmed.currentStatus()).toBe('confirmed');
+    expect(confirmed.lines()[0].unitCost).toBe(1.5);
+    expect(confirmed.lines()[0].restoresMovementId).toBeNull();
+  });
 });
+

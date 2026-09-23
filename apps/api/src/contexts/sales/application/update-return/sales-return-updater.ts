@@ -3,7 +3,11 @@ import { Clock } from '../../../../shared/domain/ports/clock.js';
 import { DispatchRepository } from '../../domain/dispatch/dispatch.repository.js';
 import { DispatchNotFoundError } from '../../domain/errors/sales.errors.js';
 import { SalesReturnFinder } from '../../domain/return/find/sales-return-finder.js';
-import { SalesReturnLineFactory, SalesReturnLineInput } from '../../domain/return/lines/sales-return-line-factory.js';
+import {
+  OriginlessSalesReturnLineInput,
+  SalesReturnLineFactory,
+  SalesReturnLineInput,
+} from '../../domain/return/lines/sales-return-line-factory.js';
 import { ReturnCondition, SalesReturnId } from '../../domain/return/sales-return.entity.js';
 import { SalesReturnRepository } from '../../domain/return/sales-return.repository.js';
 import { SalesDate } from '../../domain/shared/sales-date.vo.js';
@@ -16,7 +20,7 @@ export interface SalesReturnUpdaterRequest {
   condition: ReturnCondition;
   reason?: string | null;
   notes?: string | null;
-  lines: SalesReturnLineInput[];
+  lines: (SalesReturnLineInput | OriginlessSalesReturnLineInput)[];
 }
 
 export class SalesReturnUpdater {
@@ -46,7 +50,9 @@ export class SalesReturnUpdater {
       dispatchDate = dispatch.date();
 
       const alreadyReturned = await this.returns.returnedQuantitiesByDispatch(tenantId, dispatch.id.value);
-      lines = await this.factory.lines(tenantId, dispatch, request.lines, alreadyReturned);
+      lines = await this.factory.lines(tenantId, dispatch, request.lines as SalesReturnLineInput[], alreadyReturned);
+    } else {
+      lines = await this.factory.originlessLines(tenantId, returnEntity.warehouseId, request.lines as OriginlessSalesReturnLineInput[]);
     }
 
     returnEntity.update(

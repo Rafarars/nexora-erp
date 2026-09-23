@@ -301,6 +301,27 @@ Antes de iniciar la Fase 0, se revisaron a fondo las once decisiones de diseno d
     `PrismaClientValidationError: Unknown argument return. Available options are marked with ?: salesReturn`.
   - Esto demuestra que el contrato habría atrapado el defecto en la fase 2 antes de llegar a las pruebas destructivas de la fase 6.
 
+### C3: Devolución de venta sin despacho de origen con costo manual y reingreso
 
-
-
+- **Qué cambió:**
+  - **Dominio:** En `SalesReturnLine` y `SalesReturn`, se amplió la definición para admitir `restoresMovementId: string | null` y `dispatchId: string | null`. En `SalesReturnLineFactory`, se introdujo `originlessLines`, validando que cada artículo exista y esté activo en el catálogo de ventas, que la bodega exista y esté activa, y asignando el costo unitario manual especificado para cada línea.
+  - **Aplicación:** En `SalesReturnCreator` y `SalesReturnUpdater`, se implementó soporte para devoluciones sin despacho (`dispatchId: null` o `'none'`). Se valida que se provea `warehouseId`, se consultan las tasas activas mediante `DocumentRates` para asignar la moneda y tasa de cambio de la empresa, y se procesan las líneas con su costo manual.
+  - **Infraestructura:**
+    - En `PrismaSalesReturnPosting.confirm`: cuando `!returnEntity.dispatchId`, valida bodega activa, aplica el costo unitario congelado manual provisto en la línea y reingresa la existencia a inventario mediante `stock.receive(...)` con origen `sales_return` y sin `restoresMovementId` (`null`), actualizando el costo promedio ponderado de la bodega.
+    - En `in-memory-sales-store.ts`: se adaptó la confirmación y anulación para soportar devoluciones sin despacho (generando movimiento `in` con `unitCost` manual provisto en borrador y revirtiéndolo con `reversalOfId` al anular).
+    - En `sales-return.request.dto.ts`: Zod schema `SalesReturnDraftSchema` actualizado con `dispatchId: z.string().uuid().nullable().optional()`, `warehouseId: z.string().uuid().nullable().optional()` y líneas con `itemId`, `unitId`, `unitCost` opcionales/requeridos según corresponda.
+    - En `sales.module.ts`: inyectado `DOCUMENT_RATES` en `SalesReturnCreator`.
+  - **Web / UI:**
+    - En `sales-returns-board.tsx`: se añadió soporte en el panel de creación para la opción "Sin despacho (ajuste con costo manual)", desplegando selectores de cliente, bodega, artículo, unidad, cantidad y costo unitario manual (`sales-return-unit-cost-0`).
+    - En `sales/devoluciones/page.tsx`: se envían los listados de clientes, bodegas y artículos para poblar los selectores.
+    - En `actions.ts` y `sales-api.ts`: actualización de tipos e inputs de API.
+- **Pruebas que lo defienden:**
+  - **Dominio:** `sales-return.entity.spec.ts` (`creates originless return with manual unit costs`).
+  - **Aplicación:** `sales-return.spec.ts` (`creates and edits an originless sales return with manual unit cost`).
+  - **Contrato:** `sales-ports.contract.ts` (`creates and confirms an originless return, restoring stock at written unitCost without dispatch or restoresMovementId (H8 §4.1 rule 3)`), verificado en memoria (33/33) y en PostgreSQL real (33/33).
+  - **API / E2E:** `apps/e2e/tests/destructive/h8-mutations.spec.ts` (`creates, confirms and cancels an originless sales return via API (H8 §4.1 rule 3)`).
+  - **UI / E2E:** `apps/e2e/tests/ui/credit-notes-returns.spec.ts` (`creates an originless sales return with manual cost from the UI (H8 §4.1 rule 3)`).
+- **Evidencia de que la prueba fallaba antes:**
+  - Antes del cambio, el tipo `SalesReturnDraftProps` y `SalesReturnLineProps` exigían obligatoriamente `dispatchId: string` y `restoresMovementId: string`, provocando error de compilación TypeScript.
+  - El DTO HTTP `SalesReturnDraftSchema` rechazaba con error 400 (`validation_error`) cualquier payload sin `dispatchId` o con campos de línea `itemId`/`unitCost`.
+  - La lógica de confirmación en `PrismaSalesReturnPosting` asumía incondicionalmente la existencia de despacho e intentaba leer `dispatch.lines`, fallando con excepción al procesar un `dispatchId` nulo.

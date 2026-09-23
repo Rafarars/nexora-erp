@@ -216,4 +216,52 @@ describe('SalesReturn entity', () => {
     expect(returnEntity.currentStatus()).toBe('cancelled');
     expect(() => returnEntity.cancel(NOW)).toThrow(SalesReturnAlreadyCancelledError);
   });
+
+  it('creates and confirms an originless sales return with written unitCost and null restoresMovementId (H8 §4.1 rule 3)', () => {
+    const originlessLine = SalesReturnLine.of({
+      id: SalesReturnLineId.of('00000002-0000-4000-8000-000000000009'),
+      lineNumber: 1,
+      dispatchLineId: null,
+      itemId: ItemRef.of(WATER),
+      itemSku: 'AGUA',
+      itemName: 'Agua Mineral',
+      unitId: UnitRef.of(PIECE),
+      quantity: Quantity.of(3),
+      baseQuantity: Quantity.of(3),
+      unitCost: 1.75,
+      restoresMovementId: null,
+    });
+
+    const returnEntity = SalesReturn.draft(
+      SalesReturnId.of('00000000-0000-4000-8000-000000000009'),
+      TenantId.of(TENANT_A),
+      'DVV000009',
+      { id: CustomerId.of(CUSTOMER) },
+      null,
+      WarehouseRef.of(MAIN),
+      aDocumentCurrency(),
+      {
+        date: SalesDate.of(TODAY),
+        condition: 'resalable',
+        reason: 'Venta antes de tener el sistema',
+        notes: null,
+        lines: [originlessLine],
+      },
+      NOW,
+      TODAY,
+    );
+
+    expect(returnEntity.dispatchId).toBeNull();
+    expect(returnEntity.lines()[0].dispatchLineId).toBeNull();
+    expect(returnEntity.lines()[0].unitCost).toBe(1.75);
+    expect(returnEntity.lines()[0].restoresMovementId).toBeNull();
+
+    // Al confirmar sin despacho, se conserva el costo escrito y restoresMovementId sigue nulo
+    returnEntity.confirm([{ lineId: originlessLine.id.value, unitCost: 1.75, restoresMovementId: null }], NOW);
+
+    expect(returnEntity.currentStatus()).toBe('confirmed');
+    expect(returnEntity.lines()[0].unitCost).toBe(1.75);
+    expect(returnEntity.lines()[0].restoresMovementId).toBeNull();
+  });
 });
+

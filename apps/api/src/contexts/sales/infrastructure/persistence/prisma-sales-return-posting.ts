@@ -6,12 +6,14 @@ import {
   DispatchLineNotFoundError,
   DispatchNotReturnableError,
   InactiveSalesItemError,
+  InactiveSalesWarehouseError,
   QuantityExceedsDispatchedReturnQuotaError,
   ReturnBeforeDispatchError,
   ReturnCustomerMismatchError,
   SalesReturnAlreadyCancelledError,
   SalesReturnNotConfirmableError,
   SalesReturnWithCreditNoteError,
+  SalesWarehouseNotFoundError,
   ServiceNotSellableError,
 } from '../../domain/errors/sales.errors.js';
 import { SALES_RETURN_CREDITED_CHECKER } from '../../domain/return/credited/sales-return-credited-checker.js';
@@ -38,7 +40,7 @@ export class PrismaSalesReturnPosting implements SalesReturnPosting {
         throw new SalesReturnNotConfirmableError(returnEntity.id.value, returnEntity.currentStatus());
       }
 
-      const linesWithValuation: { lineId: string; unitCost: number; restoresMovementId: string }[] = [];
+      const linesWithValuation: { lineId: string; unitCost: number; restoresMovementId: string | null }[] = [];
 
       if (returnEntity.dispatchId) {
         const { dispatch } = await lockDispatch(tx, tenant, returnEntity.dispatchId.value);
@@ -113,6 +115,22 @@ export class PrismaSalesReturnPosting implements SalesReturnPosting {
             });
           }
         }
+      } else {
+        // Devolución sin despacho de origen (H8 §4.1 regla 3): reingresa como entrada por ajuste
+        const warehouse = await tx.warehouse.findFirst({
+          where: { tenantId: tenant, id: returnEntity.warehouseId.value },
+          select: { isActive: true },
+        });
+        if (!warehouse) throw new SalesWarehouseNotFoundError(returnEntity.warehouseId.value);
+        if (!warehouse.isActive) throw new InactiveSalesWarehouseError(returnEntity.warehouseId.value);
+
+        for (const line of returnEntity.lines()) {
+          linesWithValuation.push({
+            lineId: line.id.value,
+            unitCost: line.unitCost ?? 0,
+            restoresMovementId: null,
+          });
+        }
       }
 
       returnEntity.confirm(linesWithValuation, now);
@@ -121,8 +139,10 @@ export class PrismaSalesReturnPosting implements SalesReturnPosting {
       // Reingreso al kardex: solo si no es scrap (§3.5)
       if (returnEntity.condition() !== 'scrap') {
         const linesToRestore = returnEntity.lines().filter((l) => l.restoresMovementId !== null);
-        if (linesToRestore.length > 0) {
-          try {
+        const linesToReceive = returnEntity.lines().filter((l) => l.restoresMovementId === null);
+
+        try {
+          if (linesToRestore.length > 0) {
             await this.stock.restore(
               tx,
               tenant,
@@ -140,16 +160,35 @@ export class PrismaSalesReturnPosting implements SalesReturnPosting {
               })),
               now,
             );
-          } catch (error) {
-
-            if (error instanceof Error && error.name === 'InactiveStockItemError') {
-              throw new InactiveSalesItemError(itemOf(error));
-            }
-            if (error instanceof Error && error.name === 'ServiceHasNoStockError') {
-              throw new ServiceNotSellableError(itemOf(error));
-            }
-            throw error;
           }
+
+          if (linesToReceive.length > 0) {
+            await this.stock.receive(
+              tx,
+              tenant,
+              {
+                type: 'sales_return',
+                id: returnEntity.id.value,
+                date: returnEntity.date().value,
+              },
+              linesToReceive.map((l) => ({
+                lineId: l.id.value,
+                itemId: l.itemId.value,
+                warehouseId: returnEntity.warehouseId.value,
+                quantity: l.baseQuantity.toNumber(),
+                unitCost: l.unitCost ?? 0,
+              })),
+              now,
+            );
+          }
+        } catch (error) {
+          if (error instanceof Error && error.name === 'InactiveStockItemError') {
+            throw new InactiveSalesItemError(itemOf(error));
+          }
+          if (error instanceof Error && error.name === 'ServiceHasNoStockError') {
+            throw new ServiceNotSellableError(itemOf(error));
+          }
+          throw error;
         }
       }
 

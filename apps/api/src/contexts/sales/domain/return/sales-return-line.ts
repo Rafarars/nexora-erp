@@ -97,7 +97,7 @@ export class SalesReturnLine {
     };
   }
 
-  withValuation(unitCost: number, restoresMovementId: string): SalesReturnLine {
+  withValuation(unitCost: number, restoresMovementId: string | null): SalesReturnLine {
     return new SalesReturnLine(
       this.id,
       this.lineNumber,
@@ -112,4 +112,5 @@ export class SalesReturnLine {
       restoresMovementId,
     );
   }
+
 }

@@ -1,7 +1,9 @@
 import { can } from '@/modules/access/domain/session';
 import { readableSalesError } from '@/modules/sales/domain/sales-error';
 import { SalesReturnsBoard } from '@/sections/sales/sales-returns-board';
+import { catalogApi } from '@/shared/session/catalog-api';
 import { companyApi } from '@/shared/session/company-api';
+import { inventoryApi } from '@/shared/session/inventory-api';
 import { requireSession } from '@/shared/session/current-session';
 import { salesApi } from '@/shared/session/sales-api';
 
@@ -49,6 +51,9 @@ export default async function SalesReturnsPage({ searchParams }: { searchParams:
             .searchDispatches(token, { status: 'confirmed', limit: 50 })
             .then((res) => res.dispatches)
         : [],
+      canCreate && can(session, 'sales.customers.search') ? salesApi().allCustomers(token) : [],
+      canCreate && can(session, 'catalog.warehouses.search') ? catalogApi().searchWarehouses(token) : [],
+      canCreate && can(session, 'inventory.items.search') ? inventoryApi().allItems(token) : [],
       companyApi().settings(token),
     ]);
   } catch (error) {
@@ -59,7 +64,7 @@ export default async function SalesReturnsPage({ searchParams }: { searchParams:
     );
   }
 
-  const [returnsPage, dispatches, settings] = loaded;
+  const [returnsPage, dispatches, customers, warehouses, items, settings] = loaded;
 
   return (
     <SalesReturnsBoard
@@ -75,6 +80,9 @@ export default async function SalesReturnsPage({ searchParams }: { searchParams:
         hasMore: returnsPage.hasMore,
       }}
       dispatches={dispatches}
+      customers={customers}
+      warehouses={warehouses}
+      items={items}
       today={settings.today}
       canCreate={canCreate}
       canConfirm={can(session, 'sales.returns.confirm')}
