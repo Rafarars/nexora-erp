@@ -301,10 +301,17 @@ export class PrismaCreditNotePosting implements CreditNotePosting {
         throw new CreditNoteWithApplicationsError(note.id.value);
       }
 
-      // Si tiene cobro de emision y esta confirmado, anularlo
+      // Si tiene cobro de emision y esta confirmado, anularlo respetando el orden determinista
+      // (customer_credit_notes bloqueada primero, customer_payments a continuacion)
       if (note.issuePaymentId()) {
+        const issuePaymentId = note.issuePaymentId()!;
+        await tx.$queryRaw`
+          SELECT id FROM customer_payments
+          WHERE tenant_id = ${tenant}::uuid AND id = ${issuePaymentId}::uuid
+          FOR UPDATE`;
+
         const issuePaymentRow = await tx.customerPayment.findFirst({
-          where: { tenantId: tenant, id: note.issuePaymentId()! },
+          where: { tenantId: tenant, id: issuePaymentId },
           include: PAYMENT_INCLUDE,
         });
 

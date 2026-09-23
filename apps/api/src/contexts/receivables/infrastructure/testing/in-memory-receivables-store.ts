@@ -183,18 +183,9 @@ export class InMemoryReceivablesStore {
           if (!row || row.tenantId !== tenantId.value) throw new PaymentNotFoundError(paymentId.value);
 
           const payment = CustomerPayment.fromPrimitives(row);
-          const previousStatus = payment.currentStatus();
           const invoices = this.invoicesOf(tenantId.value, { ids: payment.invoiceIds() }, payment.id.value);
 
           await work(payment, invoices);
-
-          // Si se anula un cobro que es cobro de emision de una nota, se rechaza
-          const isIssuePayment = [...this.creditNoteRows.values()].find(
-            (cn) => cn.tenantId === tenantId.value && cn.issuePaymentId === payment.id.value,
-          );
-          if (isIssuePayment && previousStatus === 'confirmed' && payment.currentStatus() === 'cancelled') {
-            throw new IssuePaymentCannotBeCancelledDirectlyError(payment.toPrimitives().code, isIssuePayment.id);
-          }
 
           // Si el cobro usa credit_note, validar la nota de credito bajo bloqueo
           const primitives = payment.toPrimitives();
@@ -236,6 +227,12 @@ export class InMemoryReceivablesStore {
         const row = this.creditNoteRows.get(id.value);
 
         return row && row.tenantId === tenantId.value ? CustomerCreditNote.fromPrimitives(row) : null;
+      },
+      findByIssuePayment: async (tenantId, paymentId) => {
+        const row = [...this.creditNoteRows.values()].find(
+          (cn) => cn.tenantId === tenantId.value && cn.issuePaymentId === paymentId.value,
+        );
+        return row ? CustomerCreditNote.fromPrimitives(row) : null;
       },
       searchPage: async (tenantId, filter) => {
         const text = filter.text?.toLowerCase() ?? null;

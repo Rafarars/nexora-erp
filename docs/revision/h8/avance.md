@@ -405,8 +405,31 @@ Antes de iniciar la Fase 0, se revisaron a fondo las once decisiones de diseno d
   - 29/29 pruebas pasando al 100% tanto en memoria (`in-memory-receivables-ports.contract.spec.ts`) como contra base de datos PostgreSQL real (`prisma-receivables-ports.contract.integration.spec.ts`).
 - **Evidencia de que la prueba fallaba antes:**
   - Al ejecutar la suite contra PostgreSQL antes de corregir:
-    1. En `refuses to confirm a credit note citing an invoice that was cancelled after the draft`:
-       `AssertionError: promise resolved "{ ... }" instead of rejecting` (la nota se confirmaba indebidamente sobre una factura anulada con `issuePayment: null`).
-    2. En `confirms a credit note and creates its issue payment respecting the company amount decimals`:
-       `AssertionError: expected 40.13 to be 40.125 // Object.is equality (- Expected: 40.125, + Received: 40.13)` (el cobro de emisión se redondeaba a 2 decimales por el valor hardcodeado `decimals: 2` en lugar de los 3 decimales de la empresa).
 
+### C7: Orden de bloqueo entre nota y cobro de emisión y guarda en aplicación
+
+- **Qué cambió:**
+  - **Orden determinista de bloqueo unificado:**
+    - Se unificó el orden de adquisición de bloqueos de concurrencia entre `customer_credit_notes`, `customer_payments` e `invoices`. Se estableció como contrato global en Receivables el orden:
+      1. `customer_credit_notes`
+      2. `customer_payments`
+      3. `invoices` (ordenadas de forma determinista por UUID)
+    - En `PrismaPaymentPosting.post` (al anular un cobro que sea de método `credit_note` o que pueda tener relación con notas): antes de adquirir el bloqueo `FOR UPDATE` sobre `customer_payments`, se realiza un `peek` del `creditSourceId` del cobro a anular. Si tiene nota asociada, se adquiere primero el bloqueo `FOR UPDATE` sobre `customer_credit_notes` y posteriormente sobre `customer_payments`.
+    - En `PrismaCreditNotePosting.cancel`: tras bloquear la nota con `FOR UPDATE`, se adquiere explícitamente el bloqueo `FOR UPDATE` sobre su cobro de emisión en `customer_payments`.
+    - En `prisma-payment-posting.ts`: se eliminó el comentario inexacto que afirmaba «No hay ciclo posible» y se documentó detalladamente la justificación y el orden global.
+  - **Traslado de la guarda de anulación directa de infraestructura a aplicación:**
+    - La regla de negocio «un cobro de emisión no puede anularse directamente desde Cobros» residía indebidamente en el adaptador de infraestructura `prisma-payment-posting.ts`.
+    - Se trasladó al caso de uso de aplicación `PaymentCanceller` (`apps/api/src/contexts/receivables/application/cancel-payment/payment-canceller.ts`).
+    - Se incorporó el método `findByIssuePayment(tenantId, paymentId)` al puerto de dominio `CustomerCreditNoteRepository` y a sus implementaciones (`PrismaCustomerCreditNoteRepository` e `InMemoryReceivablesStore`).
+    - En `PaymentCanceller`: antes de invocar a `paymentPosting.cancel(...)`, comprueba si existe una nota activa asociada a dicho cobro mediante `this.creditNoteRepo.findByIssuePayment(...)`. Si existe y no está anulada, rechaza la operación lanzando `IssuePaymentCannotBeCancelledDirectlyError`.
+    - Se eliminó la guarda ad-hoc en `prisma-payment-posting.ts` e `in-memory-receivables-store.ts`, unificando la regla para todos los adaptadores a nivel de aplicación.
+- **Pruebas que lo defienden:**
+  - En `receivables-ports.contract.ts`:
+    - `concurrently cancelling a credit note and cancelling its issue payment directly never deadlocks`: lanza en paralelo la anulación de la nota de crédito y la anulación directa de su cobro de emisión. Ambas terminan de forma determinista y predecible sin interbloqueos en la base de datos (PostgreSQL deadlock).
+    - `concurrently cancelling a credit note and posting on its issue payment respects deterministic lock order without database deadlock`: lanza en paralelo la anulación de la nota y la anulación del cobro ordinario que consume crédito, verificando el respeto al orden global sin deadlocks.
+    - `closes the backdoor: issue payment cannot be cancelled directly from Collections`: verifica que el caso de uso `PaymentCanceller` rechace la anulación directa lanzando `IssuePaymentCannotBeCancelledDirectlyError`.
+  - 31/31 pruebas pasando al 100% tanto en memoria (`in-memory-receivables-ports.contract.spec.ts`) como contra base de datos PostgreSQL real (`prisma-receivables-ports.contract.integration.spec.ts`).
+- **Evidencia de que la prueba fallaba antes:**
+  - Al retirar la guarda de infraestructura de `PrismaPaymentPosting` antes de trasladarla a la capa de aplicación en `PaymentCanceller`, la prueba `closes the backdoor: issue payment cannot be cancelled directly from Collections` falló con:
+    `AssertionError: promise resolved "undefined" instead of rejecting`
+    demostrando empíricamente que sin la guarda en la capa de aplicación, el cobro de emisión se anulaba de forma indebida desde Cobros.

@@ -9,6 +9,7 @@ import {
   CustomerCreditNote,
 } from '../../domain/credit-note/customer-credit-note.entity.js';
 import { NoteCredit } from '../../domain/credit-note/note-credit.service.js';
+import { PaymentId } from '../../domain/payment/customer-payment.entity.js';
 import { TenantId } from '../../domain/shared/tenant-id.vo.js';
 import { asDate, CREDIT_NOTE_INCLUDE, creditNoteFromRow, CreditNoteRow } from './receivables-rows.js';
 
@@ -130,6 +131,15 @@ export class PrismaCustomerCreditNoteRepository implements CustomerCreditNoteRep
   async find(tenantId: TenantId, id: CreditNoteId): Promise<CustomerCreditNote | null> {
     const row = await this.prisma.customerCreditNote.findFirst({
       where: { tenantId: tenantId.value, id: id.value },
+      include: CREDIT_NOTE_INCLUDE,
+    });
+
+    return row ? creditNoteFromRow(row as unknown as CreditNoteRow) : null;
+  }
+
+  async findByIssuePayment(tenantId: TenantId, paymentId: PaymentId): Promise<CustomerCreditNote | null> {
+    const row = await this.prisma.customerCreditNote.findFirst({
+      where: { tenantId: tenantId.value, issuePaymentId: paymentId.value },
       include: CREDIT_NOTE_INCLUDE,
     });
 

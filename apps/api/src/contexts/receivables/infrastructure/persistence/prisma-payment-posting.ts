@@ -6,7 +6,6 @@ import {
   CreditNoteExceededError,
   CreditNoteNotConfirmedError,
   CreditNoteNotFoundError,
-  IssuePaymentCannotBeCancelledDirectlyError,
   PaymentNotFoundError,
 } from '../../domain/errors/receivables.errors.js';
 import { ReceivableInvoice } from '../../domain/ledger/receivable-invoice.js';
@@ -17,8 +16,12 @@ import { TenantId } from '../../domain/shared/tenant-id.vo.js';
 import { CREDIT_NOTE_INCLUDE, creditNoteFromRow, CreditNoteRow, PAYMENT_INCLUDE, invoiceFromRow, invoiceSelect, paymentFromRow } from './receivables-rows.js';
 import { queryAppliedPaymentsSum } from './credit-note-applied-query.js';
 
-// Orden de bloqueo: cobro y despues sus facturas por identificador. Ventas, al anular una factura,
-// solo bloquea esa factura; al emitir, bloquea el cliente y no facturas. No hay ciclo posible.
+// Orden determinista de bloqueo para evitar interbloqueos con notas de credito y facturas:
+// 1. customer_credit_notes (si el cobro cita una nota como fuente de credito o emision)
+// 2. customer_payments (la fila del cobro)
+// 3. invoices (ordenadas por identificador)
+// Este orden es consistente con PrismaCreditNotePosting (que bloquea primero la nota y despues su cobro de emision),
+// eliminando cualquier posibilidad de interbloqueo (deadlock) entre operaciones concurrentes de cobros y notas.
 @Injectable()
 export class PrismaPaymentPosting implements PaymentPosting {
   constructor(private readonly prisma: PrismaService) {}
@@ -27,6 +30,22 @@ export class PrismaPaymentPosting implements PaymentPosting {
     const tenant = tenantId.value;
 
     await this.prisma.$transaction(async (tx) => {
+      // Si el cobro cita una nota (como credito o emision), bloqueamos primero la nota para
+      // respetar el orden global determinista customer_credit_notes -> customer_payments -> invoices.
+      const peek = await tx.customerPayment.findFirst({
+        where: { tenantId: tenant, id: paymentId.value },
+        select: { creditSourceId: true },
+      });
+
+      if (peek?.creditSourceId) {
+        const lockedNote = await tx.$queryRaw<{ id: string }[]>`
+          SELECT id FROM customer_credit_notes WHERE tenant_id = ${tenant}::uuid AND id = ${peek.creditSourceId}::uuid FOR UPDATE`;
+
+        if (lockedNote.length === 0) {
+          throw new CreditNoteNotFoundError(peek.creditSourceId);
+        }
+      }
+
       const locked = await tx.$queryRaw<{ id: string }[]>`
         SELECT id FROM customer_payments WHERE tenant_id = ${tenant}::uuid AND id = ${paymentId.value}::uuid FOR UPDATE`;
 
@@ -36,13 +55,7 @@ export class PrismaPaymentPosting implements PaymentPosting {
 
       if (payment.toPrimitives().creditSourceId) {
         const creditSourceId = payment.toPrimitives().creditSourceId!;
-        const lockedNote = await tx.$queryRaw<{ id: string }[]>`
-          SELECT id FROM customer_credit_notes WHERE tenant_id = ${tenant}::uuid AND id = ${creditSourceId}::uuid FOR UPDATE`;
-
-        if (lockedNote.length === 0) {
-          throw new CreditNoteNotFoundError(creditSourceId);
-        }
-
+        // La nota ya fue bloqueada arriba con FOR UPDATE en orden determinista
         const noteRow = (await tx.customerCreditNote.findFirstOrThrow({
           where: { tenantId: tenant, id: creditSourceId },
           include: CREDIT_NOTE_INCLUDE,
@@ -78,23 +91,7 @@ export class PrismaPaymentPosting implements PaymentPosting {
       // Leidas despues del bloqueo: ven lo que confirmo el cobro que esperaba antes en la fila.
       const invoices = await tx.invoice.findMany({ where: { tenantId: tenant, id: { in: ids } }, select: invoiceSelect(paymentId.value) });
 
-      const wasStatus = payment.currentStatus();
       work(payment, invoices.map(invoiceFromRow));
-      const nowStatus = payment.currentStatus();
-
-      if (wasStatus !== 'cancelled' && nowStatus === 'cancelled') {
-        const issueNote = await tx.customerCreditNote.findFirst({
-          where: {
-            tenantId: tenant,
-            issuePaymentId: paymentId.value,
-            status: { not: 'cancelled' },
-          },
-        });
-
-        if (issueNote) {
-          throw new IssuePaymentCannotBeCancelledDirectlyError(paymentId.value, issueNote.id);
-        }
-      }
 
       const { status, confirmedAt, cancelledAt, updatedAt, amount, amountVes, currency, exchangeRate, baseCurrency, baseExchangeRate, manualExchangeRate, allocations } =
         payment.toPrimitives();

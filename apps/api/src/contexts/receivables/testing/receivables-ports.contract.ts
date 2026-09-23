@@ -2,7 +2,9 @@ import { afterAll, afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { ConcurrentModificationError } from '../../../shared/domain/concurrent-modification.error.js';
 import { DocumentCurrency } from '../../../shared/domain/document-currency.js';
 import {
+  CreditNoteAlreadyCancelledError,
   CreditNoteExceededError,
+  CreditNoteNotConfirmedError,
   CreditNoteNotEditableError,
   CreditNoteReturnAlreadyCreditedError,
   CreditNoteReturnNotConfirmedError,
@@ -11,6 +13,7 @@ import {
   CreditQuotaExceededError,
   InvoiceNotPayableError,
   IssuePaymentCannotBeCancelledDirectlyError,
+  PaymentAlreadyCancelledError,
   PaymentExceedsBalanceError,
   PaymentNotEditableError,
   PaymentNotFoundError,
@@ -22,6 +25,7 @@ import { NoteCredit } from '../domain/credit-note/note-credit.service.js';
 import { ReceivablesDate } from '../domain/shared/receivables-date.vo.js';
 import { TenantId } from '../domain/shared/tenant-id.vo.js';
 import { CUSTOMER, DOLLARS, INVOICE, NOW, OTHER_CUSTOMER, OTHER_INVOICE, TENANT_A, TENANT_B, TODAY, aPaymentRates } from '../domain/testing/receivables.mother.js';
+import { PaymentCanceller } from '../application/cancel-payment/payment-canceller.js';
 import { ReceivablesPorts, ReceivablesPortsHarness } from './receivables-ports.harness.js';
 
 const tenant = TenantId.of(TENANT_A);
@@ -70,7 +74,7 @@ export function describeReceivablesPortsContract(implementation: string, createH
     }
 
     const confirm = (id: PaymentId) => ports.posting.post(tenant, id, (payment, invoices) => payment.confirm(invoices, aPaymentRates(), NOW, TODAY));
-    const cancel = (id: PaymentId) => ports.posting.post(tenant, id, (payment) => payment.cancel(NOW));
+    const cancel = (id: PaymentId) => new PaymentCanceller(ports.posting, ports.creditNotes, { now: () => NOW }).run({ tenantId: TENANT_A, paymentId: id.value });
     const invoice = async (id = INVOICE) => (await ports.ledger.invoices(tenant, { ids: [id] }))[0];
 
     async function draftNote(params: {
@@ -553,6 +557,58 @@ export function describeReceivablesPortsContract(implementation: string, createH
         const issuePaymentId = PaymentId.of(note.toPrimitives().issuePaymentId!);
 
         await expect(cancel(issuePaymentId)).rejects.toThrow(IssuePaymentCannotBeCancelledDirectlyError);
+      });
+
+      it('concurrently cancelling a credit note and cancelling its issue payment directly never deadlocks', async () => {
+        const noteId = await draftNote({ invoiceId: INVOICE, total: 50 });
+        await confirmNote(noteId);
+
+        const note = (await ports.creditNotes.find(tenant, noteId))!;
+        const issuePaymentId = PaymentId.of(note.toPrimitives().issuePaymentId!);
+
+        const results = await Promise.allSettled([
+          cancelNote(noteId),
+          cancel(issuePaymentId),
+        ]);
+
+        for (const result of results) {
+          if (result.status === 'rejected') {
+            const err = result.reason;
+            expect(
+              err instanceof IssuePaymentCannotBeCancelledDirectlyError ||
+              err instanceof CreditNoteAlreadyCancelledError ||
+              err instanceof PaymentAlreadyCancelledError,
+            ).toBe(true);
+          }
+        }
+      });
+
+      it('concurrently cancelling a credit note and posting on its issue payment respects deterministic lock order without database deadlock', async () => {
+        const noteId = await draftNote({ invoiceId: INVOICE, total: 50 });
+        await confirmNote(noteId);
+
+        const note = (await ports.creditNotes.find(tenant, noteId))!;
+        const issuePaymentId = PaymentId.of(note.toPrimitives().issuePaymentId!);
+
+        const results = await Promise.allSettled([
+          cancelNote(noteId),
+          ports.posting.post(tenant, issuePaymentId, (payment) => {
+            if (payment.currentStatus() === 'confirmed') {
+              payment.cancel(NOW);
+            }
+          }),
+        ]);
+
+        for (const result of results) {
+          if (result.status === 'rejected') {
+            const err = result.reason;
+            expect(
+              err instanceof CreditNoteAlreadyCancelledError ||
+              err instanceof CreditNoteNotConfirmedError ||
+              err instanceof PaymentAlreadyCancelledError,
+            ).toBe(true);
+          }
+        }
       });
 
       it('validates that sales return must belong to the same order when credit note cites both invoice and return', async () => {

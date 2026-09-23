@@ -41,7 +41,7 @@ export function aReceivablesScenario() {
     createPayment: new PaymentCreator(store.ledger, store.payments, codes, ids, clock, calendar, rates),
     updatePayment: new PaymentUpdater(finder, store.ledger, store.payments, ids, clock, calendar, rates),
     confirmPayment: new PaymentConfirmer(finder, store.ledger, store.posting, rates, clock, calendar),
-    cancelPayment: new PaymentCanceller(store.posting, clock),
+    cancelPayment: new PaymentCanceller(store.posting, store.creditNotes, clock),
     searchPayments: new PaymentSearcher(store.payments, store.ledger),
     searchReceivables: new ReceivableSearcher(store.ledger, calendar, rates),
     searchCustomerBalances: new CustomerBalanceSearcher(store.ledger, calendar, rates),

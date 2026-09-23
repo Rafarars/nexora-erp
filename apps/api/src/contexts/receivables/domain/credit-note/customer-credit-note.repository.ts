@@ -1,3 +1,4 @@
+import { PaymentId } from '../payment/customer-payment.entity.js';
 import { TenantId } from '../shared/tenant-id.vo.js';
 import { CreditNoteId, CustomerCreditNote } from './customer-credit-note.entity.js';
 
@@ -19,6 +20,7 @@ export interface CustomerCreditNoteRepository {
   save(note: CustomerCreditNote): Promise<void>;
   find(tenantId: TenantId, id: CreditNoteId): Promise<CustomerCreditNote | null>;
   findByIds(tenantId: TenantId, ids: CreditNoteId[]): Promise<CustomerCreditNote[]>;
+  findByIssuePayment(tenantId: TenantId, paymentId: PaymentId): Promise<CustomerCreditNote | null>;
   searchPage(tenantId: TenantId, filter: CreditNoteSearchFilter): Promise<{ notes: CustomerCreditNote[]; total: number }>;
   creditedAmountByInvoice(tenantId: TenantId, invoiceId: string): Promise<number>;
   creditedNotesByReturn(tenantId: TenantId, salesReturnId: string): Promise<CustomerCreditNote[]>;

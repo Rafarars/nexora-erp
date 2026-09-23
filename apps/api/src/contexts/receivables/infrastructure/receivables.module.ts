@@ -108,7 +108,7 @@ import { PrismaCreditNotePosting } from './persistence/prisma-credit-note-postin
       useFactory: (f: PaymentFinder, l: ReceivablesLedger, p: PaymentPosting, dr: DocumentRates, k: Clock, cal: BusinessCalendar) => new PaymentConfirmer(f, l, p, dr, k, cal),
       inject: [PaymentFinder, RECEIVABLES_LEDGER, PAYMENT_POSTING, DOCUMENT_RATES, CLOCK, BUSINESS_CALENDAR],
     },
-    { provide: PaymentCanceller, useFactory: (p: PaymentPosting, k: Clock) => new PaymentCanceller(p, k), inject: [PAYMENT_POSTING, CLOCK] },
+    { provide: PaymentCanceller, useFactory: (p: PaymentPosting, cn: CustomerCreditNoteRepository, k: Clock) => new PaymentCanceller(p, cn, k), inject: [PAYMENT_POSTING, CUSTOMER_CREDIT_NOTE_REPOSITORY, CLOCK] },
     { provide: PaymentSearcher, useFactory: (r: PaymentRepository, l: ReceivablesLedger) => new PaymentSearcher(r, l), inject: [PAYMENT_REPOSITORY, RECEIVABLES_LEDGER] },
     {
       provide: ReceivableSearcher,
