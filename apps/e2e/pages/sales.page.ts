@@ -21,7 +21,8 @@ export class SalesPage {
   constructor(private readonly page: Page) {}
 
   async open(section: Section, search?: string): Promise<void> {
-    // Solo navega a la raiz del modulo si venimos de otra parte de la aplicacion.
+    // Desde fuera, se espera la redireccion del modulo para no cambiar de seccion a destiempo;
+    // una vez dentro, ya no redirige y pulsar la raiz solo recargaria la primera pestaña.
     if (!this.page.url().includes('/ventas/')) {
       await this.page.getByTestId('nav-ventas').click();
       await expect(this.page).toHaveURL(/\/ventas\/[a-z-]+/);

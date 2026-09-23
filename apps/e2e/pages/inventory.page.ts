@@ -24,7 +24,8 @@ export class InventoryPage {
   }
 
   async open(section: Section): Promise<void> {
-    // Solo navega a la raiz del modulo si venimos de otra parte de la aplicacion.
+    // Desde fuera, se espera la redireccion del modulo para no cambiar de seccion a destiempo;
+    // una vez dentro, ya no redirige y pulsar la raiz solo recargaria la primera pestaña.
     if (!this.page.url().includes('/inventario/')) {
       await this.page.getByTestId('nav-inventario').click();
       await expect(this.page).toHaveURL(/\/inventario\/[a-z-]+/);
