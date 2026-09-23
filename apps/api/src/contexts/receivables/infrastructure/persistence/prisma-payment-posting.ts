@@ -1,5 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../../../../shared/prisma/prisma.service.js';
+import { ConcurrentModificationError } from '../../../../shared/domain/concurrent-modification.error.js';
 import {
   CreditNoteCurrencyMismatchError,
   CreditNoteCustomerMismatchError,
@@ -52,6 +53,10 @@ export class PrismaPaymentPosting implements PaymentPosting {
       if (locked.length === 0) throw new PaymentNotFoundError(paymentId.value);
 
       const payment = paymentFromRow(await tx.customerPayment.findFirstOrThrow({ where: { tenantId: tenant, id: paymentId.value }, include: PAYMENT_INCLUDE }));
+
+      if (payment.toPrimitives().creditSourceId !== (peek?.creditSourceId ?? null)) {
+        throw new ConcurrentModificationError(paymentId.value);
+      }
 
       if (payment.toPrimitives().creditSourceId) {
         const creditSourceId = payment.toPrimitives().creditSourceId!;
