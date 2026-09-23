@@ -27,8 +27,6 @@ export class PrismaPaymentPosting implements PaymentPosting {
     const tenant = tenantId.value;
 
     await this.prisma.$transaction(async (tx) => {
-      // Si el cobro cita una nota (como credito o emision), bloqueamos primero la nota para
-      // respetar el orden global determinista customer_credit_notes -> customer_payments -> invoices.
       const peek = await tx.customerPayment.findFirst({
         where: { tenantId: tenant, id: paymentId.value },
         select: { creditSourceId: true },
