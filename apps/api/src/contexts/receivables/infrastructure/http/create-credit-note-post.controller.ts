@@ -18,6 +18,11 @@ export class CreateCreditNotePostController {
     @Session() session: CurrentSession,
     @Body(new ZodValidationPipe(creditNoteRequestSchema)) body: CreditNoteRequestDto,
   ): Promise<{ id: string; code: string }> {
-    return this.useCase.run({ ...body, tenantId: session.tenantId });
+    const { date, ...rest } = body;
+    return this.useCase.run({
+      ...rest,
+      issueDate: body.issueDate ?? date ?? null,
+      tenantId: session.tenantId,
+    });
   }
 }

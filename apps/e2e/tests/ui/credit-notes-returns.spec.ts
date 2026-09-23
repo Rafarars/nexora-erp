@@ -87,4 +87,29 @@ test.describe('Credit notes and returns UI', () => {
     const row = page.locator('tr').filter({ hasText: 'Sin origen' }).first();
     await expect(row).toBeVisible();
   });
+
+  test('displays translated business error in Spanish when attempting to return more than dispatched', async ({ page }) => {
+    await new LoginPage(page).signIn(ACME_ADMIN);
+    const sales = new SalesPage(page);
+
+    await sales.open('devoluciones');
+    await page.getByTestId('btn-new-sales-return').click();
+    await expect(page.getByTestId('sales-return-create-panel')).toBeVisible();
+
+    // Seleccionar despacho sembrado DES000001
+    const optionValue = await page.locator('#dispatchSelect option', { hasText: 'DES000001' }).getAttribute('value');
+    await page.getByTestId('sales-return-dispatch-select').selectOption(optionValue!);
+
+    // El input tiene max=2 (cantidad despachada). Forzamos 999 para comprobar la regla de negocio del backend
+    const qtyInput = page.locator('[data-testid^="sales-return-qty-"]').first();
+    await qtyInput.evaluate((el: HTMLInputElement) => el.removeAttribute('max'));
+    await qtyInput.fill('999');
+
+    await page.getByTestId('btn-save-sales-return').click();
+
+    // El formulario muestra el error de negocio traducido
+    await expect(page.getByTestId('sales-return-form-error')).toHaveText(
+      'La cantidad a devolver supera lo que queda disponible de ese despacho.',
+    );
+  });
 });

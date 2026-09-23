@@ -101,6 +101,8 @@ export class HttpReceivablesApi implements ReceivablesApi {
   async saveCreditNote(token: string, id: string | null, input: CreditNoteInput): Promise<void> {
     const body = {
       ...input,
+      date: input.issueDate,
+      issueDate: input.issueDate,
       exchangeRate: input.exchangeRate == null ? null : numeric(input.exchangeRate),
       lines: input.lines.map((l) => ({
         ...l,

@@ -433,3 +433,25 @@ Antes de iniciar la Fase 0, se revisaron a fondo las once decisiones de diseno d
   - Al retirar la guarda de infraestructura de `PrismaPaymentPosting` antes de trasladarla a la capa de aplicación en `PaymentCanceller`, la prueba `closes the backdoor: issue payment cannot be cancelled directly from Collections` falló con:
     `AssertionError: promise resolved "undefined" instead of rejecting`
     demostrando empíricamente que sin la guarda en la capa de aplicación, el cobro de emisión se anulaba de forma indebida desde Cobros.
+
+### C8: Ejercitar los formularios reales en la interfaz y pruebas destructivas UI
+
+- **Qué cambió:**
+  - **Pruebas destructivas de flujos interactivos completos (`apps/e2e/tests/destructive/h8-ui-mutations.spec.ts`):**
+    - Creado archivo de pruebas en el proyecto `destructive` ejecutándose de modo serial (`mode: 'serial'`), con restauración del entorno pase lo que pase (`seedDemoData()` en `beforeAll` y `afterAll`) y navegador configurado con `test.use({ ...devices['Desktop Chrome'], baseURL: WEB })`.
+    - Implementados los flujos interactivos completos usando los `data-testid` del frontend:
+      1. **Devolución de ventas y reingreso:** Creación de devolución de venta sobre un despacho confirmado en condición `resalable`, confirmación desde la tabla de devoluciones de venta y verificación en la pantalla de existencias de inventario de que la mercancía reingresó a la bodega Principal (de 0 a 2 unidades).
+      2. **Nota de crédito con excedente y gasto de crédito en Cobros:** Emisión desde la UI de una nota de crédito por $25.00 sobre una factura que debía $10.00 (de $30.00 originales con $20.00 pagados previamente), confirmación en pantalla, verificación de que amortizó los $10.00 de la factura y dejó `USD 15,00` de crédito disponible. Posteriormente, registro de un cobro desde `/cuentas-por-cobrar/cobros` con método `credit_note` referenciando el ID de dicha nota para abonar $5.00 a otra factura del cliente, confirmación del cobro y comprobación de que el crédito disponible de la nota bajó a `USD 10,00`, reduciendo la deuda de la segunda factura a $25.00.
+      3. **Devolución de compras a proveedor:** Creación desde `/compras/devoluciones` de una devolución de compra sobre una recepción confirmada, guardado de borrador y confirmación en la tabla de devoluciones.
+  - **Traducción de error de negocio en pantalla (`apps/e2e/tests/ui/credit-notes-returns.spec.ts`):**
+    - Añadida la prueba interactiva `displays translated business error in Spanish when attempting to return more than dispatched`: intenta devolver sobre un despacho confirmado una cantidad que supera el cupo remanente (999 unidades) y verifica que el formulario muestre traducido en español el error de negocio: *«La cantidad a devolver supera lo que queda disponible de ese despacho.»* en `sales-return-form-error`.
+  - **Alineación de DTOs y API HTTP para notas de crédito:**
+    - En `credit-note.request.dto.ts`: se incorporó `issueDate: z.string().nullable().optional()` para admitir el nombre de campo enviado por los formularios web, mapeándolo en `CreateCreditNotePostController` y `UpdateCreditNotePutController` hacia el caso de uso (`body.issueDate ?? date`).
+    - En `http-receivables-api.ts`: se enviaron `date` e `issueDate` para compatibilidad total con la API.
+- **Pruebas que lo defienden:**
+  - `apps/e2e/tests/ui/credit-notes-returns.spec.ts`: 4/4 pruebas pasando en el proyecto `ui`.
+  - `apps/e2e/tests/destructive/h8-ui-mutations.spec.ts`: 3/3 pruebas de flujos completos pasando en el proyecto `destructive`.
+  - Total de pruebas en Playwright: 467/467 pasando al 100% en `make verify`.
+- **Evidencia de que la prueba fallaba antes:**
+  - Anteriormente, `credit-notes-returns.spec.ts` solo navegaba y leía datos preexistentes del seed demo; ningún formulario de creación, confirmación ni consumo de notas de crédito y devoluciones era ejercitado a través de la interfaz web.
+  - Al ejecutar inicialmente la prueba de emisión de nota de crédito por la UI, el formulario falló con `Error: expect(locator).toBeHidden() failed` mostrando `alert: Revisa los datos del formulario.` debido a la discrepancia de nombres de campo (`issueDate` vs `date`) con la validación estricta de Zod en la API, y `alert: El monto de las notas de crédito supera el total de la factura.` al probar la cota superior del cupo de factura, evidenciando empíricamente que los formularios no habían sido probados usándolos desde la interfaz.

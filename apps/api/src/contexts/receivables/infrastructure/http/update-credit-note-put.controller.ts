@@ -19,6 +19,12 @@ export class UpdateCreditNotePutController {
     @Param('creditNoteId') creditNoteId: string,
     @Body(new ZodValidationPipe(creditNoteRequestSchema)) body: CreditNoteRequestDto,
   ): Promise<void> {
-    await this.useCase.run({ ...body, creditNoteId, tenantId: session.tenantId });
+    const { date, ...rest } = body;
+    await this.useCase.run({
+      ...rest,
+      issueDate: body.issueDate ?? date ?? null,
+      creditNoteId,
+      tenantId: session.tenantId,
+    });
   }
 }
