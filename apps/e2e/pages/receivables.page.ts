@@ -1,13 +1,14 @@
 import { expect } from '@playwright/test';
 import type { Locator, Page } from '@playwright/test';
 
-type Section = 'cobros' | 'facturas' | 'antiguedad' | 'estado-de-cuenta';
+type Section = 'cobros' | 'facturas' | 'antiguedad' | 'estado-de-cuenta' | 'notas-de-credito';
 
 // El estado de cuenta no es un listado: se elige el cliente dentro, no se filtra.
 const FILTER_PREFIX: Partial<Record<Section, string>> = {
   cobros: 'payment',
   facturas: 'receivable',
   antiguedad: 'aging',
+  'notas-de-credito': 'credit-note',
 };
 
 // Las pantallas de cuentas por cobrar. Un cobro se busca por su cliente: los codigos los asigna

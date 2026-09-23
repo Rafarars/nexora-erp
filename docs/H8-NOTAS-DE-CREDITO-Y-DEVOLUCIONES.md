@@ -604,17 +604,17 @@ el texto de la API.
 
 Cada una cierra con `make verify` en verde y su commit.
 
-- [ ] **0. Esquema y correlativos** — migración de las seis tablas, la columna
+- [x] **0. Esquema y correlativos** — migración de las seis tablas, la columna
       `restoresMovementId` del kardex, el método de pago nuevo y los tres prefijos. Sin lógica.
-- [ ] **1. Inventario: revertir líneas sueltas** — `reverseLines` con su contrato de puerto contra
+- [x] **1. Inventario: revertir líneas sueltas** — `reverseLines` con su contrato de puerto contra
       el doble **y** contra PostgreSQL. Va primero porque todo lo demás se apoya en ella.
-- [ ] **2. Devolución de venta** — dominio, aplicación, API, pantallas.
-- [ ] **3. Nota de crédito a cliente** — incluido el cobro de emisión topado al saldo vivo, el
+- [x] **2. Devolución de venta** — dominio, aplicación, API, pantallas.
+- [x] **3. Nota de crédito a cliente** — incluido el cobro de emisión topado al saldo vivo, el
       crédito disponible (`NoteCredit`), **gastarlo desde Cobros** con forma `credit_note` y su
       bloqueo (§3.10 y §4.2), y el nombre en los **dos** estados de cuenta.
-- [ ] **4. Devolución de compra** — espejo de la 2.
-- [ ] **5. Restringir la anulación de facturas** (§3.6).
-- [ ] **6. Semillas y extremo a extremo** — datos de demostración con los tres casos que separan
+- [x] **4. Devolución de compra** — espejo de la 2.
+- [x] **5. Restringir la anulación de facturas** (§3.6).
+- [x] **6. Semillas y extremo a extremo** — datos de demostración con los tres casos que separan
       los ejes —devolución sin nota, nota sin devolución, y devolución `scrap`—, y una nota con
       crédito sobrante gastado después desde Cobros.
 - [ ] **7. Revisión** — con la skill `module-review`, modo «fase ya construida».

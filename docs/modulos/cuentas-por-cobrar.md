@@ -9,6 +9,7 @@ Contexto: `apps/api/src/contexts/receivables` · Pantallas: `/cuentas-por-cobrar
 |---|---|---|---|
 | Cobros | `customer_payments`, `payment_allocations` | `COB` | Dinero recibido de un cliente, repartido entre sus facturas |
 | Facturas por cobrar | — (se calcula) | — | Lo que debe cada factura emitida y si está vencida |
+| Notas de crédito | `customer_credit_notes`, `customer_credit_note_lines` | `NCC` | Disminución de deuda por descuento, devolución o corrección; crédito disponible |
 | Antigüedad de saldos | — (se calcula) | — | Lo que debe cada cliente, repartido por cuánto lleva vencido |
 | Estado de cuenta | — (se calcula) | — | Facturas y cobros de un cliente por fecha, con el saldo tras cada uno |
 | Límite de crédito | `customers.credit_limit` | — | Cuánto se le puede fiar a un cliente. Es un dato del cliente (Ventas) |
@@ -28,7 +29,10 @@ y si tiene vencidas, y al **anular una factura** pregunta si tiene cobros.
 3. **Nunca se cobra de más.** Un cobro no aplica a una factura más de lo que debe, tampoco si dos
    cobros se confirman a la vez.
 4. **Con vencidas no se fía.** A un cliente con alguna factura vencida no se le emite otra a crédito.
-5. **Nada se borra.** Un cobro se anula, y una factura con cobros no se anula hasta anularlos.
+5. **Una nota de crédito descuenta la factura o crea crédito disponible.** Si referencia una factura,
+   se aplica hasta su saldo pendiente mediante un cobro de emisión automático; el sobrante o las notas sin
+   factura quedan como crédito disponible para futuros cobros mediante el método `credit_note`.
+6. **Nada se borra.** Un cobro se anula, y una factura con cobros no se anula hasta anularlos.
 
 ---
 
@@ -41,7 +45,8 @@ y si tiene vencidas, y al **anular una factura** pregunta si tiene cobros.
 | `code` | `COB000001`, lo asigna el sistema |
 | `customer_id` | Cliente de la empresa. **Puede estar inactivo**: desactivar a un cliente no le perdona la deuda |
 | `payment_date` | Por defecto hoy; **no futura** y **no anterior a las facturas que paga** |
-| `method` | Efectivo, transferencia, tarjeta o cheque |
+| `method` | Efectivo, transferencia, tarjeta, cheque o nota de crédito (`credit_note`) |
+| `credit_source_id` | Nota de crédito de origen si el método es `credit_note`. Prohibido en pagos con dinero |
 | `reference` | Opcional, hasta 100 caracteres (número de transferencia, de cheque…) |
 | `notes` | Opcional, hasta 500 |
 | Aplicación: `invoice_id`, `amount` | Una factura **emitida, del mismo cliente**, una sola vez por cobro; monto **mayor que cero**, con como mucho los decimales de importe de la empresa |
@@ -260,7 +265,47 @@ cada movimiento por su lado pierde fracciones: una factura de 100 € con abonos
 
 ---
 
-## 6. API y permisos
+## 6. Notas de crédito — `customer_credit_notes`
+
+Disminución de deuda de un cliente por descuento posterior, corrección de precio, devolución de mercancía u otro motivo comercial.
+
+### 6.1 Datos y líneas
+
+| Campo | Regla |
+|---|---|
+| `code` | `NCC000001`, asignado por el sistema |
+| `customer_id` | Cliente de la empresa |
+| `invoice_id` | Factura que descuenta (opcional) |
+| `sales_return_id` | Devolución de venta de origen (opcional) |
+| `reason` | Motivo: `subsequent_discount`, `price_correction`, `damaged_goods`, `other` |
+| `reason_detail` | Detalle explicativo, obligatorio si el motivo es `other` |
+| `issue_date` | Fecha de emisión, no futura |
+| `currency` | Moneda de la nota y sus tasas vigentes |
+| Líneas | Importe y concepto de cada línea; total redondeado a decimales de la empresa |
+| `status` | `draft`, `confirmed` o `cancelled` |
+
+### 6.2 Aplicación automática y crédito disponible
+
+1. **Al confirmarse vinculada a una factura (`invoice_id`)**:
+   - Genera automáticamente un cobro de emisión (`issue_payment_id`) aplicado a la factura hasta cubrir su saldo pendiente.
+   - Si el total de la nota supera lo que la factura debía, la diferencia queda como **crédito disponible** (`available_credit`).
+2. **Sin factura de origen**:
+   - Todo el total de la nota pasa a ser **crédito disponible** del cliente.
+3. **Cobro posterior con nota de crédito**:
+   - Al registrar un cobro con `method: 'credit_note'` y `credit_source_id`, se consume parte o la totalidad del crédito disponible de la nota.
+   - El crédito disponible se calcula en tiempo real: `total - cobros_confirmados_aplicados`.
+
+### 6.3 Reglas de anulación e integridad
+
+- **Cobro de emisión protegido**: el cobro generado automáticamente en la emisión no se puede anular de forma independiente (`IssuePaymentCannotBeCancelledDirectlyError`). Para cancelarlo, se anula la nota de crédito.
+- **Nota con cobros aplicados**: no se puede anular una nota de crédito si tiene cobros de aplicación confirmados (`CreditNoteWithApplicationsError`).
+- **Anulación de cobro con crédito**: si se anula un cobro que consumió crédito de una nota, el crédito disponible regresa automáticamente a la nota.
+- **Cuota de factura**: el total acumulado de notas de crédito aplicadas a una factura no puede superar el total facturado (`CreditQuotaExceededError`).
+- **Devolución acreditada una sola vez**: una devolución de venta confirmada solo puede ser acreditada por una nota de crédito (`SalesReturnAlreadyCreditedError`).
+
+---
+
+## 7. API y permisos
 
 | Acción | Ruta | Permiso |
 |---|---|---|
@@ -270,8 +315,12 @@ cada movimiento por su lado pierde fracciones: una factura de 100 € con abonos
 | Facturas por cobrar | `GET /api/v1/receivables/invoices` | `receivables.balances.search` |
 | Antigüedad | `GET /api/v1/receivables/customers` | `receivables.balances.search` |
 | Estado de cuenta | `GET /api/v1/receivables/customers/:customerId/statement` | `receivables.statements.search` |
+| Notas de crédito | `GET/POST /api/v1/receivables/credit-notes`, `PUT …/:creditNoteId` | `receivables.creditnotes.{search,create,update}` |
+| Confirmar nota | `PUT /api/v1/receivables/credit-notes/:creditNoteId/confirm` | `receivables.creditnotes.confirm` |
+| Anular nota | `PUT /api/v1/receivables/credit-notes/:creditNoteId/cancel` | `receivables.creditnotes.cancel` |
+| Crédito disponible | `GET /api/v1/receivables/customers/:customerId/available-credits` | `receivables.creditnotes.search` |
 
-Los tres listados se leen por páginas (`limit` ≤ 50, `offset`; por defecto 20) y devuelven
+Los listados se leen por páginas (`limit` ≤ 50, `offset`; por defecto 20) y devuelven
 `total`, `limit`, `offset` y `hasMore`:
 
 | Listado | Filtros |
@@ -279,6 +328,7 @@ Los tres listados se leen por páginas (`limit` ≤ 50, `offset`; por defecto 20
 | `GET /receivables/invoices` | `q` (código de factura o nombre de cliente), `customerId`, `status` (`pending`, `partially_paid`, `paid`), `from`/`to` (vencimiento), `onlyOverdue` |
 | `GET /receivables/payments` | `q` (código del cobro o referencia), `customerId`, `status` (`draft`, `confirmed`, `cancelled`), `from`/`to` (fecha del cobro) |
 | `GET /receivables/customers` | `q` (código o nombre), `onlyWithBalance` (por defecto `true`) |
+| `GET /receivables/credit-notes` | `q` (código o motivo), `customerId`, `status` (`draft`, `confirmed`, `cancelled`), `from`/`to` |
 
 En `GET /receivables/customers`, `totals` suma **todos** los clientes que cumplen el filtro, no
 los de la página: si sumara la página, la fila de totales de la pantalla mentiría.
@@ -301,6 +351,15 @@ Cuerpo de un cobro:
 | `InvoiceOfAnotherCustomerError` | 409 | La factura es de otro cliente |
 | `PaymentBeforeInvoiceError` | 409 | Cobro con fecha anterior a la factura |
 | `PaymentNotEditableError` / `PaymentNotConfirmableError` | 409 | El cobro ya no está en borrador |
+| `CreditNoteNotFoundError` | 404 | La nota de crédito no existe |
+| `CreditNoteNotEditableError` | 409 | Solo se puede editar una nota de crédito en borrador |
+| `CreditNoteNotConfirmableError` | 409 | Solo se puede confirmar una nota de crédito en borrador |
+| `CreditNoteAlreadyCancelledError` | 409 | La nota de crédito ya está anulada |
+| `CreditNoteWithApplicationsError` | 409 | La nota tiene cobros de aplicación confirmados |
+| `CreditNoteExceededError` | 409 | El cobro intenta usar más crédito del disponible en la nota |
+| `CreditNoteCustomerMismatchError` | 409 | El cliente del cobro no coincide con el de la nota |
+| `IssuePaymentCannotBeCancelledDirectlyError` | 409 | Se intentó anular directamente el cobro generado en la emisión |
+| `CreditQuotaExceededError` | 409 | Las notas de crédito superan el total de la factura |
 | `CustomerWithOverdueInvoicesError` | 409 | (Ventas) Facturar a crédito con vencidas |
 | `CreditLimitExceededError` | 409 | (Ventas) La factura supera el límite |
 | `InvoiceWithPaymentsError` | 409 | (Ventas) Anular una factura con cobros |
@@ -312,41 +371,46 @@ Cuerpo de un cobro:
 
 ---
 
-## 7. Pantallas
+## 8. Pantallas
 
 | Ruta | Qué muestra |
 |---|---|
 | `/cuentas-por-cobrar/cobros` | Cobros con cliente, forma de pago y referencia, facturas y montos, total y estado. Menú: editar, confirmar, anular. **Nuevo cobro**: se elige el cliente y aparecen sus facturas con saldo (primero las que vencen antes), con lo que deben y si están vencidas; se escribe cuánto se cobra de cada una |
 | `/cuentas-por-cobrar/facturas` | Facturas emitidas por vencimiento: total con su moneda, cobrado, saldo (y debajo, si la factura no está en la moneda de la empresa, lo que vale en ella), estado y días vencida |
+| `/cuentas-por-cobrar/notas-de-credito` | Notas de crédito con cliente, motivo, factura o devolución relacionada, total, crédito disponible y estado. Menú: editar, confirmar, anular. Panel de creación con líneas y validación de cuota |
 | `/cuentas-por-cobrar/antiguedad` | Clientes con saldo por tramos, crédito disponible y bloqueo; el nombre lleva a su estado de cuenta |
 | `/cuentas-por-cobrar/estado-de-cuenta?cliente=` | Resumen (saldo, vencido, límite, disponible) y movimientos con saldo corrido |
 | `/ventas/clientes` | Columna y campo **Límite de crédito** (vacío: sin límite) |
 
 ---
 
-## 8. Datos de demostración
+## 9. Datos de demostración
 
 | Empresa | Qué hay |
 |---|---|
 | Acme | Comercial Delta con **límite 1000** y plazo de 15 días |
 | Acme | `COB000001` confirmado: transferencia `TRF-88231` de **30** a `FAC000001` (69,60) → debe **39,60**, disponible **960,40**. Facturada a 150,25 y cobrada a 152,40: diferencial **64,50 Bs** |
+| Acme | `NCC000001` confirmada: descuento posterior de `FAC000003` (Farmacia San Rafael) por 11,60 USD, con cobro de emisión `COB000002` aplicado |
+| Acme | `NCC000002` confirmada: mercancía dañada por `DVV000002` (Farmacia San Rafael) por 13,92 USD, con cobro de emisión `COB000003` aplicado |
+| Acme | `NCC000003` confirmada: corrección de precio de `FAC000005` por 11,60 USD; cobro de emisión `COB000004` por 4,64 USD aplicado; cobro posterior `COB000005` por 5,00 USD aplicado a `FAC000006`; saldo disponible restante: **1,96 USD** |
 | Globex | Talleres Omega con límite 500; `COB000001` confirmado de 20 y `COB000002` en borrador de 10: blancos de la matriz de aislamiento |
 
-El rol **Consulta** ve cobros, saldos, antigüedad y estados de cuenta, pero no cobra.
+El rol **Consulta** ve cobros, facturas, notas de crédito, saldos, antigüedad y estados de cuenta, pero no cobra ni modifica.
 
 ---
 
-## 9. Pruebas que lo protegen
+## 10. Pruebas que lo protegen
 
 | Nivel | Dónde | Qué cubre |
 |---|---|---|
-| Dominio | `contexts/receivables/domain/**/*.spec.ts` y `sales/domain/dispatch/dispatch.entity.spec.ts` | Saldo en céntimos, estados, días vencida, tramos, reglas del cobro; en ventas, contado sin control, vencidas, límite al céntimo, factura con cobros |
+| Dominio | `contexts/receivables/domain/**/*.spec.ts` y `sales/domain/dispatch/dispatch.entity.spec.ts` | Saldo en céntimos, estados, días vencida, tramos, reglas del cobro y de notas de crédito; en ventas, contado sin control, vencidas, límite al céntimo, factura con cobros |
 | Aplicación | `receivables-currency.spec.ts` | Cobro en la moneda de la empresa, en bolívares y en otra divisa, tasa del día del cobro, diferencial, saldos en la moneda de la empresa |
-| Aplicación | `receivables-cycle.spec.ts` | Borrador que no toca saldos, **anular devuelve el saldo**, dos borradores que no caben, cliente inactivo, factura anulada en medio, estado de cuenta que cuadra con los saldos, bloqueo que vuelve al anular un cobro |
-| Contrato | `receivables-ports.contract.ts` y `sales-ports.contract.ts` | Contra doble y PostgreSQL: **dos cobros simultáneos a una factura**, **un borrador guardado por otra persona en medio**, **dos facturas a crédito simultáneas contra el límite**, vencida que bloquea, factura con cobros que no se anula |
-| API | `tests/api/receivables.api.spec.ts` | Los tres del plan por HTTP (anular revierte, vencidas no facturan a crédito, estado de cuenta cuadra), contado, límite, concurrencia, **factura en dólares cobrada en bolívares con su diferencial**, tasa escrita para la moneda de la empresa |
-| Interfaz | `tests/ui/receivables.spec.ts` | Cobrar en parte y anular en pasos Dado/Cuando/Entonces, **cobrar en bolívares y ver el diferencial**, error de sobrecobro en español, facturar con vencidas desde Despachos, solo lectura |
-| Aislamiento | `tests/isolation/*` | 6 ataques a cobros, saldos y estados de cuenta de Globex |
+| Aplicación | `receivables-cycle.spec.ts` | Borrador que no toca saldos, **anular devuelve el saldo**, notas de crédito y su crédito disponible, dos borradores que no caben, cliente inactivo, factura anulada en medio, estado de cuenta que cuadra con los saldos |
+| Contrato | `receivables-ports.contract.ts` y `sales-ports.contract.ts` | Contra doble y PostgreSQL: **dos cobros simultáneos a una factura**, **un borrador guardado por otra persona en medio**, notas de crédito concurrentes con `FOR UPDATE`, cobros con `credit_note`, vencida que bloquea |
+| API | `tests/api/receivables.api.spec.ts` | Los tres del plan por HTTP (anular revierte, vencidas no facturan a crédito, estado de cuenta cuadra), notas de crédito y crédito disponible, tasa escrita para la moneda de la empresa |
+| Interfaz | `tests/ui/receivables.spec.ts`, `tests/ui/credit-notes-returns.spec.ts` | Cobrar en parte y anular en pasos Dado/Cuando/Entonces, navegación de notas de crédito y verificación de saldo disponible, error de sobrecobro en español, facturar con vencidas desde Despachos, solo lectura |
+| Destructivas | `tests/destructive/h8-mutations.spec.ts` | Límite de crédito disponible en nota de crédito, cobro con crédito y restauración al anular el cobro, bloqueo de anulación de nota con cobros aplicados, bloqueo de anulación directa de cobro de emisión |
+| Aislamiento | `tests/isolation/*` | 6 ataques a cobros, saldos, notas de crédito y estados de cuenta de Globex |
 
 
 ---

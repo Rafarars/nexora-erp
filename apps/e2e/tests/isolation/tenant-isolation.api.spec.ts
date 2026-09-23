@@ -15,7 +15,20 @@ const auth = (token: string) => ({ authorization: `Bearer ${token}` });
 // despues de cada ataque: un 404 que llega DESPUES de escribir tambien seria una fuga.
 async function globexSnapshot(request: APIRequestContext) {
   const token = await tokenFor(request, 'beto@globex.com');
-  const read = (path: string) => request.get(path, { headers: auth(token) }).then((r) => r.json());
+  const read = async (path: string) => {
+    for (let attempt = 0; attempt < 3; attempt++) {
+      try {
+        const response = await request.get(path, { headers: auth(token) });
+        return await response.json();
+      } catch (error: any) {
+        if (attempt < 2 && (error?.message?.includes('socket hang up') || error?.message?.includes('ECONNRESET'))) {
+          await new Promise((resolve) => setTimeout(resolve, 100));
+          continue;
+        }
+        throw error;
+      }
+    }
+  };
   const [users, roles, categories, units, taxes, warehouses, items, adjustments, stock, suppliers, orders, receipts, incoming, customers, salesOrders, dispatches, invoices, availability, payments, receivables, balances, dashboard, valuation, rates] = await Promise.all([
     read('/api/v1/users'),
     read('/api/v1/roles'),

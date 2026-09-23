@@ -62,15 +62,20 @@ export class PrismaPurchasingPortsHarness implements PurchasingPortsHarness {
   }
 
   async reset(): Promise<void> {
-    await this.prisma.customerCreditNote.deleteMany();
     await this.prisma.paymentAllocation.deleteMany();
+    await this.prisma.customerCreditNote.updateMany({ data: { issuePaymentId: null } });
+    await this.prisma.customerPayment.updateMany({ data: { creditSourceId: null } });
+    await this.prisma.customerCreditNoteLine.deleteMany();
+    await this.prisma.customerCreditNote.deleteMany();
+    await this.prisma.salesReturnLine.deleteMany();
+    await this.prisma.salesReturn.deleteMany();
+    await this.prisma.purchaseReturnLine.deleteMany();
+    await this.prisma.purchaseReturn.deleteMany();
     await this.prisma.customerPayment.deleteMany();
     await this.prisma.invoice.deleteMany();
-    await this.prisma.salesReturn.deleteMany();
     await this.prisma.dispatch.deleteMany();
     await this.prisma.salesOrder.deleteMany();
     await this.prisma.customer.deleteMany();
-    await this.prisma.purchaseReturn.deleteMany();
     await this.prisma.goodsReceipt.deleteMany();
     await this.prisma.purchaseOrder.deleteMany();
     await this.prisma.supplier.deleteMany();

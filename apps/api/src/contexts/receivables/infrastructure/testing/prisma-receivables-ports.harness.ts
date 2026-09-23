@@ -90,12 +90,19 @@ export class PrismaReceivablesPortsHarness implements ReceivablesPortsHarness {
   async reset(): Promise<void> {
     await this.prisma.paymentAllocation.deleteMany();
     await this.prisma.customerCreditNote.updateMany({ data: { issuePaymentId: null } });
-    await this.prisma.customerPayment.deleteMany();
+    await this.prisma.customerPayment.updateMany({ data: { creditSourceId: null } });
     await this.prisma.customerCreditNoteLine.deleteMany();
     await this.prisma.customerCreditNote.deleteMany();
+    await this.prisma.salesReturnLine.deleteMany();
+    await this.prisma.salesReturn.deleteMany();
+    await this.prisma.purchaseReturnLine.deleteMany();
+    await this.prisma.purchaseReturn.deleteMany();
+    await this.prisma.customerPayment.deleteMany();
     await this.prisma.invoiceLine.deleteMany();
     await this.prisma.invoice.deleteMany();
+    await this.prisma.dispatchLine.deleteMany();
     await this.prisma.dispatch.deleteMany();
+    await this.prisma.salesOrderLine.deleteMany();
     await this.prisma.salesOrder.deleteMany();
     await this.prisma.customer.deleteMany();
     await this.prisma.codeSequence.deleteMany({ where: { prefix: { in: ['COB', 'NCC'] } } });

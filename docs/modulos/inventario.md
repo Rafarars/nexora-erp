@@ -397,7 +397,7 @@ Ejemplo: 40 unidades a 2,00 revaluadas a 3,00 escriben una salida de 40 a 2,00 y
 | `unit_cost` | Costo por unidad base del movimiento |
 | `balance_quantity` | Existencia **después** del movimiento |
 | `balance_average_cost` | Costo promedio **después** del movimiento |
-| `origin_type`, `origin_id`, `origin_line_id` | Documento y línea que lo originaron: `adjustment`, `receipt` (entrada de compra) o `dispatch` (despacho de venta) |
+| `origin_type`, `origin_id`, `origin_line_id` | Documento y línea que lo originaron: `adjustment`, `receipt` (entrada de compra), `dispatch` (despacho de venta), `sales_return` (devolución de venta) o `purchase_return` (devolución a proveedor) |
 | `reversal_of_id` | Movimiento que revierte, si es una anulación |
 | `origin_date` | **El día que declara el documento**: un ajuste fechado en agosto lo dice aquí |
 | `occurred_at` | **Cuándo se publicó**, con su hora. No tiene por qué ser el mismo día |
@@ -426,6 +426,10 @@ completo, con lo que se encontró en el sistema de referencia, en [FUTURE.md](..
 - **Revertir una entrada**: saca su valor del promedio. Si no queda nada, el promedio se conserva;
   si el valor restante fuera negativo, queda en cero.
 - **Revertir una salida**: la devuelve al costo al que salió.
+- **Devolución de cliente (`sales_return`)**: si es apta para venta (`resalable`), reingresa al kardex al
+  **costo unitario congelado del despacho de origen**. Si es scrap o dañada, no genera movimiento en kardex.
+- **Devolución a proveedor (`purchase_return`)**: sale de la bodega al **costo unitario congelado de la entrada de origen**.
+- **Anular una devolución**: genera la contrapartida que revierte exactamente el movimiento publicado.
 
 ---
 

@@ -64,7 +64,7 @@ export class PrismaSalesReturnPosting implements SalesReturnPosting {
           where: {
             tenantId: tenant,
             dispatchLineId: { not: null },
-            return: {
+            salesReturn: {
               tenantId: tenant,
               dispatchId: dispatch.id.value,
               status: 'confirmed',

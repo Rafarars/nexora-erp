@@ -1,13 +1,14 @@
 import { expect } from '@playwright/test';
 import type { Locator, Page } from '@playwright/test';
 
-type Section = 'ordenes' | 'entradas' | 'en-camino' | 'proveedores';
+type Section = 'ordenes' | 'entradas' | 'en-camino' | 'proveedores' | 'devoluciones';
 
 const FILTER_PREFIX: Record<Section, string> = {
   ordenes: 'order',
   entradas: 'receipt',
   'en-camino': 'incoming',
   proveedores: 'supplier',
+  devoluciones: 'purchase-return',
 };
 
 export interface OrderLineInput {

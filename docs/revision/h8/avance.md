@@ -211,3 +211,60 @@ Antes de iniciar la Fase 0, se revisaron a fondo las once decisiones de diseno d
     - 202 tests unitarios de Web pasando.
     - Gitleaks sin secretos y Oxlint sin errores.
 
+---
+
+## Fase 6: Semillas de demostración y pruebas extremo a extremo (E2E y Destructivas)
+
+### 1. Semillas de demostración (`apps/api/prisma/seed.ts`)
+- **Nuevos maestros sin alterar inventario previo:**
+  - Artículo `soap` (`JABON-500`, 'Jabón líquido 500 ml', costo unitario 1,50 USD, precios en listas retail 4,00 / wholesale 3,50 USD). No altera ni una sola unidad de `AGUA-500` (288 un) ni `DETERGENTE-1KG` (50 un), ni las reglas de reorden de bajo mínimo.
+  - Cliente `farmacia` (código `CLI000003`, 'Farmacia San Rafael', contado).
+- **Resolución de dependencias circulares FK en limpieza (`removeInventory`):**
+  - Se añadieron `updateMany` a `null` para `customerCreditNote.issuePaymentId` y `customerPayment.creditSourceId` antes de ejecutar `deleteMany`, permitiendo re-ejecuciones de `make seed` limpias e idempotentes.
+- **Cinco casos demostrativos sembrados:**
+  1. `DVV000001` (Bodegón La Esquina): devolución en condición `resalable` de 1 caja de agua de `DES000002` sin nota de crédito; reingresa al kardex al costo congelado.
+  2. `NCC000001` (Farmacia San Rafael): descuento posterior de `FAC000003` por 11,60 USD sin devolución física; genera cobro de emisión `COB000002` que salda la factura.
+  3. `DVV000002` + `NCC000002` (Farmacia San Rafael): devolución de 1 jabón líquido de `DES000004` en condición `scrap` (sin reingreso a kardex) acreditada por nota de crédito `NCC000002` por 13,92 USD con cobro de emisión `COB000003`.
+  4. `NCC000003` (Farmacia San Rafael): corrección de precio de `FAC000005` (4,64 USD) por un total de 11,60 USD. Genera cobro de emisión `COB000004` por 4,64 USD, dejando 6,96 USD de crédito disponible. Posteriormente, desde Cobros se consume `COB000005` por 5,00 USD aplicado a `FAC000006`, dejando un saldo disponible restante en la nota de **1,96 USD**.
+  5. `DVC000001` (Distribuidora del Valle): devolución a proveedor de 10 botellas de agua de `ENT000002`; salida en kardex al costo congelado de 0,50 USD y orden de compra `OC000003` intacta.
+- **Permisos de consulta en semillas:**
+  - Incorporados `sales.returns.search`, `purchasing.returns.search` y `receivables.creditnotes.search` al rol `ACME_VIEWER_ROLE` ('Consulta').
+
+### 2. Configuración del proyecto `destructive` en Playwright
+- En `apps/e2e/playwright.config.ts`:
+  - Creado el proyecto `destructive` (`testDir: './tests/destructive'`, `dependencies: ['api', 'ui', 'isolation', 'performance']`, `fullyParallel: false`, `workers: 1`, `use: { baseURL: API_URL }`).
+  - Actualizado el proyecto `resilience` para incluir `'destructive'` en sus dependencias antes de apagar PostgreSQL.
+
+### 3. Pruebas E2E de interfaz de usuario (`tests/ui/credit-notes-returns.spec.ts`)
+- Navegación del Administrador por `/ventas/devoluciones`, `/cuentas-por-cobrar/notas-de-credito` y `/compras/devoluciones`, verificando documentos sembrados, estados y cálculo en pantalla de crédito disponible (`NCC000003` con USD 1,96 disponible).
+- Verificación del rol solo lectura (Contador): visualiza todos los registros sin botones de acción (`btn-new-sales-return`, `btn-new-credit-note`, `btn-new-purchase-return`).
+
+### 4. Pruebas destructivas y de mutación (`tests/destructive/h8-mutations.spec.ts`)
+- Modo serial con `test.afterAll(() => { seedDemoData(); })` para garantizar restauración del entorno.
+- **Caso 1:** Bloqueo de anulación de factura con devolución confirmada (`FAC000002` con `DVV000001` rechazada con `409 InvoiceWithReturnsError`).
+- **Caso 2:** Control de cupo de crédito disponible en nota de crédito: intento de gastar 1,97 USD cuando el disponible es 1,96 USD es rechazado al confirmar con `409 CreditNoteExceededError`. Cobro válido de 1,00 USD reduce el disponible a 0,96 USD.
+- **Caso 3:** Anular el cobro recién confirmado restituye inmediatamente el saldo disponible a 1,96 USD.
+- **Caso 4:** Bloqueo de anulación de nota de crédito que tiene cobros confirmados aplicados (`NCC000003` rechazada con `409 CreditNoteWithApplicationsError`).
+- **Caso 5:** Bloqueo de anulación directa del cobro generado automáticamente en la emisión de la nota (`COB000002` rechazada con `409 IssuePaymentCannotBeCancelledDirectlyError`).
+- **Caso 6:** Ciclo completo de devolución de venta en inventario: confirmación genera reingreso en kardex (`direction: 'in'`) y anulación genera contra-asiento compensatorio (`direction: 'out'`, `isReversal: true`).
+
+### 5. Hallazgos y correcciones durante la verificación
+- **Bug en relaciones Prisma de persistencia de ventas:** En `PrismaSalesReturnRepository.returnedQuantitiesByDispatch` y en `PrismaSalesReturnPosting.confirm`, las consultas sobre `salesReturnLine` referenciaban `return:` en lugar del nombre de relación `salesReturn:`. Esto fue detectado por la prueba destructiva de kardex y corregido inmediatamente.
+
+---
+
+## Tres dudas principales de menor certeza para la revisión de Rafael
+
+1. **Flexibilidad en la aplicación automática del cobro de emisión:**
+   - *Situación actual:* Al confirmar una nota de crédito vinculada a una factura, el sistema crea forzosamente un cobro de emisión que absorbe el saldo pendiente de la factura hasta donde alcance el total de la nota.
+   - *Duda:* ¿Debería el usuario poder decidir qué porción de la nota se aplica a la factura y qué porción queda de inmediato como crédito disponible a favor del cliente, o es preferible mantener la regla determinista de cancelar siempre la deuda inmediata primero?
+
+2. **Reingreso de devoluciones sobre artículos descatalogados o desactivados:**
+   - *Situación actual:* Si un artículo inventariado se desactiva para ventas después de haber sido despachado, una devolución posterior de ese despacho en condición `resalable` reingresa la existencia al kardex al costo congelado.
+   - *Duda:* Dado que el artículo está inactivo comercialmente, ¿debería el sistema bloquear la devolución en condición `resalable` obligando a reactivar el SKU primero (similar a la regla de compras), o forzar a que la devolución se clasifique como `scrap` / dañada para no dejar stock vendible de artículos retirados?
+
+3. **Interacción con retenciones fiscales e impuestos en notas de crédito (preparación H10):**
+   - *Situación actual:* La nota de crédito replica la tasa impositiva de la factura y calcula subtotales/impuestos proporcionales, generando un cobro por el monto nominal total.
+   - *Duda:* En el marco tributario venezolano (SENIAT), donde muchas ventas a contribuyentes especiales conllevan retención de IVA (75% o 100%), ¿deberá considerarse en el hito contable (H10) un comprobante de retención sobre notas de crédito, o el modelo de cobro sin dinero actual absorbe limpiamente cualquier saldo remanente sin impacto colateral?
+
+

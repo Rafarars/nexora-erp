@@ -119,7 +119,7 @@ export class PrismaSalesReturnRepository implements SalesReturnRepository {
       where: {
         tenantId: tenantId.value,
         dispatchLineId: { not: null },
-        return: {
+        salesReturn: {
           tenantId: tenantId.value,
           dispatchId,
           status: 'confirmed',

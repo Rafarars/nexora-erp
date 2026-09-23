@@ -28,6 +28,7 @@ export default defineConfig({
     {
       name: 'ui',
       testDir: './tests/ui',
+      timeout: 60_000,
       fullyParallel: true,
       use: { ...devices['Desktop Chrome'], baseURL: WEB_URL },
     },
@@ -49,10 +50,20 @@ export default defineConfig({
       use: { baseURL: API_URL },
     },
     {
+      // Pruebas destructivas y de mutacion que alteran el estado compartido.
+      // Corren de forma serial y restauran el entorno al terminar.
+      name: 'destructive',
+      testDir: './tests/destructive',
+      dependencies: ['api', 'ui', 'isolation', 'performance'],
+      fullyParallel: false,
+      workers: 1,
+      use: { baseURL: API_URL },
+    },
+    {
       // Apaga Postgres: siempre al final o tumbaria a los demas proyectos.
       name: 'resilience',
       testDir: './tests/resilience',
-      dependencies: ['api', 'ui', 'isolation', 'performance'],
+      dependencies: ['api', 'ui', 'isolation', 'performance', 'destructive'],
       fullyParallel: false,
       workers: 1,
       use: { ...devices['Desktop Chrome'], baseURL: WEB_URL },

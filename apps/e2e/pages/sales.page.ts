@@ -1,7 +1,7 @@
 import { expect } from '@playwright/test';
 import type { Locator, Page } from '@playwright/test';
 
-type Section = 'pedidos' | 'despachos' | 'facturas' | 'disponibilidad' | 'clientes';
+type Section = 'pedidos' | 'despachos' | 'facturas' | 'disponibilidad' | 'clientes' | 'devoluciones';
 
 const FILTER_PREFIX: Record<Section, string> = {
   pedidos: 'sales-order',
@@ -9,6 +9,7 @@ const FILTER_PREFIX: Record<Section, string> = {
   facturas: 'invoice',
   disponibilidad: 'availability',
   clientes: 'customer',
+  devoluciones: 'sales-return',
 };
 
 // Las pantallas de ventas. Un pedido se busca por su cliente, un despacho por sus notas y una
