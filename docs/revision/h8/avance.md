@@ -121,7 +121,7 @@ Antes de iniciar la Fase 0, se revisaron a fondo las once decisiones de diseno d
   - Actualizados `receivables.ts`, `receivables-api.ts`, `http-receivables-api.ts`, `receivables-error.ts`.
   - Nueva sección `/cuentas-por-cobrar/notas-de-credito` en menú de navegación `RECEIVABLES_SECTIONS`.
   - Tablero completo `CreditNotesBoard` con listado, filtros, panel SlideOver para emitir/editar y opciones de confirmar/anular.
-  - Selector de nota de crédito / crédito disponible integrado en `payments-board.tsx`.
+  - El formulario de cobros en `payments-board.tsx` admitía forma `credit_note` pero pedía introducir el UUID manualmente; el selector integrado con notas disponibles y crédito visible se completó en la segunda ronda de correcciones (R8).
 - **Pruebas y Verificación:**
   - 23/23 tests de contrato en memoria pasando.
   - 23/23 tests de integración contra PostgreSQL en `prisma-receivables-ports.contract.integration.spec.ts` pasando.
@@ -276,16 +276,18 @@ Antes de iniciar la Fase 0, se revisaron a fondo las once decisiones de diseno d
 - **Qué cambió:**
   - En `apps/e2e/tests/isolation/tenant-isolation.api.spec.ts`: se revirtió por completo el bloque `for` con reintentos en `read` dentro de `globexSnapshot`, restaurando la llamada simple original `const read = (path: string) => request.get(path, { headers: auth(token) }).then((r) => r.json());`.
   - En `apps/e2e/playwright.config.ts`: se eliminó el ajuste `timeout: 60_000` del proyecto `ui`, restaurando el umbral por omisión de 30 s para todas las pruebas de interfaz.
-- **Evidencia empírica de reproducción y descarte:**
-  - **Pruebas de aislamiento:** Con el código original sin reintentos, se ejecutaron 2 corridas consecutivas del proyecto `isolation` (`pnpm --filter e2e exec playwright test --project=isolation`):
+- **Evidencia empírica de reproducción y resolución:**
+  - **Pruebas de aislamiento iniciales:** Con el código original sin reintentos, se ejecutaron 2 corridas consecutivas del proyecto `isolation` (`pnpm --filter e2e exec playwright test --project=isolation`):
     - Corrida 1: 190 pasadas (4.0m), 0 fallos, 0 errores de socket hang up.
     - Corrida 2: 190 pasadas (4.0m), 0 fallos, 0 errores de socket hang up.
-  - **Suite completa E2E:** Se ejecutaron 2 corridas consecutivas de la suite completa (`pnpm test:e2e`):
+  - **Suite completa E2E inicial:** Se ejecutaron 2 corridas consecutivas de la suite completa (`pnpm test:e2e`):
     - Corrida 1: 461 pasadas (7.5m), 0 fallos, 0 errores de socket hang up.
     - Corrida 2: 461 pasadas (7.5m), 0 fallos, 0 errores de socket hang up.
-  - **Total de pruebas ejecutadas:** 1.302 ejecuciones de pruebas E2E sin un solo `socket hang up`.
-  - **Duración medida de la prueba de compras:** La prueba `orders, receives part of it, follows it into the stock and cancels the receipt` registró una duración medida de 13,3 s en ambas corridas completas, muy por debajo del umbral de 30 s.
-  - **Conclusión según directriz:** Al no reproducirse el fallo de socket hang up en 1.302 ejecuciones con el entorno limpio y serializado, no se introducen ajustes artificiales de `keepAliveTimeout` en el servidor HTTP (`main.ts`) ni anotaciones `test.slow()` innecesarias. Se documenta la evidencia y se procede con C2.
+  - **Resultado inicial (1.302 ejecuciones limpias):** En 1.302 ejecuciones de pruebas E2E no se reprodujo el corte de conexión. Conforme a la directriz («si no logras reproducirlo, no apliques el ajuste»), inicialmente no se modificó `main.ts` y se avanzó a C2.
+  - **Aparición posterior en C5:** Durante la corrida de verificación completa (`make verify`) de C5, el fallo reapareció exactamente una vez en la prueba 451/463 (`tenant-isolation.api.spec.ts:133`) con `FetchError: request to http://127.0.0.1:3000/api/v1/sales/orders failed, reason: socket hang up`.
+  - **Confirmación de la hipótesis y solución en `main.ts`:** Esto confirmó empíricamente que la carrera de keep-alive en Node.js (cierre de socket por el timeout por defecto de 5 s del servidor HTTP mientras el cliente reutilizaba la conexión en ráfaga) era real, con una probabilidad estadística de 1 en miles de peticiones HTTP. En ese momento se aplicó en `apps/api/src/main.ts` la configuración de `server.keepAliveTimeout = 65000` y `server.headersTimeout = 66000` sobre `app.getHttpServer()`.
+  - **Estabilidad posterior:** En todas las corridas completas posteriores de `make verify` y ejecuciones de Playwright (más de 1.800 pruebas adicionales acumuladas), no volvió a presentarse ningún `socket hang up`.
+  - **Duración medida de la prueba de compras:** La prueba `orders, receives part of it, follows it into the stock and cancels the receipt` midió 13,3 s en aislamiento y 26,9 s en la suite; cuando superó los 30 s bajo contención concurrente en C6, se le aplicó `test.slow()` con su duración real documentada.
 
 ### C2: Contrato de puerto de las devoluciones de venta
 
@@ -369,8 +371,8 @@ Antes de iniciar la Fase 0, se revisaron a fondo las once decisiones de diseno d
   - **Doble en memoria y arnés de pruebas:**
     - En `InMemoryReceivablesStore`: implementado almacenamiento de devoluciones `salesReturnRows` con validación de estado, cliente, coincidencia de pedido (`orderId`) y unicidad de nota acreditada.
     - En `receivables-ports.harness.ts`, `in-memory-receivables-ports.contract.spec.ts` y `prisma-receivables-ports.harness.ts`: cableados los métodos de soporte `salesReturnForInvoice`, `salesReturn` y `cancelSalesReturn`.
-  - **Ajuste de keep-alive en el servidor HTTP (`main.ts`):**
-    - En `apps/api/src/main.ts`: configurados `keepAliveTimeout = 65000` y `headersTimeout = 66000` sobre `app.getHttpServer()`, eliminando los cortes de socket intermitentes por carrera TCP entre Playwright y la API observados durante la ejecución masiva de pruebas de aislamiento.
+  - **Incidencia de keep-alive resuelta durante esta fase:**
+    - Durante la verificación completa de C5 ocurrió el socket hang up aislado documentado en C1, momento en el cual se ajustaron `keepAliveTimeout` y `headersTimeout` en `apps/api/src/main.ts` (ver relato y mediciones detalladas en C1).
 - **Pruebas que lo defienden:**
   - En `receivables-ports.contract.ts`:
     - `validates that sales return must belong to the same order when credit note cites both invoice and return`: comprueba el rechazo con `CreditNoteReturnOrderMismatchError`.
@@ -405,6 +407,8 @@ Antes de iniciar la Fase 0, se revisaron a fondo las once decisiones de diseno d
   - 29/29 pruebas pasando al 100% tanto en memoria (`in-memory-receivables-ports.contract.spec.ts`) como contra base de datos PostgreSQL real (`prisma-receivables-ports.contract.integration.spec.ts`).
 - **Evidencia de que la prueba fallaba antes:**
   - Al ejecutar la suite contra PostgreSQL antes de corregir:
+    1. En `confirms a credit note and creates its issue payment respecting the company amount decimals`: al configurar la empresa con 3 decimales y emitir una nota de 40.125, el cobro automático de emisión redondeaba forzosamente a 2 decimales (`40.13`), provocando fallo de aserción al comparar los montos (`expected 40.13 to be 40.125`).
+    2. En `refuses to confirm a credit note citing an invoice that was cancelled after the draft`: la confirmación procedía sin validar el estado de la factura amortizando una deuda que ya no existía, en lugar de rechazar con `InvoiceNotPayableError`.
 
 ### C7: Orden de bloqueo entre nota y cobro de emisión y guarda en aplicación
 
