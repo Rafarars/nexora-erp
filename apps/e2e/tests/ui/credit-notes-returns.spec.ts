@@ -112,4 +112,23 @@ test.describe('Credit notes and returns UI', () => {
       'La cantidad a devolver supera lo que queda disponible de ese despacho.',
     );
   });
+
+  test('displays customer total available credit and credit note selector in collections form', async ({ page }) => {
+    await new LoginPage(page).signIn(ACME_ADMIN);
+    const receivables = new ReceivablesPage(page);
+
+    await receivables.open('cobros');
+    await page.getByTestId('new-payment').click();
+    await expect(page.getByTestId('payment-panel')).toBeVisible();
+
+    // Al elegir cliente con notas confirmadas (Farmacia San Rafael tiene NCC000003 con crédito disponible)
+    await page.getByTestId('payment-customer').selectOption({ label: 'Farmacia San Rafael' });
+    await expect(page.getByTestId('payment-customer-available-credit')).toContainText('1,96');
+
+    // Con forma credit_note, aparece el selector con la nota y su remanente disponible
+    await page.getByTestId('payment-method').selectOption('credit_note');
+    await expect(page.getByTestId('payment-credit-source')).toBeVisible();
+    await expect(page.getByTestId('payment-credit-source')).toContainText('NCC000003');
+    await expect(page.getByTestId('payment-credit-source')).toContainText('1,96 disponible');
+  });
 });

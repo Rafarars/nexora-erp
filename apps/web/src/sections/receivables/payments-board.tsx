@@ -1,7 +1,7 @@
 'use client';
 
-import { useActionState, useState } from 'react';
-import { changePayment, savePayment } from '@/app/(app)/cuentas-por-cobrar/actions';
+import { useActionState, useEffect, useState } from 'react';
+import { changePayment, getCustomerAvailableCredits, savePayment } from '@/app/(app)/cuentas-por-cobrar/actions';
 import { MenuButton } from '@/sections/purchasing/menu-button';
 import { FormError, SubmitButton, TextArea } from '@/sections/shared/field';
 import { RowOptions } from '@/sections/shared/row-options';
@@ -12,7 +12,7 @@ import { formatAmount } from '@/modules/purchasing/domain/purchasing';
 import { currencyOptions, formatRate, offersManualRate } from '@/modules/company/domain/company';
 import { DocumentRate } from '@/sections/shared/document-rate';
 import { PAYMENT_METHOD_LABELS, PAYMENT_STATUS_LABELS, customersWithDebt, overdueLabel, payableInvoices, paymentActions } from '@/modules/receivables/domain/receivables';
-import type { CustomerBalance, Payment, PaymentMethod, PaymentStatus, Receivable } from '@/modules/receivables/domain/receivables';
+import type { AvailableCredit, CustomerBalance, Payment, PaymentMethod, PaymentStatus, Receivable } from '@/modules/receivables/domain/receivables';
 import type { CompanySettings, Currency } from '@/modules/company/domain/company';
 import { Filter, Pager } from '@/sections/shared/filters';
 import { submitKeepingValues } from '@/shared/forms/submit-keeping-values';
@@ -240,19 +240,46 @@ function PaymentFields({
   const [customerId, setCustomerId] = useState(payment?.customer.id ?? '');
   const [method, setMethod] = useState<PaymentMethod>(payment?.method ?? 'transfer');
   const [currency, setCurrency] = useState(payment?.currency ?? baseCurrency);
+  const [creditSourceId, setCreditSourceId] = useState(payment?.creditSourceId ?? '');
+  const [availableCredits, setAvailableCredits] = useState<AvailableCredit[]>([]);
   const invoices = payableInvoices(receivables, customerId, payment);
+
+  useEffect(() => {
+    if (!customerId) return;
+    let active = true;
+    getCustomerAvailableCredits(customerId).then((credits) => {
+      if (active) setAvailableCredits(credits);
+    });
+    return () => {
+      active = false;
+    };
+  }, [customerId]);
+
+  const totalAvailableCredit = availableCredits.reduce((sum, c) => sum + c.availableCredit, 0);
 
   return (
     <>
       <div className="space-y-1.5">
-        <label htmlFor="payment-customer" className="text-sm font-medium">
-          Cliente
-        </label>
+        <div className="flex items-center justify-between">
+          <label htmlFor="payment-customer" className="text-sm font-medium">
+            Cliente
+          </label>
+          {customerId ? (
+            <span className="text-muted text-xs" data-testid="payment-customer-available-credit">
+              Crédito disponible: {baseCurrency} {formatAmount(totalAvailableCredit)}
+            </span>
+          ) : null}
+        </div>
         <select
           id="payment-customer"
           name="customerId"
           value={customerId}
-          onChange={(event) => setCustomerId(event.target.value)}
+          onChange={(event) => {
+            const nextCustomer = event.target.value;
+            setCustomerId(nextCustomer);
+            setCreditSourceId('');
+            if (!nextCustomer) setAvailableCredits([]);
+          }}
           data-testid="payment-customer"
           className="border-line bg-background w-full rounded-md border px-3 py-2 text-sm"
         >
@@ -304,17 +331,34 @@ function PaymentFields({
       {method === 'credit_note' ? (
         <div className="space-y-1.5">
           <label htmlFor="payment-credit-source" className="text-sm font-medium">
-            ID de la nota de crédito origen
+            Nota de crédito origen
           </label>
-          <input
+          <select
             id="payment-credit-source"
             name="creditSourceId"
-            defaultValue={payment?.creditSourceId ?? ''}
-            placeholder="UUID de la nota de crédito..."
+            value={creditSourceId}
+            onChange={(event) => setCreditSourceId(event.target.value)}
             data-testid="payment-credit-source"
-            className="border-line w-full rounded-md border bg-transparent px-3 py-2 text-sm"
+            className="border-line bg-background w-full rounded-md border px-3 py-2 text-sm"
             required
-          />
+          >
+            <option value="">Elige una nota de crédito</option>
+            {availableCredits.map((note) => (
+              <option key={note.id} value={note.id}>
+                {note.code} · {note.currency} {formatAmount(note.availableCredit)} disponible
+              </option>
+            ))}
+            {payment?.creditSourceId && !availableCredits.some((c) => c.id === payment.creditSourceId) ? (
+              <option value={payment.creditSourceId}>
+                Nota asociada ({payment.creditSourceId})
+              </option>
+            ) : null}
+            {availableCredits.length === 0 ? (
+              <option value="" disabled>
+                Este cliente no tiene notas de crédito con saldo disponible
+              </option>
+            ) : null}
+          </select>
         </div>
       ) : null}
 

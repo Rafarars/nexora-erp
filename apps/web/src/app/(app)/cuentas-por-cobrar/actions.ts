@@ -92,3 +92,13 @@ export async function changeCreditNote(_state: FormState, form: FormData): Promi
 
   return attempt('No se pudo anular la nota de crédito.', (token) => receivablesApi().cancelCreditNote(token, id));
 }
+
+export async function getCustomerAvailableCredits(customerId: string) {
+  if (!customerId) return [];
+  const { token } = await requireSession();
+  try {
+    return await receivablesApi().availableCredits(token, customerId);
+  } catch {
+    return [];
+  }
+}

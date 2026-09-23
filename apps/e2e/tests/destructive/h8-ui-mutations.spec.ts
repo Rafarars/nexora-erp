@@ -166,8 +166,11 @@ test.describe('destructive H8 credit note and returns UI workflows', () => {
     await expect(page.getByTestId('payment-panel')).toBeVisible();
 
     await page.getByTestId('payment-customer').selectOption({ label: customer.name });
+    await expect(page.getByTestId('payment-customer-available-credit')).toContainText('15,00');
     await page.getByTestId('payment-method').selectOption('credit_note');
-    await page.getByTestId('payment-credit-source').fill(createdNote.id);
+    const noteOption = page.locator('[data-testid="payment-credit-source"] option').filter({ hasText: createdNote.code });
+    const noteValue = await noteOption.getAttribute('value');
+    await page.getByTestId('payment-credit-source').selectOption(noteValue!);
     await page.getByTestId(`payment-allocation-${inv2.code}`).fill('5');
 
     await page.getByTestId('payment-submit').click();
