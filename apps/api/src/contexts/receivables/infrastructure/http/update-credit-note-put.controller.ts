@@ -22,7 +22,7 @@ export class UpdateCreditNotePutController {
     const { date, ...rest } = body;
     await this.useCase.run({
       ...rest,
-      issueDate: body.issueDate ?? date ?? null,
+      issueDate: date ?? null,
       creditNoteId,
       tenantId: session.tenantId,
     });

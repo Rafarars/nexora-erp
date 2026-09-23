@@ -14,7 +14,6 @@ export const creditNoteRequestSchema = z.object({
   invoiceId: z.string().uuid().nullable().optional(),
   salesReturnId: z.string().uuid().nullable().optional(),
   date: z.string().nullable().optional(),
-  issueDate: z.string().nullable().optional(),
   reason: z.enum(CREDIT_NOTE_REASONS),
   reasonDetail: z.string().trim().nullable().optional(),
   notes: z.string().trim().nullable().optional(),

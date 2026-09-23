@@ -63,7 +63,7 @@ export interface CreditNoteInput {
   customerId: string;
   invoiceId?: string | null;
   salesReturnId?: string | null;
-  issueDate: string | null;
+  date: string | null;
   reason: CreditNoteReason;
   reasonDetail?: string | null;
   notes?: string | null;

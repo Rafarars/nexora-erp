@@ -434,7 +434,7 @@ function CreditNoteFields({
           <label className="text-muted block text-xs font-medium">Fecha de emisión</label>
           <input
             type="date"
-            name="issueDate"
+            name="date"
             defaultValue={note?.issueDate ?? new Date().toISOString().slice(0, 10)}
             data-testid="credit-note-date"
             className="border-line bg-surface mt-1 w-full rounded-md border px-3 py-2 text-sm"

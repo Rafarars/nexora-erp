@@ -21,7 +21,7 @@ export class CreateCreditNotePostController {
     const { date, ...rest } = body;
     return this.useCase.run({
       ...rest,
-      issueDate: body.issueDate ?? date ?? null,
+      issueDate: date ?? null,
       tenantId: session.tenantId,
     });
   }

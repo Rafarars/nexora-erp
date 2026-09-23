@@ -69,7 +69,7 @@ export async function saveCreditNote(_state: FormState, form: FormData): Promise
       customerId: text(form, 'customerId'),
       invoiceId: optional(form, 'invoiceId'),
       salesReturnId: optional(form, 'salesReturnId'),
-      issueDate: optional(form, 'issueDate'),
+      date: optional(form, 'date') ?? optional(form, 'issueDate'),
       reason: text(form, 'reason') as CreditNoteReason,
       reasonDetail: optional(form, 'reasonDetail'),
       notes: optional(form, 'notes'),
