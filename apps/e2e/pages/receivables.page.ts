@@ -20,9 +20,11 @@ export class ReceivablesPage {
   constructor(private readonly page: Page) {}
 
   async open(section: Section, search?: string): Promise<void> {
-    // Como en ventas: se espera la redireccion del modulo antes de elegir la seccion.
-    await this.page.getByTestId('nav-cuentas-por-cobrar').click();
-    await expect(this.page).toHaveURL(/\/cuentas-por-cobrar\/[a-z-]+/);
+    // Solo navega a la raiz del modulo si venimos de otra parte de la aplicacion.
+    if (!this.page.url().includes('/cuentas-por-cobrar/')) {
+      await this.page.getByTestId('nav-cuentas-por-cobrar').click();
+      await expect(this.page).toHaveURL(/\/cuentas-por-cobrar\/[a-z-]+/);
+    }
     // Bajo carga, un clic que llega mientras termina la redireccion del modulo se pierde: si la
     // direccion no cambia, se vuelve a pulsar dentro de la misma espera.
     await expect(async () => {

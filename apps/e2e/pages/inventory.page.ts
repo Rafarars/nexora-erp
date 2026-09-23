@@ -24,10 +24,11 @@ export class InventoryPage {
   }
 
   async open(section: Section): Promise<void> {
-    // El modulo redirige a su primera seccion: si se elige la seccion antes de que termine esa
-    // redireccion, la redireccion llega despues y deja la pantalla en la seccion equivocada.
-    await this.page.getByTestId('nav-inventario').click();
-    await expect(this.page).toHaveURL(/\/inventario\/[a-z-]+/);
+    // Solo navega a la raiz del modulo si venimos de otra parte de la aplicacion.
+    if (!this.page.url().includes('/inventario/')) {
+      await this.page.getByTestId('nav-inventario').click();
+      await expect(this.page).toHaveURL(/\/inventario\/[a-z-]+/);
+    }
     // Bajo carga, un clic que llega mientras termina la redireccion del modulo se pierde: si la
     // direccion no cambia, se vuelve a pulsar dentro de la misma espera.
     await expect(async () => {
