@@ -13,6 +13,7 @@ import { PrismaCustomerCreditNoteRepository } from '../persistence/prisma-custom
 import { PrismaCreditNotePosting } from '../persistence/prisma-credit-note-posting.js';
 
 import { IdGenerator } from '../../../../shared/domain/ports/id-generator.js';
+import { SalesReturnWithCreditNoteError } from '../../../sales/domain/errors/sales.errors.js';
 
 const WAREHOUSE: Record<string, string> = { [TENANT_A]: 'b7111111-1111-4111-8111-111111111111', [TENANT_B]: 'b7222222-2222-4222-8222-222222222222' };
 
@@ -85,6 +86,72 @@ export class PrismaReceivablesPortsHarness implements ReceivablesPortsHarness {
 
   async cancelInvoice(tenantId: string, invoiceId: string): Promise<void> {
     await this.prisma.invoice.update({ where: { tenantId_id: { tenantId, id: invoiceId } }, data: { status: 'cancelled', cancelledAt: new Date() } });
+  }
+
+  async salesReturnForInvoice(tenantId: string, invoiceId: string, returnId: string, status: 'confirmed' | 'draft' | 'cancelled' = 'confirmed'): Promise<void> {
+    const inv = await this.prisma.invoice.findFirstOrThrow({ where: { tenantId, id: invoiceId } });
+    const warehouseId = WAREHOUSE[tenantId];
+    const n = String((this.sequence += 1)).padStart(6, '0');
+    await this.prisma.salesReturn.create({
+      data: {
+        id: returnId,
+        tenantId,
+        code: `DVV7${n.slice(-5)}`,
+        customerId: inv.customerId,
+        warehouseId,
+        dispatchId: inv.dispatchId,
+        returnDate: new Date('2026-01-10T00:00:00.000Z'),
+        condition: 'resalable',
+        status,
+        currency: inv.currency,
+        baseCurrency: inv.baseCurrency,
+        updatedAt: new Date(),
+      },
+    });
+  }
+
+  async salesReturn(tenantId: string, returnId: string, customerId: string, status: 'confirmed' | 'draft' | 'cancelled' = 'confirmed'): Promise<void> {
+    const warehouseId = WAREHOUSE[tenantId];
+    const n = String((this.sequence += 1)).padStart(6, '0');
+    const orderId = `57000000-0000-4000-8000-${n.padStart(12, '0')}`;
+    const dispatchId = `5d700000-0000-4000-8000-${n.padStart(12, '0')}`;
+    const date = new Date('2026-01-08T00:00:00.000Z');
+
+    await this.prisma.salesOrder.create({ data: { id: orderId, tenantId, code: `PED7${n.slice(-5)}`, customerId, warehouseId, orderDate: date, status: 'dispatched', currency: 'USD', baseCurrency: 'USD', updatedAt: date } });
+    await this.prisma.dispatch.create({ data: { id: dispatchId, tenantId, code: `DES7${n.slice(-5)}`, orderId, warehouseId, dispatchDate: date, status: 'confirmed', updatedAt: date } });
+
+    await this.prisma.salesReturn.create({
+      data: {
+        id: returnId,
+        tenantId,
+        code: `DVV7${n.slice(-5)}`,
+        customerId,
+        warehouseId,
+        dispatchId,
+        returnDate: new Date('2026-01-10T00:00:00.000Z'),
+        condition: 'resalable',
+        status,
+        currency: 'USD',
+        baseCurrency: 'USD',
+        updatedAt: new Date(),
+      },
+    });
+  }
+
+  async cancelSalesReturn(tenantId: string, returnId: string): Promise<void> {
+    await this.prisma.$transaction(async (tx) => {
+      await tx.$queryRaw`SELECT id FROM sales_returns WHERE tenant_id = ${tenantId}::uuid AND id = ${returnId}::uuid FOR UPDATE`;
+      const isCredited = await tx.customerCreditNote.findFirst({
+        where: { tenantId, salesReturnId: returnId, status: 'confirmed' },
+      });
+      if (isCredited) {
+        throw new SalesReturnWithCreditNoteError(returnId);
+      }
+      await tx.salesReturn.update({
+        where: { tenantId_id: { tenantId, id: returnId } },
+        data: { status: 'cancelled', cancelledAt: new Date() },
+      });
+    });
   }
 
   async reset(): Promise<void> {

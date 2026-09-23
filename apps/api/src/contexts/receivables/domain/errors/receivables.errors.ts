@@ -197,6 +197,18 @@ export class CreditNoteReturnNotConfirmedError extends ConflictError {
   }
 }
 
+export class CreditNoteReturnAlreadyCreditedError extends ConflictError {
+  constructor(returnId: string) {
+    super(`Sales return <${returnId}> has already been credited by another credit note.`, 'The sales return has already been credited.');
+  }
+}
+
+export class CreditNoteReturnOrderMismatchError extends ConflictError {
+  constructor(returnId: string, invoiceId: string) {
+    super(`Sales return <${returnId}> does not belong to the same order as invoice <${invoiceId}>.`, 'The sales return does not belong to the same order as the invoice.');
+  }
+}
+
 export class CreditQuotaExceededError extends ConflictError {
   constructor(invoiceId: string, available: number, requested: number) {
     super(`Invoice <${invoiceId}> has only <${available}> credit quota, requested <${requested}>.`, 'The credit note exceeds the invoice balance.');

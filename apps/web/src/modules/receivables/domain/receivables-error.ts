@@ -35,6 +35,8 @@ const BY_CODE: Record<string, string> = {
   CreditNoteWithApplicationsError: 'No se puede anular la nota: su crédito ya fue aplicado en otros cobros confirmados.',
   CreditNoteReturnCustomerMismatchError: 'El cliente de la nota no coincide con el de la devolución.',
   CreditNoteReturnNotConfirmedError: 'La devolución de venta debe estar confirmada para acreditarse.',
+  CreditNoteReturnAlreadyCreditedError: 'Esta devolución de venta ya ha sido acreditada por otra nota de crédito.',
+  CreditNoteReturnOrderMismatchError: 'La devolución de venta no pertenece al mismo pedido que la factura acreditada.',
   SalesReturnAlreadyCreditedError: 'Esta devolución de venta ya ha sido acreditada por otra nota de crédito.',
   IssuePaymentCannotBeCancelledDirectlyError: 'El cobro generado por emisión de nota de crédito solo puede anularse anulando la nota.',
 };

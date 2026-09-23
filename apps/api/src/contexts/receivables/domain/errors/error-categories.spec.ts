@@ -36,6 +36,8 @@ const cases: Array<[DomainError, typeof DomainError]> = [
   [new errors.CreditNoteCurrencyMismatchError('USD', 'VES'), ConflictError],
   [new errors.CreditNoteReturnCustomerMismatchError(ID, ID), ConflictError],
   [new errors.CreditNoteReturnNotConfirmedError(ID, 'draft'), ConflictError],
+  [new errors.CreditNoteReturnAlreadyCreditedError(ID), ConflictError],
+  [new errors.CreditNoteReturnOrderMismatchError(ID, ID), ConflictError],
   [new errors.CreditQuotaExceededError(ID, 10, 20), ConflictError],
   [new errors.IssuePaymentCannotBeCancelledDirectlyError(ID, ID), ConflictError],
   [new errors.EmptyCreditNoteError(), InvalidArgumentError],

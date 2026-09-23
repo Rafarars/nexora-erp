@@ -5,8 +5,10 @@ import {
   CreditNoteAlreadyCancelledError,
   CreditNoteNotConfirmableError,
   CreditNoteNotFoundError,
+  CreditNoteReturnAlreadyCreditedError,
   CreditNoteReturnCustomerMismatchError,
   CreditNoteReturnNotConfirmedError,
+  CreditNoteReturnOrderMismatchError,
   CreditNoteWithApplicationsError,
   ReceivableInvoiceNotFoundError,
 } from '../../domain/errors/receivables.errors.js';
@@ -38,6 +40,7 @@ export class PrismaCreditNotePosting implements CreditNotePosting {
     const tenant = tenantId.value;
 
     return await this.prisma.$transaction(async (tx) => {
+      // Orden de bloqueo determinista: customer_credit_notes -> invoices -> sales_returns
       const lockedNotes = await tx.$queryRaw<{ id: string }[]>`
         SELECT id FROM customer_credit_notes
         WHERE tenant_id = ${tenant}::uuid AND id = ${noteId.value}::uuid
@@ -178,19 +181,42 @@ export class PrismaCreditNotePosting implements CreditNotePosting {
         }
       }
 
-      // 2. Si cita devolucion de venta: validar que este confirmada y no acreditada por otra nota
+      // 2. Si cita devolucion de venta: bloquear con FOR UPDATE, validar mismo pedido y que no este acreditada
       if (note.salesReturnId()) {
         const returnId = note.salesReturnId()!;
-        const returnRow = await tx.salesReturn.findFirst({
+        const lockedReturns = await tx.$queryRaw<{ id: string }[]>`
+          SELECT id FROM sales_returns
+          WHERE tenant_id = ${tenant}::uuid AND id = ${returnId}::uuid
+          FOR UPDATE`;
+
+        if (lockedReturns.length === 0) {
+          throw new CreditNoteReturnNotConfirmedError(returnId, 'none');
+        }
+
+        const returnRow = await tx.salesReturn.findFirstOrThrow({
           where: { tenantId: tenant, id: returnId },
+          include: { dispatch: { select: { orderId: true } } },
         });
 
-        if (!returnRow || returnRow.status !== 'confirmed') {
-          throw new CreditNoteReturnNotConfirmedError(returnId, returnRow?.status ?? 'none');
+        if (returnRow.status !== 'confirmed') {
+          throw new CreditNoteReturnNotConfirmedError(returnId, returnRow.status);
         }
 
         if (returnRow.customerId !== note.customerId()) {
           throw new CreditNoteReturnCustomerMismatchError(returnId, note.customerId());
+        }
+
+        // H8 §4.2 regla 2: Si la nota cita factura y devolucion a la vez, la devolucion debe ser del mismo pedido que la factura
+        if (note.invoiceId()) {
+          const invoiceOrderId = (await tx.invoice.findFirst({
+            where: { tenantId: tenant, id: note.invoiceId()! },
+            select: { orderId: true },
+          }))?.orderId;
+
+          const returnOrderId = returnRow.dispatch?.orderId;
+          if (!returnOrderId || !invoiceOrderId || returnOrderId !== invoiceOrderId) {
+            throw new CreditNoteReturnOrderMismatchError(returnId, note.invoiceId()!);
+          }
         }
 
         const otherNoteWithReturn = await tx.customerCreditNote.findFirst({
@@ -203,7 +229,7 @@ export class PrismaCreditNotePosting implements CreditNotePosting {
         });
 
         if (otherNoteWithReturn) {
-          throw new CreditNoteReturnNotConfirmedError(returnId, 'already_credited');
+          throw new CreditNoteReturnAlreadyCreditedError(returnId);
         }
       }
 

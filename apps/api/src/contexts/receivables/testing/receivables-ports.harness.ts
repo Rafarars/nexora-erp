@@ -16,12 +16,14 @@ export interface ReceivablesPorts {
   creditNotePosting: CreditNotePosting;
 }
 
-// Deja cuentas por cobrar vacio y siembra lo que en la base escribe ventas: clientes y facturas.
 export interface ReceivablesPortsHarness {
   ports(): ReceivablesPorts;
   customer(tenantId: string, customer: ReceivableCustomer): Promise<void>;
   invoice(tenantId: string, invoice: Omit<ReceivableInvoicePrimitives, 'paid'>): Promise<void>;
   cancelInvoice(tenantId: string, invoiceId: string): Promise<void>;
+  salesReturnForInvoice(tenantId: string, invoiceId: string, returnId: string, status?: 'confirmed' | 'draft' | 'cancelled'): Promise<void>;
+  salesReturn(tenantId: string, returnId: string, customerId: string, status?: 'confirmed' | 'draft' | 'cancelled'): Promise<void>;
+  cancelSalesReturn(tenantId: string, returnId: string): Promise<void>;
   reset(): Promise<void>;
   close(): Promise<void>;
 }

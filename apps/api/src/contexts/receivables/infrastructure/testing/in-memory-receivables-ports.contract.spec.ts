@@ -25,6 +25,18 @@ class InMemoryReceivablesPortsHarness implements ReceivablesPortsHarness {
     this.store.cancelInvoice(invoiceId);
   }
 
+  async salesReturnForInvoice(tenantId: string, invoiceId: string, returnId: string, status: 'confirmed' | 'draft' | 'cancelled' = 'confirmed'): Promise<void> {
+    this.store.salesReturnForInvoice(tenantId, invoiceId, returnId, status);
+  }
+
+  async salesReturn(tenantId: string, returnId: string, customerId: string, status: 'confirmed' | 'draft' | 'cancelled' = 'confirmed'): Promise<void> {
+    this.store.salesReturn(tenantId, returnId, customerId, status);
+  }
+
+  async cancelSalesReturn(tenantId: string, returnId: string): Promise<void> {
+    await this.store.cancelSalesReturn(tenantId, returnId);
+  }
+
   async reset(): Promise<void> {
     this.store = new InMemoryReceivablesStore();
     this.current = this.build();

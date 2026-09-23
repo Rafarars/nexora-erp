@@ -7,13 +7,17 @@ import {
   CreditNoteNotConfirmedError,
   CreditNoteNotEditableError,
   CreditNoteNotFoundError,
+  CreditNoteReturnAlreadyCreditedError,
+  CreditNoteReturnCustomerMismatchError,
   CreditNoteReturnNotConfirmedError,
+  CreditNoteReturnOrderMismatchError,
   CreditNoteWithApplicationsError,
   IssuePaymentCannotBeCancelledDirectlyError,
   PaymentNotEditableError,
   PaymentNotFoundError,
   ReceivableInvoiceNotFoundError,
 } from '../../domain/errors/receivables.errors.js';
+import { SalesReturnWithCreditNoteError } from '../../../sales/domain/errors/sales.errors.js';
 import { ReceivableInvoice, ReceivableInvoicePrimitives } from '../../domain/ledger/receivable-invoice.js';
 import { ReceivableCustomer, ReceivableInvoiceFilter, ReceivablesLedger } from '../../domain/ledger/receivables-ledger.js';
 import { CustomerPayment, PaymentId, PaymentPrimitives } from '../../domain/payment/customer-payment.entity.js';
@@ -26,7 +30,15 @@ import { CreditNotePosting } from '../../domain/credit-note/posting/credit-note-
 import { CreditQuota } from '../../domain/credit-note/credit-quota.service.js';
 import { NoteCredit } from '../../domain/credit-note/note-credit.service.js';
 
-type InvoiceRow = Omit<ReceivableInvoicePrimitives, 'paid'> & { tenantId: string };
+type InvoiceRow = Omit<ReceivableInvoicePrimitives, 'paid'> & { tenantId: string; orderId?: string };
+
+interface StoredSalesReturn {
+  id: string;
+  tenantId: string;
+  customerId: string;
+  orderId?: string;
+  status: 'draft' | 'confirmed' | 'cancelled';
+}
 
 // Clientes y facturas de ventas mas los cobros y notas de credito, en un solo almacen: lo cobrado
 // de una factura sale de los cobros confirmados, como en la base. Las publicaciones van de una en
@@ -36,6 +48,7 @@ export class InMemoryReceivablesStore {
   private readonly invoiceRows = new Map<string, InvoiceRow>();
   private readonly paymentRows = new Map<string, PaymentPrimitives>();
   private readonly creditNoteRows = new Map<string, CustomerCreditNotePrimitives>();
+  private readonly salesReturnRows = new Map<string, StoredSalesReturn>();
   private queue: Promise<unknown> = Promise.resolve();
 
   customer(tenantId: string, customer: ReceivableCustomer): void {
@@ -43,7 +56,7 @@ export class InMemoryReceivablesStore {
   }
 
   invoice(tenantId: string, invoice: Omit<ReceivableInvoicePrimitives, 'paid'>): void {
-    this.invoiceRows.set(invoice.id, { ...invoice, tenantId });
+    this.invoiceRows.set(invoice.id, { ...invoice, tenantId, orderId: `order-for-${invoice.id}` });
   }
 
   // Simula que ventas anula la factura.
@@ -51,6 +64,40 @@ export class InMemoryReceivablesStore {
     const row = this.invoiceRows.get(invoiceId);
 
     if (row) this.invoiceRows.set(invoiceId, { ...row, status: 'cancelled' });
+  }
+
+  salesReturnForInvoice(tenantId: string, invoiceId: string, returnId: string, status: 'confirmed' | 'draft' | 'cancelled' = 'confirmed'): void {
+    const inv = this.invoiceRows.get(invoiceId);
+    this.salesReturnRows.set(returnId, {
+      id: returnId,
+      tenantId,
+      customerId: inv?.customerId ?? '',
+      orderId: inv?.orderId ?? `order-for-${invoiceId}`,
+      status,
+    });
+  }
+
+  salesReturn(tenantId: string, returnId: string, customerId: string, status: 'confirmed' | 'draft' | 'cancelled' = 'confirmed'): void {
+    this.salesReturnRows.set(returnId, {
+      id: returnId,
+      tenantId,
+      customerId,
+      orderId: `order-independent-${returnId}`,
+      status,
+    });
+  }
+
+  cancelSalesReturn(tenantId: string, returnId: string): Promise<void> {
+    return this.serial(async () => {
+      const existing = await this.creditNotes.creditedNotesByReturn({ value: tenantId } as any, returnId);
+      if (existing.length > 0) {
+        throw new SalesReturnWithCreditNoteError(returnId);
+      }
+      const row = this.salesReturnRows.get(returnId);
+      if (row) {
+        this.salesReturnRows.set(returnId, { ...row, status: 'cancelled' });
+      }
+    });
   }
 
   get ledger(): ReceivablesLedger {
@@ -313,9 +360,26 @@ export class InMemoryReceivablesStore {
 
           if (note.salesReturnId()) {
             const returnId = note.salesReturnId()!;
+            const ret = this.salesReturnRows.get(returnId);
+
+            if (!ret || ret.tenantId !== tenantId.value || ret.status !== 'confirmed') {
+              throw new CreditNoteReturnNotConfirmedError(returnId, ret?.status ?? 'none');
+            }
+
+            if (ret.customerId !== note.customerId()) {
+              throw new CreditNoteReturnCustomerMismatchError(returnId, note.customerId());
+            }
+
+            if (note.invoiceId()) {
+              const inv = this.invoiceRows.get(note.invoiceId()!);
+              if (!inv || !ret.orderId || ret.orderId !== inv.orderId) {
+                throw new CreditNoteReturnOrderMismatchError(returnId, note.invoiceId()!);
+              }
+            }
+
             const existing = await this.creditNotes.creditedNotesByReturn(tenantId, returnId);
             if (existing.length > 0) {
-              throw new CreditNoteReturnNotConfirmedError(returnId, 'already_credited');
+              throw new CreditNoteReturnAlreadyCreditedError(returnId);
             }
           }
 
@@ -371,7 +435,7 @@ export class InMemoryReceivablesStore {
       .filter((row) => !filter.to || row.dueDate <= filter.to)
       .filter((row) => text === null || row.code.toLowerCase().includes(text) || nameOf(row.customerId).toLowerCase().includes(text))
       .sort((a, b) => b.code.localeCompare(a.code))
-      .map(({ tenantId: _tenant, ...row }) => ReceivableInvoice.of({ ...row, paid: this.paidOf(row.id, excludedPayment) }));
+      .map(({ tenantId: _tenant, orderId: _orderId, ...row }) => ReceivableInvoice.of({ ...row, paid: this.paidOf(row.id, excludedPayment) }));
   }
 
   private paidOf(invoiceId: string, excludedPayment?: string): number {

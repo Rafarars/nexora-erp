@@ -206,7 +206,7 @@ export class PrismaSalesReturnPosting implements SalesReturnPosting {
       }
 
       // Una devolucion acreditada por una nota de credito confirmada no se anula (§4.1)
-      const isCredited = await this.creditedChecker.isCredited(tenantId, returnId);
+      const isCredited = await this.creditedChecker.isCredited(tenantId, returnId, tx);
       if (isCredited) {
         throw new SalesReturnWithCreditNoteError(returnEntity.id.value);
       }

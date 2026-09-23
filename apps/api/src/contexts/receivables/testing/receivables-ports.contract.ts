@@ -4,6 +4,9 @@ import { DocumentCurrency } from '../../../shared/domain/document-currency.js';
 import {
   CreditNoteExceededError,
   CreditNoteNotEditableError,
+  CreditNoteReturnAlreadyCreditedError,
+  CreditNoteReturnNotConfirmedError,
+  CreditNoteReturnOrderMismatchError,
   CreditNoteWithApplicationsError,
   CreditQuotaExceededError,
   InvoiceNotPayableError,
@@ -12,6 +15,7 @@ import {
   PaymentNotEditableError,
   PaymentNotFoundError,
 } from '../domain/errors/receivables.errors.js';
+import { SalesReturnWithCreditNoteError } from '../../sales/domain/errors/sales.errors.js';
 import { CustomerPayment, PaymentDetails, PaymentId } from '../domain/payment/customer-payment.entity.js';
 import { CreditNoteId, CustomerCreditNote } from '../domain/credit-note/customer-credit-note.entity.js';
 import { NoteCredit } from '../domain/credit-note/note-credit.service.js';
@@ -547,6 +551,41 @@ export function describeReceivablesPortsContract(implementation: string, createH
         const issuePaymentId = PaymentId.of(note.toPrimitives().issuePaymentId!);
 
         await expect(cancel(issuePaymentId)).rejects.toThrow(IssuePaymentCannotBeCancelledDirectlyError);
+      });
+
+      it('validates that sales return must belong to the same order when credit note cites both invoice and return', async () => {
+        const RETURN_DIFF = 'd7000000-0000-4000-8000-000000000001';
+        await harness.salesReturn(TENANT_A, RETURN_DIFF, CUSTOMER);
+
+        const noteId = await draftNote({ invoiceId: INVOICE, salesReturnId: RETURN_DIFF, total: 50 });
+        await expect(confirmNote(noteId)).rejects.toThrow(CreditNoteReturnOrderMismatchError);
+      });
+
+      it('lets only one of two concurrent credit notes credit the same sales return', async () => {
+        const RETURN_ID = 'd7000000-0000-4000-8000-000000000002';
+        await harness.salesReturn(TENANT_A, RETURN_ID, CUSTOMER);
+
+        const note1Id = await draftNote({ salesReturnId: RETURN_ID, total: 30 });
+        const note2Id = await draftNote({ salesReturnId: RETURN_ID, total: 30 });
+
+        const results = await Promise.allSettled([confirmNote(note1Id), confirmNote(note2Id)]);
+
+        expect(results.map((r) => r.status).sort()).toEqual(['fulfilled', 'rejected']);
+        const rejected = results.find((r) => r.status === 'rejected') as PromiseRejectedResult;
+        expect(rejected.reason).toBeInstanceOf(CreditNoteReturnAlreadyCreditedError);
+      });
+
+      it('concurrently confirming a credit note and cancelling its sales return allows only one to succeed', async () => {
+        const RETURN_ID = 'd7000000-0000-4000-8000-000000000003';
+        await harness.salesReturn(TENANT_A, RETURN_ID, CUSTOMER);
+
+        const noteId = await draftNote({ salesReturnId: RETURN_ID, total: 50 });
+
+        const results = await Promise.allSettled([confirmNote(noteId), harness.cancelSalesReturn(TENANT_A, RETURN_ID)]);
+
+        expect(results.map((r) => r.status).sort()).toEqual(['fulfilled', 'rejected']);
+        const rejected = results.find((r) => r.status === 'rejected') as PromiseRejectedResult;
+        expect(rejected.reason instanceof CreditNoteReturnNotConfirmedError || rejected.reason instanceof SalesReturnWithCreditNoteError).toBe(true);
       });
     });
 

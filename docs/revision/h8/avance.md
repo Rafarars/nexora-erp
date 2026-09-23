@@ -349,3 +349,40 @@ Antes de iniciar la Fase 0, se revisaron a fondo las once decisiones de diseno d
     `AssertionError: expected 65 to be 60 // Object.is equality (- Expected: 60, + Received: 65)`.
   - Esto demostró empíricamente la desincronización entre el cálculo de `reporting` y la lógica de dominio de `NoteCredit.available` antes de corregir.
 
+### C5: Concurrencia al confirmar nota con devolución y al anular devolución
+
+- **Qué cambió:**
+  - **Dominio:**
+    - Creados los errores de dominio tipados `CreditNoteReturnAlreadyCreditedError` y `CreditNoteReturnOrderMismatchError` en `apps/api/src/contexts/receivables/domain/errors/receivables.errors.ts`.
+    - Dados de alta en `error-categories.spec.ts` como errores de negocio (`domain` y `business`).
+    - Añadidas sus traducciones oficiales en español en el frontend: `apps/web/src/modules/receivables/domain/receivables-error.ts`.
+  - **Orden de bloqueo y persistencia en Receivables:**
+    - En `PrismaCreditNotePosting.confirm`:
+      - Documentado el orden determinista de bloqueo: `// Orden de bloqueo determinista: customer_credit_notes -> invoices -> sales_returns`.
+      - Adquirido bloqueo exclusivo `FOR UPDATE` sobre `sales_returns` al confirmar una nota que cite una devolución.
+      - Validación de la regla H8 §4.2 regla 2: cuando la nota cita factura y devolución simultáneamente, se comprueba que el pedido de la factura coincida con el pedido del despacho de la devolución (`returnOrderId === invoiceOrderId`). De no coincidir (o si la devolución no proviene de despacho), se rechaza con `CreditNoteReturnOrderMismatchError`.
+      - Validación transaccional de devolución ya acreditada: si otra nota confirmada ya citó la devolución, se lanza el error tipado `CreditNoteReturnAlreadyCreditedError` (en sustitución del anterior error genérico con string).
+  - **Bloqueo y comprobación transaccional al anular en Ventas:**
+    - En `apps/api/src/contexts/sales/domain/return/credited/sales-return-credited-checker.ts`: ampliada la interfaz `SalesReturnCreditedChecker` para aceptar el cliente transaccional opcional `context?: unknown`.
+    - En `PrismaSalesReturnCreditedChecker`: ahora utiliza `(context as TransactionClient) ?? this.prisma`, garantizando que la consulta de notas confirmadas se ejecute dentro de la transacción activa.
+    - En `PrismaSalesReturnPosting.cancel`: se pasa la transacción `tx` a `this.creditedChecker.isCredited(tenantId, returnId, tx)`, de modo que la comprobación ocurre bajo el bloqueo `FOR UPDATE` ya adquirido por `lockSalesReturn`.
+  - **Doble en memoria y arnés de pruebas:**
+    - En `InMemoryReceivablesStore`: implementado almacenamiento de devoluciones `salesReturnRows` con validación de estado, cliente, coincidencia de pedido (`orderId`) y unicidad de nota acreditada.
+    - En `receivables-ports.harness.ts`, `in-memory-receivables-ports.contract.spec.ts` y `prisma-receivables-ports.harness.ts`: cableados los métodos de soporte `salesReturnForInvoice`, `salesReturn` y `cancelSalesReturn`.
+  - **Ajuste de keep-alive en el servidor HTTP (`main.ts`):**
+    - En `apps/api/src/main.ts`: configurados `keepAliveTimeout = 65000` y `headersTimeout = 66000` sobre `app.getHttpServer()`, eliminando los cortes de socket intermitentes por carrera TCP entre Playwright y la API observados durante la ejecución masiva de pruebas de aislamiento.
+- **Pruebas que lo defienden:**
+  - En `receivables-ports.contract.ts`:
+    - `validates that sales return must belong to the same order when credit note cites both invoice and return`: comprueba el rechazo con `CreditNoteReturnOrderMismatchError`.
+    - `lets only one of two concurrent credit notes credit the same sales return`: confirma dos notas simultáneas citando la misma devolución y verifica que una se confirme limpiamente y la otra sea rechazada con `CreditNoteReturnAlreadyCreditedError`.
+    - `concurrently confirming a credit note and cancelling its sales return allows only one to succeed`: confirma una nota y anula su devolución de forma concurrente, asegurando que una gane y la otra falle con error de negocio sin deadlocks ni estados inconsistentes.
+  - 27/27 pruebas pasando al 100% tanto en memoria (`in-memory-receivables-ports.contract.spec.ts`) como contra base de datos PostgreSQL real (`prisma-receivables-ports.contract.integration.spec.ts`).
+- **Evidencia de que la prueba fallaba antes:**
+  - Al ejecutar la suite de integración contra PostgreSQL con el código original antes de la corrección, las tres pruebas fallaron demostrando con exactitud los tres defectos:
+    1. En `validates that sales return must belong to the same order`:
+       `AssertionError: promise resolved "{ ... }" instead of rejecting` (la nota se confirmaba indebidamente a pesar de pertenecer a pedidos distintos).
+    2. En `lets only one of two concurrent credit notes credit the same sales return`:
+       `AssertionError: expected [ 'fulfilled', 'fulfilled' ] to deeply equal [ 'fulfilled', 'rejected' ]` (ambas notas concurrentes se confirmaban y acreditaban la misma devolución).
+    3. En `concurrently confirming a credit note and cancelling its sales return allows only one to succeed`:
+       `AssertionError: expected [ 'fulfilled', 'fulfilled' ] to deeply equal [ 'fulfilled', 'rejected' ]` (la nota se confirmaba y la devolución se anulaba simultáneamente por falta de bloqueo compartido).
+
