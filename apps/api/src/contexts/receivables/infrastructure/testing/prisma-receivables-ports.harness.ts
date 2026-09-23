@@ -154,6 +154,22 @@ export class PrismaReceivablesPortsHarness implements ReceivablesPortsHarness {
     });
   }
 
+  async setAmountDecimals(tenantId: string, decimals: number): Promise<void> {
+    await this.prisma.companySettings.upsert({
+      where: { tenantId },
+      create: {
+        tenantId,
+        baseCurrency: 'USD',
+        timeZone: 'UTC',
+        amountDecimals: decimals,
+        priceDecimals: 2,
+        rateType: 'legal',
+        updatedAt: new Date(),
+      },
+      update: { amountDecimals: decimals },
+    });
+  }
+
   async reset(): Promise<void> {
     await this.prisma.paymentAllocation.deleteMany();
     await this.prisma.customerCreditNote.updateMany({ data: { issuePaymentId: null } });
@@ -180,6 +196,11 @@ export class PrismaReceivablesPortsHarness implements ReceivablesPortsHarness {
     ]) {
       await this.prisma.tenant.upsert({ where: { id }, create: { id, name: slug, slug }, update: {} });
       await this.prisma.warehouse.upsert({ where: { id: WAREHOUSE[id] }, create: { id: WAREHOUSE[id], tenantId: id, code: 'BOD970001', name: 'Contrato cobranza' }, update: {} });
+      await this.prisma.companySettings.upsert({
+        where: { tenantId: id },
+        create: { tenantId: id, baseCurrency: 'USD', timeZone: 'UTC', amountDecimals: 2, priceDecimals: 2, rateType: 'legal', updatedAt: new Date() },
+        update: { amountDecimals: 2 },
+      });
     }
   }
 

@@ -386,3 +386,27 @@ Antes de iniciar la Fase 0, se revisaron a fondo las once decisiones de diseno d
     3. En `concurrently confirming a credit note and cancelling its sales return allows only one to succeed`:
        `AssertionError: expected [ 'fulfilled', 'fulfilled' ] to deeply equal [ 'fulfilled', 'rejected' ]` (la nota se confirmaba y la devolución se anulaba simultáneamente por falta de bloqueo compartido).
 
+### C6: Confirmar una nota: decimales de la empresa y factura emitida
+
+- **Qué cambió:**
+  - **Uso de decimales de la empresa al confirmar nota:**
+    - En `PrismaCreditNotePosting.confirm`: se eliminó el valor hardcodeado `decimals: 2`. Ahora consulta los decimales de la empresa directamente de `companySettings` (`amountDecimals`), respetando la configuración contable de cada inquilino para el cobro automático de emisión.
+    - En `InMemoryReceivablesStore.confirm`: se sustituyó `decimals: 2` por `this.getAmountDecimals(tenantId.value)`.
+    - En `ReceivablesPortsHarness`, `PrismaReceivablesPortsHarness` y `InMemoryReceivablesPortsHarness`: se añadió `setAmountDecimals(tenantId, decimals)` para soportar la parametrización de decimales en pruebas de contrato.
+  - **Validación de factura en estado emitida al momento de confirmar:**
+    - En `PrismaCreditNotePosting.confirm`: tras bloquear la factura citada con `FOR UPDATE`, se valida que su estado siga siendo `issued` (`if (invoiceRow.status !== 'issued') throw new InvoiceNotPayableError(invoiceId)`).
+    - En `InMemoryReceivablesStore.confirm`: se añadió la misma validación sobre el estado de la factura antes de calcular cupos o amortizaciones.
+  - **Medición y marcado de prueba de compras:**
+    - En `apps/e2e/tests/ui/purchasing.spec.ts`: tras medir empíricamente su ejecución (26.9 s en aislamiento y superando 30 s bajo la carga concurrente de la suite completa), se aplicó `test.slow()` con su comentario explicativo de la duración real observada.
+- **Pruebas que lo defienden:**
+  - En `receivables-ports.contract.ts`:
+    - `refuses to confirm a credit note citing an invoice that was cancelled after the draft`: comprueba que si la factura se anula con posterioridad al borrador de la nota, la confirmación se rechaza con `InvoiceNotPayableError`.
+    - `confirms a credit note and creates its issue payment respecting the company amount decimals`: configura la empresa con 3 decimales (`amountDecimals: 3`), emite una nota con importe de 3 decimales (`40.125`) y comprueba que la nota y su cobro de emisión se confirman preservando exactamente los 3 decimales (`40.125`).
+  - 29/29 pruebas pasando al 100% tanto en memoria (`in-memory-receivables-ports.contract.spec.ts`) como contra base de datos PostgreSQL real (`prisma-receivables-ports.contract.integration.spec.ts`).
+- **Evidencia de que la prueba fallaba antes:**
+  - Al ejecutar la suite contra PostgreSQL antes de corregir:
+    1. En `refuses to confirm a credit note citing an invoice that was cancelled after the draft`:
+       `AssertionError: promise resolved "{ ... }" instead of rejecting` (la nota se confirmaba indebidamente sobre una factura anulada con `issuePayment: null`).
+    2. En `confirms a credit note and creates its issue payment respecting the company amount decimals`:
+       `AssertionError: expected 40.13 to be 40.125 // Object.is equality (- Expected: 40.125, + Received: 40.13)` (el cobro de emisión se redondeaba a 2 decimales por el valor hardcodeado `decimals: 2` en lugar de los 3 decimales de la empresa).
+

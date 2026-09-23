@@ -24,6 +24,7 @@ export interface ReceivablesPortsHarness {
   salesReturnForInvoice(tenantId: string, invoiceId: string, returnId: string, status?: 'confirmed' | 'draft' | 'cancelled'): Promise<void>;
   salesReturn(tenantId: string, returnId: string, customerId: string, status?: 'confirmed' | 'draft' | 'cancelled'): Promise<void>;
   cancelSalesReturn(tenantId: string, returnId: string): Promise<void>;
+  setAmountDecimals(tenantId: string, decimals: number): Promise<void>;
   reset(): Promise<void>;
   close(): Promise<void>;
 }

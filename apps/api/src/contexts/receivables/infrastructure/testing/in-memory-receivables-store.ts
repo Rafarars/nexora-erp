@@ -12,6 +12,7 @@ import {
   CreditNoteReturnNotConfirmedError,
   CreditNoteReturnOrderMismatchError,
   CreditNoteWithApplicationsError,
+  InvoiceNotPayableError,
   IssuePaymentCannotBeCancelledDirectlyError,
   PaymentNotEditableError,
   PaymentNotFoundError,
@@ -49,7 +50,16 @@ export class InMemoryReceivablesStore {
   private readonly paymentRows = new Map<string, PaymentPrimitives>();
   private readonly creditNoteRows = new Map<string, CustomerCreditNotePrimitives>();
   private readonly salesReturnRows = new Map<string, StoredSalesReturn>();
+  private readonly amountDecimalsByTenant = new Map<string, number>();
   private queue: Promise<unknown> = Promise.resolve();
+
+  setAmountDecimals(tenantId: string, decimals: number): void {
+    this.amountDecimalsByTenant.set(tenantId, decimals);
+  }
+
+  getAmountDecimals(tenantId: string): number {
+    return this.amountDecimalsByTenant.get(tenantId) ?? 2;
+  }
 
   customer(tenantId: string, customer: ReceivableCustomer): void {
     this.customerRows.set(customer.id, { ...customer, tenantId });
@@ -313,6 +323,9 @@ export class InMemoryReceivablesStore {
             const invoiceId = note.invoiceId()!;
             const invoice = (this.invoicesOf(tenantId.value, { ids: [invoiceId] }))[0];
             if (!invoice) throw new ReceivableInvoiceNotFoundError(invoiceId);
+            if (invoice.toPrimitives().status !== 'issued') {
+              throw new InvoiceNotPayableError(invoiceId);
+            }
 
             const credited = await this.creditNotes.creditedAmountByInvoice(tenantId, invoiceId);
             CreditQuota.ensureWithinQuota(invoice.toPrimitives().total, credited, note.total(), invoiceId);
@@ -339,7 +352,7 @@ export class InMemoryReceivablesStore {
               const paymentRatesObj = {
                 currency: note.currency(),
                 invoiceRates,
-                decimals: 2,
+                decimals: this.getAmountDecimals(tenantId.value),
               };
 
               issuePayment = CustomerPayment.draft(

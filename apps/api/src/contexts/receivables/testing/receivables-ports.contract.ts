@@ -78,6 +78,7 @@ export function describeReceivablesPortsContract(implementation: string, createH
       invoiceId?: string | null;
       salesReturnId?: string | null;
       total: number;
+      decimals?: number;
     }): Promise<CreditNoteId> {
       const id = CreditNoteId.of(`cc000000-0000-4000-8000-${next()}`);
       const code = `NCC${next().slice(-6)}`;
@@ -112,6 +113,7 @@ export function describeReceivablesPortsContract(implementation: string, createH
         },
         NOW,
         TODAY,
+        params.decimals ?? 2,
       );
       await ports.creditNotes.save(note);
       return id;
@@ -586,6 +588,28 @@ export function describeReceivablesPortsContract(implementation: string, createH
         expect(results.map((r) => r.status).sort()).toEqual(['fulfilled', 'rejected']);
         const rejected = results.find((r) => r.status === 'rejected') as PromiseRejectedResult;
         expect(rejected.reason instanceof CreditNoteReturnNotConfirmedError || rejected.reason instanceof SalesReturnWithCreditNoteError).toBe(true);
+      });
+
+      it('refuses to confirm a credit note citing an invoice that was cancelled after the draft', async () => {
+        const noteId = await draftNote({ invoiceId: INVOICE, total: 50 });
+        await harness.cancelInvoice(TENANT_A, INVOICE);
+        await expect(confirmNote(noteId)).rejects.toThrow(InvoiceNotPayableError);
+      });
+
+      it('confirms a credit note and creates its issue payment respecting the company amount decimals', async () => {
+        await harness.setAmountDecimals(TENANT_A, 3);
+
+        const INV_3DEC = 'fa000000-0000-4000-8000-000000000030';
+        await harness.invoice(TENANT_A, { id: INV_3DEC, code: 'FAC900030', customerId: CUSTOMER, issueDate: '2026-01-06', dueDate: '2026-01-20', status: 'issued', total: 100, ...DOLLARS });
+
+        const noteId = await draftNote({ invoiceId: INV_3DEC, total: 40.125, decimals: 3 });
+        await confirmNote(noteId);
+
+        const note = (await ports.creditNotes.find(tenant, noteId))!;
+        expect(note.currentStatus()).toBe('confirmed');
+
+        const issuePayment = (await ports.payments.find(tenant, PaymentId.of(note.toPrimitives().issuePaymentId!)))!;
+        expect(issuePayment.toPrimitives().amount).toBe(40.125);
       });
     });
 

@@ -37,6 +37,10 @@ class InMemoryReceivablesPortsHarness implements ReceivablesPortsHarness {
     await this.store.cancelSalesReturn(tenantId, returnId);
   }
 
+  async setAmountDecimals(tenantId: string, decimals: number): Promise<void> {
+    this.store.setAmountDecimals(tenantId, decimals);
+  }
+
   async reset(): Promise<void> {
     this.store = new InMemoryReceivablesStore();
     this.current = this.build();

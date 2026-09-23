@@ -10,6 +10,7 @@ import {
   CreditNoteReturnNotConfirmedError,
   CreditNoteReturnOrderMismatchError,
   CreditNoteWithApplicationsError,
+  InvoiceNotPayableError,
   ReceivableInvoiceNotFoundError,
 } from '../../domain/errors/receivables.errors.js';
 import {
@@ -79,6 +80,11 @@ export class PrismaCreditNotePosting implements CreditNotePosting {
           where: { tenantId: tenant, id: invoiceId },
           select: invoiceSelect(),
         });
+
+        if (invoiceRow.status !== 'issued') {
+          throw new InvoiceNotPayableError(invoiceId);
+        }
+
         const invoice = invoiceFromRow(invoiceRow);
 
         // Cupo de importe: notas confirmadas anteriores sobre la misma factura
@@ -118,11 +124,17 @@ export class PrismaCreditNotePosting implements CreditNotePosting {
             allocations: [{ id: allocationId, invoiceId, amount: appliedAmount }],
           };
 
+          const settings = await tx.companySettings.findUnique({
+            where: { tenantId: tenant },
+            select: { amountDecimals: true },
+          });
+          const decimals = settings?.amountDecimals ?? 2;
+
           const invoiceRates = { [invoice.currency().currency]: notePrimitives.exchangeRate ?? 1 };
           const paymentRatesObj = {
             currency: note.currency(),
             invoiceRates,
-            decimals: 2,
+            decimals,
           };
 
           issuePayment = CustomerPayment.draft(

@@ -12,6 +12,8 @@ test.describe('Purchasing, from the screen', () => {
   // recibida en parte y la existencia en el inventario, y anular la entrada para volver atras.
   // Con proveedor y articulo propios, para que ninguna prueba en paralelo los toque.
   test('orders, receives part of it, follows it into the stock and cancels the receipt', async ({ page, request }) => {
+    // Medida en 26.9 s en aislamiento y superando los 30 s bajo la carga concurrente de la suite completa.
+    test.slow();
     const token = await tokenFor(request, ACME_ADMIN.email, API);
     const [item, supplier] = await Promise.all([aFreshItem(request, token, API), aFreshSupplier(request, token, API)]);
     const label = `${item.sku} — ${item.name}`;
