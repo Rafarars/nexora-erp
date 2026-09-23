@@ -177,6 +177,42 @@ export function describeReportingReadModelContract(implementation: string, creat
       );
     });
 
+    it('computes credit note remaining balance using payment amount as base, matching NoteCredit logic', async () => {
+      const NOTE_ID = 'e7000000-0000-4000-8000-000000000001';
+      await harness.invoice(TENANT_A, invoice(1, { total: 100 }));
+      await harness.creditNote(TENANT_A, {
+        id: NOTE_ID,
+        code: 'NCC900001',
+        customerId: DELTA,
+        issueDate: '2026-03-05',
+        status: 'confirmed',
+        total: 100,
+      });
+      // Cobro que gasta credito de la nota: amount es 40 en la moneda del cobro, pero sus repartos suman 35
+      // (por ejemplo si hubo diferencia de cambio o ajuste de reparto).
+      // Lo que el cobro y NoteCredit debitan del disponible de la nota es el amount del cobro (40).
+      await harness.payment(TENANT_A, {
+        code: 'COB900001',
+        customerId: DELTA,
+        date: '2026-03-06',
+        status: 'confirmed',
+        method: 'credit_note',
+        creditSourceId: NOTE_ID,
+        amount: 40,
+        allocations: [{ invoiceId: invoiceId(1), amount: 35 }],
+      });
+
+      const readModel = harness.readModel();
+      const entries = await readModel.statementEntries(tenant, DELTA, 2);
+      const paymentEntry = entries.find((e) => e.type === 'payment');
+
+      expect(paymentEntry).toBeDefined();
+      expect(paymentEntry?.code).toBe('Nota de crédito NCC900001');
+      // Con NoteCredit: total 100 - applied 40 = 60
+      // Con el SQL anterior que sumaba allocations.amount (35), noteRemaining daba 65 (100 - 35), fallando el test
+      expect(paymentEntry?.noteRemaining).toBe(60);
+    });
+
         it('reads the stock that is not zero, with its base unit, per warehouse and never across companies', async () => {
       await harness.stock(TENANT_A, { itemId: WATER, warehouseId: MAIN, quantity: 288, averageCost: 0.5 });
       await harness.stock(TENANT_A, { itemId: SOAP, warehouseId: NORTH, quantity: 2.5, averageCost: 3.333333 });

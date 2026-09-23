@@ -16,8 +16,6 @@ import {
   InsufficientStockForDispatchError,
   InvoiceWithPaymentsError,
   QuantityExceedsDispatchedReturnQuotaError,
-  ReturnBeforeDispatchError,
-  ReturnCustomerMismatchError,
   SalesItemChangedError,
   SalesOrderNotEditableError,
   SalesReturnAlreadyCancelledError,

@@ -325,3 +325,27 @@ Antes de iniciar la Fase 0, se revisaron a fondo las once decisiones de diseno d
   - Antes del cambio, el tipo `SalesReturnDraftProps` y `SalesReturnLineProps` exigían obligatoriamente `dispatchId: string` y `restoresMovementId: string`, provocando error de compilación TypeScript.
   - El DTO HTTP `SalesReturnDraftSchema` rechazaba con error 400 (`validation_error`) cualquier payload sin `dispatchId` o con campos de línea `itemId`/`unitCost`.
   - La lógica de confirmación en `PrismaSalesReturnPosting` asumía incondicionalmente la existencia de despacho e intentaba leer `dispatch.lines`, fallando con excepción al procesar un `dispatchId` nulo.
+
+### C4: El crédito disponible de una nota en un solo sitio (H8 §3.10 y §5.3)
+
+- **Qué cambió:**
+  - **Unificación de consulta de lo aplicado en `receivables`:**
+    - Creado helper de persistencia compartido `credit-note-applied-query.ts` con `queryAppliedPaymentsSum` y `queryAppliedAmountsByNotes`.
+    - Ampliado el puerto `CustomerCreditNoteRepository` con `appliedAmountsByNotes(tenantId, noteIds, excludePaymentId)` y `findByIds(tenantId, ids)`.
+    - En `PrismaCustomerCreditNoteRepository`, implementado `appliedAmountsByNotes` (vía `groupBy` sobre `customerPayment.creditSourceId` con `_sum: { amount: true }`), `findByIds` y optimizado `findAvailableCreditsByCustomer` para consultar lo aplicado en lote en vez de nota por nota.
+    - En `PrismaPaymentPosting`, sustituida la agregación repetida por `queryAppliedPaymentsSum`, asegurando que el cobro y el repositorio lean exactamente la misma consulta.
+    - En `in-memory-receivables-store.ts`, corregido `appliedSumForNote` para sumar `p.amount` (el importe del cobro, que es la base que gasta el crédito de la nota) en lugar de `p.allocations`, e implementados `appliedAmountsByNotes` y `findByIds`.
+  - **Buscador de créditos y estado de cuenta de cobros:**
+    - En `CustomerAvailableCreditsFinder`, reemplazadas las consultas secuenciales por una sola llamada en lote `appliedAmountsByNotes`.
+    - En `CustomerStatementSearcher`, eliminado el límite arbitrario `limit: 1000` y la carga ciega de notas; ahora filtra los `creditSourceId` únicos de los cobros mostrados, carga solo esas notas con `findByIds` y calcula su remanente exacto con `appliedAmountsByNotes` y `NoteCredit.available`.
+  - **Alineación con el modelo de lectura de `reporting`:**
+    - En `PrismaReportingReadModel` (CTE `note_applied`), se cambió `SUM(a.amount)` sobre `payment_allocations` por `SUM(p.amount)` directamente sobre `customer_payments`, alineando la base de cálculo con la que usa el cobro de `receivables`.
+    - En `in-memory-reporting-read-model.ts`, soportado el cálculo consistente de `noteRemaining` sumando `p.amount` sobre cobros con `creditSourceId`.
+- **Pruebas que lo defienden:**
+  - **Contrato de reporting:** Nueva prueba en `reporting-read-model.contract.ts`: `computes credit note remaining balance using payment amount as base, matching NoteCredit logic`. Pasa 8/8 tanto en memoria como contra PostgreSQL real (`prisma-reporting-read-model.contract.integration.spec.ts`).
+  - **Contrato de receivables:** Nueva prueba en `receivables-ports.contract.ts`: `queries applied payment sums across multiple credit notes in batch, respecting payment exclusions`. Pasa 24/24 tanto en memoria (`in-memory-receivables-ports.contract.spec.ts`) como contra PostgreSQL real (`prisma-receivables-ports.contract.integration.spec.ts`).
+- **Evidencia de que la prueba fallaba antes:**
+  - Al ejecutar la nueva prueba de contrato contra PostgreSQL con la CTE `note_applied` original que sumaba `payment_allocations.amount` (35) en lugar del importe del cobro `customer_payments.amount` (40), la prueba falló con:
+    `AssertionError: expected 65 to be 60 // Object.is equality (- Expected: 60, + Received: 65)`.
+  - Esto demostró empíricamente la desincronización entre el cálculo de `reporting` y la lógica de dominio de `NoteCredit.available` antes de corregir.
+

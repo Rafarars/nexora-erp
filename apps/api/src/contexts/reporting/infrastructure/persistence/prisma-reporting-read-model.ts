@@ -99,10 +99,9 @@ export class PrismaReportingReadModel implements ReportingReadModel {
         WHERE a.tenant_id = ${tenantId.value}::uuid AND p.customer_id = ${customerId}::uuid AND p.status = 'confirmed'
       ),
       note_applied AS (
-        SELECT p.credit_source_id, SUM(a.amount) AS total_applied
-        FROM payment_allocations a
-        JOIN customer_payments p ON p.tenant_id = a.tenant_id AND p.id = a.payment_id
-        WHERE a.tenant_id = ${tenantId.value}::uuid AND p.status = 'confirmed' AND p.credit_source_id IS NOT NULL
+        SELECT p.credit_source_id, SUM(p.amount) AS total_applied
+        FROM customer_payments p
+        WHERE p.tenant_id = ${tenantId.value}::uuid AND p.status = 'confirmed' AND p.credit_source_id IS NOT NULL
         GROUP BY p.credit_source_id
       )
       SELECT i.issue_date AS date, 'invoice' AS type, i.code, ROUND(i.total * ${IN_COMPANY_CURRENCY}, ${decimals}::int)::text AS amount, NULL::text AS note_remaining

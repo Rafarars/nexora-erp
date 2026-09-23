@@ -38,13 +38,17 @@ export class CustomerAvailableCreditsFinder {
     }
 
     const availableNotes = await this.creditNotes.findAvailableCreditsByCustomer(tenantId, request.customerId);
+    const appliedMap = await this.creditNotes.appliedAmountsByNotes(
+      tenantId,
+      availableNotes.map((n) => n.id),
+    );
 
     const items: AvailableCreditNoteItem[] = [];
     let sumTotal = 0;
 
     for (const note of availableNotes) {
       const p = note.toPrimitives();
-      const applied = await this.creditNotes.appliedPaymentsSum(tenantId, note.id);
+      const applied = appliedMap.get(note.id.value) ?? 0;
       const available = NoteCredit.available(p.total, applied);
 
       if (available > 0) {

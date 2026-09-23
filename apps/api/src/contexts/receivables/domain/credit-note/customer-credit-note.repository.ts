@@ -18,10 +18,12 @@ export interface CreditNoteSearchFilter {
 export interface CustomerCreditNoteRepository {
   save(note: CustomerCreditNote): Promise<void>;
   find(tenantId: TenantId, id: CreditNoteId): Promise<CustomerCreditNote | null>;
+  findByIds(tenantId: TenantId, ids: CreditNoteId[]): Promise<CustomerCreditNote[]>;
   searchPage(tenantId: TenantId, filter: CreditNoteSearchFilter): Promise<{ notes: CustomerCreditNote[]; total: number }>;
   creditedAmountByInvoice(tenantId: TenantId, invoiceId: string): Promise<number>;
   creditedNotesByReturn(tenantId: TenantId, salesReturnId: string): Promise<CustomerCreditNote[]>;
-  appliedPaymentsSum(tenantId: TenantId, noteId: CreditNoteId): Promise<number>;
+  appliedPaymentsSum(tenantId: TenantId, noteId: CreditNoteId, excludePaymentId?: string | null): Promise<number>;
+  appliedAmountsByNotes(tenantId: TenantId, noteIds: CreditNoteId[], excludePaymentId?: string | null): Promise<Map<string, number>>;
   hasConfirmedPaymentsOtherThan(tenantId: TenantId, noteId: CreditNoteId, excludePaymentId: string | null): Promise<boolean>;
   findAvailableCreditsByCustomer(tenantId: TenantId, customerId: string): Promise<CustomerCreditNote[]>;
 }

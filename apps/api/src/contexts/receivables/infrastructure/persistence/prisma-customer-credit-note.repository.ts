@@ -14,6 +14,7 @@ import { asDate, CREDIT_NOTE_INCLUDE, creditNoteFromRow, CreditNoteRow } from '.
 
 import { ConcurrentModificationError } from '../../../../shared/domain/concurrent-modification.error.js';
 import { CreditNoteNotEditableError } from '../../domain/errors/receivables.errors.js';
+import { queryAppliedAmountsByNotes, queryAppliedPaymentsSum } from './credit-note-applied-query.js';
 
 @Injectable()
 export class PrismaCustomerCreditNoteRepository implements CustomerCreditNoteRepository {
@@ -206,17 +207,34 @@ export class PrismaCustomerCreditNoteRepository implements CustomerCreditNoteRep
     return rows.map((r) => creditNoteFromRow(r as unknown as CreditNoteRow));
   }
 
-  async appliedPaymentsSum(tenantId: TenantId, noteId: CreditNoteId): Promise<number> {
-    const result = await this.prisma.customerPayment.aggregate({
+  async findByIds(tenantId: TenantId, ids: CreditNoteId[]): Promise<CustomerCreditNote[]> {
+    if (ids.length === 0) return [];
+    const rows = await this.prisma.customerCreditNote.findMany({
       where: {
         tenantId: tenantId.value,
-        creditSourceId: noteId.value,
-        status: 'confirmed',
+        id: { in: ids.map((i) => i.value) },
       },
-      _sum: { amount: true },
+      include: CREDIT_NOTE_INCLUDE,
     });
 
-    return result._sum.amount ? result._sum.amount.toNumber() : 0;
+    return rows.map((r) => creditNoteFromRow(r as unknown as CreditNoteRow));
+  }
+
+  async appliedAmountsByNotes(
+    tenantId: TenantId,
+    noteIds: CreditNoteId[],
+    excludePaymentId?: string | null,
+  ): Promise<Map<string, number>> {
+    return queryAppliedAmountsByNotes(
+      this.prisma,
+      tenantId.value,
+      noteIds.map((n) => n.value),
+      excludePaymentId,
+    );
+  }
+
+  async appliedPaymentsSum(tenantId: TenantId, noteId: CreditNoteId, excludePaymentId?: string | null): Promise<number> {
+    return queryAppliedPaymentsSum(this.prisma, tenantId.value, noteId.value, excludePaymentId);
   }
 
   async hasConfirmedPaymentsOtherThan(
@@ -247,11 +265,12 @@ export class PrismaCustomerCreditNoteRepository implements CustomerCreditNoteRep
       orderBy: { issueDate: 'asc' },
     });
 
-    const result: CustomerCreditNote[] = [];
+    const entities = notes.map((r) => creditNoteFromRow(r as unknown as CreditNoteRow));
+    const appliedMap = await this.appliedAmountsByNotes(tenantId, entities.map((e) => e.id));
 
-    for (const row of notes) {
-      const entity = creditNoteFromRow(row as unknown as CreditNoteRow);
-      const applied = await this.appliedPaymentsSum(tenantId, entity.id);
+    const result: CustomerCreditNote[] = [];
+    for (const entity of entities) {
+      const applied = appliedMap.get(entity.id.value) ?? 0;
       const available = NoteCredit.available(entity.total(), applied);
 
       if (available > 0) {

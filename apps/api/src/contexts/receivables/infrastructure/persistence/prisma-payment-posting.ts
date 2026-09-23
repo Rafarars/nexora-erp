@@ -15,6 +15,7 @@ import { PaymentPosting } from '../../domain/payment/posting/payment-posting.js'
 import { NoteCredit } from '../../domain/credit-note/note-credit.service.js';
 import { TenantId } from '../../domain/shared/tenant-id.vo.js';
 import { CREDIT_NOTE_INCLUDE, creditNoteFromRow, CreditNoteRow, PAYMENT_INCLUDE, invoiceFromRow, invoiceSelect, paymentFromRow } from './receivables-rows.js';
+import { queryAppliedPaymentsSum } from './credit-note-applied-query.js';
 
 // Orden de bloqueo: cobro y despues sus facturas por identificador. Ventas, al anular una factura,
 // solo bloquea esa factura; al emitir, bloquea el cliente y no facturas. No hay ciclo posible.
@@ -62,17 +63,7 @@ export class PrismaPaymentPosting implements PaymentPosting {
         }
 
         // Sumar cobros confirmados aplicados a la nota (excluyendo el actual)
-        const appliedSumRow = await tx.customerPayment.aggregate({
-          where: {
-            tenantId: tenant,
-            creditSourceId,
-            status: 'confirmed',
-            id: { not: paymentId.value },
-          },
-          _sum: { amount: true },
-        });
-
-        const appliedSum = appliedSumRow._sum.amount ? appliedSumRow._sum.amount.toNumber() : 0;
+        const appliedSum = await queryAppliedPaymentsSum(tx, tenant, creditSourceId, paymentId.value);
         const available = NoteCredit.available(note.total(), appliedSum);
 
         if (payment.toPrimitives().amount > available) {

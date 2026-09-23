@@ -33,7 +33,8 @@ const inCompanyCurrency = (row: WithCurrency, value: number, decimals: number) =
 export class InMemoryReportingReadModel implements ReportingReadModel {
   private readonly customerRows: Tenant<ReportCustomer>[] = [];
   private readonly invoiceRows: Tenant<InMemoryInvoice>[] = [];
-  private readonly paymentRows: Tenant<{ code: string; customerId: string; date: string; amount: number; allocations?: { invoiceId: string; amount: number }[] } & WithCurrency>[] = [];
+  private readonly paymentRows: Tenant<{ code: string; customerId: string; date: string; amount: number; method?: string; creditSourceId?: string | null; allocations?: { invoiceId: string; amount: number }[] } & WithCurrency>[] = [];
+  private readonly creditNoteRows: Tenant<{ id: string; code: string; customerId: string; total: number }>[] = [];
   private readonly receiptRows: Tenant<{ date: string; amount: number } & WithCurrency>[] = [];
   private readonly stockRows: Tenant<ReportStock>[] = [];
   private readonly warehouseRows: Tenant<{ id: string; name: string }>[] = [];
@@ -50,8 +51,12 @@ export class InMemoryReportingReadModel implements ReportingReadModel {
     this.invoiceRows.push({ ...row, tenantId });
   }
 
-  payment(tenantId: string, row: { code: string; customerId: string; date: string; amount: number; allocations?: { invoiceId: string; amount: number }[] } & WithCurrency): void {
+  payment(tenantId: string, row: { code: string; customerId: string; date: string; amount: number; method?: string; creditSourceId?: string | null; allocations?: { invoiceId: string; amount: number }[] } & WithCurrency): void {
     this.paymentRows.push({ ...row, tenantId });
+  }
+
+  creditNote(tenantId: string, row: { id: string; code: string; customerId: string; total: number }): void {
+    this.creditNoteRows.push({ ...row, tenantId });
   }
 
   receipt(tenantId: string, row: { date: string; amount: number } & WithCurrency): void {
@@ -115,12 +120,29 @@ export class InMemoryReportingReadModel implements ReportingReadModel {
       ...this.of(this.paymentRows, tenantId.value)
         .filter((row) => row.customerId === customerId)
         .sort((a, b) => a.date.localeCompare(b.date) || a.code.localeCompare(b.code))
-        .map((row) => ({
-          date: row.date,
-          type: 'payment' as const,
-          code: row.code,
-          amount: row.allocations ? sumAmounts(row.allocations.map((allocation) => paidOff(allocation.invoiceId, allocation.amount))) : inCompanyCurrency(row, row.amount, decimals),
-        })),
+        .map((row) => {
+          let noteRemaining: number | null = null;
+          let code = row.code;
+          if (row.creditSourceId) {
+            const note = this.creditNoteRows.find((n) => n.tenantId === tenantId.value && n.id === row.creditSourceId);
+            if (note) {
+              if (row.method === 'credit_note') {
+                code = `Nota de crédito ${note.code}`;
+              }
+              const totalApplied = this.paymentRows
+                .filter((p) => p.tenantId === tenantId.value && p.creditSourceId === row.creditSourceId)
+                .reduce((sum, p) => sum + p.amount, 0);
+              noteRemaining = Math.max(0, Math.round((note.total - totalApplied) * 100) / 100);
+            }
+          }
+          return {
+            date: row.date,
+            type: 'payment' as const,
+            code,
+            amount: row.allocations ? sumAmounts(row.allocations.map((allocation) => paidOff(allocation.invoiceId, allocation.amount))) : inCompanyCurrency(row, row.amount, decimals),
+            ...(noteRemaining !== null ? { noteRemaining } : {}),
+          };
+        }),
     ];
   }
 

@@ -382,6 +382,35 @@ export function describeReceivablesPortsContract(implementation: string, createH
         const byStatus = await ports.creditNotes.searchPage(tenant, { status: 'confirmed' });
         expect(byStatus.notes.map((n) => n.id.value)).toEqual([second.value]);
       });
+
+      it('queries applied payment sums across multiple credit notes in batch, respecting payment exclusions', async () => {
+        const note1Id = await draftNote({ total: 100 });
+        const note2Id = await draftNote({ total: 50 });
+        await confirmNote(note1Id);
+        await confirmNote(note2Id);
+
+        const INV_1 = 'fa000000-0000-4000-8000-000000000021';
+        const INV_2 = 'fa000000-0000-4000-8000-000000000022';
+        await harness.invoice(TENANT_A, { id: INV_1, code: 'FAC900021', customerId: CUSTOMER, issueDate: '2026-01-06', dueDate: '2026-01-20', status: 'issued', total: 60, ...DOLLARS });
+        await harness.invoice(TENANT_A, { id: INV_2, code: 'FAC900022', customerId: CUSTOMER, issueDate: '2026-01-06', dueDate: '2026-01-20', status: 'issued', total: 30, ...DOLLARS });
+
+        const p1 = await creditPaymentDraft([allocation(INV_1, 40)], note1Id.value);
+        await confirm(p1);
+
+        const p2 = await creditPaymentDraft([allocation(INV_2, 25)], note2Id.value);
+        await confirm(p2);
+
+        const map = await ports.creditNotes.appliedAmountsByNotes(tenant, [note1Id, note2Id]);
+        expect(map.get(note1Id.value)).toBe(40);
+        expect(map.get(note2Id.value)).toBe(25);
+
+        const mapWithExclusion = await ports.creditNotes.appliedAmountsByNotes(tenant, [note1Id, note2Id], p1.value);
+        expect(mapWithExclusion.get(note1Id.value)).toBe(0);
+        expect(mapWithExclusion.get(note2Id.value)).toBe(25);
+
+        const fetched = await ports.creditNotes.findByIds(tenant, [note1Id, note2Id]);
+        expect(fetched.map((n) => n.id.value).sort()).toEqual([note1Id.value, note2Id.value].sort());
+      });
     });
 
     describe('CreditNotePosting', () => {

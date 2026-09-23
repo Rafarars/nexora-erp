@@ -2,7 +2,7 @@ import { ConfigService } from '@nestjs/config';
 import type { Env } from '../../../../shared/config/env.schema.js';
 import { PrismaService } from '../../../../shared/prisma/prisma.service.js';
 import { ReportCustomer, ReportingReadModel } from '../../domain/read-model/reporting-read-model.js';
-import { ReportingReadModelHarness, SeedInvoice, SeedPayment, SeedReceipt } from '../../testing/reporting-read-model.harness.js';
+import { ReportingReadModelHarness, SeedCreditNote, SeedInvoice, SeedPayment, SeedReceipt } from '../../testing/reporting-read-model.harness.js';
 import { PrismaReportingReadModel } from '../persistence/prisma-reporting-read-model.js';
 
 function connectionString(): string {
@@ -95,16 +95,47 @@ export class PrismaReportingReadModelHarness implements ReportingReadModelHarnes
   }
 
   async payment(tenantId: string, payment: SeedPayment): Promise<void> {
-    const id = uuid();
+    const id = payment.id ?? uuid();
     const amount = payment.amount ?? payment.allocations.reduce((sum, allocation) => sum + Math.round(allocation.amount * 100), 0) / 100;
 
     await this.prisma.customerPayment.create({
-      data: { ...this.currencyOf(payment), id, tenantId, code: payment.code, customerId: payment.customerId, paymentDate: asDate(payment.date), method: 'cash', amount, status: payment.status, updatedAt: new Date() },
+      data: {
+        ...this.currencyOf(payment),
+        id,
+        tenantId,
+        code: payment.code,
+        customerId: payment.customerId,
+        paymentDate: asDate(payment.date),
+        method: (payment.method as any) ?? 'cash',
+        creditSourceId: payment.creditSourceId ?? null,
+        amount,
+        status: payment.status,
+        updatedAt: new Date(),
+      },
     });
 
     for (const allocation of payment.allocations) {
       await this.prisma.paymentAllocation.create({ data: { id: uuid(), tenantId, paymentId: id, invoiceId: allocation.invoiceId, amount: allocation.amount } });
     }
+  }
+
+  async creditNote(tenantId: string, note: SeedCreditNote): Promise<void> {
+    await this.prisma.customerCreditNote.create({
+      data: {
+        ...this.currencyOf(note),
+        id: note.id,
+        tenantId,
+        code: note.code,
+        customerId: note.customerId,
+        issueDate: asDate(note.issueDate),
+        reason: 'other',
+        status: note.status,
+        subtotal: note.total,
+        tax: 0,
+        total: note.total,
+        updatedAt: new Date(),
+      },
+    });
   }
 
   async receipt(tenantId: string, receipt: SeedReceipt): Promise<void> {

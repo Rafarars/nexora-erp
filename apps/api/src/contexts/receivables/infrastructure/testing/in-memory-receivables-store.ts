@@ -208,13 +208,26 @@ export class InMemoryReceivablesStore {
 
         return unitsToNumber(units);
       },
+      findByIds: async (tenantId, ids) => {
+        const target = new Set(ids.map((i) => i.value));
+        return [...this.creditNoteRows.values()]
+          .filter((n) => n.tenantId === tenantId.value && target.has(n.id))
+          .map((n) => CustomerCreditNote.fromPrimitives(n));
+      },
       creditedNotesByReturn: async (tenantId, salesReturnId) => {
         return [...this.creditNoteRows.values()]
           .filter((n) => n.tenantId === tenantId.value && n.salesReturnId === salesReturnId && n.status === 'confirmed')
           .map((n) => CustomerCreditNote.fromPrimitives(n));
       },
-      appliedPaymentsSum: async (tenantId, noteId) => {
-        return this.appliedSumForNote(noteId.value);
+      appliedPaymentsSum: async (tenantId, noteId, excludePaymentId) => {
+        return this.appliedSumForNote(noteId.value, excludePaymentId ?? undefined);
+      },
+      appliedAmountsByNotes: async (tenantId, noteIds, excludePaymentId) => {
+        const map = new Map<string, number>();
+        for (const noteId of noteIds) {
+          map.set(noteId.value, this.appliedSumForNote(noteId.value, excludePaymentId ?? undefined));
+        }
+        return map;
       },
       hasConfirmedPaymentsOtherThan: async (tenantId, noteId, excludePaymentId) => {
         return [...this.paymentRows.values()].some(
@@ -374,8 +387,7 @@ export class InMemoryReceivablesStore {
   private appliedSumForNote(noteId: string, excludePaymentId?: string): number {
     const units = [...this.paymentRows.values()]
       .filter((p) => p.status === 'confirmed' && p.creditSourceId === noteId && p.id !== excludePaymentId)
-      .flatMap((p) => p.allocations)
-      .reduce((sum, a) => sum + amountUnits(a.amount), 0n);
+      .reduce((sum, p) => sum + amountUnits(p.amount), 0n);
 
     return unitsToNumber(units);
   }

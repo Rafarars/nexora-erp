@@ -18,14 +18,26 @@ export interface SeedInvoice extends SeedCurrency {
 }
 
 export interface SeedPayment extends SeedCurrency {
+  id?: string;
   code: string;
   customerId: string;
   date: string;
   status: 'draft' | 'confirmed' | 'cancelled';
+  method?: 'cash' | 'transfer' | 'credit_note' | string;
+  creditSourceId?: string | null;
   // En la moneda del cobro; por defecto, la suma de lo aplicado.
   amount?: number;
   // Cada aplicacion, en la moneda de su factura.
   allocations: { invoiceId: string; amount: number }[];
+}
+
+export interface SeedCreditNote extends SeedCurrency {
+  id: string;
+  code: string;
+  customerId: string;
+  issueDate: string;
+  status: 'draft' | 'confirmed' | 'cancelled';
+  total: number;
 }
 
 export interface SeedReceipt extends SeedCurrency {
@@ -46,6 +58,7 @@ export interface ReportingReadModelHarness {
   item(tenantId: string, item: { id: string; sku: string; name: string; baseUnit: string }): Promise<void>;
   invoice(tenantId: string, invoice: SeedInvoice): Promise<void>;
   payment(tenantId: string, payment: SeedPayment): Promise<void>;
+  creditNote(tenantId: string, note: SeedCreditNote): Promise<void>;
   receipt(tenantId: string, receipt: SeedReceipt): Promise<void>;
   stock(tenantId: string, stock: { itemId: string; warehouseId: string; quantity: number; averageCost: number }): Promise<void>;
   reset(): Promise<void>;

@@ -71,16 +71,26 @@ export class CustomerStatementSearcher {
     };
     const creditNoteMap = new Map<string, { code: string; remaining: number }>();
     if (this.creditNotes) {
-      const { notes } = await this.creditNotes.searchPage(tenantId, { customerId: customer.id, limit: 1000 });
-      for (const note of notes) {
-        if (note.currentStatus() === 'confirmed') {
-          const appliedSum = payments
+      const creditSourceIds = [
+        ...new Set(
+          payments
             .map((p) => p.toPrimitives())
-            .filter((p) => p.status === 'confirmed' && p.creditSourceId === note.id.value)
-            .flatMap((p) => p.allocations)
-            .reduce((sum, a) => sum + a.amount, 0);
-          const remaining = NoteCredit.available(note, appliedSum);
-          creditNoteMap.set(note.id.value, { code: note.toPrimitives().code, remaining });
+            .filter((p) => p.customerId === customer.id && p.status === 'confirmed' && p.creditSourceId)
+            .map((p) => p.creditSourceId!),
+        ),
+      ];
+
+      if (creditSourceIds.length > 0) {
+        const noteIds = creditSourceIds.map(CreditNoteId.of);
+        const notes = await this.creditNotes.findByIds(tenantId, noteIds);
+        const appliedMap = await this.creditNotes.appliedAmountsByNotes(tenantId, noteIds);
+
+        for (const note of notes) {
+          if (note.currentStatus() === 'confirmed') {
+            const appliedSum = appliedMap.get(note.id.value) ?? 0;
+            const remaining = NoteCredit.available(note.total(), appliedSum);
+            creditNoteMap.set(note.id.value, { code: note.toPrimitives().code, remaining });
+          }
         }
       }
     }
