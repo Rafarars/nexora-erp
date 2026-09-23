@@ -15,13 +15,21 @@ import {
   InsufficientAvailabilityError,
   InsufficientStockForDispatchError,
   InvoiceWithPaymentsError,
+  QuantityExceedsDispatchedReturnQuotaError,
+  ReturnBeforeDispatchError,
+  ReturnCustomerMismatchError,
   SalesItemChangedError,
   SalesOrderNotEditableError,
+  SalesReturnAlreadyCancelledError,
+  SalesReturnNotEditableError,
 } from '../domain/errors/sales.errors.js';
 import { Invoice, InvoiceId } from '../domain/invoice/invoice.entity.js';
 import { StockReservation } from '../domain/order/posting/stock-reservation.js';
 import { SalesOrderLine } from '../domain/order/sales-order-line.js';
 import { SalesOrder, SalesOrderId } from '../domain/order/sales-order.entity.js';
+import { SalesReturnLine, SalesReturnLineId } from '../domain/return/sales-return-line.js';
+import { ReturnCondition, SalesReturn, SalesReturnId } from '../domain/return/sales-return.entity.js';
+
 import { Quantity } from '../domain/shared/quantity.vo.js';
 import { WarehouseRef } from '../domain/shared/references.vo.js';
 import { SalesDate } from '../domain/shared/sales-date.vo.js';
@@ -117,7 +125,60 @@ export function describeSalesPortsContract(implementation: string, createHarness
         }, NOW, TODAY),
       );
 
+    async function draftReturn(
+      dispatch: Dispatch,
+      quantities: number[],
+      condition: ReturnCondition = 'resalable',
+      date = TODAY,
+    ): Promise<SalesReturnId> {
+      const id = SalesReturnId.of(`5c000000-0000-4000-8000-${next()}`);
+      const lines = dispatch.lines().map((line, idx) => {
+        const q = Quantity.of(quantities[idx] ?? 1);
+        return SalesReturnLine.of({
+          id: SalesReturnLineId.of(`5c100000-0000-4000-8000-${next()}`),
+          lineNumber: idx + 1,
+          dispatchLineId: line.id.value,
+          itemId: line.itemId,
+          itemSku: line.itemSku,
+          itemName: line.itemName,
+          unitId: line.unitId,
+          quantity: q,
+          baseQuantity: q,
+          unitCost: 0,
+          restoresMovementId: null,
+        });
+      });
+
+      const customer = (await ports.customers.find(tenant, CustomerId.of(CUSTOMER)))!;
+      await ports.returns.save(
+        SalesReturn.draft(
+          id,
+          tenant,
+          `DVV${next().slice(-6)}`,
+          { id: customer.id },
+          { id: dispatch.id, warehouseId: dispatch.warehouseId, date: dispatch.date() },
+          dispatch.warehouseId,
+          aDocumentCurrency(),
+          {
+            date: SalesDate.of(date),
+            condition,
+            reason: 'defect',
+            notes: 'Devolucion contrato',
+            lines,
+          },
+          NOW,
+          TODAY,
+        ),
+      );
+
+      return id;
+    }
+
+    const confirmReturn = (id: SalesReturnId) => ports.returnPosting.confirm(tenant, id, NOW);
+    const cancelReturn = (id: SalesReturnId) => ports.returnPosting.cancel(tenant, id, NOW);
+
     // La lista con la que se cotizo y el precio que sugirio: los guarda la fila del pedido y la de
+
     // cada linea, y vuelven enteros al leerlos.
     it('keeps the price list of the order and the list price of each line', async () => {
       const id = SalesOrderId.of(`5b000000-0000-4000-8000-${next()}`);
@@ -479,6 +540,245 @@ export function describeSalesPortsContract(implementation: string, createHarness
       });
     });
 
+    describe('SalesReturnRepository', () => {
+      it('returns what it saved with its lines, and hides it from another tenant', async () => {
+        await harness.stock(WATER, MAIN, 10);
+        const order = await confirmedOrder(5);
+        const dispatchId = await draftDispatch(order, 5);
+        await confirmDispatch(dispatchId);
+        const dispatch = (await ports.dispatches.find(tenant, dispatchId))!;
+
+        const returnId = await draftReturn(dispatch, [2]);
+        const found = await ports.returns.find(tenant, returnId);
+
+        expect(found?.toPrimitives()).toMatchObject({
+          id: returnId.value,
+          customerId: CUSTOMER,
+          dispatchId: dispatchId.value,
+          warehouseId: MAIN,
+          status: 'draft',
+          notes: 'Devolucion contrato',
+        });
+        expect(found?.lines()).toHaveLength(1);
+        expect(found?.lines()[0].quantity.toNumber()).toBe(2);
+        expect(await ports.returns.find(TenantId.of(TENANT_B), returnId)).toBeNull();
+      });
+
+      it('refuses to overwrite a draft that someone else saved in the meantime', async () => {
+        await harness.stock(WATER, MAIN, 10);
+        const order = await confirmedOrder(5);
+        const dispatchId = await draftDispatch(order, 5);
+        await confirmDispatch(dispatchId);
+        const dispatch = (await ports.dispatches.find(tenant, dispatchId))!;
+
+        const returnId = await draftReturn(dispatch, [2]);
+        const first = (await ports.returns.find(tenant, returnId))!;
+        const second = (await ports.returns.find(tenant, returnId))!;
+
+        first.update(
+          {
+            date: first.date(),
+            condition: first.condition(),
+            reason: null,
+            notes: 'primero',
+            lines: [...first.lines()],
+          },
+          dispatch.date(),
+          new Date(NOW.getTime() + 1000),
+          TODAY,
+        );
+        await ports.returns.save(first);
+
+        second.update(
+          {
+            date: second.date(),
+            condition: second.condition(),
+            reason: null,
+            notes: 'segundo',
+            lines: [...second.lines()],
+          },
+          dispatch.date(),
+          new Date(NOW.getTime() + 2000),
+          TODAY,
+        );
+        await expect(ports.returns.save(second)).rejects.toThrow(ConcurrentModificationError);
+      });
+
+      it('refuses to overwrite a return that was confirmed in the meantime', async () => {
+        await harness.stock(WATER, MAIN, 10);
+        const order = await confirmedOrder(5);
+        const dispatchId = await draftDispatch(order, 5);
+        await confirmDispatch(dispatchId);
+        const dispatch = (await ports.dispatches.find(tenant, dispatchId))!;
+
+        const returnId = await draftReturn(dispatch, [2]);
+        const stale = (await ports.returns.find(tenant, returnId))!;
+        await confirmReturn(returnId);
+
+        await expect(ports.returns.save(stale)).rejects.toThrow(SalesReturnNotEditableError);
+      });
+
+      it('searches by criteria and counts confirmed returned quantities', async () => {
+        await harness.stock(WATER, MAIN, 10);
+        const order = await confirmedOrder(6);
+        const dispatchId = await draftDispatch(order, 6);
+        await confirmDispatch(dispatchId);
+        const dispatch = (await ports.dispatches.find(tenant, dispatchId))!;
+
+        const return1 = await draftReturn(dispatch, [2]);
+        await draftReturn(dispatch, [1]);
+        await confirmReturn(return1);
+
+        const page = await ports.returns.searchPage(tenant, {
+          customerId: CUSTOMER,
+          dispatchId: dispatchId.value,
+          limit: 10,
+          offset: 0,
+        });
+
+        expect(page.total).toBe(2);
+        expect(page.returns).toHaveLength(2);
+
+        const returned = await ports.returns.returnedQuantitiesByDispatch(tenant, dispatchId.value);
+        const dispatchLineId = dispatch.lines()[0].id.value;
+        expect(returned.get(dispatchLineId)).toBe(2);
+      });
+    });
+
+    describe('SalesReturnPosting', () => {
+      it('accepts two partial returns on the same dispatch line and rejects a third exceeding the quota, keeping sales order intact (H8 §3.3 & §3.11)', async () => {
+        await harness.stock(WATER, MAIN, 10);
+        const order = await confirmedOrder(10);
+        const dispatchId = await draftDispatch(order, 10);
+        await confirmDispatch(dispatchId);
+        const dispatch = (await ports.dispatches.find(tenant, dispatchId))!;
+
+        // Stock tras despacho: 0
+        expect(await harness.stockOf(WATER, MAIN)).toBe(0);
+
+        const return1 = await draftReturn(dispatch, [4]);
+        await confirmReturn(return1);
+        expect(await harness.stockOf(WATER, MAIN)).toBe(4);
+
+        const return2 = await draftReturn(dispatch, [4]);
+        await confirmReturn(return2);
+        expect(await harness.stockOf(WATER, MAIN)).toBe(8);
+
+        // Tercera devolución de 3 excede el cupo disponible (10 - 8 = 2 < 3)
+        const return3 = await draftReturn(dispatch, [3]);
+        await expect(confirmReturn(return3)).rejects.toThrow(QuantityExceedsDispatchedReturnQuotaError);
+
+        // El pedido de venta NO se modifica en absoluto (§3.11)
+        const refreshedOrder = (await ports.orders.find(tenant, order.id))!;
+        expect(refreshedOrder.toPrimitives()).toMatchObject({
+          status: 'dispatched',
+          lines: [{ dispatchedQuantity: 10 }],
+        });
+      });
+
+      it('lets only one of two concurrent returns through when together they exceed the remaining quota', async () => {
+        await harness.stock(WATER, MAIN, 10);
+        const order = await confirmedOrder(6);
+        const dispatchId = await draftDispatch(order, 6);
+        await confirmDispatch(dispatchId);
+        const dispatch = (await ports.dispatches.find(tenant, dispatchId))!;
+
+        const return1 = await draftReturn(dispatch, [4]);
+        const return2 = await draftReturn(dispatch, [4]);
+
+        const results = await Promise.allSettled([confirmReturn(return1), confirmReturn(return2)]);
+        expect(results.map((r) => r.status).sort()).toEqual(['fulfilled', 'rejected']);
+        expect((results.find((r) => r.status === 'rejected') as PromiseRejectedResult).reason).toBeInstanceOf(
+          QuantityExceedsDispatchedReturnQuotaError,
+        );
+      });
+
+      it('a scrap return does not generate stock movement and a resalable return does at the dispatch cost via restoresMovementId', async () => {
+        await harness.stock(WATER, MAIN, 10);
+        const order = await confirmedOrder(6);
+        const dispatchId = await draftDispatch(order, 6);
+        await confirmDispatch(dispatchId);
+        const dispatch = (await ports.dispatches.find(tenant, dispatchId))!;
+
+        expect(await harness.stockOf(WATER, MAIN)).toBe(4);
+
+        // Devolución scrap por 2 unidades
+        const scrapReturnId = await draftReturn(dispatch, [2], 'scrap');
+        const scrapConfirmed = await confirmReturn(scrapReturnId);
+        expect(scrapConfirmed.currentStatus()).toBe('confirmed');
+
+        // Scrap no mueve inventario (§3.5)
+        expect(await harness.stockOf(WATER, MAIN)).toBe(4);
+        if (harness.movementsOf) {
+          const scrapMovements = await harness.movementsOf('sales_return', scrapReturnId.value);
+          expect(scrapMovements).toHaveLength(0);
+        }
+
+        // Devolución resalable por 2 unidades
+        const resalableReturnId = await draftReturn(dispatch, [2], 'resalable');
+        const resalableConfirmed = await confirmReturn(resalableReturnId);
+        expect(resalableConfirmed.currentStatus()).toBe('confirmed');
+
+        // Resalable sí reingresa inventario al costo de la salida original
+        expect(await harness.stockOf(WATER, MAIN)).toBe(6);
+        if (harness.movementsOf) {
+          const dispatchMovements = await harness.movementsOf('dispatch', dispatchId.value);
+          expect(dispatchMovements.length).toBeGreaterThan(0);
+          const origMovement = dispatchMovements[0];
+
+          const resalableMovements = await harness.movementsOf('sales_return', resalableReturnId.value);
+          expect(resalableMovements).toHaveLength(1);
+          expect(resalableMovements[0]).toMatchObject({
+            direction: 'in',
+            quantity: 2,
+            unitCost: origMovement.unitCost,
+            restoresMovementId: origMovement.id,
+            reversalOfId: null,
+          });
+        }
+      });
+
+      it('cancelling a return reverses its movement by reversalOfId and the other return keeps citing the same exit', async () => {
+        await harness.stock(WATER, MAIN, 10);
+        const order = await confirmedOrder(6);
+        const dispatchId = await draftDispatch(order, 6);
+        await confirmDispatch(dispatchId);
+        const dispatch = (await ports.dispatches.find(tenant, dispatchId))!;
+
+        const return1Id = await draftReturn(dispatch, [2], 'resalable');
+        const return2Id = await draftReturn(dispatch, [2], 'resalable');
+
+        await confirmReturn(return1Id);
+        await confirmReturn(return2Id);
+        expect(await harness.stockOf(WATER, MAIN)).toBe(8);
+
+        // Anular la segunda devolución
+        const cancelled = await cancelReturn(return2Id);
+        expect(cancelled.currentStatus()).toBe('cancelled');
+        expect(await harness.stockOf(WATER, MAIN)).toBe(6);
+
+        if (harness.movementsOf) {
+          const dispatchMovements = await harness.movementsOf('dispatch', dispatchId.value);
+          const origMovement = dispatchMovements[0];
+
+          // La primera devolución sigue citando la misma salida
+          const return1Movements = await harness.movementsOf('sales_return', return1Id.value);
+          expect(return1Movements).toHaveLength(1);
+          expect(return1Movements[0].restoresMovementId).toBe(origMovement.id);
+
+          // La devolución anulada tiene el movimiento original 'in' y la reversión 'out' con reversalOfId
+          const return2Movements = await harness.movementsOf('sales_return', return2Id.value);
+          expect(return2Movements).toHaveLength(2);
+          const inMove = return2Movements.find((m) => m.direction === 'in')!;
+          const revMove = return2Movements.find((m) => m.direction === 'out')!;
+          expect(inMove.restoresMovementId).toBe(origMovement.id);
+          expect(revMove.reversalOfId).toBe(inMove.id);
+        }
+
+        await expect(cancelReturn(return2Id)).rejects.toThrow(SalesReturnAlreadyCancelledError);
+      });
+    });
+
     describe('SalesCodeSequence', () => {
       it('counts each prefix per tenant', async () => {
         expect(await ports.codes.next(tenant, 'FAC')).toBe(1);
@@ -486,5 +786,6 @@ export function describeSalesPortsContract(implementation: string, createHarness
         expect(await ports.codes.next(TenantId.of(TENANT_B), 'FAC')).toBe(1);
       });
     });
+
   });
 }

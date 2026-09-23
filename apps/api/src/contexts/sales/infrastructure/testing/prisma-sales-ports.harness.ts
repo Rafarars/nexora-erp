@@ -17,6 +17,9 @@ import { PrismaInvoiceRepository } from '../persistence/prisma-invoice.repositor
 import { PrismaSalesCodeSequence } from '../persistence/prisma-sales-code-sequence.js';
 import { PrismaSalesOrderPosting } from '../persistence/prisma-sales-order-posting.js';
 import { PrismaSalesOrderRepository } from '../persistence/prisma-sales-order.repository.js';
+import { PrismaSalesReturnCreditedChecker } from '../persistence/prisma-sales-return-credited-checker.js';
+import { PrismaSalesReturnPosting } from '../persistence/prisma-sales-return-posting.js';
+import { PrismaSalesReturnRepository } from '../persistence/prisma-sales-return.repository.js';
 
 function connectionString(): string {
   const url = process.env.DATABASE_URL;
@@ -38,9 +41,11 @@ export class PrismaSalesPortsHarness implements SalesPortsHarness {
       orders: new PrismaSalesOrderRepository(this.prisma),
       dispatches: new PrismaDispatchRepository(this.prisma),
       invoices: new PrismaInvoiceRepository(this.prisma),
+      returns: new PrismaSalesReturnRepository(this.prisma),
       orderPosting: new PrismaSalesOrderPosting(this.prisma, stock),
       dispatchPosting: new PrismaDispatchPosting(this.prisma, stock),
       invoicePosting: new PrismaInvoicePosting(this.prisma, new PrismaReceivableBalances()),
+      returnPosting: new PrismaSalesReturnPosting(this.prisma, stock, new PrismaSalesReturnCreditedChecker(this.prisma)),
       codes: new PrismaSalesCodeSequence(this.prisma),
     };
   }
@@ -59,6 +64,26 @@ export class PrismaSalesPortsHarness implements SalesPortsHarness {
 
     return row ? row.quantity.toNumber() : 0;
   }
+
+  async movementsOf(
+    originType: string,
+    originId: string,
+  ): Promise<Array<{ id: string; unitCost: number; restoresMovementId: string | null; reversalOfId: string | null; direction: string; quantity: number }>> {
+    const rows = await this.prisma.inventoryMovement.findMany({
+      where: { tenantId: TENANT_A, originType, originId },
+      orderBy: { sequence: 'asc' },
+    });
+
+    return rows.map((r) => ({
+      id: r.id,
+      unitCost: r.unitCost ? r.unitCost.toNumber() : 0,
+      restoresMovementId: r.restoresMovementId,
+      reversalOfId: r.reversalOfId,
+      direction: r.direction,
+      quantity: r.quantity.toNumber(),
+    }));
+  }
+
 
   async pay(invoiceId: string, customerId: string, amount: number): Promise<void> {
     const id = crypto.randomUUID();

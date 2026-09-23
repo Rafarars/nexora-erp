@@ -8,12 +8,22 @@ import { DispatchRepository } from '../../domain/dispatch/dispatch.repository.js
 import { DispatchPosting } from '../../domain/dispatch/posting/dispatch-posting.js';
 import {
   CustomerNotFoundError,
+  DispatchLineNotFoundError,
   DispatchNotEditableError,
   DispatchNotFoundError,
+  DispatchNotReturnableError,
   InsufficientStockForDispatchError,
   InvoiceNotFoundError,
+  QuantityExceedsDispatchedReturnQuotaError,
+  ReturnBeforeDispatchError,
+  ReturnCustomerMismatchError,
   SalesOrderNotEditableError,
   SalesOrderNotFoundError,
+  SalesReturnAlreadyCancelledError,
+  SalesReturnNotConfirmableError,
+  SalesReturnNotEditableError,
+  SalesReturnNotFoundError,
+  SalesReturnWithCreditNoteError,
 } from '../../domain/errors/sales.errors.js';
 import { CustomerCredit } from '../../domain/invoice/credit/customer-credit.js';
 import { Invoice, InvoicePrimitives } from '../../domain/invoice/invoice.entity.js';
@@ -23,10 +33,14 @@ import { SalesReturnsOfInvoice } from '../../domain/invoice/returns/sales-return
 import { SalesOrderPosting } from '../../domain/order/posting/sales-order-posting.js';
 import { SalesOrder, SalesOrderPrimitives } from '../../domain/order/sales-order.entity.js';
 import { SalesOrderRepository } from '../../domain/order/sales-order.repository.js';
+import { SalesReturnPosting } from '../../domain/return/posting/sales-return-posting.js';
+import { SalesReturn, SalesReturnId, SalesReturnPrimitives } from '../../domain/return/sales-return.entity.js';
+import { SalesReturnCriteria, SalesReturnRepository } from '../../domain/return/sales-return.repository.js';
 import { Quantity } from '../../domain/shared/quantity.vo.js';
 import { TenantId } from '../../domain/shared/tenant-id.vo.js';
 import { SalesStock } from '../../domain/stock/sales-stock.js';
 import { InMemorySalesCatalog } from './in-memory-sales-catalog.js';
+
 
 const key = (tenantId: string, itemId: string, warehouseId: string) => `${tenantId}|${itemId}|${warehouseId}`;
 
@@ -41,11 +55,27 @@ export class InMemorySalesStore {
   private readonly orderRows = new Map<string, SalesOrderPrimitives>();
   private readonly dispatchRows = new Map<string, DispatchPrimitives>();
   private readonly invoiceRows = new Map<string, InvoicePrimitives>();
+  private readonly returnRows = new Map<string, SalesReturnPrimitives>();
+  private readonly creditedReturns = new Set<string>();
+  private readonly movements: Array<{
+    id: string;
+    originType: string;
+    originId: string;
+    lineId: string;
+    itemId: string;
+    warehouseId: string;
+    direction: 'in' | 'out';
+    quantity: number;
+    unitCost: number;
+    restoresMovementId: string | null;
+    reversalOfId: string | null;
+  }> = [];
   private readonly onHand = new Map<string, number>();
   private readonly released: { dispatchId: string; key: string; quantity: number; reversed: boolean }[] = [];
   private readonly paid = new Map<string, number>();
   private readonly confirmedReturnOrderLineIds = new Set<string>();
   private queue: Promise<unknown> = Promise.resolve();
+
 
   // El catalogo de la prueba hace de tabla de articulos: la reserva lo lee como si lo tuviera
   // bloqueado.
@@ -287,7 +317,23 @@ export class InMemorySalesStore {
                 reversed: false,
               })),
             );
+            for (const exit of result.stock.exits) {
+              this.movements.push({
+                id: `mv-disp-${exit.lineId}`,
+                originType: 'dispatch',
+                originId: dispatch.id.value,
+                lineId: exit.lineId,
+                itemId: exit.itemId.value,
+                warehouseId: exit.warehouseId.value,
+                direction: 'out',
+                quantity: exit.quantity.toNumber(),
+                unitCost: 1,
+                restoresMovementId: null,
+                reversalOfId: null,
+              });
+            }
           }
+
 
           this.dispatchRows.set(dispatch.id.value, structuredClone(result.dispatch.toPrimitives()));
           this.orderRows.set(order.id.value, structuredClone(result.order.toPrimitives()));
@@ -337,6 +383,197 @@ export class InMemorySalesStore {
     };
   }
 
+  get returns(): SalesReturnRepository {
+    return {
+      save: async (returnEntity) => {
+        const stored = this.returnRows.get(returnEntity.id.value);
+
+        if (stored && stored.status !== 'draft') throw new SalesReturnNotEditableError(stored.id, stored.status);
+        if (stored && stored.updatedAt.getTime() !== returnEntity.version()?.getTime()) throw new ConcurrentModificationError(stored.id);
+
+        this.returnRows.set(returnEntity.id.value, structuredClone(returnEntity.toPrimitives()));
+      },
+      find: async (tenantId, id) => this.loadReturn(tenantId, id.value),
+      searchPage: async (tenantId, criteria) => {
+        const text = criteria.text?.toLowerCase() ?? null;
+        const matches = [...this.returnRows.values()]
+          .filter((row) => row.tenantId === tenantId.value)
+          .filter((row) => !criteria.customerId || row.customerId === criteria.customerId)
+          .filter((row) => !criteria.dispatchId || row.dispatchId === criteria.dispatchId)
+          .filter((row) => !criteria.status || row.status === criteria.status)
+          .filter((row) => !criteria.from || row.returnDate >= criteria.from)
+          .filter((row) => !criteria.to || row.returnDate <= criteria.to)
+          .filter((row) => text === null || row.code.toLowerCase().includes(text) || (row.reason && row.reason.toLowerCase().includes(text)))
+          .sort((a, b) => b.code.localeCompare(a.code));
+
+        return {
+          returns: matches.slice(criteria.offset, criteria.offset + criteria.limit).map((row) => SalesReturn.fromPrimitives(structuredClone(row))),
+          total: matches.length,
+        };
+      },
+      returnedQuantitiesByDispatch: async (tenantId, dispatchId, excludeReturnId) => {
+        const result = new Map<string, number>();
+        for (const row of this.returnRows.values()) {
+          if (
+            row.tenantId === tenantId.value &&
+            row.dispatchId === dispatchId &&
+            row.status === 'confirmed' &&
+            (!excludeReturnId || row.id !== excludeReturnId)
+          ) {
+            for (const line of row.lines) {
+              if (line.dispatchLineId) {
+                result.set(line.dispatchLineId, (result.get(line.dispatchLineId) ?? 0) + line.quantity);
+              }
+            }
+          }
+        }
+        return result;
+      },
+    };
+  }
+
+  get returnPosting(): SalesReturnPosting {
+    return {
+      confirm: (tenantId, returnId, now) =>
+        this.serial(async () => {
+          const returnEntity = this.loadReturn(tenantId, returnId.value);
+          if (!returnEntity) throw new SalesReturnNotFoundError(returnId.value);
+          if (returnEntity.currentStatus() !== 'draft') {
+            throw new SalesReturnNotConfirmableError(returnEntity.id.value, returnEntity.currentStatus());
+          }
+
+          const linesWithValuation: { lineId: string; unitCost: number; restoresMovementId: string }[] = [];
+
+          if (returnEntity.dispatchId) {
+            const dispatch = this.loadDispatch(tenantId, returnEntity.dispatchId.value);
+            if (!dispatch) throw new DispatchNotFoundError(returnEntity.dispatchId.value);
+            if (dispatch.currentStatus() !== 'confirmed') {
+              throw new DispatchNotReturnableError(dispatch.id.value, dispatch.currentStatus());
+            }
+
+            const order = this.loadOrder(tenantId, dispatch.orderId.value);
+            if (!order || order.customerId().value !== returnEntity.customerId.value) {
+              throw new ReturnCustomerMismatchError(returnEntity.customerId.value, order ? order.customerId().value : 'unknown');
+            }
+
+            if (returnEntity.date().isBefore(dispatch.date())) {
+              throw new ReturnBeforeDispatchError(returnEntity.date().value, dispatch.date().value);
+            }
+
+            const returnedMap = await this.returns.returnedQuantitiesByDispatch(tenantId, dispatch.id.value, returnEntity.id.value);
+            const dispatchPrimitives = dispatch.toPrimitives();
+
+            for (const line of returnEntity.lines()) {
+              if (!line.dispatchLineId) continue;
+              const dispatchLine = dispatchPrimitives.lines.find((dl) => dl.id === line.dispatchLineId);
+              if (!dispatchLine) throw new DispatchLineNotFoundError(line.dispatchLineId);
+
+              const alreadyReturned = returnedMap.get(line.dispatchLineId) ?? 0;
+              const availableQuota = dispatchLine.quantity - alreadyReturned;
+
+              if (line.quantity.toNumber() > availableQuota + 1e-6) {
+                throw new QuantityExceedsDispatchedReturnQuotaError(line.dispatchLineId, availableQuota, line.quantity.toNumber());
+              }
+
+              const origMovement = this.movements.find(
+                (m) => m.originType === 'dispatch' && m.originId === dispatch.id.value && m.lineId === line.dispatchLineId,
+              );
+              const movementId = origMovement ? origMovement.id : `mv-disp-${line.dispatchLineId}`;
+              const unitCost = origMovement ? origMovement.unitCost : 1;
+
+              linesWithValuation.push({
+                lineId: line.id.value,
+                unitCost,
+                restoresMovementId: movementId,
+              });
+            }
+          }
+
+          returnEntity.confirm(linesWithValuation, now);
+          this.returnRows.set(returnEntity.id.value, structuredClone(returnEntity.toPrimitives()));
+
+          if (returnEntity.condition() !== 'scrap') {
+            for (const line of returnEntity.lines()) {
+              if (line.restoresMovementId) {
+                const movementId = `mv-ret-${line.id.value}`;
+                this.movements.push({
+                  id: movementId,
+                  originType: 'sales_return',
+                  originId: returnEntity.id.value,
+                  lineId: line.id.value,
+                  itemId: line.itemId.value,
+                  warehouseId: returnEntity.warehouseId.value,
+                  direction: 'in',
+                  quantity: line.baseQuantity.toNumber(),
+                  unitCost: line.unitCost,
+                  restoresMovementId: line.restoresMovementId,
+                  reversalOfId: null,
+                });
+                const k = key(tenantId.value, line.itemId.value, returnEntity.warehouseId.value);
+                this.onHand.set(k, (this.onHand.get(k) ?? 0) + line.baseQuantity.toNumber());
+              }
+            }
+          }
+
+          return returnEntity;
+        }),
+
+      cancel: (tenantId, returnId, now) =>
+        this.serial(async () => {
+          const returnEntity = this.loadReturn(tenantId, returnId.value);
+          if (!returnEntity) throw new SalesReturnNotFoundError(returnId.value);
+          if (returnEntity.currentStatus() === 'cancelled') {
+            throw new SalesReturnAlreadyCancelledError(returnEntity.id.value);
+          }
+          if (this.creditedReturns.has(returnEntity.id.value)) {
+            throw new SalesReturnWithCreditNoteError(returnEntity.id.value);
+          }
+
+          const wasConfirmed = returnEntity.currentStatus() === 'confirmed';
+          if (wasConfirmed && returnEntity.condition() !== 'scrap') {
+            const prevMovements = this.movements.filter((m) => m.originType === 'sales_return' && m.originId === returnEntity.id.value && m.direction === 'in');
+            for (const prev of prevMovements) {
+              this.movements.push({
+                id: `mv-rev-${prev.id}`,
+                originType: 'sales_return',
+                originId: returnEntity.id.value,
+                lineId: prev.lineId,
+                itemId: prev.itemId,
+                warehouseId: prev.warehouseId,
+                direction: 'out',
+                quantity: prev.quantity,
+                unitCost: prev.unitCost,
+                restoresMovementId: null,
+                reversalOfId: prev.id,
+              });
+              const k = key(tenantId.value, prev.itemId, prev.warehouseId);
+              this.onHand.set(k, (this.onHand.get(k) ?? 0) - prev.quantity);
+            }
+          }
+
+          returnEntity.cancel(now);
+          this.returnRows.set(returnEntity.id.value, structuredClone(returnEntity.toPrimitives()));
+          return returnEntity;
+        }),
+    };
+  }
+
+  movementsOf(
+    originType: string,
+    originId: string,
+  ): Array<{ id: string; unitCost: number; restoresMovementId: string | null; reversalOfId: string | null; direction: string; quantity: number }> {
+    return this.movements
+      .filter((m) => m.originType === originType && m.originId === originId)
+      .map((m) => ({
+        id: m.id,
+        unitCost: m.unitCost,
+        restoresMovementId: m.restoresMovementId,
+        reversalOfId: m.reversalOfId,
+        direction: m.direction,
+        quantity: m.quantity,
+      }));
+  }
+
   private async credit(tenantId: TenantId, customerId: string, today: string, decimals: number): Promise<CustomerCredit> {
     const customer = await this.customers.find(tenantId, CustomerId.of(customerId));
 
@@ -378,8 +615,14 @@ export class InMemorySalesStore {
     return row && row.tenantId === tenantId.value ? Invoice.fromPrimitives(row) : null;
   }
 
+  private loadReturn(tenantId: TenantId, id: string): SalesReturn | null {
+    const row = this.returnRows.get(id);
+
+    return row && row.tenantId === tenantId.value ? SalesReturn.fromPrimitives(structuredClone(row)) : null;
+  }
+
   // En serie, como el bloqueo de filas de la base.
-  private serial(run: () => Promise<void>): Promise<void> {
+  private serial<T = void>(run: () => Promise<T>): Promise<T> {
     const next = this.queue.then(run);
 
     this.queue = next.catch(() => undefined);
@@ -387,3 +630,4 @@ export class InMemorySalesStore {
     return next;
   }
 }
+

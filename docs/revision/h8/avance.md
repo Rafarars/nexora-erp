@@ -287,5 +287,20 @@ Antes de iniciar la Fase 0, se revisaron a fondo las once decisiones de diseno d
   - **Duración medida de la prueba de compras:** La prueba `orders, receives part of it, follows it into the stock and cancels the receipt` registró una duración medida de 13,3 s en ambas corridas completas, muy por debajo del umbral de 30 s.
   - **Conclusión según directriz:** Al no reproducirse el fallo de socket hang up en 1.302 ejecuciones con el entorno limpio y serializado, no se introducen ajustes artificiales de `keepAliveTimeout` en el servidor HTTP (`main.ts`) ni anotaciones `test.slow()` innecesarias. Se documenta la evidencia y se procede con C2.
 
+### C2: Contrato de puerto de las devoluciones de venta
+
+- **Qué cambió:**
+  - En `apps/api/src/contexts/sales/testing/sales-ports.harness.ts`: se ampliaron `SalesPorts` con `returns: SalesReturnRepository` y `returnPosting: SalesReturnPosting`, y `SalesPortsHarness` con `movementsOf(...)`.
+  - En `apps/api/src/contexts/sales/infrastructure/testing/in-memory-sales-store.ts`: se dotó al doble en memoria de almacenamiento completo para borradores de devolución, búsqueda paginada, suma de cantidades devueltas por despacho, confirmación atómica con control de cupos en caliente y valuación congelada, trazabilidad de movimientos de kardex y reversiones al anular.
+  - En `apps/api/src/contexts/sales/infrastructure/testing/in-memory-sales-ports.contract.spec.ts` y `prisma-sales-ports.harness.ts`: se cablearon los repositorios y la consulta de movimientos para ambas implementaciones.
+  - En `apps/api/src/contexts/sales/testing/sales-ports.contract.ts`: se introdujeron las suites de contrato `SalesReturnRepository` (guardado, edición, concurrencia de edición, estados no editables, paginación y aislamiento entre inquilinos) y `SalesReturnPosting` (dos devoluciones parciales aceptadas y tercera excedida rechazada, concurrencia de confirmación excediendo cupo con una sola victoriosa, condición scrap sin movimiento en inventario, condición resalable con reingreso al costo congelado de salida citado por `restoresMovementId`, reversión por `reversalOfId` al anular manteniendo intactas las demás devoluciones, e invariante de que el pedido de venta no se toca).
+- **Pruebas que lo defienden:**
+  - `describeSalesPortsContract`: 32/32 pruebas pasando al 100% tanto en memoria (`in-memory-sales-ports.contract.spec.ts`) como contra base de datos PostgreSQL real (`prisma-sales-ports.contract.integration.spec.ts`).
+- **Evidencia de que la prueba fallaba antes:**
+  - Al reproducir el error de la fase 2 sustituyendo temporalmente `salesReturn:` por la relación inexistente `return:` en `prisma-sales-return.repository.ts:118`, la prueba de contrato `searches by criteria and counts confirmed returned quantities` falló inmediatamente contra PostgreSQL con:
+    `PrismaClientValidationError: Unknown argument return. Available options are marked with ?: salesReturn`.
+  - Esto demuestra que el contrato habría atrapado el defecto en la fase 2 antes de llegar a las pruebas destructivas de la fase 6.
+
+
 
 

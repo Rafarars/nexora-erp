@@ -125,6 +125,8 @@ export class PrismaSalesReturnRepository implements SalesReturnRepository {
           status: 'confirmed',
           ...(excludeReturnId ? { id: { not: excludeReturnId } } : {}),
         },
+
+
       },
       select: {
         dispatchLineId: true,
