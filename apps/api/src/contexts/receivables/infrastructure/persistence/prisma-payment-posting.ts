@@ -17,12 +17,8 @@ import { TenantId } from '../../domain/shared/tenant-id.vo.js';
 import { CREDIT_NOTE_INCLUDE, creditNoteFromRow, CreditNoteRow, PAYMENT_INCLUDE, invoiceFromRow, invoiceSelect, paymentFromRow } from './receivables-rows.js';
 import { queryAppliedPaymentsSum } from './credit-note-applied-query.js';
 
-// Orden determinista de bloqueo para evitar interbloqueos con notas de credito y facturas:
-// 1. customer_credit_notes (si el cobro cita una nota como fuente de credito o emision)
-// 2. customer_payments (la fila del cobro)
-// 3. invoices (ordenadas por identificador)
-// Este orden es consistente con PrismaCreditNotePosting (que bloquea primero la nota y despues su cobro de emision),
-// eliminando cualquier posibilidad de interbloqueo (deadlock) entre operaciones concurrentes de cobros y notas.
+// Bloqueo determinista (nota -> cobro -> facturas) para evitar deadlocks con
+// PrismaCreditNotePosting, que siempre adquiere la nota antes que su cobro.
 @Injectable()
 export class PrismaPaymentPosting implements PaymentPosting {
   constructor(private readonly prisma: PrismaService) {}
