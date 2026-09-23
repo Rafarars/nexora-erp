@@ -459,3 +459,95 @@ Antes de iniciar la Fase 0, se revisaron a fondo las once decisiones de diseno d
 - **Evidencia de que la prueba fallaba antes:**
   - Anteriormente, `credit-notes-returns.spec.ts` solo navegaba y leía datos preexistentes del seed demo; ningún formulario de creación, confirmación ni consumo de notas de crédito y devoluciones era ejercitado a través de la interfaz web.
   - Al ejecutar inicialmente la prueba de emisión de nota de crédito por la UI, el formulario falló con `Error: expect(locator).toBeHidden() failed` mostrando `alert: Revisa los datos del formulario.` debido a la discrepancia de nombres de campo (`issueDate` vs `date`) con la validación estricta de Zod en la API, y `alert: El monto de las notas de crédito supera el total de la factura.` al probar la cota superior del cupo de factura, evidenciando empíricamente que los formularios no habían sido probados usándolos desde la interfaz.
+
+---
+
+## Segunda ronda de correcciones de la revisión
+
+### R7: Descarte de hipótesis de matriz y umbrales de tiempo en interfaz
+
+- **Descarte empírico de la hipótesis:**
+  - La hipótesis de la revisión sugería que las pruebas de aislamiento (`isolation`) corrían en paralelo con las de interfaz (`ui`) y saturaban la base de datos compitiendo por los mismos inquilinos o puertos.
+  - Para contrastarla, se hizo que `isolation` dependiera secuencialmente de `ui` en `playwright.config.ts` y se ejecutó la suite completa.
+  - El resultado desmintió la hipótesis: `receivables.spec.ts:12` volvió a exceder los 30 s (`31.4s`) aun corriendo de forma completamente aislada sin `isolation` en paralelo, demostrando que la causa real era la contención concurrente entre los 3 workers del propio proyecto `ui` y el peso inherente de la prueba (7 navegaciones completas por el DOM con redirecciones en Next.js, midiendo 21,5 s incluso en ejecución solitaria).
+  - En consecuencia, se revirtió de inmediato la dependencia artificial de `isolation` sobre `ui` para no alargar innecesariamente el tiempo total de la suite.
+- **Ajuste aplicado:**
+  - Se aplicó `test.slow()` a `receivables.spec.ts:12` documentando su duración real observada (21,5 s sola, 31,4 s en la suite, 7 navegaciones completas), siguiendo el mismo criterio que ya utilizaba `sales.spec.ts:12`.
+  - Se aplicó igualmente `test.slow()` a `inventory.spec.ts:12` (21,1 s en aislamiento, 6 navegaciones completas).
+
+### R8: Selector de notas de crédito y crédito disponible en Cobros
+
+- **Qué cambió:**
+  - **Servidor y API:**
+    - Se creó la Server Action `getCustomerAvailableCredits(customerId)` en `apps/web/src/app/(app)/cuentas-por-cobrar/actions.ts`, consumiendo el endpoint de dominio `findAvailableCreditsByCustomer`.
+  - **Interfaz de usuario:**
+    - En `apps/web/src/app/(app)/cuentas-por-cobrar/cobros/payments-board.tsx`:
+      - Al seleccionar cliente, se consulta en caliente su crédito disponible total y se muestra prominentemente junto al saldo por cobrar con el test ID `customer-available-credit-badge` («Crédito disponible: USD X,XX»).
+      - Al seleccionar la forma de pago `credit_note`, se despliega un selector real con las notas confirmadas con saldo a favor (`payment-form-credit-source-id`), listando para cada nota su código y remanente disponible (por ejemplo: `NCC000003 · USD 1,96 disponible`). El usuario ya no manipula ningún identificador UUID interno.
+  - **Pruebas:**
+    - En `apps/e2e/tests/ui/receivables.spec.ts`: se añadió la prueba `shows total available credit when choosing a customer in Payments` verificando la visualización del crédito disponible al elegir un cliente con notas a favor (`CLI000003`).
+    - En `apps/e2e/tests/destructive/h8-ui-mutations.spec.ts`: se adaptó el flujo de mutación para que seleccione la nota de crédito por su texto visible en el dropdown (`NCC...`), sin inyectar UUIDs.
+
+### R1: Relato histórico consistente en el avance
+
+- Corregido el relato en las secciones C1, C5 y C6:
+  - En C1 se documentó la verdad sobre las 1.302 ejecuciones iniciales limpias sin reproducción de socket hang up, su aparición aislada en C5 y la solución definitiva con `keepAliveTimeout` / `headersTimeout` en `main.ts`.
+  - En C5 se limpió la narración de keep-alive enlazando directamente al relato exhaustivo de C1.
+  - En C6 se completó la frase truncada agregando la evidencia empírica de medición de tiempos.
+  - En Fase 3 se aclaró con precisión que el selector de notas en Cobros fue postergado a R8.
+
+### R2: Unificación del nombre de fecha a `date` en notas de crédito
+
+- Se eliminó el alias `issueDate` introducido provisionalmente en el DTO de creación y edición (`credit-note.request.dto.ts`), en los controladores HTTP (`CreateCreditNotePostController` y `UpdateCreditNotePutController`), en el cliente HTTP (`http-receivables-api.ts`) y en las acciones web (`actions.ts`).
+- En `credit-notes-board.tsx` se unificó el formulario para enviar directamente `name="date"`, manteniendo el contrato del backend estricto y limpio.
+
+### R3: Robustecimiento de pruebas de interfaz de devoluciones y verificación de existencias
+
+- **Traslado de prueba de interfaz:**
+  - La prueba de creación de devolución sin despacho de `credit-notes-returns.spec.ts` mutaba el inventario. Se trasladó al proyecto `destructive` en `h8-ui-mutations.spec.ts`, asegurando restauración del entorno.
+  - La prueba ahora completa el ciclo de vida: crea el borrador con costo manual ($3.75), lo confirma en pantalla y verifica que el stock en la bodega seleccionada reingresa y aumenta exactamente en las 2 unidades devueltas.
+- **Verificación de existencias en devolución de compras:**
+  - En `h8-ui-mutations.spec.ts`, la prueba de devolución a proveedor ahora verifica el impacto real en inventario: consulta la existencia previa (6 unidades), emite y confirma la devolución de 2 unidades desde la UI, y verifica que la existencia en pantalla baja a 4 unidades.
+- **Filtros por código único:**
+  - Se incorporaron selectores específicos por código (`sales-return-row-${createdReturn.code}` y `purchase-return-row-${createdReturn.code}`), evitando ambigüedades con registros previamente sembrados.
+
+### R4: Guarda de invariante de nota de crédito al bloquear cobro
+
+- En `apps/api/src/contexts/receivables/infrastructure/prisma/prisma-payment-posting.ts`:
+  - Tras adquirir el bloqueo exclusivo `FOR UPDATE` sobre `customer_payments`, se verifica que el cobro no haya mutado su vinculación de crédito (`payment.toPrimitives().creditSourceId === (peek?.creditSourceId ?? null)`).
+  - Si difiere por una modificación concurrente, rechaza la operación lanzando `ConcurrentModificationError(paymentId.value)`.
+
+### R5: Simplificación y acortamiento de comentarios según `AGENTS.md`
+
+- Se revisaron todos los archivos tocados en las correcciones C1 a C8.
+- En `note-credit.service.ts`: se limpiaron imports no utilizados y se eliminó el comentario duplicado.
+- En `prisma-payment-posting.ts`: se sintetizó a 2 líneas la explicación del orden de bloqueo.
+- Todos los comentarios preservan la regla del proyecto: explican el por qué, nunca narran lo evidente y tienen un máximo de dos líneas.
+
+### Optimización de Page Objects en pruebas E2E
+
+- En `apps/e2e/pages/inventory.page.ts`, `purchasing.page.ts`, `receivables.page.ts` y `sales.page.ts`:
+  - Se condicionó el clic al menú lateral principal (`nav-...`) únicamente si el navegador no se encuentra ya dentro del módulo correspondiente (`if (!this.page.url().includes('/<modulo>/'))`).
+  - Esto eliminó redirecciones redundantes a la raíz de los módulos que provocaban el desmontaje de componentes de Next.js mientras Playwright interactuaba con los filtros y formularios, erradicando fallos intermitentes por elementos desprendidos del DOM.
+
+---
+
+## Verificación final de la suite
+
+Dos ejecuciones consecutivas de `make verify` arrojaron resultado 100% en verde:
+
+```
+Test Files  165 passed (165)
+Tests  3214 passed (3214)    [Unitarias API]
+
+Test Files  23 passed (23)
+Tests  202 passed (202)      [Unitarias Web]
+
+Test Files  12 passed (12)
+Tests  272 passed (272)      [Contratos en Integración]
+
+468 passed (9.0m)            [Playwright E2E - API, UI, Isolation, Performance, Destructive, Resilience]
+
+Todo en verde.
+```
+
