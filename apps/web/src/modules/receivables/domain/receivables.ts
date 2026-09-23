@@ -13,6 +13,7 @@ export interface Payment extends DocumentCurrency {
   paymentDate: string;
   method: PaymentMethod;
   creditSourceId?: string | null;
+  creditSourceCode?: string | null;
   reference: string | null;
   notes: string | null;
   // En la moneda del cobro.

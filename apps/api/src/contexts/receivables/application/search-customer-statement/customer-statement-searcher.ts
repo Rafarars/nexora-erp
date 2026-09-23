@@ -37,7 +37,7 @@ export class CustomerStatementSearcher {
     private readonly payments: PaymentRepository,
     private readonly calendar: BusinessCalendar,
     private readonly rates: DocumentRates,
-    private readonly creditNotes?: CustomerCreditNoteRepository,
+    private readonly creditNotes: CustomerCreditNoteRepository,
   ) {}
 
   async run(request: { tenantId: string; customerId: string }): Promise<{ summary: CustomerBalanceResponse; movements: StatementMovement[] }> {

@@ -140,6 +140,33 @@ describe('searching the payments', () => {
     await expect(s.searchPayments.run({ tenantId: TENANT_A, customerId: 'undefined' })).rejects.toThrow(InvalidUuidError);
     await expect(s.searchPayments.run({ tenantId: TENANT_A, customerId: 'not-a-uuid' })).rejects.toThrow(InvalidUuidError);
   });
+
+  it('resolves the credit note code when a payment cites a credit note', async () => {
+    const s = world();
+    const { id: noteId, code: noteCode } = await s.createCreditNote.run({
+      tenantId: TENANT_A,
+      customerId: CUSTOMER,
+      reason: 'other',
+      reasonDetail: 'Ajuste comercial',
+      issueDate: '2026-01-15',
+      lines: [{ quantity: 1, unitPrice: 50, taxRate: 0 }],
+    });
+    await s.confirmCreditNote.run({ tenantId: TENANT_A, creditNoteId: noteId });
+
+    await s.createPayment.run({
+      tenantId: TENANT_A,
+      customerId: CUSTOMER,
+      method: 'credit_note',
+      creditSourceId: noteId,
+      allocations: [{ invoiceId: INVOICE, amount: 25 }],
+    });
+
+    const page = await s.searchPayments.run({ tenantId: TENANT_A });
+    const payment = page.payments.find((p) => p.method === 'credit_note')!;
+
+    expect(payment.creditSourceId).toBe(noteId);
+    expect(payment.creditSourceCode).toBe(noteCode);
+  });
 });
 
 describe('searching the customer balances', () => {

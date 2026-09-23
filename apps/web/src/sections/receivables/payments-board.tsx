@@ -348,7 +348,7 @@ function PaymentFields({
             ))}
             {payment?.creditSourceId && !availableCredits.some((c) => c.id === payment.creditSourceId) ? (
               <option value={payment.creditSourceId}>
-                Nota asociada ({payment.creditSourceId})
+                {payment.creditSourceCode ? `${payment.creditSourceCode} (sin crédito disponible)` : 'Nota de crédito'}
               </option>
             ) : null}
             {availableCredits.length === 0 ? (
