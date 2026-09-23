@@ -10,6 +10,8 @@ test.describe('The inventory, from the screen', () => {
   // en el kardex, y anulado con su contrapartida. Con un articulo propio, para que ninguna
   // prueba en paralelo le mueva la existencia.
   test('adjusts, reads the stock and the kardex, and cancels with a reversal', async ({ page, request }) => {
+    // Siete navegaciones completas bajo la concurrencia de la suite: medida en 18,5 s sola y superando los 30 s con la suite.
+    test.slow();
     const item = await aFreshItem(request, await tokenFor(request, ACME_ADMIN.email, API), API);
     const label = `${item.sku} — ${item.name}`;
     const inventory = new InventoryPage(page);

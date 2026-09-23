@@ -49,6 +49,9 @@ export class PrismaCompanyPortsHarness implements CompanyPortsHarness {
   async reset(): Promise<void> {
     const tenants = [TENANT_A, TENANT_B];
 
+    await this.prisma.inventoryMovement.updateMany({ where: { tenantId: { in: tenants } }, data: { reversalOfId: null, restoresMovementId: null } });
+    await this.prisma.inventoryMovement.deleteMany({ where: { tenantId: { in: tenants } } });
+    await this.prisma.itemStock.deleteMany({ where: { tenantId: { in: tenants } } });
     await this.prisma.adjustment.deleteMany({ where: { tenantId: { in: tenants } } });
     await this.prisma.warehouse.deleteMany({ where: { tenantId: { in: tenants }, code: { startsWith: 'BOD9' } } });
     await this.prisma.exchangeRate.deleteMany({ where: { tenantId: { in: tenants } } });
