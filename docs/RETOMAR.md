@@ -3,17 +3,43 @@
 Documento de traspaso: contiene lo necesario para continuar el proyecto **sin depender
 de ninguna conversación anterior**.
 
-**Actualizado:** 22 de septiembre de 2026
+**Actualizado:** 23 de septiembre de 2026
 
 ---
 
 ## Lo siguiente, en una línea
 
-**Construir H8**, empezando por su fase 0. El plan está escrito, investigado y corregido:
-[`docs/H8-NOTAS-DE-CREDITO-Y-DEVOLUCIONES.md`](H8-NOTAS-DE-CREDITO-Y-DEVOLUCIONES.md). Después
-sigue [H9](H9-COMPRAS-HASTA-EL-PAGO.md) y luego [H10](H10-CONTABILIDAD.md); el porqué de ese orden
-está en cada documento. **Nada de los tres está construido todavía** — son planes aprobados, no
-código.
+**Cerrar H8: su segunda ronda de correcciones y después la fase 7, la revisión.** H8 está
+**construido en la rama `h8`, sin mergear a `main`**: fases 0 a 6 y una primera ronda de ocho
+correcciones. Lo construyó otro agente, Antigravity (`agy`), con este documento como especificación,
+y Claude lo revisa leyendo el código y corriendo la suite. Después siguen
+[H9](H9-COMPRAS-HASTA-EL-PAGO.md) y [H10](H10-CONTABILIDAD.md), sin construir.
+
+**Dónde está cada cosa de H8:**
+
+- **La especificación:** [`H8-NOTAS-DE-CREDITO-Y-DEVOLUCIONES.md`](H8-NOTAS-DE-CREDITO-Y-DEVOLUCIONES.md).
+  En la rama `h8`, sus casillas de fases 0 a 6 están marcadas.
+- **La bitácora fase por fase**, con cada corrección y su evidencia: `docs/revision/h8/avance.md`,
+  en la rama `h8`.
+- **Los prompts con los que se le encargó a `agy`**, fuera del repositorio:
+  `~/.gemini/tmp/erp-portafolio/prompt-h8.md`, `prompt-h8-correcciones.md` y
+  `prompt-h8-correcciones-2.md`.
+
+**En qué punto está**, al 23-sep-2026:
+
+1. La primera revisión encontró ocho defectos (C1 a C8), y `agy` los corrigió. Los más serios: la
+   devolución de venta no tenía contrato de puerto, así que un fallo que sólo aparecía contra
+   PostgreSQL pasó en verde; faltaba la devolución sin origen; y **el formulario de nota de crédito
+   nunca había funcionado**.
+2. La segunda revisión corrió `make verify` sobre `h8` y **salió en rojo**: la matriz de
+   aislamiento, que H8 agrandó, corre a la vez que las pruebas de interfaz y las satura.
+   **Decidido:** el proyecto `isolation` pasa a correr después de `ui`. Esa corrección y otras cinco
+   (R1 a R7) las está haciendo `agy` ahora.
+3. **Pendiente de Rafael:** qué hacer con la rama remota `origin/h8`, que quedó en `eb2706e`, antes
+   de las correcciones; y si se puede devolver un artículo ya desactivado (duda que dejó `agy`).
+
+**Lo que se aprendió delegando un hito** está en Engram (proyecto `nexora-erp`), con lo que hay que
+exigirle al agente desde el primer prompt.
 
 Las **cuatro decisiones que esperaban a Rafael** (abajo, «Decisiones esperando a Rafael») y las
 **mejoras de diseño del sistema** quedaron aparcadas a propósito: Rafael pidió investigar y
@@ -111,7 +137,8 @@ un cambio de API o de web no se ve en el navegador ni en la e2e hasta que se eje
 | **H6 — Cuentas por cobrar** | **Completado**. Informe en [`H6-CUENTAS-POR-COBRAR.md`](H6-CUENTAS-POR-COBRAR.md) |
 | **H7 — Reportes y tablero** | **Completado**. Informe en [`H7-REPORTES.md`](H7-REPORTES.md) |
 | **Revisión módulo por módulo** | **Terminada el 19-sep-2026**: los veintinueve submódulos revisados, empezando por Artículos (el piloto). El método ya es la skill `module-review`. Ver [la sección de abajo](#revisión-módulo-por-módulo) y [`revision/README.md`](revision/README.md) |
-| **H8, H9, H10** | **Planeados el 21-sep-2026, sin construir.** Notas de crédito y devoluciones, compras hasta el pago, contabilidad. Ver [«Por qué existen H8, H9 y H10»](#por-qué-existen-h8-h9-y-h10) arriba |
+| **H8** | **Construido en la rama `h8`, en revisión** (23-sep-2026). Ver «Lo siguiente, en una línea» arriba |
+| **H9, H10** | **Planeados el 21-sep-2026, sin construir.** Compras hasta el pago, contabilidad. Ver [«Por qué existen H8, H9 y H10»](#por-qué-existen-h8-h9-y-h10) arriba |
 
 Lo que ya funciona: monorepo con API, frontend y suite E2E; PostgreSQL en Docker;
 endpoint de salud que verifica la base; CI con cuatro trabajos publicando el reporte;
@@ -648,16 +675,16 @@ diseño: primero cerrar los huecos de cobertura que esa pregunta destapó.
 |---|---|---|
 | ~~1º~~ | ~~**Acceso**~~ — **cerrado el 19-sep-2026**, once hallazgos construidos de doce | Era el que tenía peso real, y lo confirmó: una empresa podía quedarse sin nadie que la administrara por tres puertas distintas |
 | ~~2º~~ | ~~**Reportes**~~ — **cerrado el 19-sep-2026**, doce hallazgos construidos | El hallazgo anotado se confirmó y creció: el PDF no sólo redondeaba distinto, es que **sus filas no sumaban su propio total** |
-| **3º** | **H8 — Notas de crédito y devoluciones**. Plan escrito y corregido, **sin construir**: [`H8-NOTAS-DE-CREDITO-Y-DEVOLUCIONES.md`](H8-NOTAS-DE-CREDITO-Y-DEVOLUCIONES.md) | No hay cómo acreditar una venta, sólo anularla entera |
+| **3º** | **H8 — Notas de crédito y devoluciones**. **Construido en la rama `h8`, en revisión**: [`H8-NOTAS-DE-CREDITO-Y-DEVOLUCIONES.md`](H8-NOTAS-DE-CREDITO-Y-DEVOLUCIONES.md) | No hay cómo acreditar una venta, sólo anularla entera |
 | **4º** | **H9 — Compras hasta el pago**. Plan escrito y corregido, **sin construir**: [`H9-COMPRAS-HASTA-EL-PAGO.md`](H9-COMPRAS-HASTA-EL-PAGO.md) | Compras se detiene en la mercancía: no hay factura de compra, ni pago, ni saldo por pagar |
 | **5º** | **H10 — Contabilidad**. Plan escrito y corregido, **sin construir**: [`H10-CONTABILIDAD.md`](H10-CONTABILIDAD.md) | Partida doble generada desde las operaciones; necesita H9 construido primero (sin pagos, «Proveedores por pagar» sólo crece) |
 | **6º** | **Las cuatro decisiones** que esperan a Rafael | Están abajo, cada una con su síntoma, su `archivo:línea` y su coste |
 | **7º** | **Mejoras de diseño del sistema** | **Sólo después de cerrar el 100 %.** Textual: «eso será luego de cerrar al 100 el sistema como tal» |
 
-**Cómo arrancar H8:** su documento tiene la especificación completa —decisiones de diseño con su
-porqué, reglas por submódulo, esqueleto de Prisma y dominio, y ocho fases numeradas empezando por
-«0. Esquema y correlativos»—. Se construye fase por fase, cada una con `make verify` en verde y su
-commit, igual que cualquier otro hito.
+**Cómo cerrar H8:** cuando `agy` termine la segunda ronda, correr `make verify` dos veces seguidas
+en la rama `h8`, y hacer la fase 7 con `module-review` en modo «fase ya construida». Después,
+consolidar la documentación funcional (`docs/modulos/`), escribir el informe del hito y mergear a
+`main`.
 
 #### 1º · Acceso — cerrado el 19-sep-2026
 
