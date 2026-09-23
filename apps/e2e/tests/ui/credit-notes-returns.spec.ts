@@ -61,33 +61,6 @@ test.describe('Credit notes and returns UI', () => {
     await expect(page.getByTestId('btn-new-purchase-return')).toHaveCount(0);
   });
 
-  test('creates an originless sales return with manual cost from the UI (H8 §4.1 rule 3)', async ({ page }) => {
-    await new LoginPage(page).signIn(ACME_ADMIN);
-    const sales = new SalesPage(page);
-
-    await sales.open('devoluciones');
-    await page.getByTestId('btn-new-sales-return').click();
-    await expect(page.getByTestId('sales-return-create-panel')).toBeVisible();
-
-    // Seleccionar opcion sin despacho de origen
-    await page.getByTestId('sales-return-dispatch-select').selectOption({ value: 'none' });
-
-    // Completar datos: cliente, bodega, articulo, unidad, cantidad y costo unitario manual
-    await page.getByTestId('sales-return-customer-select').selectOption({ index: 1 });
-    await page.getByTestId('sales-return-warehouse-select').selectOption({ index: 1 });
-    await page.getByTestId('sales-return-item-0').selectOption({ index: 1 });
-    await page.getByTestId('sales-return-unit-0').selectOption({ index: 1 });
-    await page.getByTestId('sales-return-qty-0').fill('2');
-    await page.getByTestId('sales-return-unit-cost-0').fill('3.75');
-
-    await page.getByTestId('btn-save-sales-return').click();
-    await expect(page.getByTestId('sales-return-create-panel')).toBeHidden();
-
-    // La tabla debe mostrar la nueva devolucion con "Sin origen"
-    const row = page.locator('tr').filter({ hasText: 'Sin origen' }).first();
-    await expect(row).toBeVisible();
-  });
-
   test('displays translated business error in Spanish when attempting to return more than dispatched', async ({ page }) => {
     await new LoginPage(page).signIn(ACME_ADMIN);
     const sales = new SalesPage(page);

@@ -79,17 +79,73 @@ test.describe('destructive H8 credit note and returns UI workflows', () => {
     await page.getByTestId('btn-save-sales-return').click();
     await expect(page.getByTestId('sales-return-create-panel')).toBeHidden();
 
-    // Confirmar la devolucion en la tabla
-    const returnRow = page.locator('[data-testid^="sales-return-row-"]').filter({ hasText: customer.name });
+    // Confirmar la devolucion en la tabla filtrando por su codigo unico
+    const { returns: salesReturns } = await (
+      await request.get(`${API}/api/v1/sales/returns?customerId=${customer.id}`, { headers: auth(token) })
+    ).json();
+    const createdReturn = salesReturns[0];
+    const returnRow = page.getByTestId(`sales-return-row-${createdReturn.code}`);
     await expect(returnRow).toBeVisible();
-    await expect(returnRow.getByTestId(/sales-return-status-/)).toHaveText('Borrador');
+    await expect(returnRow.getByTestId(`sales-return-status-${createdReturn.code}`)).toHaveText('Borrador');
 
     await sales.act(returnRow, 'Confirmar');
-    await expect(returnRow.getByTestId(/sales-return-status-/)).toHaveText('Confirmada');
+    await expect(returnRow.getByTestId(`sales-return-status-${createdReturn.code}`)).toHaveText('Confirmada');
 
     // Verificar el reingreso en inventario: la existencia en Principal subio a 2 unidades
     await inventory.openStock(itemSku);
     await expect(inventory.stockOf(itemSku, 'Principal')).toHaveText('2 un');
+  });
+
+  test('creates and confirms an originless sales return with manual cost from the UI, and verifies inventory replenishment (H8 §4.1 rule 3)', async ({
+    page,
+    request,
+  }) => {
+    const token = await tokenFor(request, ACME_ADMIN.email, API);
+    const customer = await aCreditCustomer(request, token, {}, API);
+    const item = await aFreshItem(request, token, API);
+
+    await new LoginPage(page).signIn(ACME_ADMIN);
+    const sales = new SalesPage(page);
+    const inventory = new InventoryPage(page);
+
+    // Comprobar que antes de la devolucion no existen existencias para el nuevo articulo
+    await inventory.openStock(item.sku);
+    await expect(page.getByTestId('stock-empty')).toBeVisible();
+
+    // Crear devolucion sin despacho desde la UI
+    await sales.open('devoluciones');
+    await page.getByTestId('btn-new-sales-return').click();
+    await expect(page.getByTestId('sales-return-create-panel')).toBeVisible();
+
+    await page.getByTestId('sales-return-dispatch-select').selectOption({ value: 'none' });
+    await page.getByTestId('sales-return-customer-select').selectOption({ label: customer.name });
+    await page.getByTestId('sales-return-warehouse-select').selectOption({ label: 'Principal' });
+    await page.getByTestId('sales-return-item-0').selectOption(item.id);
+    await page.getByTestId('sales-return-unit-0').selectOption(ACME_INVENTORY.piece);
+    await page.getByTestId('sales-return-qty-0').fill('2');
+    await page.getByTestId('sales-return-unit-cost-0').fill('3.75');
+
+    await page.getByTestId('btn-save-sales-return').click();
+    await expect(page.getByTestId('sales-return-create-panel')).toBeHidden();
+
+    // Confirmar devolucion filtrando por su codigo unico
+    const { returns } = await (
+      await request.get(`${API}/api/v1/sales/returns?customerId=${customer.id}`, { headers: auth(token) })
+    ).json();
+    const createdReturn = returns[0];
+    const returnRow = page.getByTestId(`sales-return-row-${createdReturn.code}`);
+    await expect(returnRow).toBeVisible();
+    await expect(returnRow.getByTestId(`sales-return-status-${createdReturn.code}`)).toHaveText('Borrador');
+
+    await sales.act(returnRow, 'Confirmar');
+    await expect(returnRow.getByTestId(`sales-return-status-${createdReturn.code}`)).toHaveText('Confirmada');
+
+    // Verificar reingreso en inventario: 2 unidades y costo manual de 3,75
+    await inventory.openStock(item.sku);
+    const stockRow = page.getByTestId(`stock-row-${item.sku}-Principal`);
+    await expect(stockRow).toBeVisible();
+    await expect(inventory.stockOf(item.sku, 'Principal')).toHaveText('2 un');
+    await expect(stockRow).toContainText('3,75');
   });
 
   test('issues credit note exceeding invoice balance, checks available credit, and spends it on another invoice in Collections', async ({
@@ -224,6 +280,11 @@ test.describe('destructive H8 credit note and returns UI workflows', () => {
     // En la UI de compras
     await new LoginPage(page).signIn(ACME_ADMIN);
     const purchasing = new PurchasingPage(page);
+    const inventory = new InventoryPage(page);
+
+    // Comprobar existencia inicial de 6 piezas tras la recepcion
+    await inventory.openStock(item.sku);
+    await expect(inventory.stockOf(item.sku, 'Principal')).toHaveText('6 un');
 
     await purchasing.open('devoluciones');
     await page.getByTestId('btn-new-purchase-return').click();
@@ -236,12 +297,20 @@ test.describe('destructive H8 credit note and returns UI workflows', () => {
     await page.getByTestId('btn-save-purchase-return').click();
     await expect(page.getByTestId('purchase-return-create-panel')).toBeHidden();
 
-    // Confirmar la devolucion de compra
-    const returnRow = page.locator('[data-testid^="purchase-return-row-"]').filter({ hasText: supplier.name });
+    // Confirmar la devolucion de compra filtrando por su codigo unico
+    const { returns: purchaseReturns } = await (
+      await request.get(`${API}/api/v1/purchasing/returns?supplierId=${supplier.id}`, { headers: auth(token) })
+    ).json();
+    const createdReturn = purchaseReturns[0];
+    const returnRow = page.getByTestId(`purchase-return-row-${createdReturn.code}`);
     await expect(returnRow).toBeVisible();
-    await expect(returnRow.getByTestId(/purchase-return-status-/)).toHaveText('Borrador');
+    await expect(returnRow.getByTestId(`purchase-return-status-${createdReturn.code}`)).toHaveText('Borrador');
 
     await purchasing.act(returnRow, 'Confirmar');
-    await expect(returnRow.getByTestId(/purchase-return-status-/)).toHaveText('Confirmada');
+    await expect(returnRow.getByTestId(`purchase-return-status-${createdReturn.code}`)).toHaveText('Confirmada');
+
+    // Verificar que la existencia en Principal bajo de 6 a 4 unidades
+    await inventory.openStock(item.sku);
+    await expect(inventory.stockOf(item.sku, 'Principal')).toHaveText('4 un');
   });
 });
