@@ -11,7 +11,7 @@ import type { FormState } from '@/shared/forms/form-state';
 import { formatAmount } from '@/modules/purchasing/domain/purchasing';
 import { currencyOptions, formatRate, offersManualRate } from '@/modules/company/domain/company';
 import { DocumentRate } from '@/sections/shared/document-rate';
-import { PAYMENT_METHOD_LABELS, PAYMENT_STATUS_LABELS, customersWithDebt, overdueLabel, payableInvoices, paymentActions } from '@/modules/receivables/domain/receivables';
+import { PAYMENT_METHOD_LABELS, PAYMENT_STATUS_LABELS, customersWithDebt, overdueLabel, payableInvoices, paymentActions, summarizeAvailableCredits } from '@/modules/receivables/domain/receivables';
 import type { AvailableCredit, CustomerBalance, Payment, PaymentMethod, PaymentStatus, Receivable } from '@/modules/receivables/domain/receivables';
 import type { CompanySettings, Currency } from '@/modules/company/domain/company';
 import { Filter, Pager } from '@/sections/shared/filters';
@@ -255,8 +255,6 @@ function PaymentFields({
     };
   }, [customerId]);
 
-  const totalAvailableCredit = availableCredits.reduce((sum, c) => sum + c.availableCredit, 0);
-
   return (
     <>
       <div className="space-y-1.5">
@@ -266,7 +264,7 @@ function PaymentFields({
           </label>
           {customerId ? (
             <span className="text-muted text-xs" data-testid="payment-customer-available-credit">
-              Crédito disponible: {baseCurrency} {formatAmount(totalAvailableCredit)}
+              Crédito disponible: {summarizeAvailableCredits(availableCredits, baseCurrency, formatAmount)}
             </span>
           ) : null}
         </div>

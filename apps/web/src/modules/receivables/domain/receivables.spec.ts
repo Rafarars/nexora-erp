@@ -1,8 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import type { Session } from '../../access/domain/session';
 import { AccessError } from '../../access/domain/access-error';
-import { creditLabel, customersWithDebt, overdueLabel, payableInvoices, paymentActions } from './receivables';
-import type { Payment, Receivable } from './receivables';
+import { creditLabel, customersWithDebt, overdueLabel, payableInvoices, paymentActions, summarizeAvailableCredits } from './receivables';
+import type { AvailableCredit, Payment, Receivable } from './receivables';
 import { readableReceivablesError } from './receivables-error';
 import { visibleReceivablesSections } from './receivables-sections';
 
@@ -91,3 +91,40 @@ describe('visibleReceivablesSections', () => {
     expect(visibleReceivablesSections(session).map((section) => section.label)).toEqual(['Cobros']);
   });
 });
+
+describe('summarizeAvailableCredits', () => {
+  const credit = (currency: string, availableCredit: number): AvailableCredit => ({
+    id: 'cn-1',
+    code: 'NCC000001',
+    issueDate: '2026-09-01',
+    total: availableCredit,
+    appliedAmount: 0,
+    availableCredit,
+    currency,
+    exchangeRate: 1,
+    notes: null,
+  });
+
+  it('shows zero with base currency when there are no credits', () => {
+    expect(summarizeAvailableCredits([], 'USD', (n) => n.toFixed(2))).toBe('USD 0.00');
+  });
+
+  it('formats single currency available credit', () => {
+    expect(summarizeAvailableCredits([credit('USD', 1.96)], 'USD', (n) => n.toFixed(2))).toBe('USD 1.96');
+  });
+
+  it('groups multiple credits by currency without converting', () => {
+    const credits = [
+      credit('USD', 1.96),
+      credit('EUR', 5.0),
+      credit('USD', 2.0),
+    ];
+    expect(summarizeAvailableCredits(credits, 'USD', (n) => n.toFixed(2))).toBe('USD 3.96 · EUR 5.00');
+  });
+
+  it('omits credits with zero or negative remaining balance', () => {
+    const credits = [credit('USD', 0), credit('EUR', 5.0)];
+    expect(summarizeAvailableCredits(credits, 'USD', (n) => n.toFixed(2))).toBe('EUR 5.00');
+  });
+});
+

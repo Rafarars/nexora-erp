@@ -96,7 +96,7 @@ test.describe('Credit notes and returns UI', () => {
 
     // Al elegir cliente con notas confirmadas (Farmacia San Rafael tiene NCC000003 con crédito disponible)
     await page.getByTestId('payment-customer').selectOption({ label: 'Farmacia San Rafael' });
-    await expect(page.getByTestId('payment-customer-available-credit')).toContainText('1,96');
+    await expect(page.getByTestId('payment-customer-available-credit')).toContainText('USD 1,96');
 
     // Con forma credit_note, aparece el selector con la nota y su remanente disponible
     await page.getByTestId('payment-method').selectOption('credit_note');
