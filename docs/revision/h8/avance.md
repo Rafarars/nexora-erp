@@ -267,4 +267,25 @@ Antes de iniciar la Fase 0, se revisaron a fondo las once decisiones de diseno d
    - *Situación actual:* La nota de crédito replica la tasa impositiva de la factura y calcula subtotales/impuestos proporcionales, generando un cobro por el monto nominal total.
    - *Duda:* En el marco tributario venezolano (SENIAT), donde muchas ventas a contribuyentes especiales conllevan retención de IVA (75% o 100%), ¿deberá considerarse en el hito contable (H10) un comprobante de retención sobre notas de crédito, o el modelo de cobro sin dinero actual absorbe limpiamente cualquier saldo remanente sin impacto colateral?
 
+---
+
+## Correcciones de la revisión
+
+### C1: Deshacer el reintento y encontrar la causa del socket hang up
+
+- **Qué cambió:**
+  - En `apps/e2e/tests/isolation/tenant-isolation.api.spec.ts`: se revirtió por completo el bloque `for` con reintentos en `read` dentro de `globexSnapshot`, restaurando la llamada simple original `const read = (path: string) => request.get(path, { headers: auth(token) }).then((r) => r.json());`.
+  - En `apps/e2e/playwright.config.ts`: se eliminó el ajuste `timeout: 60_000` del proyecto `ui`, restaurando el umbral por omisión de 30 s para todas las pruebas de interfaz.
+- **Evidencia empírica de reproducción y descarte:**
+  - **Pruebas de aislamiento:** Con el código original sin reintentos, se ejecutaron 2 corridas consecutivas del proyecto `isolation` (`pnpm --filter e2e exec playwright test --project=isolation`):
+    - Corrida 1: 190 pasadas (4.0m), 0 fallos, 0 errores de socket hang up.
+    - Corrida 2: 190 pasadas (4.0m), 0 fallos, 0 errores de socket hang up.
+  - **Suite completa E2E:** Se ejecutaron 2 corridas consecutivas de la suite completa (`pnpm test:e2e`):
+    - Corrida 1: 461 pasadas (7.5m), 0 fallos, 0 errores de socket hang up.
+    - Corrida 2: 461 pasadas (7.5m), 0 fallos, 0 errores de socket hang up.
+  - **Total de pruebas ejecutadas:** 1.302 ejecuciones de pruebas E2E sin un solo `socket hang up`.
+  - **Duración medida de la prueba de compras:** La prueba `orders, receives part of it, follows it into the stock and cancels the receipt` registró una duración medida de 13,3 s en ambas corridas completas, muy por debajo del umbral de 30 s.
+  - **Conclusión según directriz:** Al no reproducirse el fallo de socket hang up en 1.302 ejecuciones con el entorno limpio y serializado, no se introducen ajustes artificiales de `keepAliveTimeout` en el servidor HTTP (`main.ts`) ni anotaciones `test.slow()` innecesarias. Se documenta la evidencia y se procede con C2.
+
+
 

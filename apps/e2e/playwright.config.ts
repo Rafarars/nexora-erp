@@ -28,7 +28,6 @@ export default defineConfig({
     {
       name: 'ui',
       testDir: './tests/ui',
-      timeout: 60_000,
       fullyParallel: true,
       use: { ...devices['Desktop Chrome'], baseURL: WEB_URL },
     },
