@@ -469,11 +469,11 @@ Antes de iniciar la Fase 0, se revisaron a fondo las once decisiones de diseno d
 - **Descarte empírico de la hipótesis:**
   - La hipótesis de la revisión sugería que las pruebas de aislamiento (`isolation`) corrían en paralelo con las de interfaz (`ui`) y saturaban la base de datos compitiendo por los mismos inquilinos o puertos.
   - Para contrastarla, se hizo que `isolation` dependiera secuencialmente de `ui` en `playwright.config.ts` y se ejecutó la suite completa.
-  - El resultado desmintió la hipótesis: `receivables.spec.ts:12` volvió a exceder los 30 s (`31.4s`) aun corriendo de forma completamente aislada sin `isolation` en paralelo, demostrando que la causa real era la contención concurrente entre los 3 workers del propio proyecto `ui` y el peso inherente de la prueba (7 navegaciones completas por el DOM con redirecciones en Next.js, midiendo 21,5 s incluso en ejecución solitaria).
+  - El resultado desmintió la hipótesis: `receivables.spec.ts:12` volvió a exceder los 30 s (`31.4s`) aun corriendo de forma completamente aislada sin `isolation` en paralelo, demostrando que la causa real era la contención concurrente entre los 2 workers del propio proyecto `ui` y el peso inherente de la prueba (7 navegaciones completas por el DOM con redirecciones en Next.js, midiendo 21,5 s incluso en ejecución solitaria).
   - En consecuencia, se revirtió de inmediato la dependencia artificial de `isolation` sobre `ui` para no alargar innecesariamente el tiempo total de la suite.
 - **Ajuste aplicado:**
   - Se aplicó `test.slow()` a `receivables.spec.ts:12` documentando su duración real observada (21,5 s sola, 31,4 s en la suite, 7 navegaciones completas), siguiendo el mismo criterio que ya utilizaba `sales.spec.ts:12`.
-  - Se aplicó igualmente `test.slow()` a `inventory.spec.ts:12` (21,1 s en aislamiento, 6 navegaciones completas).
+  - Se aplicó igualmente `test.slow()` a `inventory.spec.ts:12` (18,5 s sola, siete navegaciones completas).
 
 ### R8: Selector de notas de crédito y crédito disponible en Cobros
 
@@ -481,11 +481,11 @@ Antes de iniciar la Fase 0, se revisaron a fondo las once decisiones de diseno d
   - **Servidor y API:**
     - Se creó la Server Action `getCustomerAvailableCredits(customerId)` en `apps/web/src/app/(app)/cuentas-por-cobrar/actions.ts`, consumiendo el endpoint de dominio `findAvailableCreditsByCustomer`.
   - **Interfaz de usuario:**
-    - En `apps/web/src/app/(app)/cuentas-por-cobrar/cobros/payments-board.tsx`:
-      - Al seleccionar cliente, se consulta en caliente su crédito disponible total y se muestra prominentemente junto al saldo por cobrar con el test ID `customer-available-credit-badge` («Crédito disponible: USD X,XX»).
-      - Al seleccionar la forma de pago `credit_note`, se despliega un selector real con las notas confirmadas con saldo a favor (`payment-form-credit-source-id`), listando para cada nota su código y remanente disponible (por ejemplo: `NCC000003 · USD 1,96 disponible`). El usuario ya no manipula ningún identificador UUID interno.
+    - En `apps/web/src/sections/receivables/payments-board.tsx`:
+      - Al seleccionar cliente, se consulta en caliente su crédito disponible total y se muestra prominentemente junto al saldo por cobrar con el test ID `payment-customer-available-credit` («Crédito disponible: USD X,XX»).
+      - Al seleccionar la forma de pago `credit_note`, se despliega un selector real con las notas confirmadas con saldo a favor (`payment-credit-source`), listando para cada nota su código y remanente disponible (por ejemplo: `NCC000003 · USD 1,96 disponible`). El usuario ya no manipula ningún identificador UUID interno.
   - **Pruebas:**
-    - En `apps/e2e/tests/ui/receivables.spec.ts`: se añadió la prueba `shows total available credit when choosing a customer in Payments` verificando la visualización del crédito disponible al elegir un cliente con notas a favor (`CLI000003`).
+    - En `apps/e2e/tests/ui/credit-notes-returns.spec.ts:89`: se añadió la prueba `displays customer total available credit and credit note selector in collections form` verificando la visualización del crédito disponible al elegir un cliente con notas a favor (`Farmacia San Rafael`).
     - En `apps/e2e/tests/destructive/h8-ui-mutations.spec.ts`: se adaptó el flujo de mutación para que seleccione la nota de crédito por su texto visible en el dropdown (`NCC...`), sin inyectar UUIDs.
 
 ### R1: Relato histórico consistente en el avance
@@ -513,7 +513,7 @@ Antes de iniciar la Fase 0, se revisaron a fondo las once decisiones de diseno d
 
 ### R4: Guarda de invariante de nota de crédito al bloquear cobro
 
-- En `apps/api/src/contexts/receivables/infrastructure/prisma/prisma-payment-posting.ts`:
+- En `apps/api/src/contexts/receivables/infrastructure/persistence/prisma-payment-posting.ts`:
   - Tras adquirir el bloqueo exclusivo `FOR UPDATE` sobre `customer_payments`, se verifica que el cobro no haya mutado su vinculación de crédito (`payment.toPrimitives().creditSourceId === (peek?.creditSourceId ?? null)`).
   - Si difiere por una modificación concurrente, rechaza la operación lanzando `ConcurrentModificationError(paymentId.value)`.
 
@@ -532,22 +532,84 @@ Antes de iniciar la Fase 0, se revisaron a fondo las once decisiones de diseno d
 
 ---
 
+## Tercera ronda de correcciones de la revisión
+
+### T1: Agrupar por moneda el crédito disponible total en cobros
+
+- **Qué cambió:**
+  - En `apps/web/src/modules/receivables/domain/receivables.ts`: se creó y exportó la función pura `summarizeAvailableCredits(credits, baseCurrency, format)`. Agrupa los créditos con saldo disponible por su moneda sin conversión arbitraria, uniéndolos por ` · ` (por ejemplo, `USD 1,96 · EUR 5,00`), y retornando `{baseCurrency} 0,00` si no hay remanentes.
+  - En `apps/web/src/sections/receivables/payments-board.tsx`: se sustituyó la suma escalar en moneda base por la llamada a `summarizeAvailableCredits`.
+- **Pruebas:**
+  - En `apps/web/src/modules/receivables/domain/receivables.spec.ts`: pruebas unitarias cubriendo lista vacía, una sola moneda, múltiples monedas sin convertir y descarte de saldos consumidos.
+  - En `apps/e2e/tests/ui/credit-notes-returns.spec.ts:89`: comprobación de la visualización de la moneda con el saldo disponible (`USD 1,96`).
+
+### T2: Código de nota de crédito en selector de cobros y dependencias obligatorias
+
+- **Qué cambió:**
+  - En `apps/api/src/contexts/receivables/application/search-payments/payment-searcher.ts`:
+    - `CustomerCreditNoteRepository` se declaró como dependencia obligatoria en el constructor (`private readonly creditNotes: CustomerCreditNoteRepository`).
+    - Se incorporaron `creditSourceId` y `creditSourceCode` a `PaymentResponse`. En `run`, consulta en lote con `findByIds` las notas citadas por los cobros de la página y mapea su código de negocio (`code`).
+  - En `apps/api/src/contexts/receivables/application/search-customer-statement/customer-statement-searcher.ts`: se corrigió igualmente `creditNotes` para ser una dependencia obligatoria en el constructor.
+  - En `apps/api/src/contexts/receivables/infrastructure/receivables.module.ts` y `receivables-scenario.ts`: inyectado `CUSTOMER_CREDIT_NOTE_REPOSITORY`.
+  - En `apps/web/src/modules/receivables/domain/receivables.ts`: ampliada la interfaz `Payment` con `creditSourceCode?: string | null`.
+  - En `apps/web/src/sections/receivables/payments-board.tsx`: la opción de respaldo del selector muestra `{payment.creditSourceCode} (sin crédito disponible)` en lugar de exponer el UUID interno `Nota asociada ({payment.creditSourceId})`.
+- **Pruebas:**
+  - En `apps/api/src/contexts/receivables/application/receivables-lists.spec.ts`: prueba unitaria `resolves the credit note code when a payment cites a credit note`, verificando la resolución de `creditSourceId` y `creditSourceCode` en `searchPayments`.
+
+### T3: Corrección y contraste de descripciones del avance con el código real
+
+- **Qué cambió:**
+  - Rutas contrastadas y corregidas: `apps/web/src/sections/receivables/payments-board.tsx` y `apps/api/src/contexts/receivables/infrastructure/persistence/prisma-payment-posting.ts`.
+  - Selectores corregidos conforme a los `data-testid` del código: `payment-customer-available-credit` y `payment-credit-source`.
+  - Ubicación y nombre exacto de la prueba de interfaz: `apps/e2e/tests/ui/credit-notes-returns.spec.ts:89` (`displays customer total available credit and credit note selector in collections form`).
+  - Unificación de la duración de `inventory.spec.ts:12` en `inventory.spec.ts:13` y en el avance: «18,5 s sola, siete navegaciones completas» bajo los 2 workers de Playwright.
+
+### T4: Restitución del motivo de espera de redirección en Page Objects
+
+- **Qué cambió:**
+  - En `apps/e2e/pages/inventory.page.ts`, `purchasing.page.ts`, `receivables.page.ts` y `sales.page.ts`: se restituyó el comentario explicativo de dos líneas documentando por qué se espera la redirección del módulo al entrar desde fuera y por qué se omite cuando ya se está navegando dentro del módulo.
+
+### T5: Eliminación de comentario repetido en posting de cobros
+
+- **Qué cambió:**
+  - En `apps/api/src/contexts/receivables/infrastructure/persistence/prisma-payment-posting.ts`: se retiró el comentario duplicado sobre el orden determinista de bloqueo dentro de `post` (líneas 30-31), preservando únicamente la explicación en la cabecera de la clase.
+
+---
+
 ## Verificación final de la suite
 
-Dos ejecuciones consecutivas de `make verify` arrojaron resultado 100% en verde:
+Dos ejecuciones consecutivas de `make verify` sobre la rama `h8` arrojaron resultado 100% en verde:
 
+**Corrida 1 (tras implementar T2):**
 ```
 Test Files  165 passed (165)
-Tests  3214 passed (3214)    [Unitarias API]
+Tests  3215 passed (3215)    [Unitarias API]
 
 Test Files  23 passed (23)
-Tests  202 passed (202)      [Unitarias Web]
+Tests  206 passed (206)      [Unitarias Web]
 
 Test Files  12 passed (12)
 Tests  272 passed (272)      [Contratos en Integración]
 
-468 passed (9.0m)            [Playwright E2E - API, UI, Isolation, Performance, Destructive, Resilience]
+468 passed (12.6m)           [Playwright E2E]
 
 Todo en verde.
 ```
+
+**Corrida 2 (tras implementar T4, T5 y correcciones del avance):**
+```
+Test Files  165 passed (165)
+Tests  3215 passed (3215)    [Unitarias API]
+
+Test Files  23 passed (23)
+Tests  206 passed (206)      [Unitarias Web]
+
+Test Files  12 passed (12)
+Tests  272 passed (272)      [Contratos en Integración]
+
+468 passed (9.6m)            [Playwright E2E]
+
+Todo en verde.
+```
+
 
