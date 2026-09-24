@@ -303,6 +303,7 @@ Mercancía devuelta a un proveedor a partir de una entrada confirmada.
 - **Salida de mercancía**: al confirmarse, saca del inventario la cantidad devuelta al **costo unitario congelado de la entrada de origen**.
 - **La orden de compra no se reabre**: la orden original permanece con su cantidad recibida intacta; no se espera una reposición automática a menos que se cree una nueva orden de compra.
 - **Anular devolución confirmada**: genera la contrapartida de reingreso en el kardex al mismo costo.
+- **Edición de borradores**: un borrador de devolución permite ajustar cantidades y notas mientras no esté confirmado o anulado. Al editarse, conserva el código asignado (`DVC...`) y revalida el cupo disponible contra la entrada origen.
 
 ---
 
@@ -402,7 +403,7 @@ POST /api/v1/purchasing/receipts
 |---|---|
 | `/compras/ordenes` | Órdenes con proveedor y su plazo congelado, bodega, líneas con lo recibido, la fecha esperada en rojo y «atrasada» cuando ya pasó, total con IVA y estado. Menú: recibir mercancía, editar, confirmar, anular. Panel de orden con líneas dinámicas y panel de recepción con lo pendiente propuesto. Filtros: texto (código, SKU o artículo), proveedor, bodega, estado y rango de fechas |
 | `/compras/entradas` | Entradas con su orden y proveedor, lo que llegó y el estado. Menú: editar, confirmar, anular (revierte la existencia). Filtros: texto (código de la entrada o de su orden), estado y rango de fechas |
-| `/compras/devoluciones` | Devoluciones a proveedor con proveedor, entrada de origen, líneas devueltas y estado. Menú: confirmar, anular. Filtros: texto (código de la devolución o entrada), proveedor, estado y rango de fechas |
+| `/compras/devoluciones` | Devoluciones a proveedor con proveedor, entrada de origen, líneas devueltas y estado. Menú: editar (borradores), confirmar, anular. Filtros: texto (código de la devolución o entrada), proveedor, estado y rango de fechas. Formulario con validación de cupo remanente de la entrada origen |
 | `/compras/en-camino` | Por artículo y bodega, lo que viene y de qué órdenes, con la fecha en rojo y «atrasada» cuando ya pasó. Filtros: texto (SKU o nombre) y bodega |
 | `/compras/proveedores` | Maestro con identificación fiscal, contacto y plazo («Contado» o «N días»). Filtros: texto (código, nombre o identificación fiscal) y estado |
 

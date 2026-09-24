@@ -427,7 +427,7 @@ completo, con lo que se encontró en el sistema de referencia, en [FUTURE.md](..
   si el valor restante fuera negativo, queda en cero.
 - **Revertir una salida**: la devuelve al costo al que salió.
 - **Devolución de cliente (`sales_return`)**: si es apta para venta (`resalable`), reingresa al kardex al
-  **costo unitario congelado del despacho de origen**. Si es scrap o dañada, no genera movimiento en kardex.
+  **costo unitario congelado del despacho de origen**. Si el artículo está desactivado en el catálogo, la confirmación se rechaza con `InactiveSalesItemError` (409) protegiendo la regla de H3 de no reabastecer artículos dados de baja. Si es scrap o dañada, no genera movimiento en kardex y se permite confirmar aun con el artículo desactivado.
 - **Devolución a proveedor (`purchase_return`)**: sale de la bodega al **costo unitario congelado de la entrada de origen**.
 - **Anular una devolución**: genera la contrapartida que revierte exactamente el movimiento publicado.
 

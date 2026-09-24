@@ -297,11 +297,12 @@ Disminución de deuda de un cliente por descuento posterior, corrección de prec
 
 ### 6.3 Reglas de anulación e integridad
 
-- **Cobro de emisión protegido**: el cobro generado automáticamente en la emisión no se puede anular de forma independiente (`IssuePaymentCannotBeCancelledDirectlyError`). Para cancelarlo, se anula la nota de crédito.
+- **Cobro de emisión protegido**: el cobro generado automáticamente en la emisión no se puede anular de forma independiente (`IssuePaymentCannotBeCancelledDirectlyError`). Para cancelarlo, se anula la nota de crédito. La pantalla de cobros lo identifica con «Emisión de NCC...» y no ofrece el botón ni la acción «Anular».
 - **Nota con cobros aplicados**: no se puede anular una nota de crédito si tiene cobros de aplicación confirmados (`CreditNoteWithApplicationsError`).
 - **Anulación de cobro con crédito**: si se anula un cobro que consumió crédito de una nota, el crédito disponible regresa automáticamente a la nota.
 - **Cuota de factura**: el total acumulado de notas de crédito aplicadas a una factura no puede superar el total facturado (`CreditQuotaExceededError`).
 - **Devolución acreditada una sola vez**: una devolución de venta confirmada solo puede ser acreditada por una nota de crédito (`SalesReturnAlreadyCreditedError`).
+- **Resolución de código de devolución**: la lista de notas de crédito resuelve el código del documento de devolución (`DVV...`) a través del puerto del ledger (`ReceivablesLedger.salesReturns`), evitando mostrar identificadores internos.
 
 ---
 
@@ -375,9 +376,9 @@ Cuerpo de un cobro:
 
 | Ruta | Qué muestra |
 |---|---|
-| `/cuentas-por-cobrar/cobros` | Cobros con cliente, forma de pago y referencia, facturas y montos, total y estado. Menú: editar, confirmar, anular. **Nuevo cobro**: se elige el cliente y aparecen sus facturas con saldo (primero las que vencen antes), con lo que deben y si están vencidas; se escribe cuánto se cobra de cada una |
+| `/cuentas-por-cobrar/cobros` | Cobros con cliente, forma de pago y referencia (con indicación «Emisión de NCC...» en cobros automáticos sin opción de anular), facturas y montos, total y estado. Menú: editar, confirmar, anular (oculto en cobros de emisión). **Nuevo cobro**: se elige el cliente y muestra su crédito disponible total; con forma «Nota de crédito» ofrece selector de notas con crédito remanente; aparecen sus facturas con saldo (primero las que vencen antes), con lo que deben y si están vencidas; se escribe cuánto se cobra de cada una |
 | `/cuentas-por-cobrar/facturas` | Facturas emitidas por vencimiento: total con su moneda, cobrado, saldo (y debajo, si la factura no está en la moneda de la empresa, lo que vale en ella), estado y días vencida |
-| `/cuentas-por-cobrar/notas-de-credito` | Notas de crédito con cliente, motivo, factura o devolución relacionada, total, crédito disponible y estado. Menú: editar, confirmar, anular. Panel de creación con líneas y validación de cuota |
+| `/cuentas-por-cobrar/notas-de-credito` | Notas de crédito con cliente, motivo, factura o código de devolución relacionada (`DVV...`), total, crédito disponible y estado. Menú: editar, confirmar, anular. Panel de creación con líneas, fecha acotada a la de la empresa y validación de cuota |
 | `/cuentas-por-cobrar/antiguedad` | Clientes con saldo por tramos, crédito disponible y bloqueo; el nombre lleva a su estado de cuenta |
 | `/cuentas-por-cobrar/estado-de-cuenta?cliente=` | Resumen (saldo, vencido, límite, disponible) y movimientos con saldo corrido |
 | `/ventas/clientes` | Columna y campo **Límite de crédito** (vacío: sin límite) |
