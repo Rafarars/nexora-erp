@@ -617,7 +617,7 @@ Cada una cierra con `make verify` en verde y su commit.
 - [x] **6. Semillas y extremo a extremo** — datos de demostración con los tres casos que separan
       los ejes —devolución sin nota, nota sin devolución, y devolución `scrap`—, y una nota con
       crédito sobrante gastado después desde Cobros.
-- [ ] **7. Revisión** — con la skill `module-review`, modo «fase ya construida».
+- [x] **7. Revisión** — con la skill `module-review`, modo «fase ya construida» (informe en `docs/revision/h8/h8.md`).
 
 ---
 
@@ -677,3 +677,14 @@ para siempre.
   reembolsa. Anotado en `FUTURE.md`.
 - **La contabilidad**, que es [H10](H10-CONTABILIDAD.md). Este hito la prepara sin saberlo: el costo
   congelado de §3.4 es exactamente lo que necesita el asiento que revierte el costo de ventas.
+
+---
+
+## 10. Cierre de H8
+
+La Fase 7 completó la revisión integral de Notas de Crédito y Devoluciones con la skill `module-review` en modo «fase ya construida».
+Se validaron las 19 reglas críticas de H8 §7, los 6 caminos nuevos sobre flujos previos, la idempotencia de las migraciones y semillas (`make seed`), y la navegación en pantalla con Chrome DevTools (32 capturas registradas en `docs/revision/h8/capturas/`).
+Se corrigieron los 6 hallazgos detectados (H-F7-1 a F7-6) y se blindó en la suite destructiva la regla de H3 sobre artículos desactivados.
+
+Informe detallado: [`docs/revision/h8/h8.md`](revision/h8/h8.md).
+
