@@ -40,6 +40,7 @@ export function CreditNotesBoard({
   search,
   receivables,
   customers,
+  today,
   canCreate,
   canUpdate,
   canConfirm,
@@ -49,6 +50,7 @@ export function CreditNotesBoard({
   search: CreditNoteSearch;
   receivables: Receivable[];
   customers: CustomerBalance['customer'][];
+  today: string;
   canCreate: boolean;
   canUpdate: boolean;
   canConfirm: boolean;
@@ -232,6 +234,7 @@ export function CreditNotesBoard({
             note={editing}
             customers={customers}
             receivables={receivables}
+            today={today}
           />
           <FormError message={saveState.error} testId="credit-note-error" />
           <SubmitButton pending={saving} testId="credit-note-submit">
@@ -358,10 +361,12 @@ function CreditNoteFields({
   note,
   customers,
   receivables,
+  today,
 }: {
   note: CreditNote | null;
   customers: CustomerBalance['customer'][];
   receivables: Receivable[];
+  today: string;
 }) {
   const [selectedCustomer, setSelectedCustomer] = useState(note?.customer.id ?? customers[0]?.id ?? '');
   const [reason, setReason] = useState<CreditNoteReason>(note?.reason ?? 'subsequent_discount');
@@ -435,7 +440,8 @@ function CreditNoteFields({
           <input
             type="date"
             name="date"
-            defaultValue={note?.issueDate ?? new Date().toISOString().slice(0, 10)}
+            defaultValue={note?.issueDate ?? today}
+            max={today}
             data-testid="credit-note-date"
             className="border-line bg-surface mt-1 w-full rounded-md border px-3 py-2 text-sm"
             required

@@ -11,7 +11,7 @@ const BY_CODE: Record<string, string> = {
   InvalidPaymentMethodError: 'Elige cómo se cobró.',
   ReceivablesTextTooLongError: 'Uno de los textos es demasiado largo.',
   InvalidReceivablesDateError: 'La fecha no es válida.',
-  FutureReceivablesDateError: 'Un cobro no puede tener fecha futura.',
+  FutureReceivablesDateError: 'La fecha no puede ser posterior a hoy.',
   PaymentNotEditableError: 'Solo se puede editar un cobro en borrador.',
   PaymentNotConfirmableError: 'Solo se puede confirmar un cobro en borrador.',
   PaymentAlreadyCancelledError: 'El cobro ya está anulado.',

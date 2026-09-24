@@ -1,6 +1,7 @@
 import { CreditNotesBoard } from '@/sections/receivables/credit-notes-board';
 import { can } from '@/modules/access/domain/session';
 import { readableReceivablesError } from '@/modules/receivables/domain/receivables-error';
+import { companyApi } from '@/shared/session/company-api';
 import { receivablesApi } from '@/shared/session/receivables-api';
 import { requireSession } from '@/shared/session/current-session';
 
@@ -50,6 +51,7 @@ export default async function CreditNotesPage({ searchParams }: { searchParams: 
       }),
       canCreate || canUpdate ? receivablesApi().allReceivables(token) : [],
       receivablesApi().allCustomers(token),
+      companyApi().settings(token),
     ]);
   } catch (error) {
     return (
@@ -59,7 +61,7 @@ export default async function CreditNotesPage({ searchParams }: { searchParams: 
     );
   }
 
-  const [creditNotes, receivables, customers] = loaded;
+  const [creditNotes, receivables, customers, settings] = loaded;
 
   return (
     <CreditNotesBoard
@@ -77,6 +79,7 @@ export default async function CreditNotesPage({ searchParams }: { searchParams: 
       }}
       receivables={receivables}
       customers={customers}
+      today={settings.today}
       canCreate={canCreate}
       canUpdate={canUpdate}
       canConfirm={canConfirm}

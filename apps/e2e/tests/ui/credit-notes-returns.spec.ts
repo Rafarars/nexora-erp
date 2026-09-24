@@ -3,6 +3,7 @@ import { ACCOUNTANT, ACME_ADMIN, LoginPage } from '../../pages/login.page.js';
 import { PurchasingPage } from '../../pages/purchasing.page.js';
 import { ReceivablesPage } from '../../pages/receivables.page.js';
 import { SalesPage } from '../../pages/sales.page.js';
+import { tokenFor } from '../../support/inventory-fixtures.js';
 
 test.describe('Credit notes and returns UI', () => {
   test('administrator navigates sales returns, credit notes, and purchase returns demo data', async ({ page }) => {
@@ -103,5 +104,24 @@ test.describe('Credit notes and returns UI', () => {
     await expect(page.getByTestId('payment-credit-source')).toBeVisible();
     await expect(page.getByTestId('payment-credit-source')).toContainText('NCC000003');
     await expect(page.getByTestId('payment-credit-source')).toContainText('1,96 disponible');
+  });
+
+  test('credit note date input has default value and max attribute set to company today', async ({ page, request }) => {
+    const API = process.env.API_URL ?? 'http://localhost:3001';
+    const token = await tokenFor(request, ACME_ADMIN.email, API);
+    const settings = await (
+      await request.get(`${API}/api/v1/company/settings`, { headers: { Authorization: `Bearer ${token}` } })
+    ).json();
+
+    await new LoginPage(page).signIn(ACME_ADMIN);
+    const receivables = new ReceivablesPage(page);
+
+    await receivables.open('notas-de-credito');
+    await page.getByTestId('new-credit-note').click();
+    await expect(page.getByTestId('credit-note-panel')).toBeVisible();
+
+    const dateInput = page.getByTestId('credit-note-date');
+    await expect(dateInput).toHaveValue(settings.today);
+    await expect(dateInput).toHaveAttribute('max', settings.today);
   });
 });
