@@ -327,8 +327,9 @@ Mercancía devuelta por un cliente a partir de un despacho confirmado.
 
 ### 5.2 Comportamiento en inventario
 
-- **Apta para venta (`resalable`)**: al confirmarse, reingresa al inventario al **costo unitario congelado del despacho de origen**, sin recalcular costos con precios de venta.
-- **Dañada / Scrap (`damaged`, `scrap`)**: no reingresa al inventario vendible (no genera movimiento de kardex).
+- **Apta para venta (`resalable`)**: al confirmarse, reingresa al inventario al **costo unitario congelado del despacho de origen**, sin recalcular costos con precios de venta. Si el artículo fue desactivado comercialmente tras el despacho, el intento de confirmación en `resalable` es rechazado (`InactiveSalesItemError`) y no produce movimientos en el kardex.
+- **Dañada / Scrap (`damaged`, `scrap`)**: no reingresa al inventario vendible (no genera movimiento de kardex). Si el artículo fue desactivado comercialmente, una devolución en `scrap` sí confirma exitosamente porque no compromete ni reingresa existencia vendible.
+- **Devolución sin origen**: una devolución sin despacho de origen con un artículo desactivado es rechazada inmediatamente al crearse (`InactiveSalesItemError`).
 - **Anular devolución confirmada**: genera la contrapartida en el kardex si la devolución había reingresado mercancía.
 
 ---
@@ -372,6 +373,7 @@ confirmar, con las filas bloqueadas.
 | `ReturnNotEditableError` | 409 | Solo se puede editar una devolución en borrador |
 | `ReturnNotConfirmableError` | 409 | Solo se puede confirmar una devolución en borrador |
 | `InvoiceWithReturnsError` | 409 | Se intentó anular una factura con devoluciones registradas |
+| `InactiveSalesItemError` | 409 | El artículo a devolver está inactivo (al crear sin origen o confirmar en resalable con despacho) |
 | Disponibilidad | `GET /api/v1/sales/availability` | `sales.availability.search` |
 
 **Errores más frecuentes**
@@ -445,5 +447,5 @@ El rol **Consulta** ve clientes, pedidos, despachos, facturas, devoluciones y di
 | Aplicación | `sales-currency.spec.ts` | Moneda del pedido, tasa manual, factura con la tasa de su emisión e importes en bolívares, crédito en la moneda de la empresa |
 | API | `tests/api/sales.api.spec.ts` | Recorrido por HTTP, reserva, concurrencia, costo promedio en el kardex, vencimiento, permisos, **factura en euros con la tasa de emisión y tasa manual del pedido** |
 | Interfaz | `tests/ui/sales.spec.ts`, `tests/ui/credit-notes-returns.spec.ts` | **El ciclo completo** comprar → recibir → vender → despachar → facturar; navegación y consulta de devoluciones; solo lectura |
-| Destructivas | `tests/destructive/h8-mutations.spec.ts` | Bloqueo de anulación de factura con devolución confirmada; reingreso al costo congelado en kardex y reversión al anular |
+| Destructivas | `tests/destructive/h8-mutations.spec.ts` | Bloqueo de anulación de factura con devolución confirmada; reingreso al costo congelado en kardex y reversión al anular; rechazo en resalable de artículo desactivado sin movimientos de kardex, confirmación en scrap y rechazo al crear sin origen |
 | Aislamiento | `tests/isolation/*` | Ataques a clientes, pedidos, despachos, facturas, devoluciones y disponibilidad de Globex |

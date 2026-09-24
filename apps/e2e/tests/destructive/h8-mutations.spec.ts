@@ -274,4 +274,113 @@ test.describe('destructive H8 credit note and return mutations', () => {
       quantity: 3,
     });
   });
+
+  test('deactivated shared item return rejects resalable without kardex movement, confirms scrap, and rejects originless return on creation', async ({
+    request,
+  }) => {
+    const token = await tokenFor(request, 'ana@acme.com');
+    const customer = await aFreshCustomer(request, token);
+    // Jabón líquido 500 ml (catálogo compartido): todas sus órdenes sembradas están cerradas
+    const itemId = 'e4000000-0000-4000-8000-000000000004';
+
+    // 1. Despachar el stock existente del artículo (85 unidades) para que quede en 0
+    // Por regla de H3 (ensureCanDeactivate), un artículo con stock no se puede desactivar.
+    const order = await aDraftSalesOrder(request, token, {
+      customerId: customer.id,
+      lines: [{ itemId, unitId: ACME_INVENTORY.piece, quantity: 85, unitPrice: 4.0 }],
+    });
+    await request.put(`${SALES_ORDERS}/${order.id}/confirm`, { headers: auth(token) });
+
+    const { orders } = await (await request.get(`${SALES_ORDERS}?customerId=${customer.id}`, { headers: auth(token) })).json();
+    const confirmedOrder = orders.find((o: { id: string }) => o.id === order.id);
+
+    const dispatch = await aDraftDispatch(request, token, order.id, [
+      { orderLineId: confirmedOrder.lines[0].id, quantity: 85 },
+    ]);
+    await request.put(`${DISPATCHES}/${dispatch.id}/confirm`, { headers: auth(token) });
+
+    // Desactivar el artículo del catálogo compartido (ahora con stock 0 y sin órdenes abiertas)
+    const deactivateRes = await request.put(`/api/v1/inventory/items/${itemId}/status`, {
+      headers: auth(token),
+      data: { active: false },
+    });
+    expect(deactivateRes.status()).toBe(200);
+
+    try {
+      // Registrar cantidad de movimientos antes de intentar confirmar devolución
+      const movementsBefore = (
+        await (await request.get(`/api/v1/inventory/items/${itemId}/movements`, { headers: auth(token) })).json()
+      ).movements;
+
+      // 2. Devolver en resalable -> rechazo con InactiveSalesItemError y sin movimiento de kardex
+      const resalableReturnRes = await request.post(SALES_RETURNS, {
+        headers: auth(token),
+        data: {
+          customerId: customer.id,
+          dispatchId: dispatch.id,
+          condition: 'resalable',
+          reason: 'Devolucion resalable con articulo desactivado',
+          lines: [{ dispatchLineId: dispatch.lines[0].id, quantity: 1 }],
+        },
+      });
+      expect(resalableReturnRes.status()).toBe(201);
+      const { id: resalableReturnId } = await resalableReturnRes.json();
+
+      const confirmResalable = await request.put(`${SALES_RETURNS}/${resalableReturnId}/confirm`, {
+        headers: auth(token),
+      });
+      expect(await error(confirmResalable)).toEqual([409, 'InactiveSalesItemError']);
+
+      // Comprobar que no hubo movimiento de kardex
+      const movementsAfterFailed = (
+        await (await request.get(`/api/v1/inventory/items/${itemId}/movements`, { headers: auth(token) })).json()
+      ).movements;
+      expect(movementsAfterFailed.length).toBe(movementsBefore.length);
+
+      // 3. Devolver en scrap -> confirma exitosamente (scrap no reingresa mercancía)
+      const scrapReturnRes = await request.post(SALES_RETURNS, {
+        headers: auth(token),
+        data: {
+          customerId: customer.id,
+          dispatchId: dispatch.id,
+          condition: 'scrap',
+          reason: 'Devolucion en desecho con articulo desactivado',
+          lines: [{ dispatchLineId: dispatch.lines[0].id, quantity: 1 }],
+        },
+      });
+      expect(scrapReturnRes.status()).toBe(201);
+      const { id: scrapReturnId } = await scrapReturnRes.json();
+
+      const confirmScrap = await request.put(`${SALES_RETURNS}/${scrapReturnId}/confirm`, {
+        headers: auth(token),
+      });
+      expect(confirmScrap.status()).toBe(200);
+
+      // En scrap tampoco genera movimiento de kardex
+      const movementsAfterScrap = (
+        await (await request.get(`/api/v1/inventory/items/${itemId}/movements`, { headers: auth(token) })).json()
+      ).movements;
+      expect(movementsAfterScrap.length).toBe(movementsBefore.length);
+
+      // 4. Devolución sin origen con artículo desactivado -> rechazada al crear
+      const originlessReturnRes = await request.post(SALES_RETURNS, {
+        headers: auth(token),
+        data: {
+          customerId: customer.id,
+          dispatchId: null,
+          warehouseId: ACME_INVENTORY.mainWarehouse,
+          condition: 'resalable',
+          reason: 'Devolucion sin origen de articulo inactivo',
+          lines: [{ itemId, unitId: ACME_INVENTORY.piece, quantity: 1, unitCost: 1.0 }],
+        },
+      });
+      expect(await error(originlessReturnRes)).toEqual([409, 'InactiveSalesItemError']);
+    } finally {
+      // Restaurar el artículo compartido a activo pase lo que pase
+      await request.put(`/api/v1/inventory/items/${itemId}/status`, {
+        headers: auth(token),
+        data: { active: true },
+      });
+    }
+  });
 });

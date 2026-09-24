@@ -259,9 +259,8 @@ Antes de iniciar la Fase 0, se revisaron a fondo las once decisiones de diseno d
    - *Situación actual:* Al confirmar una nota de crédito vinculada a una factura, el sistema crea forzosamente un cobro de emisión que absorbe el saldo pendiente de la factura hasta donde alcance el total de la nota.
    - *Duda:* ¿Debería el usuario poder decidir qué porción de la nota se aplica a la factura y qué porción queda de inmediato como crédito disponible a favor del cliente, o es preferible mantener la regla determinista de cancelar siempre la deuda inmediata primero?
 
-2. **Reingreso de devoluciones sobre artículos descatalogados o desactivados:**
-   - *Situación actual:* Si un artículo inventariado se desactiva para ventas después de haber sido despachado, una devolución posterior de ese despacho en condición `resalable` reingresa la existencia al kardex al costo congelado.
-   - *Duda:* Dado que el artículo está inactivo comercialmente, ¿debería el sistema bloquear la devolución en condición `resalable` obligando a reactivar el SKU primero (similar a la regla de compras), o forzar a que la devolución se clasifique como `scrap` / dañada para no dejar stock vendible de artículos retirados?
+2. **Reingreso de devoluciones sobre artículos descatalogados o desactivados (resuelta y verificada):**
+   - *Comportamiento real verificado contra PostgreSQL:* La hipótesis inicial de que el sistema reingresaba al kardex artículos desactivados era errónea. La regla real de H3 e infraestructura (`prisma-sales-return-posting.ts:185-186` y `sales-return-line-factory.ts:101`) bloquea de raíz el reingreso vendible: intentar confirmar una devolución en condición `resalable` de un artículo desactivado es rechazado con `InactiveSalesItemError` y no genera ningún movimiento de kardex. En cambio, si la mercancía se clasifica como `scrap`, confirma con éxito ya que no toca existencias. Asimismo, una devolución sin despacho de origen con un artículo desactivado es rechazada inmediatamente al crearse. Todo este comportamiento quedó blindado con su prueba destructiva en `h8-mutations.spec.ts`.
 
 3. **Interacción con retenciones fiscales e impuestos en notas de crédito (preparación H10):**
    - *Situación actual:* La nota de crédito replica la tasa impositiva de la factura y calcula subtotales/impuestos proporcionales, generando un cobro por el monto nominal total.
