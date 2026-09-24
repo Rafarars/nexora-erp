@@ -32,6 +32,8 @@ export default async function PurchaseReturnsPage({ searchParams }: { searchPara
   const page = Math.max(1, Number(pagina ?? '1') || 1);
 
   const canCreate = can(session, 'purchasing.returns.create');
+  const canUpdate = can(session, 'purchasing.returns.update');
+  const canMutate = canCreate || canUpdate;
 
   let loaded;
   try {
@@ -44,7 +46,7 @@ export default async function PurchaseReturnsPage({ searchParams }: { searchPara
         limit: PAGE_SIZE,
         offset: (page - 1) * PAGE_SIZE,
       }),
-      canCreate
+      canMutate
         ? purchasingApi()
             .searchReceipts(token, { status: 'confirmed', limit: 50 })
             .then((res) => res.receipts)
@@ -77,6 +79,7 @@ export default async function PurchaseReturnsPage({ searchParams }: { searchPara
       receipts={receipts}
       today={settings.today}
       canCreate={canCreate}
+      canUpdate={canUpdate}
       canConfirm={can(session, 'purchasing.returns.confirm')}
       canCancel={can(session, 'purchasing.returns.cancel')}
     />

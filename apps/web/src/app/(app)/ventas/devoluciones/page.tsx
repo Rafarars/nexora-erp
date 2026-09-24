@@ -34,6 +34,8 @@ export default async function SalesReturnsPage({ searchParams }: { searchParams:
   const page = Math.max(1, Number(pagina ?? '1') || 1);
 
   const canCreate = can(session, 'sales.returns.create');
+  const canUpdate = can(session, 'sales.returns.update');
+  const canMutate = canCreate || canUpdate;
 
   let loaded;
   try {
@@ -46,14 +48,14 @@ export default async function SalesReturnsPage({ searchParams }: { searchParams:
         limit: PAGE_SIZE,
         offset: (page - 1) * PAGE_SIZE,
       }),
-      canCreate
+      canMutate
         ? salesApi()
             .searchDispatches(token, { status: 'confirmed', limit: 50 })
             .then((res) => res.dispatches)
         : [],
-      canCreate && can(session, 'sales.customers.search') ? salesApi().allCustomers(token) : [],
-      canCreate && can(session, 'catalog.warehouses.search') ? catalogApi().searchWarehouses(token) : [],
-      canCreate && can(session, 'inventory.items.search') ? inventoryApi().allItems(token) : [],
+      canMutate && can(session, 'sales.customers.search') ? salesApi().allCustomers(token) : [],
+      canMutate && can(session, 'catalog.warehouses.search') ? catalogApi().searchWarehouses(token) : [],
+      canMutate && can(session, 'inventory.items.search') ? inventoryApi().allItems(token) : [],
       companyApi().settings(token),
     ]);
   } catch (error) {
@@ -85,6 +87,7 @@ export default async function SalesReturnsPage({ searchParams }: { searchParams:
       items={items}
       today={settings.today}
       canCreate={canCreate}
+      canUpdate={canUpdate}
       canConfirm={can(session, 'sales.returns.confirm')}
       canCancel={can(session, 'sales.returns.cancel')}
     />
