@@ -9,11 +9,14 @@ de ninguna conversación anterior**.
 
 ## Lo siguiente, en una línea
 
-**Cerrar H8: su segunda ronda de correcciones y después la fase 7, la revisión.** H8 está
-**construido en la rama `h8`, sin mergear a `main`**: fases 0 a 6 y una primera ronda de ocho
-correcciones. Lo construyó otro agente, Antigravity (`agy`), con este documento como especificación,
-y Claude lo revisa leyendo el código y corriendo la suite. Después siguen
-[H9](H9-COMPRAS-HASTA-EL-PAGO.md) y [H10](H10-CONTABILIDAD.md), sin construir.
+**Cerrar H8: `agy` está haciendo la fase 7, la revisión.** H8 está **construido en la rama `h8`,
+sin mergear a `main`**: fases 0 a 6 y tres rondas de correcciones. Lo construyó Antigravity (`agy`)
+con este documento como especificación. Después siguen [H9](H9-COMPRAS-HASTA-EL-PAGO.md) y
+[H10](H10-CONTABILIDAD.md), sin construir.
+
+**Cómo se trabaja desde el 23-sep-2026:** Rafael pasa a usar **sólo `agy`**. `agy` ejecuta
+(construye, corrige, revisa con `module-review`, documenta) y Claude, mientras siga disponible, sólo
+revisa planes y código. Lo que eso exigió preparar, en «Trabajar con `agy`», abajo.
 
 **Dónde está cada cosa de H8:**
 
@@ -22,8 +25,8 @@ y Claude lo revisa leyendo el código y corriendo la suite. Después siguen
 - **La bitácora fase por fase**, con cada corrección y su evidencia: `docs/revision/h8/avance.md`,
   en la rama `h8`.
 - **Los prompts con los que se le encargó a `agy`**, fuera del repositorio:
-  `~/.gemini/tmp/erp-portafolio/prompt-h8.md`, `prompt-h8-correcciones.md` y
-  `prompt-h8-correcciones-2.md`.
+  `~/.gemini/tmp/erp-portafolio/prompt-h8.md`, `prompt-h8-correcciones.md`, `-2.md`, `-3.md` y
+  `prompt-h8-fase7.md`.
 
 **En qué punto está**, al 23-sep-2026:
 
@@ -31,15 +34,47 @@ y Claude lo revisa leyendo el código y corriendo la suite. Después siguen
    devolución de venta no tenía contrato de puerto, así que un fallo que sólo aparecía contra
    PostgreSQL pasó en verde; faltaba la devolución sin origen; y **el formulario de nota de crédito
    nunca había funcionado**.
-2. La segunda revisión corrió `make verify` sobre `h8` y **salió en rojo**: la matriz de
-   aislamiento, que H8 agrandó, corre a la vez que las pruebas de interfaz y las satura.
-   **Decidido:** el proyecto `isolation` pasa a correr después de `ui`. Esa corrección y otras cinco
-   (R1 a R7) las está haciendo `agy` ahora.
-3. **Pendiente de Rafael:** qué hacer con la rama remota `origin/h8`, que quedó en `eb2706e`, antes
-   de las correcciones; y si se puede devolver un artículo ya desactivado (duda que dejó `agy`).
+2. La segunda revisión (R1 a R8) corrió `make verify` y salió en rojo por una prueba de interfaz
+   que agotaba su tiempo. La primera hipótesis —la matriz de aislamiento saturando la interfaz— la
+   desmintió `agy` con evidencia; la causa real eran pruebas de siete navegaciones al límite en una
+   máquina de cuatro núcleos, y llevan `test.slow()` con su duración medida. **Y apareció otro
+   defecto serio: la pantalla de Cobros pedía escribir el UUID de la nota.** Ahora tiene selector
+   y muestra el crédito disponible.
+3. Tercera ronda (T1 a T5), menor: el crédito disponible se agrupa por moneda y el avance quedó
+   corregido. **`make verify` en verde sobre `34c1605`, comprobado por Claude**: 3214 + 202
+   unitarias, 272 de contrato y 468 de extremo a extremo.
+4. **Fase 7 en curso**, por `agy` con la skill `module-review`: revisión dirigida, recorrido de las
+   pantallas con el navegador y capturas, informe en `docs/revision/h8/h8.md`, `docs/modulos/` al
+   día y Engram. Ya comprobó que `make seed` es idempotente y que la prueba de tiempos del inicio de
+   sesión (`argon2-password-hasher.spec.ts`, de Acceso) pasa cinco de cinco.
+5. **Decisiones que `agy` le preguntó a Rafael**, con la recomendación de Claude: devolver un
+   artículo desactivado → **permitirlo**, en las dos formas de devolución; la rama remota
+   `origin/h8`, que `agy` subió en la fase 6 sin permiso y quedó en `eb2706e` → **borrarla**.
+6. **Después**: Claude revisa el informe de la fase 7 y corre `make verify`, Rafael decide el merge
+   a `main`, y se cierra este documento.
 
 **Lo que se aprendió delegando un hito** está en Engram (proyecto `nexora-erp`), con lo que hay que
 exigirle al agente desde el primer prompt.
+
+### Trabajar con `agy`
+
+- **Skills**: `module-review` y `module-build` están adaptadas para `agy` en `~/.gemini/skills/`. Usan su
+  navegador, preguntan con su diálogo y **obligan a documentar**: Engram con el proyecto explícito,
+  la documentación del proyecto y cifras copiadas de la salida real. El método largo sigue en
+  `engineering-playbook/method/`. **Pendiente de Rafael:** versionarlas también en el playbook, para
+  no depender de una sola máquina.
+- **Navegador**: `/browser`, el servidor de Chrome DevTools integrado. Navega, rellena, hace clic,
+  captura, lee la consola y la red, y graba la pantalla.
+- **Engram**: su configuración (`~/.gemini/antigravity/mcp_config.json`) forzaba el proyecto
+  `antigravity`, y `--project` anula la detección por carpeta. Se quitó el 23-sep-2026. Ahora detecta
+  `nexora-erp` por el remoto de git.
+- **Qué exigirle siempre**: no parchear pruebas; una corrida verde después de una roja no es un verde;
+  nada de push; cada puerto nuevo, con su contrato contra PostgreSQL; nunca dos `make verify` a la
+  vez sobre la misma base; copiar rutas y cifras de la salida real.
+- **`docs/lo_que_hizo_agy.md`** es un archivo interno de Rafael para pasarle a Claude lo que hace
+  `agy`: no se commitea nunca.
+- **H9 y H10**: antes de construirlos, conviene una validación corta de lo que cambió en H10 el
+  22-sep-2026, que sólo revisó Claude.
 
 Las **cuatro decisiones que esperaban a Rafael** (abajo, «Decisiones esperando a Rafael») y las
 **mejoras de diseño del sistema** quedaron aparcadas a propósito: Rafael pidió investigar y
