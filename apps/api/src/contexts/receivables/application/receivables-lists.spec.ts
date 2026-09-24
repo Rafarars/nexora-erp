@@ -211,3 +211,27 @@ describe('searching the customer balances', () => {
     expect((await s.searchCustomerBalances.run({ tenantId: TENANT_A, onlyWithBalance: 'false' })).totals.total).toBe(200);
   });
 });
+
+describe('searching credit notes', () => {
+  it('resolves the sales return code instead of showing raw id', async () => {
+    const s = world();
+    const RETURN_ID = '57000000-0000-4000-8000-000000000055';
+    s.store.salesReturn(TENANT_A, RETURN_ID, CUSTOMER, 'confirmed', 'DVV-000055');
+
+    const created = await s.createCreditNote.run({
+      tenantId: TENANT_A,
+      customerId: CUSTOMER,
+      salesReturnId: RETURN_ID,
+      reason: 'return',
+      lines: [{ quantity: 1, unitPrice: 20 }],
+    });
+
+    const page = await s.searchCreditNotes.run({ tenantId: TENANT_A });
+    const note = page.notes.find((n) => n.id === created.id);
+    expect(note).toBeDefined();
+    expect(note?.salesReturn).toEqual({ id: RETURN_ID, code: 'DVV-000055' });
+
+    const detail = await s.searchCreditNotes.findById({ tenantId: TENANT_A, creditNoteId: created.id });
+    expect(detail.salesReturn).toEqual({ id: RETURN_ID, code: 'DVV-000055' });
+  });
+});

@@ -78,6 +78,7 @@ export function describeReceivablesPortsContract(implementation: string, createH
     const invoice = async (id = INVOICE) => (await ports.ledger.invoices(tenant, { ids: [id] }))[0];
 
     async function draftNote(params: {
+      tenantId?: string;
       customerId?: string;
       invoiceId?: string | null;
       salesReturnId?: string | null;
@@ -86,9 +87,10 @@ export function describeReceivablesPortsContract(implementation: string, createH
     }): Promise<CreditNoteId> {
       const id = CreditNoteId.of(`cc000000-0000-4000-8000-${next()}`);
       const code = `NCC${next().slice(-6)}`;
+      const noteTenant = params.tenantId ? TenantId.of(params.tenantId) : tenant;
       const note = CustomerCreditNote.draft(
         id,
-        tenant,
+        noteTenant,
         code,
         {
           customerId: params.customerId ?? CUSTOMER,
@@ -317,6 +319,23 @@ export function describeReceivablesPortsContract(implementation: string, createH
         expect((await ports.ledger.invoices(tenant, { onlyIssued: true })).map((row) => row.id)).toEqual([OTHER_INVOICE]);
         expect((await ports.ledger.invoices(tenant, { onlyIssued: true, text: 'fac900002' }))).toEqual([]);
       });
+
+      it('queries sales returns by ids and isolates by company', async () => {
+        const RETURN_A = '57000000-0000-4000-8000-000000000010';
+        const RETURN_B = '57000000-0000-4000-8000-000000000020';
+        await harness.salesReturn(TENANT_A, RETURN_A, CUSTOMER);
+        await harness.salesReturn(TENANT_B, RETURN_B, FOREIGN_CUSTOMER);
+
+        const resultsA = await ports.ledger.salesReturns(tenant, { ids: [RETURN_A, RETURN_B] });
+        expect(resultsA).toHaveLength(1);
+        expect(resultsA[0].id).toBe(RETURN_A);
+        expect(resultsA[0].code).toMatch(/^DVV/);
+
+        const resultsB = await ports.ledger.salesReturns(TenantId.of(TENANT_B), { ids: [RETURN_A, RETURN_B] });
+        expect(resultsB).toHaveLength(1);
+        expect(resultsB[0].id).toBe(RETURN_B);
+        expect(resultsB[0].code).toMatch(/^DVV/);
+      });
     });
 
     describe('CustomerCreditNoteRepository', () => {
@@ -420,6 +439,28 @@ export function describeReceivablesPortsContract(implementation: string, createH
 
         const fetched = await ports.creditNotes.findByIds(tenant, [note1Id, note2Id]);
         expect(fetched.map((n) => n.id.value).sort()).toEqual([note1Id.value, note2Id.value].sort());
+      });
+
+      it('finds credit notes by issue payments in batch and isolates by company', async () => {
+        const noteA = await draftNote({ invoiceId: INVOICE, total: 20 });
+        await confirmNote(noteA);
+        const storedA = (await ports.creditNotes.find(tenant, noteA))!;
+        const payIdA = storedA.toPrimitives().issuePaymentId!;
+        expect(payIdA).toBeDefined();
+
+        const noteB = await draftNote({ tenantId: TENANT_B, customerId: FOREIGN_CUSTOMER, invoiceId: FOREIGN_INVOICE, total: 10 });
+        await ports.creditNotePosting.confirm(TenantId.of(TENANT_B), noteB, NOW, TODAY);
+        const storedB = (await ports.creditNotes.find(TenantId.of(TENANT_B), noteB))!;
+        const payIdB = storedB.toPrimitives().issuePaymentId!;
+        expect(payIdB).toBeDefined();
+
+        const notesFoundA = await ports.creditNotes.findByIssuePayments(tenant, [PaymentId.of(payIdA), PaymentId.of(payIdB)]);
+        expect(notesFoundA).toHaveLength(1);
+        expect(notesFoundA[0].id.value).toBe(noteA.value);
+
+        const notesFoundB = await ports.creditNotes.findByIssuePayments(TenantId.of(TENANT_B), [PaymentId.of(payIdA), PaymentId.of(payIdB)]);
+        expect(notesFoundB).toHaveLength(1);
+        expect(notesFoundB[0].id.value).toBe(noteB.value);
       });
     });
 

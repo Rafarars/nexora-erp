@@ -50,6 +50,7 @@ export interface CreditNote {
   customer: { id: string; name: string };
   invoice: { id: string; code: string } | null;
   salesReturnId: string | null;
+  salesReturn?: { id: string; code: string } | null;
   issuePaymentId: string | null;
   issueDate: string;
   reason: CreditNoteReason;

@@ -139,7 +139,11 @@ export function CreditNotesBoard({
                         Factura: <span className="font-mono">{note.invoice.code}</span>
                       </p>
                     ) : null}
-                    {note.salesReturnId ? (
+                    {note.salesReturn ? (
+                      <p className="text-muted" data-testid={`credit-note-return-${note.code}`}>
+                        Devolución: <span className="font-mono">{note.salesReturn.code}</span>
+                      </p>
+                    ) : note.salesReturnId ? (
                       <p className="text-muted" data-testid={`credit-note-return-${note.code}`}>
                         Devolución: <span className="font-mono">{note.salesReturnId.slice(0, 8)}</span>
                       </p>

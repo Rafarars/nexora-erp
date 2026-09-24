@@ -38,6 +38,7 @@ interface StoredSalesReturn {
   tenantId: string;
   customerId: string;
   orderId?: string;
+  code?: string;
   status: 'draft' | 'confirmed' | 'cancelled';
 }
 
@@ -87,12 +88,13 @@ export class InMemoryReceivablesStore {
     });
   }
 
-  salesReturn(tenantId: string, returnId: string, customerId: string, status: 'confirmed' | 'draft' | 'cancelled' = 'confirmed'): void {
+  salesReturn(tenantId: string, returnId: string, customerId: string, status: 'confirmed' | 'draft' | 'cancelled' = 'confirmed', code?: string): void {
     this.salesReturnRows.set(returnId, {
       id: returnId,
       tenantId,
       customerId,
       orderId: `order-independent-${returnId}`,
+      code: code ?? `DVV-${returnId.slice(0, 6)}`,
       status,
     });
   }
@@ -131,6 +133,13 @@ export class InMemoryReceivablesStore {
         return { ...customer };
       },
       invoices: async (tenantId, filter = {}) => this.invoicesOf(tenantId.value, filter),
+      salesReturns: async (tenantId, filter = {}) => {
+        const ids = filter.ids ? new Set(filter.ids) : null;
+        return [...this.salesReturnRows.values()]
+          .filter((row) => row.tenantId === tenantId.value)
+          .filter((row) => ids === null || ids.has(row.id))
+          .map((row) => ({ id: row.id, code: row.code ?? `DVV-${row.id.slice(0, 6)}` }));
+      },
     };
   }
 
@@ -233,6 +242,12 @@ export class InMemoryReceivablesStore {
           (cn) => cn.tenantId === tenantId.value && cn.issuePaymentId === paymentId.value,
         );
         return row ? CustomerCreditNote.fromPrimitives(row) : null;
+      },
+      findByIssuePayments: async (tenantId, paymentIds) => {
+        const set = new Set(paymentIds.map((p) => p.value));
+        return [...this.creditNoteRows.values()]
+          .filter((row) => row.tenantId === tenantId.value && row.issuePaymentId && set.has(row.issuePaymentId))
+          .map((row) => CustomerCreditNote.fromPrimitives(row));
       },
       searchPage: async (tenantId, filter) => {
         const text = filter.text?.toLowerCase() ?? null;

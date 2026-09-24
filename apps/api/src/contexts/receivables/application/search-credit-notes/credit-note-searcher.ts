@@ -17,6 +17,7 @@ export interface CreditNoteResponse {
   customer: { id: string; name: string };
   invoice: { id: string; code: string } | null;
   salesReturnId: string | null;
+  salesReturn: { id: string; code: string } | null;
   issuePaymentId: string | null;
   issueDate: string;
   reason: CreditNoteReason;
@@ -88,14 +89,17 @@ export class CreditNoteSearcher {
     const rows = page.notes.map((n) => n.toPrimitives());
     const customerIds = [...new Set(rows.map((n) => n.customerId))];
     const invoiceIds = [...new Set(rows.map((n) => n.invoiceId).filter((id): id is string => id !== null))];
+    const returnIds = [...new Set(rows.map((n) => n.salesReturnId).filter((id): id is string => id !== null))];
 
-    const [customers, invoices] = await Promise.all([
+    const [customers, invoices, salesReturns] = await Promise.all([
       Promise.all(customerIds.map((id) => this.ledger.customer(tenantId, id))),
       this.ledger.invoices(tenantId, { ids: invoiceIds }),
+      returnIds.length > 0 ? this.ledger.salesReturns(tenantId, { ids: returnIds }) : Promise.resolve([]),
     ]);
 
     const customerMap = new Map(customers.filter(Boolean).map((c) => [c!.id, c!]));
     const invoiceMap = new Map(invoices.map((inv) => [inv.id, inv]));
+    const returnMap = new Map(salesReturns.map((r) => [r.id, r]));
 
     const notesWithCredit: CreditNoteResponse[] = [];
 
@@ -112,6 +116,7 @@ export class CreditNoteSearcher {
         customer: { id: p.customerId, name: customer?.name ?? p.customerId },
         invoice: invoice ? { id: invoice.id, code: invoice.code } : null,
         salesReturnId: p.salesReturnId,
+        salesReturn: p.salesReturnId ? (returnMap.get(p.salesReturnId) ?? null) : null,
         issuePaymentId: p.issuePaymentId,
         issueDate: p.issueDate,
         reason: p.reason,
@@ -154,6 +159,7 @@ export class CreditNoteSearcher {
     const p = note.toPrimitives();
     const customer = await this.ledger.customer(tenantId, p.customerId);
     const invoice = p.invoiceId ? (await this.ledger.invoices(tenantId, { ids: [p.invoiceId] }))[0] ?? null : null;
+    const returnInfo = p.salesReturnId ? (await this.ledger.salesReturns(tenantId, { ids: [p.salesReturnId] }))[0] ?? null : null;
     const applied = p.status === 'confirmed' ? await this.creditNotes.appliedPaymentsSum(tenantId, note.id) : 0;
     const available = p.status === 'confirmed' ? NoteCredit.available(p.total, applied) : 0;
 
@@ -163,6 +169,7 @@ export class CreditNoteSearcher {
       customer: { id: p.customerId, name: customer?.name ?? p.customerId },
       invoice: invoice ? { id: invoice.id, code: invoice.code } : null,
       salesReturnId: p.salesReturnId,
+      salesReturn: returnInfo ? { id: returnInfo.id, code: returnInfo.code } : null,
       issuePaymentId: p.issuePaymentId,
       issueDate: p.issueDate,
       reason: p.reason,

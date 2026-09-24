@@ -146,6 +146,19 @@ export class PrismaCustomerCreditNoteRepository implements CustomerCreditNoteRep
     return row ? creditNoteFromRow(row as unknown as CreditNoteRow) : null;
   }
 
+  async findByIssuePayments(tenantId: TenantId, paymentIds: PaymentId[]): Promise<CustomerCreditNote[]> {
+    if (paymentIds.length === 0) return [];
+    const rows = await this.prisma.customerCreditNote.findMany({
+      where: {
+        tenantId: tenantId.value,
+        issuePaymentId: { in: paymentIds.map((p) => p.value) },
+      },
+      include: CREDIT_NOTE_INCLUDE,
+    });
+
+    return rows.map((r) => creditNoteFromRow(r as unknown as CreditNoteRow));
+  }
+
   async searchPage(
     tenantId: TenantId,
     filter: CreditNoteSearchFilter,
