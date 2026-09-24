@@ -484,7 +484,7 @@ function CreditNoteFields({
 
       <div>
         <TextArea
-          label="Notas internas (opcional)"
+          label="Notas internas"
           name="notes"
           defaultValue={note?.notes ?? ''}
           testId="credit-note-notes"

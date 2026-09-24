@@ -124,4 +124,16 @@ test.describe('Credit notes and returns UI', () => {
     await expect(dateInput).toHaveValue(settings.today);
     await expect(dateInput).toHaveAttribute('max', settings.today);
   });
+
+  test('internal notes label contains optional badge exactly once', async ({ page }) => {
+    await new LoginPage(page).signIn(ACME_ADMIN);
+    const receivables = new ReceivablesPage(page);
+
+    await receivables.open('notas-de-credito');
+    await page.getByTestId('new-credit-note').click();
+    await expect(page.getByTestId('credit-note-panel')).toBeVisible();
+
+    const notesLabel = page.locator('label[for="notes"]');
+    await expect(notesLabel).toHaveText('Notas internas (opcional)');
+  });
 });
