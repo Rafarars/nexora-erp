@@ -123,6 +123,11 @@ export function PaymentsBoard({
                   <td className="px-4 py-3">
                     <p>{PAYMENT_METHOD_LABELS[payment.method]}</p>
                     {payment.reference ? <p className="text-muted text-xs">{payment.reference}</p> : null}
+                    {payment.isIssuePayment && payment.issueCreditNoteCode ? (
+                      <p className="text-muted text-xs font-mono" data-testid={`payment-issue-note-${payment.code}`}>
+                        Emisión de {payment.issueCreditNoteCode}
+                      </p>
+                    ) : null}
                   </td>
                   <td className="px-4 py-3 text-xs">
                     {payment.allocations.map((allocation) => (

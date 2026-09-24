@@ -167,6 +167,24 @@ describe('searching the payments', () => {
     expect(payment.creditSourceId).toBe(noteId);
     expect(payment.creditSourceCode).toBe(noteCode);
   });
+
+  it('marks issue payments as isIssuePayment with the credit note code', async () => {
+    const s = world();
+    const { id: noteId, code: noteCode } = await s.createCreditNote.run({
+      tenantId: TENANT_A,
+      customerId: CUSTOMER,
+      invoiceId: INVOICE,
+      reason: 'subsequent_discount',
+      lines: [{ quantity: 1, unitPrice: 30, taxRate: 0 }],
+    });
+    await s.confirmCreditNote.run({ tenantId: TENANT_A, creditNoteId: noteId });
+
+    const page = await s.searchPayments.run({ tenantId: TENANT_A });
+    const issuePayment = page.payments.find((p) => p.isIssuePayment);
+    expect(issuePayment).toBeDefined();
+    expect(issuePayment?.isIssuePayment).toBe(true);
+    expect(issuePayment?.issueCreditNoteCode).toBe(noteCode);
+  });
 });
 
 describe('searching the customer balances', () => {

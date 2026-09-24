@@ -136,4 +136,16 @@ test.describe('Credit notes and returns UI', () => {
     const notesLabel = page.locator('label[for="notes"]');
     await expect(notesLabel).toHaveText('Notas internas (opcional)');
   });
+
+  test('issue payment for credit note shows origin note code and cannot be cancelled', async ({ page }) => {
+    await new LoginPage(page).signIn(ACME_ADMIN);
+    const receivables = new ReceivablesPage(page);
+
+    await receivables.open('cobros');
+    await expect(page.getByTestId('payment-row-COB000004')).toBeVisible();
+    await expect(page.getByTestId('payment-issue-note-COB000004')).toHaveText('Emisión de NCC000003');
+
+    // El cobro de emisión no ofrece la acción de anular (no tiene menú de opciones abierto ni botón)
+    await expect(page.getByTestId('payment-options-COB000004')).toHaveCount(0);
+  });
 });

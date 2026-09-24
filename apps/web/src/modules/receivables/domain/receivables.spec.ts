@@ -26,6 +26,10 @@ describe('paymentActions', () => {
     expect(paymentActions({ status: 'confirmed' })).toEqual({ edit: false, confirm: false, cancel: true });
     expect(paymentActions({ status: 'cancelled' })).toEqual({ edit: false, confirm: false, cancel: false });
   });
+
+  it('does not offer cancelling an issue payment from a credit note', () => {
+    expect(paymentActions({ status: 'confirmed', isIssuePayment: true })).toEqual({ edit: false, confirm: false, cancel: false });
+  });
 });
 
 describe('payment form', () => {

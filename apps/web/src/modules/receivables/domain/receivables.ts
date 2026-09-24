@@ -16,6 +16,8 @@ export interface Payment extends DocumentCurrency {
   creditSourceCode?: string | null;
   reference: string | null;
   notes: string | null;
+  isIssuePayment?: boolean;
+  issueCreditNoteCode?: string | null;
   // En la moneda del cobro.
   amount: number;
   amountVes: number | null;
@@ -172,8 +174,8 @@ export const AGING_COLUMNS: { bucket: AgingBucket; label: string }[] = [
 ];
 
 // Lo que la interfaz ofrece en cada estado; la API lo vuelve a comprobar.
-export function paymentActions(payment: Pick<Payment, 'status'>): { edit: boolean; confirm: boolean; cancel: boolean } {
-  return { edit: payment.status === 'draft', confirm: payment.status === 'draft', cancel: payment.status !== 'cancelled' };
+export function paymentActions(payment: Pick<Payment, 'status'> & { isIssuePayment?: boolean }): { edit: boolean; confirm: boolean; cancel: boolean } {
+  return { edit: payment.status === 'draft', confirm: payment.status === 'draft', cancel: payment.status !== 'cancelled' && !payment.isIssuePayment };
 }
 
 export function overdueLabel(days: number): string {
