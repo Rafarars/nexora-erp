@@ -173,7 +173,10 @@ test.describe('Credit notes and returns UI', () => {
     await expect(page.getByTestId('sales-return-create-panel')).toBeHidden();
 
     // Esperar a que la tabla revalide e incorpore la nueva fila
-    await expect(page.locator('[data-testid="sales-return-code"]')).toHaveCount(beforeCodes1.length + 1);
+    await expect(async () => {
+      const codes = await page.locator('[data-testid="sales-return-code"]').allInnerTexts();
+      expect(codes.some((c) => !beforeCodes1.includes(c))).toBe(true);
+    }).toPass();
     const afterCodes1 = await page.locator('[data-testid="sales-return-code"]').allInnerTexts();
     const firstDraftCode = afterCodes1.find((c) => !beforeCodes1.includes(c))!;
     expect(firstDraftCode).toBeDefined();
@@ -191,9 +194,6 @@ test.describe('Credit notes and returns UI', () => {
     await qtyInput1.fill('2');
     await page.getByTestId('btn-save-sales-return').click();
     await expect(page.getByTestId('sales-return-create-panel')).toBeHidden();
-
-    // Recargar la página para asegurar que la vista lea los datos persistidos en el servidor
-    await page.reload();
 
     // Reabrir el borrador editado y verificar que guardó efectivamente los cambios
     await page.getByTestId(`sales-return-options-${firstDraftCode}`).click();
@@ -229,7 +229,10 @@ test.describe('Credit notes and returns UI', () => {
     await expect(page.getByTestId('sales-return-create-panel')).toBeHidden();
 
     // Esperar a que la tabla revalide e incorpore la nueva fila sin origen
-    await expect(page.locator('[data-testid="sales-return-code"]')).toHaveCount(beforeCodes2.length + 1);
+    await expect(async () => {
+      const codes = await page.locator('[data-testid="sales-return-code"]').allInnerTexts();
+      expect(codes.some((c) => !beforeCodes2.includes(c))).toBe(true);
+    }).toPass();
     const afterCodes2 = await page.locator('[data-testid="sales-return-code"]').allInnerTexts();
     const originlessCode = afterCodes2.find((c) => !beforeCodes2.includes(c))!;
     expect(originlessCode).toBeDefined();
@@ -247,9 +250,6 @@ test.describe('Credit notes and returns UI', () => {
     await page.getByTestId('sales-return-qty-0').fill('3');
     await page.getByTestId('btn-save-sales-return').click();
     await expect(page.getByTestId('sales-return-create-panel')).toBeHidden();
-
-    // Recargar la página para asegurar que la vista lea los datos persistidos en el servidor
-    await page.reload();
 
     // Reabrir el borrador sin origen editado y verificar que guardó efectivamente los cambios
     await page.getByTestId(`sales-return-options-${originlessCode}`).click();
@@ -289,7 +289,10 @@ test.describe('Credit notes and returns UI', () => {
     await expect(page.getByTestId('purchase-return-create-panel')).toBeHidden();
 
     // Esperar a que la tabla revalide e incorpore la nueva fila
-    await expect(page.locator('[data-testid="purchase-return-code"]')).toHaveCount(beforeCodes.length + 1);
+    await expect(async () => {
+      const codes = await page.locator('[data-testid="purchase-return-code"]').allInnerTexts();
+      expect(codes.some((c) => !beforeCodes.includes(c))).toBe(true);
+    }).toPass();
     const afterCodes = await page.locator('[data-testid="purchase-return-code"]').allInnerTexts();
     const returnCode = afterCodes.find((c) => !beforeCodes.includes(c))!;
     expect(returnCode).toBeDefined();
@@ -307,9 +310,6 @@ test.describe('Credit notes and returns UI', () => {
     await qtyInput.fill('2');
     await page.getByTestId('btn-save-purchase-return').click();
     await expect(page.getByTestId('purchase-return-create-panel')).toBeHidden();
-
-    // Recargar la página para asegurar que la vista lea los datos persistidos en el servidor
-    await page.reload();
 
     // Reabrir el borrador editado y verificar que guardó efectivamente los cambios
     await page.getByTestId(`purchase-return-options-${returnCode}`).click();

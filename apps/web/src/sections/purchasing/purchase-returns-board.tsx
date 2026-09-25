@@ -8,6 +8,7 @@ import { RowOptions } from '@/sections/shared/row-options';
 import { SlideOver } from '@/sections/shared/slide-over';
 import { emptyState } from '@/shared/forms/form-state';
 import type { FormState } from '@/shared/forms/form-state';
+import { submitKeepingValues } from '@/shared/forms/submit-keeping-values';
 import {
   PURCHASE_RETURN_STATUS_LABELS,
   purchaseReturnActions,
@@ -235,7 +236,7 @@ export function PurchaseReturnsBoard({
         onClose={closePanel}
         testId="purchase-return-create-panel"
       >
-        <form action={save} className="space-y-4" data-testid="purchase-return-form">
+        <form onSubmit={submitKeepingValues(save)} className="space-y-4" key={editing?.id ?? 'new'} data-testid="purchase-return-form">
           <FormError message={saveState.error} testId="purchase-return-form-error" />
 
           {editing ? <input type="hidden" name="id" value={editing.id} /> : null}
