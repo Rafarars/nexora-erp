@@ -147,6 +147,10 @@ test.describe('Credit notes and returns UI', () => {
 
     // El cobro de emisión no ofrece la acción de anular (no tiene menú de opciones abierto ni botón)
     await expect(page.getByTestId('payment-options-COB000004')).toHaveCount(0);
+
+    // El cobro que gasta crédito disponible identifica la nota de crédito de origen
+    await expect(page.getByTestId('payment-row-COB000005')).toBeVisible();
+    await expect(page.getByTestId('payment-credit-source-COB000005')).toHaveText('Nota de crédito NCC000003');
   });
 
   // test.slow(): Medido: 10.6s sola en local (39.7s total proceso), 13.4s dentro de suite (1.3m total)

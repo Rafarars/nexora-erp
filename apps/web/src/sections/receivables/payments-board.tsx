@@ -128,6 +128,11 @@ export function PaymentsBoard({
                         Emisión de {payment.issueCreditNoteCode}
                       </p>
                     ) : null}
+                    {!payment.isIssuePayment && payment.creditSourceCode ? (
+                      <p className="text-muted text-xs font-mono" data-testid={`payment-credit-source-${payment.code}`}>
+                        Nota de crédito {payment.creditSourceCode}
+                      </p>
+                    ) : null}
                   </td>
                   <td className="px-4 py-3 text-xs">
                     {payment.allocations.map((allocation) => (
