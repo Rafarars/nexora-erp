@@ -149,6 +149,7 @@ test.describe('Credit notes and returns UI', () => {
     await expect(page.getByTestId('payment-options-COB000004')).toHaveCount(0);
   });
 
+  // test.slow(): Medido: 7.3s sola en local (23.9s total proceso), 8.3s dentro de suite (41.8s total)
   test('edits draft sales returns with dispatch and originless without creating duplicates or changing codes', async ({ page }) => {
     test.slow();
     await new LoginPage(page).signIn(ACME_ADMIN);
@@ -156,42 +157,57 @@ test.describe('Credit notes and returns UI', () => {
 
     await sales.open('devoluciones');
 
-    // 1. Crear borrador con despacho DES000001
+    // 1. Crear borrador con despacho DES000001 y motivo único
+    const beforeCodes1 = await page.locator('[data-testid="sales-return-code"]').allInnerTexts();
+    const uniqueReason1 = `Motivo inicial despacho ${Date.now()}`;
     await page.getByTestId('btn-new-sales-return').click();
     await expect(page.getByTestId('sales-return-create-panel')).toBeVisible();
 
     const dispatchOption = await page.locator('#dispatchSelect option', { hasText: 'DES000001' }).getAttribute('value');
     await page.getByTestId('sales-return-dispatch-select').selectOption(dispatchOption!);
 
-    // Devolver cantidad 1 en la primera línea
     const qtyInput1 = page.locator('[data-testid^="sales-return-qty-"]').first();
     await qtyInput1.fill('1');
-    await page.getByTestId('sales-return-reason-input').fill('Motivo inicial con despacho');
+    await page.getByTestId('sales-return-reason-input').fill(uniqueReason1);
     await page.getByTestId('btn-save-sales-return').click();
-
     await expect(page.getByTestId('sales-return-create-panel')).toBeHidden();
 
-    // Encontrar el borrador recién creado
-    const draftRows = page.locator('tr[data-testid^="sales-return-row-"]', { hasText: 'Borrador' });
-    const firstDraftCode = await draftRows.first().locator('[data-testid="sales-return-code"]').innerText();
+    // Esperar a que la tabla revalide e incorpore la nueva fila
+    await expect(page.locator('[data-testid="sales-return-code"]')).toHaveCount(beforeCodes1.length + 1);
+    const afterCodes1 = await page.locator('[data-testid="sales-return-code"]').allInnerTexts();
+    const firstDraftCode = afterCodes1.find((c) => !beforeCodes1.includes(c))!;
+    expect(firstDraftCode).toBeDefined();
+    await expect(page.getByTestId(`sales-return-row-${firstDraftCode}`)).toBeVisible();
 
-    // 2. Editar el borrador con despacho
+    // 2. Editar el borrador con despacho: modificar motivo y cantidad
+    const editedReason1 = `Motivo editado despacho ${Date.now()}`;
     await page.getByTestId(`sales-return-options-${firstDraftCode}`).click();
     await page.getByTestId(`sales-return-edit-${firstDraftCode}`).click();
 
     await expect(page.getByTestId('sales-return-create-panel')).toBeVisible();
-    await expect(page.getByTestId('sales-return-reason-input')).toHaveValue('Motivo inicial con despacho');
+    await expect(page.getByTestId('sales-return-reason-input')).toHaveValue(uniqueReason1);
 
-    // Modificar motivo y guardar
-    await page.getByTestId('sales-return-reason-input').fill('Motivo editado con despacho');
+    await page.getByTestId('sales-return-reason-input').fill(editedReason1);
+    await qtyInput1.fill('2');
     await page.getByTestId('btn-save-sales-return').click();
+    await expect(page.getByTestId('sales-return-create-panel')).toBeHidden();
+
+    // Reabrir el borrador editado y verificar que guardó efectivamente los cambios
+    await page.getByTestId(`sales-return-options-${firstDraftCode}`).click();
+    await page.getByTestId(`sales-return-edit-${firstDraftCode}`).click();
+    await expect(page.getByTestId('sales-return-create-panel')).toBeVisible();
+    await expect(page.getByTestId('sales-return-reason-input')).toHaveValue(editedReason1);
+    await expect(qtyInput1).toHaveValue('2');
+    await page.getByRole('button', { name: 'Cancelar' }).click();
     await expect(page.getByTestId('sales-return-create-panel')).toBeHidden();
 
     // Comprobar que el código no cambió y no apareció otro
     await expect(page.getByTestId(`sales-return-row-${firstDraftCode}`)).toBeVisible();
     await expect(page.locator(`[data-testid="sales-return-row-${firstDraftCode}"]`)).toHaveCount(1);
 
-    // 3. Crear borrador sin origen
+    // 3. Crear borrador sin origen con motivo único
+    const beforeCodes2 = await page.locator('[data-testid="sales-return-code"]').allInnerTexts();
+    const uniqueReason2 = `Motivo inicial sin origen ${Date.now()}`;
     await page.getByTestId('btn-new-sales-return').click();
     await expect(page.getByTestId('sales-return-create-panel')).toBeVisible();
 
@@ -199,9 +215,8 @@ test.describe('Credit notes and returns UI', () => {
     await page.getByTestId('sales-return-customer-select').selectOption({ label: 'Farmacia San Rafael' });
     await page.getByTestId('sales-return-warehouse-select').selectOption({ label: 'Principal' });
     await page.getByTestId('sales-return-condition-select').selectOption('resalable');
-    await page.getByTestId('sales-return-reason-input').fill('Motivo inicial sin origen');
+    await page.getByTestId('sales-return-reason-input').fill(uniqueReason2);
 
-    // Primera línea sin origen
     await page.getByTestId('sales-return-item-0').selectOption({ index: 1 });
     await page.getByTestId('sales-return-unit-0').selectOption({ index: 1 });
     await page.getByTestId('sales-return-qty-0').fill('2');
@@ -210,24 +225,94 @@ test.describe('Credit notes and returns UI', () => {
     await page.getByTestId('btn-save-sales-return').click();
     await expect(page.getByTestId('sales-return-create-panel')).toBeHidden();
 
-    // Encontrar el segundo borrador
-    const originlessDraftRows = page.locator('tr[data-testid^="sales-return-row-"]', { hasText: 'Sin origen' });
-    const originlessCode = await originlessDraftRows.first().locator('[data-testid="sales-return-code"]').innerText();
+    // Esperar a que la tabla revalide e incorpore la nueva fila sin origen
+    await expect(page.locator('[data-testid="sales-return-code"]')).toHaveCount(beforeCodes2.length + 1);
+    const afterCodes2 = await page.locator('[data-testid="sales-return-code"]').allInnerTexts();
+    const originlessCode = afterCodes2.find((c) => !beforeCodes2.includes(c))!;
+    expect(originlessCode).toBeDefined();
+    await expect(page.getByTestId(`sales-return-row-${originlessCode}`)).toBeVisible();
 
-    // 4. Editar el borrador sin origen
+    // 4. Editar el borrador sin origen: modificar motivo y cantidad
+    const editedReason2 = `Motivo editado sin origen ${Date.now()}`;
     await page.getByTestId(`sales-return-options-${originlessCode}`).click();
     await page.getByTestId(`sales-return-edit-${originlessCode}`).click();
 
     await expect(page.getByTestId('sales-return-create-panel')).toBeVisible();
-    await expect(page.getByTestId('sales-return-reason-input')).toHaveValue('Motivo inicial sin origen');
+    await expect(page.getByTestId('sales-return-reason-input')).toHaveValue(uniqueReason2);
 
-    await page.getByTestId('sales-return-reason-input').fill('Motivo editado sin origen');
+    await page.getByTestId('sales-return-reason-input').fill(editedReason2);
     await page.getByTestId('sales-return-qty-0').fill('3');
     await page.getByTestId('btn-save-sales-return').click();
+    await expect(page.getByTestId('sales-return-create-panel')).toBeHidden();
+
+    // Reabrir el borrador sin origen editado y verificar que guardó efectivamente los cambios
+    await page.getByTestId(`sales-return-options-${originlessCode}`).click();
+    await page.getByTestId(`sales-return-edit-${originlessCode}`).click();
+    await expect(page.getByTestId('sales-return-create-panel')).toBeVisible();
+    await expect(page.getByTestId('sales-return-reason-input')).toHaveValue(editedReason2);
+    await expect(page.getByTestId('sales-return-qty-0')).toHaveValue('3');
+    await page.getByRole('button', { name: 'Cancelar' }).click();
     await expect(page.getByTestId('sales-return-create-panel')).toBeHidden();
 
     // Comprobar que el código no cambió y no apareció otro
     await expect(page.getByTestId(`sales-return-row-${originlessCode}`)).toBeVisible();
     await expect(page.locator(`[data-testid="sales-return-row-${originlessCode}"]`)).toHaveCount(1);
+  });
+
+  // test.slow(): Medido: 4.6s sola en local (22.1s total proceso), 6.0s dentro de suite (41.8s total)
+  test('edits draft purchase return without creating duplicates or changing code', async ({ page }) => {
+    test.slow();
+    await new LoginPage(page).signIn(ACME_ADMIN);
+    const purchasing = new PurchasingPage(page);
+
+    await purchasing.open('devoluciones');
+
+    // 1. Crear borrador de devolución de compra con motivo único
+    const beforeCodes = await page.locator('[data-testid="purchase-return-code"]').allInnerTexts();
+    const uniqueReason = `Motivo compra inicial ${Date.now()}`;
+    await page.getByTestId('btn-new-purchase-return').click();
+    await expect(page.getByTestId('purchase-return-create-panel')).toBeVisible();
+
+    const receiptOption = await page.locator('#receiptSelect option').nth(1).getAttribute('value');
+    await page.getByTestId('purchase-return-receipt-select').selectOption(receiptOption!);
+
+    const qtyInput = page.locator('[data-testid^="purchase-return-qty-"]').first();
+    await qtyInput.fill('1');
+    await page.getByTestId('purchase-return-reason-input').fill(uniqueReason);
+    await page.getByTestId('btn-save-purchase-return').click();
+    await expect(page.getByTestId('purchase-return-create-panel')).toBeHidden();
+
+    // Esperar a que la tabla revalide e incorpore la nueva fila
+    await expect(page.locator('[data-testid="purchase-return-code"]')).toHaveCount(beforeCodes.length + 1);
+    const afterCodes = await page.locator('[data-testid="purchase-return-code"]').allInnerTexts();
+    const returnCode = afterCodes.find((c) => !beforeCodes.includes(c))!;
+    expect(returnCode).toBeDefined();
+    await expect(page.getByTestId(`purchase-return-row-${returnCode}`)).toBeVisible();
+
+    // 2. Editar el borrador: cambiar motivo y cantidad
+    const editedReason = `Motivo compra editado ${Date.now()}`;
+    await page.getByTestId(`purchase-return-options-${returnCode}`).click();
+    await page.getByTestId(`purchase-return-edit-${returnCode}`).click();
+
+    await expect(page.getByTestId('purchase-return-create-panel')).toBeVisible();
+    await expect(page.getByTestId('purchase-return-reason-input')).toHaveValue(uniqueReason);
+
+    await page.getByTestId('purchase-return-reason-input').fill(editedReason);
+    await qtyInput.fill('2');
+    await page.getByTestId('btn-save-purchase-return').click();
+    await expect(page.getByTestId('purchase-return-create-panel')).toBeHidden();
+
+    // Reabrir el borrador editado y verificar que guardó efectivamente los cambios
+    await page.getByTestId(`purchase-return-options-${returnCode}`).click();
+    await page.getByTestId(`purchase-return-edit-${returnCode}`).click();
+    await expect(page.getByTestId('purchase-return-create-panel')).toBeVisible();
+    await expect(page.getByTestId('purchase-return-reason-input')).toHaveValue(editedReason);
+    await expect(qtyInput).toHaveValue('2');
+    await page.getByRole('button', { name: 'Cancelar' }).click();
+    await expect(page.getByTestId('purchase-return-create-panel')).toBeHidden();
+
+    // Comprobar que el código no cambió y no apareció otro
+    await expect(page.getByTestId(`purchase-return-row-${returnCode}`)).toBeVisible();
+    await expect(page.locator(`[data-testid="purchase-return-row-${returnCode}"]`)).toHaveCount(1);
   });
 });
