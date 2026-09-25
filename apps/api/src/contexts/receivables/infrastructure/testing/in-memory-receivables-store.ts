@@ -134,6 +134,7 @@ export class InMemoryReceivablesStore {
       },
       invoices: async (tenantId, filter = {}) => this.invoicesOf(tenantId.value, filter),
       salesReturns: async (tenantId, filter = {}) => {
+        if (filter.ids && filter.ids.length === 0) return [];
         const ids = filter.ids ? new Set(filter.ids) : null;
         return [...this.salesReturnRows.values()]
           .filter((row) => row.tenantId === tenantId.value)

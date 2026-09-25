@@ -335,6 +335,9 @@ export function describeReceivablesPortsContract(implementation: string, createH
         expect(resultsB).toHaveLength(1);
         expect(resultsB[0].id).toBe(RETURN_B);
         expect(resultsB[0].code).toMatch(/^DVV/);
+
+        const emptyResults = await ports.ledger.salesReturns(tenant, { ids: [] });
+        expect(emptyResults).toEqual([]);
       });
     });
 
@@ -672,6 +675,26 @@ export function describeReceivablesPortsContract(implementation: string, createH
         expect(results.map((r) => r.status).sort()).toEqual(['fulfilled', 'rejected']);
         const rejected = results.find((r) => r.status === 'rejected') as PromiseRejectedResult;
         expect(rejected.reason).toBeInstanceOf(CreditNoteReturnAlreadyCreditedError);
+      });
+
+      it('allows crediting a sales return whose previously confirmed credit note was cancelled (H8 §3.3 y §3.6)', async () => {
+        const RETURN_ID = 'd7000000-0000-4000-8000-000000000005';
+        await harness.salesReturn(TENANT_A, RETURN_ID, CUSTOMER);
+
+        const note1Id = await draftNote({ salesReturnId: RETURN_ID, total: 30 });
+        await confirmNote(note1Id);
+
+        // Mientras note1Id esté confirmada, una segunda nota sobre la misma devolución se rechaza
+        const note2Id = await draftNote({ salesReturnId: RETURN_ID, total: 30 });
+        await expect(confirmNote(note2Id)).rejects.toThrow(CreditNoteReturnAlreadyCreditedError);
+
+        // Anular la primera nota libera la devolución
+        await cancelNote(note1Id);
+
+        // Ahora la segunda nota se puede confirmar exitosamente
+        await expect(confirmNote(note2Id)).resolves.not.toThrow();
+        const note2 = (await ports.creditNotes.find(tenant, note2Id))!;
+        expect(note2.currentStatus()).toBe('confirmed');
       });
 
       it('concurrently confirming a credit note and cancelling its sales return allows only one to succeed', async () => {

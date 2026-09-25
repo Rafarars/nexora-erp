@@ -51,10 +51,12 @@ export class PrismaReceivablesLedger implements ReceivablesLedger {
   }
 
   async salesReturns(tenantId: TenantId, filter: ReceivableSalesReturnFilter = {}): Promise<ReceivableSalesReturn[]> {
+    if (filter.ids && filter.ids.length === 0) return [];
+
     const rows = await this.prisma.salesReturn.findMany({
       where: {
         tenantId: tenantId.value,
-        ...(filter.ids && filter.ids.length > 0 ? { id: { in: filter.ids } } : {}),
+        ...(filter.ids ? { id: { in: filter.ids } } : {}),
       },
       select: { id: true, code: true },
       orderBy: { code: 'desc' },

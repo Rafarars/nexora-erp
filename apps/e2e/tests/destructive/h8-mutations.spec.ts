@@ -283,11 +283,27 @@ test.describe('destructive H8 credit note and return mutations', () => {
     // Jabón líquido 500 ml (catálogo compartido): todas sus órdenes sembradas están cerradas
     const itemId = 'e4000000-0000-4000-8000-000000000004';
 
-    // 1. Despachar el stock existente del artículo (85 unidades) para que quede en 0
+    // 1. Leer la existencia real del artículo antes de despacharla para dejar su stock en 0
     // Por regla de H3 (ensureCanDeactivate), un artículo con stock no se puede desactivar.
+    const stockListRes = await (await request.get('/api/v1/inventory/stock', { headers: auth(token) })).json();
+    const itemStock = stockListRes.stocks.find((s: { item: { id: string } }) => s.item.id === itemId);
+    let existingStock = itemStock ? Number(itemStock.quantity) : 0;
+
+    if (existingStock === 0) {
+      const notes = `stock-replenish-${Date.now()}`;
+      await request.post('/api/v1/inventory/adjustments', {
+        headers: auth(token),
+        data: { warehouseId: ACME_INVENTORY.mainWarehouse, type: 'physical_count', notes, lines: [{ itemId, unitId: ACME_INVENTORY.piece, direction: 'in', quantity: 10, unitCost: 1.5 }] },
+      });
+      const { adjustments } = await (await request.get(`/api/v1/inventory/adjustments?q=${encodeURIComponent(notes)}`, { headers: auth(token) })).json();
+      const adj = adjustments.find((a: { notes: string }) => a.notes === notes);
+      await request.put(`/api/v1/inventory/adjustments/${adj.id}/confirm`, { headers: auth(token) });
+      existingStock = 10;
+    }
+
     const order = await aDraftSalesOrder(request, token, {
       customerId: customer.id,
-      lines: [{ itemId, unitId: ACME_INVENTORY.piece, quantity: 85, unitPrice: 4.0 }],
+      lines: [{ itemId, unitId: ACME_INVENTORY.piece, quantity: existingStock, unitPrice: 4.0 }],
     });
     await request.put(`${SALES_ORDERS}/${order.id}/confirm`, { headers: auth(token) });
 
@@ -295,7 +311,7 @@ test.describe('destructive H8 credit note and return mutations', () => {
     const confirmedOrder = orders.find((o: { id: string }) => o.id === order.id);
 
     const dispatch = await aDraftDispatch(request, token, order.id, [
-      { orderLineId: confirmedOrder.lines[0].id, quantity: 85 },
+      { orderLineId: confirmedOrder.lines[0].id, quantity: existingStock },
     ]);
     await request.put(`${DISPATCHES}/${dispatch.id}/confirm`, { headers: auth(token) });
 
