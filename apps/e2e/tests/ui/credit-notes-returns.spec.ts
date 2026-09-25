@@ -149,7 +149,7 @@ test.describe('Credit notes and returns UI', () => {
     await expect(page.getByTestId('payment-options-COB000004')).toHaveCount(0);
   });
 
-  // test.slow(): Medido: 7.3s sola en local (23.9s total proceso), 8.3s dentro de suite (41.8s total)
+  // test.slow(): Medido: 10.6s sola en local (39.7s total proceso), 13.4s dentro de suite (1.3m total)
   test('edits draft sales returns with dispatch and originless without creating duplicates or changing codes', async ({ page }) => {
     test.slow();
     await new LoginPage(page).signIn(ACME_ADMIN);
@@ -191,6 +191,9 @@ test.describe('Credit notes and returns UI', () => {
     await qtyInput1.fill('2');
     await page.getByTestId('btn-save-sales-return').click();
     await expect(page.getByTestId('sales-return-create-panel')).toBeHidden();
+
+    // Recargar la página para asegurar que la vista lea los datos persistidos en el servidor
+    await page.reload();
 
     // Reabrir el borrador editado y verificar que guardó efectivamente los cambios
     await page.getByTestId(`sales-return-options-${firstDraftCode}`).click();
@@ -245,6 +248,9 @@ test.describe('Credit notes and returns UI', () => {
     await page.getByTestId('btn-save-sales-return').click();
     await expect(page.getByTestId('sales-return-create-panel')).toBeHidden();
 
+    // Recargar la página para asegurar que la vista lea los datos persistidos en el servidor
+    await page.reload();
+
     // Reabrir el borrador sin origen editado y verificar que guardó efectivamente los cambios
     await page.getByTestId(`sales-return-options-${originlessCode}`).click();
     await page.getByTestId(`sales-return-edit-${originlessCode}`).click();
@@ -259,7 +265,7 @@ test.describe('Credit notes and returns UI', () => {
     await expect(page.locator(`[data-testid="sales-return-row-${originlessCode}"]`)).toHaveCount(1);
   });
 
-  // test.slow(): Medido: 4.6s sola en local (22.1s total proceso), 6.0s dentro de suite (41.8s total)
+  // test.slow(): Medido: 6.7s sola en local (36.5s total proceso), 9.4s dentro de suite (1.3m total)
   test('edits draft purchase return without creating duplicates or changing code', async ({ page }) => {
     test.slow();
     await new LoginPage(page).signIn(ACME_ADMIN);
@@ -301,6 +307,9 @@ test.describe('Credit notes and returns UI', () => {
     await qtyInput.fill('2');
     await page.getByTestId('btn-save-purchase-return').click();
     await expect(page.getByTestId('purchase-return-create-panel')).toBeHidden();
+
+    // Recargar la página para asegurar que la vista lea los datos persistidos en el servidor
+    await page.reload();
 
     // Reabrir el borrador editado y verificar que guardó efectivamente los cambios
     await page.getByTestId(`purchase-return-options-${returnCode}`).click();
