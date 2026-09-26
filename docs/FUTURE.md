@@ -802,3 +802,12 @@ revisión de Impuestos.
 
 **Qué haría falta.** Mantener bajo observación en entornos de CI compartidos. Si se volvieran a observar falsos positivos por contención de CPU en runners virtualizados, evaluar ampliar el margen porcentual de tolerancia en la aserción de temporización sin comprometer la validación de seguridad contra enumeración de cuentas.
 
+## Reproducción determinista del defecto de persistencia en edición de devoluciones
+
+**Qué es.** En la verificación de H8, la prueba de edición de borradores de devolución de venta falló una sola vez de forma intermitente (`verify1.log`, 23:14) al reabrir un borrador editado: el formulario mostró el motivo inicial en vez del editado. Al intentar reproducir el fallo con `--repeat-each 10` sobre el código original (`reproduce_10.log`), el motivo viejo no reapareció ni una sola vez (el único fallo en la vuelta 10 fue `Expected: 21 · Received: 20` debido a la paginación de 20 elementos de la tabla). Además, la hipótesis de que React retenía los `defaultValue` en el DOM sin desmontar el formulario choca con `slide-over.tsx:32` (`if (!open) return null;`), pues el panel sí se desmonta al cerrarse. El cambio a `<form onSubmit={submitKeepingValues(save)} key={editing?.id ?? 'new'}>` se adoptó para alinear las pantallas de devoluciones con el patrón ya establecido en pedidos (`sales-orders-board.tsx:264`) y notas de crédito (`credit-notes-board.tsx:235`), pero no está demostrado que resuelva la causa raíz original.
+
+**Por qué no se hizo.** El fallo original no pudo aislarse de forma determinista y las 20 ejecuciones consecutivas con el nuevo patrón (`validate_10_clean.log`) pasaron en verde una vez corregida la aserción de paginación.
+
+**Qué haría falta.** Diseñar una prueba de estrés de interfaz con Chrome DevTools o Playwright emulando latencia de red (`Network.emulateNetworkConditions` con perfil Slow 3G) para forzar la reapertura del panel lateral mientras la solicitud de guardado del servidor sigue en vuelo, identificando si la condición de carrera ocurre en el refresco del router de Next.js o en la propagación de estado asíncrono entre el cierre y apertura del modal.
+
+
