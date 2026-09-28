@@ -13,12 +13,14 @@ import { useEditingDraft } from '@/shared/forms/use-editing-draft';
 import {
   RETURN_CONDITION_LABELS,
   SALES_RETURN_STATUS_LABELS,
+  initialOriginlessReturnLines,
   salesReturnActions,
   summarizeReturnLines,
 } from '@/modules/sales/domain/sales';
 import type {
   Customer,
   Dispatch,
+  OriginlessReturnLineRow,
   SalesReturn,
 } from '@/modules/sales/domain/sales';
 import type { Warehouse } from '@/modules/catalog/domain/catalog';
@@ -63,42 +65,19 @@ export function SalesReturnsBoard({
 }) {
   const [creating, setCreating] = useState(false);
   const { editing, setEditing, draftKey } = useEditingDraft(returns);
-  const [selectedDispatchId, setSelectedDispatchId] = useState<string>('');
-  const [originlessLines, setOriginlessLines] = useState<{ itemId: string; unitId: string; quantity: string; unitCost: string }[]>([
-    { itemId: '', unitId: '', quantity: '1', unitCost: '' },
-  ]);
-
   function openCreate() {
     setEditing(null);
-    setSelectedDispatchId('');
-    setOriginlessLines([{ itemId: '', unitId: '', quantity: '1', unitCost: '' }]);
     setCreating(true);
   }
 
   function openEdit(ret: SalesReturn) {
     setCreating(false);
     setEditing(ret);
-    if (ret.dispatch) {
-      setSelectedDispatchId(ret.dispatch.id);
-    } else {
-      setSelectedDispatchId('none');
-      setOriginlessLines(
-        ret.lines.length > 0
-          ? ret.lines.map((l) => ({
-              itemId: l.itemId,
-              unitId: l.unitId,
-              quantity: String(l.quantity),
-              unitCost: l.unitCost !== null ? String(l.unitCost) : '',
-            }))
-          : [{ itemId: '', unitId: '', quantity: '1', unitCost: '' }],
-      );
-    }
   }
 
   function closePanel() {
     setCreating(false);
     setEditing(null);
-    setSelectedDispatchId('');
   }
 
   const [saveState, save, saving] = useActionState(async (previous: FormState, form: FormData) => {
@@ -111,7 +90,6 @@ export function SalesReturnsBoard({
 
   const [changeState, change] = useActionState(changeSalesReturn, emptyState);
 
-  const selectedDispatch = dispatches.find((d) => d.id === selectedDispatchId) ?? null;
   const hasOptions = canUpdate || canConfirm || canCancel;
 
   const pageHref = (page: number) =>
@@ -281,406 +259,453 @@ export function SalesReturnsBoard({
 
           {editing ? <input type="hidden" name="id" value={editing.id} /> : null}
 
-          <div>
-            <label htmlFor="dispatchSelect" className="block text-xs font-medium uppercase tracking-wide">
-              Despacho de origen *
-            </label>
-            <select
-              id="dispatchSelect"
-              name={selectedDispatchId === 'none' ? undefined : 'dispatchId'}
-              required
-              disabled={Boolean(editing)}
-              value={selectedDispatchId}
-              onChange={(e) => setSelectedDispatchId(e.target.value)}
-              className="border-line bg-surface mt-1 w-full rounded border px-3 py-1.5 text-sm disabled:opacity-60"
-              data-testid="sales-return-dispatch-select"
-            >
-              <option value="">Selecciona un despacho o devolución sin origen...</option>
-              <option value="none">Sin despacho (ajuste con costo manual)</option>
-              {dispatches.map((d) => (
-                <option key={d.id} value={d.id}>
-                  {d.code} — {d.customer.name} ({d.date})
-                </option>
-              ))}
-            </select>
-            {editing && editing.dispatch ? <input type="hidden" name="dispatchId" value={editing.dispatch.id} /> : null}
-          </div>
-
-          {selectedDispatchId === 'none' ? (
-            <>
-              {editing && !editing.dispatch ? (
-                <>
-                  <input type="hidden" name="customerId" value={editing.customer.id} />
-                  <input type="hidden" name="warehouseId" value={editing.warehouse.id} />
-                </>
-              ) : null}
-
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label htmlFor="returnCustomer" className="block text-xs font-medium uppercase tracking-wide">
-                    Cliente *
-                  </label>
-                  <select
-                    id="returnCustomer"
-                    name={editing ? undefined : 'customerId'}
-                    required
-                    disabled={Boolean(editing)}
-                    defaultValue={editing?.customer.id ?? ''}
-                    key={draftKey('customer')}
-                    className="border-line bg-surface mt-1 w-full rounded border px-3 py-1.5 text-sm disabled:opacity-60"
-                    data-testid="sales-return-customer-select"
-                  >
-                    <option value="">Selecciona un cliente...</option>
-                    {customers?.map((c) => (
-                      <option key={c.id} value={c.id}>
-                        {c.name}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-                <div>
-                  <label htmlFor="returnWarehouse" className="block text-xs font-medium uppercase tracking-wide">
-                    Bodega de reingreso *
-                  </label>
-                  <select
-                    id="returnWarehouse"
-                    name={editing ? undefined : 'warehouseId'}
-                    required
-                    disabled={Boolean(editing)}
-                    defaultValue={editing?.warehouse.id ?? ''}
-                    key={draftKey('warehouse')}
-                    className="border-line bg-surface mt-1 w-full rounded border px-3 py-1.5 text-sm disabled:opacity-60"
-                    data-testid="sales-return-warehouse-select"
-                  >
-                    <option value="">Selecciona una bodega...</option>
-                    {warehouses?.map((w) => (
-                      <option key={w.id} value={w.id}>
-                        {w.name}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-              </div>
-
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label htmlFor="returnDate" className="block text-xs font-medium uppercase tracking-wide">
-                    Fecha
-                  </label>
-                  <input
-                    id="returnDate"
-                    type="date"
-                    name="date"
-                    defaultValue={editing?.date ?? today}
-                    max={today}
-                    key={draftKey('date')}
-                    className="border-line bg-surface mt-1 w-full rounded border px-3 py-1.5 text-sm"
-                    data-testid="sales-return-date-input"
-                  />
-                </div>
-                <div>
-                  <label htmlFor="returnCondition" className="block text-xs font-medium uppercase tracking-wide">
-                    Condición *
-                  </label>
-                  <select
-                    id="returnCondition"
-                    name="condition"
-                    defaultValue={editing?.condition ?? 'resalable'}
-                    key={draftKey('condition')}
-                    className="border-line bg-surface mt-1 w-full rounded border px-3 py-1.5 text-sm"
-                    data-testid="sales-return-condition-select"
-                  >
-                    <option value="resalable">Apta para reventa</option>
-                    <option value="damaged">Dañada</option>
-                    <option value="scrap">Desecho / Scrap</option>
-                  </select>
-                </div>
-              </div>
-
-              <div>
-                <label htmlFor="returnReason" className="block text-xs font-medium uppercase tracking-wide">
-                  Motivo
-                </label>
-                <input
-                  id="returnReason"
-                  type="text"
-                  name="reason"
-                  placeholder="Ej. Producto vendido antes del sistema..."
-                  defaultValue={editing?.reason ?? ''}
-                  key={draftKey('reason')}
-                  className="border-line bg-surface mt-1 w-full rounded border px-3 py-1.5 text-sm"
-                  data-testid="sales-return-reason-input"
-                />
-              </div>
-
-              <div>
-                <label htmlFor="returnNotes" className="block text-xs font-medium uppercase tracking-wide">
-                  Notas
-                </label>
-                <textarea
-                  id="returnNotes"
-                  name="notes"
-                  rows={2}
-                  defaultValue={editing?.notes ?? ''}
-                  key={draftKey('notes')}
-                  className="border-line bg-surface mt-1 w-full rounded border px-3 py-1.5 text-sm"
-                  data-testid="sales-return-notes-input"
-                />
-              </div>
-
-              <div>
-                <div className="flex items-center justify-between mb-2">
-                  <h3 className="text-xs font-medium uppercase tracking-wide">Líneas a devolver</h3>
-                  <button
-                    type="button"
-                    onClick={() => setOriginlessLines([...originlessLines, { itemId: '', unitId: '', quantity: '1', unitCost: '' }])}
-                    className="text-xs text-primary hover:underline"
-                    data-testid="btn-add-return-line"
-                  >
-                    + Agregar línea
-                  </button>
-                </div>
-                <div className="space-y-3">
-                  {originlessLines.map((row, index) => {
-                    const selectedItem = items?.find((it) => it.id === row.itemId);
-                    return (
-                      <div key={index} className="border-line bg-surface/30 space-y-2 rounded border p-3">
-                        <div className="grid grid-cols-2 gap-2">
-                          <div>
-                            <label className="block text-[10px] text-muted uppercase">Artículo</label>
-                            <select
-                              name="itemId"
-                              required
-                              value={row.itemId}
-                              onChange={(e) => {
-                                const newId = e.target.value;
-                                const it = items?.find((x) => x.id === newId);
-                                const newLines = [...originlessLines];
-                                newLines[index].itemId = newId;
-                                newLines[index].unitId = it?.units[0]?.unitId ?? '';
-                                setOriginlessLines(newLines);
-                              }}
-                              className="border-line bg-surface mt-0.5 w-full rounded border px-2 py-1 text-sm"
-                              data-testid={`sales-return-item-${index}`}
-                            >
-                              <option value="">Selecciona un artículo...</option>
-                              {items?.filter((it) => it.type === 'inventoried' && it.isActive).map((it) => (
-                                <option key={it.id} value={it.id}>
-                                  {it.sku} — {it.name}
-                                </option>
-                              ))}
-                            </select>
-                          </div>
-                          <div>
-                            <label className="block text-[10px] text-muted uppercase">Unidad</label>
-                            <select
-                              name="unitId"
-                              required
-                              value={row.unitId}
-                              onChange={(e) => {
-                                const newLines = [...originlessLines];
-                                newLines[index].unitId = e.target.value;
-                                setOriginlessLines(newLines);
-                              }}
-                              className="border-line bg-surface mt-0.5 w-full rounded border px-2 py-1 text-sm"
-                              data-testid={`sales-return-unit-${index}`}
-                            >
-                              <option value="">Selecciona unidad...</option>
-                              {selectedItem?.units.map((u) => (
-                                <option key={u.unitId} value={u.unitId}>
-                                  {u.name} ({u.abbreviation})
-                                </option>
-                              ))}
-                            </select>
-                          </div>
-                        </div>
-                        <div className="grid grid-cols-2 gap-2">
-                          <div>
-                            <label className="block text-[10px] text-muted uppercase">Cantidad</label>
-                            <input
-                              type="number"
-                              name="returnQuantity"
-                              required
-                              step="any"
-                              min="0.0001"
-                              value={row.quantity}
-                              onChange={(e) => {
-                                const newLines = [...originlessLines];
-                                newLines[index].quantity = e.target.value;
-                                setOriginlessLines(newLines);
-                              }}
-                              className="border-line bg-surface mt-0.5 w-full rounded border px-2 py-1 text-right text-sm"
-                              data-testid={`sales-return-qty-${index}`}
-                            />
-                          </div>
-                          <div>
-                            <label className="block text-[10px] text-muted uppercase">Costo unitario ($)</label>
-                            <input
-                              type="number"
-                              name="unitCost"
-                              required
-                              step="any"
-                              min="0"
-                              value={row.unitCost}
-                              onChange={(e) => {
-                                const newLines = [...originlessLines];
-                                newLines[index].unitCost = e.target.value;
-                                setOriginlessLines(newLines);
-                              }}
-                              className="border-line bg-surface mt-0.5 w-full rounded border px-2 py-1 text-right text-sm"
-                              data-testid={`sales-return-unit-cost-${index}`}
-                            />
-                          </div>
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
-              </div>
-
-              <div className="flex justify-end gap-2 pt-2">
-                <button
-                  type="button"
-                  onClick={closePanel}
-                  className="border-line rounded border px-3 py-1.5 text-sm font-medium hover:bg-surface"
-                >
-                  Cancelar
-                </button>
-                <SubmitButton pending={saving} testId="btn-save-sales-return">
-                  Guardar devolución
-                </SubmitButton>
-              </div>
-            </>
-          ) : null}
-
-          {selectedDispatch ? (
-            <>
-              <input type="hidden" name="customerId" value={selectedDispatch.customer.id} />
-
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label htmlFor="returnDate" className="block text-xs font-medium uppercase tracking-wide">
-                    Fecha
-                  </label>
-                  <input
-                    id="returnDate"
-                    type="date"
-                    name="date"
-                    defaultValue={editing?.date ?? today}
-                    max={today}
-                    key={draftKey('dispatch-date')}
-                    className="border-line bg-surface mt-1 w-full rounded border px-3 py-1.5 text-sm"
-                    data-testid="sales-return-date-input"
-                  />
-                </div>
-                <div>
-                  <label htmlFor="returnCondition" className="block text-xs font-medium uppercase tracking-wide">
-                    Condición *
-                  </label>
-                  <select
-                    id="returnCondition"
-                    name="condition"
-                    defaultValue={editing?.condition ?? 'resalable'}
-                    key={draftKey('dispatch-condition')}
-                    className="border-line bg-surface mt-1 w-full rounded border px-3 py-1.5 text-sm"
-                    data-testid="sales-return-condition-select"
-                  >
-                    <option value="resalable">Apta para reventa</option>
-                    <option value="damaged">Dañada</option>
-                    <option value="scrap">Desecho / Scrap</option>
-                  </select>
-                </div>
-              </div>
-
-              <div>
-                <label htmlFor="returnReason" className="block text-xs font-medium uppercase tracking-wide">
-                  Motivo
-                </label>
-                <input
-                  id="returnReason"
-                  type="text"
-                  name="reason"
-                  placeholder="Ej. Producto defectuoso, error en pedido..."
-                  defaultValue={editing?.reason ?? ''}
-                  key={draftKey('dispatch-reason')}
-                  className="border-line bg-surface mt-1 w-full rounded border px-3 py-1.5 text-sm"
-                  data-testid="sales-return-reason-input"
-                />
-              </div>
-
-              <div>
-                <label htmlFor="returnNotes" className="block text-xs font-medium uppercase tracking-wide">
-                  Notas
-                </label>
-                <textarea
-                  id="returnNotes"
-                  name="notes"
-                  rows={2}
-                  defaultValue={editing?.notes ?? ''}
-                  key={draftKey('dispatch-notes')}
-                  className="border-line bg-surface mt-1 w-full rounded border px-3 py-1.5 text-sm"
-                  data-testid="sales-return-notes-input"
-                />
-              </div>
-
-              <div>
-                <h3 className="mb-2 text-xs font-medium uppercase tracking-wide">Líneas a devolver</h3>
-                <div className="space-y-3">
-                  {selectedDispatch.lines.map((line) => {
-                    const existingLine = editing?.lines.find(
-                      (l) => l.dispatchLineId === line.id || (l.itemId === line.itemId && !l.dispatchLineId),
-                    );
-                    const defaultQty = existingLine ? existingLine.quantity : 0;
-
-                    return (
-                      <div key={line.id} className="border-line bg-surface/30 flex items-center justify-between rounded border p-3">
-                        <div className="flex-1">
-                          <p className="font-medium text-sm">{line.itemName}</p>
-                          <p className="text-muted text-xs">
-                            {line.sku} · Despachadas: {line.quantity} {line.unitAbbreviation}
-                          </p>
-                          <input type="hidden" name="dispatchLineId" value={line.id} />
-                        </div>
-                        <div className="w-32">
-                          <label htmlFor={`qty-${line.id}`} className="block text-[10px] text-muted uppercase">
-                            Cant. devolver
-                          </label>
-                          <input
-                            id={`qty-${line.id}`}
-                            type="number"
-                            name="returnQuantity"
-                            step="any"
-                            min="0"
-                            max={line.quantity}
-                            defaultValue={defaultQty}
-                            key={draftKey(`qty-${line.id}`)}
-                            className="border-line bg-surface mt-0.5 w-full rounded border px-2 py-1 text-right text-sm"
-                            data-testid={`sales-return-qty-${line.id}`}
-                          />
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
-              </div>
-
-              <div className="flex justify-end gap-2 pt-2">
-                <button
-                  type="button"
-                  onClick={closePanel}
-                  className="border-line rounded border px-3 py-1.5 text-sm font-medium hover:bg-surface"
-                >
-                  Cancelar
-                </button>
-                <SubmitButton pending={saving} testId="btn-save-sales-return">
-                  Guardar devolución
-                </SubmitButton>
-              </div>
-            </>
-          ) : null}
+          <SalesReturnFields
+            editing={editing}
+            dispatches={dispatches}
+            customers={customers}
+            warehouses={warehouses}
+            items={items}
+            today={today}
+            draftKey={draftKey}
+            saving={saving}
+            closePanel={closePanel}
+          />
         </form>
       </SlideOver>
     </section>
+  );
+}
+
+function SalesReturnFields({
+  editing,
+  dispatches,
+  customers,
+  warehouses,
+  items,
+  today,
+  draftKey,
+  saving,
+  closePanel,
+}: {
+  editing: SalesReturn | null;
+  dispatches: Dispatch[];
+  customers?: Customer[];
+  warehouses?: Warehouse[];
+  items?: Item[];
+  today: string;
+  draftKey: (fieldName?: string) => string;
+  saving: boolean;
+  closePanel: () => void;
+}) {
+  const [selectedDispatchId, setSelectedDispatchId] = useState<string>(() =>
+    editing?.dispatch ? editing.dispatch.id : editing ? 'none' : '',
+  );
+  const [originlessLines, setOriginlessLines] = useState<OriginlessReturnLineRow[]>(() =>
+    initialOriginlessReturnLines(editing),
+  );
+
+  const selectedDispatch = dispatches.find((d) => d.id === selectedDispatchId) ?? null;
+
+  return (
+    <>
+      <div>
+        <label htmlFor="dispatchSelect" className="block text-xs font-medium uppercase tracking-wide">
+          Despacho de origen *
+        </label>
+        <select
+          id="dispatchSelect"
+          name={selectedDispatchId === 'none' ? undefined : 'dispatchId'}
+          required
+          disabled={Boolean(editing)}
+          value={selectedDispatchId}
+          onChange={(e) => setSelectedDispatchId(e.target.value)}
+          className="border-line bg-surface mt-1 w-full rounded border px-3 py-1.5 text-sm disabled:opacity-60"
+          data-testid="sales-return-dispatch-select"
+        >
+          <option value="">Selecciona un despacho o devolución sin origen...</option>
+          <option value="none">Sin despacho (ajuste con costo manual)</option>
+          {dispatches.map((d) => (
+            <option key={d.id} value={d.id}>
+              {d.code} — {d.customer.name} ({d.date})
+            </option>
+          ))}
+        </select>
+        {editing && editing.dispatch ? <input type="hidden" name="dispatchId" value={editing.dispatch.id} /> : null}
+      </div>
+
+      {selectedDispatchId === 'none' ? (
+        <>
+          {editing && !editing.dispatch ? (
+            <>
+              <input type="hidden" name="customerId" value={editing.customer.id} />
+              <input type="hidden" name="warehouseId" value={editing.warehouse.id} />
+            </>
+          ) : null}
+
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <label htmlFor="returnCustomer" className="block text-xs font-medium uppercase tracking-wide">
+                Cliente *
+              </label>
+              <select
+                id="returnCustomer"
+                name={editing ? undefined : 'customerId'}
+                required
+                disabled={Boolean(editing)}
+                defaultValue={editing?.customer.id ?? ''}
+                key={draftKey('customer')}
+                className="border-line bg-surface mt-1 w-full rounded border px-3 py-1.5 text-sm disabled:opacity-60"
+                data-testid="sales-return-customer-select"
+              >
+                <option value="">Selecciona un cliente...</option>
+                {customers?.map((c) => (
+                  <option key={c.id} value={c.id}>
+                    {c.name}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <div>
+              <label htmlFor="returnWarehouse" className="block text-xs font-medium uppercase tracking-wide">
+                Bodega de reingreso *
+              </label>
+              <select
+                id="returnWarehouse"
+                name={editing ? undefined : 'warehouseId'}
+                required
+                disabled={Boolean(editing)}
+                defaultValue={editing?.warehouse.id ?? ''}
+                key={draftKey('warehouse')}
+                className="border-line bg-surface mt-1 w-full rounded border px-3 py-1.5 text-sm disabled:opacity-60"
+                data-testid="sales-return-warehouse-select"
+              >
+                <option value="">Selecciona una bodega...</option>
+                {warehouses?.map((w) => (
+                  <option key={w.id} value={w.id}>
+                    {w.name}
+                  </option>
+                ))}
+              </select>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <label htmlFor="returnDate" className="block text-xs font-medium uppercase tracking-wide">
+                Fecha
+              </label>
+              <input
+                id="returnDate"
+                type="date"
+                name="date"
+                defaultValue={editing?.date ?? today}
+                max={today}
+                key={draftKey('date')}
+                className="border-line bg-surface mt-1 w-full rounded border px-3 py-1.5 text-sm"
+                data-testid="sales-return-date-input"
+              />
+            </div>
+            <div>
+              <label htmlFor="returnCondition" className="block text-xs font-medium uppercase tracking-wide">
+                Condición *
+              </label>
+              <select
+                id="returnCondition"
+                name="condition"
+                defaultValue={editing?.condition ?? 'resalable'}
+                key={draftKey('condition')}
+                className="border-line bg-surface mt-1 w-full rounded border px-3 py-1.5 text-sm"
+                data-testid="sales-return-condition-select"
+              >
+                <option value="resalable">Apta para reventa</option>
+                <option value="damaged">Dañada</option>
+                <option value="scrap">Desecho / Scrap</option>
+              </select>
+            </div>
+          </div>
+
+          <div>
+            <label htmlFor="returnReason" className="block text-xs font-medium uppercase tracking-wide">
+              Motivo
+            </label>
+            <input
+              id="returnReason"
+              type="text"
+              name="reason"
+              placeholder="Ej. Producto vendido antes del sistema..."
+              defaultValue={editing?.reason ?? ''}
+              key={draftKey('reason')}
+              className="border-line bg-surface mt-1 w-full rounded border px-3 py-1.5 text-sm"
+              data-testid="sales-return-reason-input"
+            />
+          </div>
+
+          <div>
+            <label htmlFor="returnNotes" className="block text-xs font-medium uppercase tracking-wide">
+              Notas
+            </label>
+            <textarea
+              id="returnNotes"
+              name="notes"
+              rows={2}
+              defaultValue={editing?.notes ?? ''}
+              key={draftKey('notes')}
+              className="border-line bg-surface mt-1 w-full rounded border px-3 py-1.5 text-sm"
+              data-testid="sales-return-notes-input"
+            />
+          </div>
+
+          <div>
+            <div className="flex items-center justify-between mb-2">
+              <h3 className="text-xs font-medium uppercase tracking-wide">Líneas a devolver</h3>
+              <button
+                type="button"
+                onClick={() => setOriginlessLines([...originlessLines, { itemId: '', unitId: '', quantity: '1', unitCost: '' }])}
+                className="text-xs text-primary hover:underline"
+                data-testid="btn-add-return-line"
+              >
+                + Agregar línea
+              </button>
+            </div>
+            <div className="space-y-3">
+              {originlessLines.map((row, index) => {
+                const selectedItem = items?.find((it) => it.id === row.itemId);
+                return (
+                  <div key={index} className="border-line bg-surface/30 space-y-2 rounded border p-3">
+                    <div className="grid grid-cols-2 gap-2">
+                      <div>
+                        <label className="block text-[10px] text-muted uppercase">Artículo</label>
+                        <select
+                          name="itemId"
+                          required
+                          value={row.itemId}
+                          onChange={(e) => {
+                            const newId = e.target.value;
+                            const it = items?.find((x) => x.id === newId);
+                            const newLines = [...originlessLines];
+                            newLines[index].itemId = newId;
+                            newLines[index].unitId = it?.units[0]?.unitId ?? '';
+                            setOriginlessLines(newLines);
+                          }}
+                          className="border-line bg-surface mt-0.5 w-full rounded border px-2 py-1 text-sm"
+                          data-testid={`sales-return-item-${index}`}
+                        >
+                          <option value="">Selecciona un artículo...</option>
+                          {items?.filter((it) => it.type === 'inventoried' && it.isActive).map((it) => (
+                            <option key={it.id} value={it.id}>
+                              {it.sku} — {it.name}
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+                      <div>
+                        <label className="block text-[10px] text-muted uppercase">Unidad</label>
+                        <select
+                          name="unitId"
+                          required
+                          value={row.unitId}
+                          onChange={(e) => {
+                            const newLines = [...originlessLines];
+                            newLines[index].unitId = e.target.value;
+                            setOriginlessLines(newLines);
+                          }}
+                          className="border-line bg-surface mt-0.5 w-full rounded border px-2 py-1 text-sm"
+                          data-testid={`sales-return-unit-${index}`}
+                        >
+                          <option value="">Selecciona unidad...</option>
+                          {selectedItem?.units.map((u) => (
+                            <option key={u.unitId} value={u.unitId}>
+                              {u.name} ({u.abbreviation})
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+                    </div>
+                    <div className="grid grid-cols-2 gap-2">
+                      <div>
+                        <label className="block text-[10px] text-muted uppercase">Cantidad</label>
+                        <input
+                          type="number"
+                          name="returnQuantity"
+                          required
+                          step="any"
+                          min="0.0001"
+                          value={row.quantity}
+                          onChange={(e) => {
+                            const newLines = [...originlessLines];
+                            newLines[index].quantity = e.target.value;
+                            setOriginlessLines(newLines);
+                          }}
+                          className="border-line bg-surface mt-0.5 w-full rounded border px-2 py-1 text-right text-sm"
+                          data-testid={`sales-return-qty-${index}`}
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-[10px] text-muted uppercase">Costo unitario ($)</label>
+                        <input
+                          type="number"
+                          name="unitCost"
+                          required
+                          step="any"
+                          min="0"
+                          value={row.unitCost}
+                          onChange={(e) => {
+                            const newLines = [...originlessLines];
+                            newLines[index].unitCost = e.target.value;
+                            setOriginlessLines(newLines);
+                          }}
+                          className="border-line bg-surface mt-0.5 w-full rounded border px-2 py-1 text-right text-sm"
+                          data-testid={`sales-return-unit-cost-${index}`}
+                        />
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+
+          <div className="flex justify-end gap-2 pt-2">
+            <button
+              type="button"
+              onClick={closePanel}
+              className="border-line rounded border px-3 py-1.5 text-sm font-medium hover:bg-surface"
+            >
+              Cancelar
+            </button>
+            <SubmitButton pending={saving} testId="btn-save-sales-return">
+              Guardar devolución
+            </SubmitButton>
+          </div>
+        </>
+      ) : null}
+
+      {selectedDispatch ? (
+        <>
+          <input type="hidden" name="customerId" value={selectedDispatch.customer.id} />
+
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <label htmlFor="returnDate" className="block text-xs font-medium uppercase tracking-wide">
+                Fecha
+              </label>
+              <input
+                id="returnDate"
+                type="date"
+                name="date"
+                defaultValue={editing?.date ?? today}
+                max={today}
+                key={draftKey('dispatch-date')}
+                className="border-line bg-surface mt-1 w-full rounded border px-3 py-1.5 text-sm"
+                data-testid="sales-return-date-input"
+              />
+            </div>
+            <div>
+              <label htmlFor="returnCondition" className="block text-xs font-medium uppercase tracking-wide">
+                Condición *
+              </label>
+              <select
+                id="returnCondition"
+                name="condition"
+                defaultValue={editing?.condition ?? 'resalable'}
+                key={draftKey('dispatch-condition')}
+                className="border-line bg-surface mt-1 w-full rounded border px-3 py-1.5 text-sm"
+                data-testid="sales-return-condition-select"
+              >
+                <option value="resalable">Apta para reventa</option>
+                <option value="damaged">Dañada</option>
+                <option value="scrap">Desecho / Scrap</option>
+              </select>
+            </div>
+          </div>
+
+          <div>
+            <label htmlFor="returnReason" className="block text-xs font-medium uppercase tracking-wide">
+              Motivo
+            </label>
+            <input
+              id="returnReason"
+              type="text"
+              name="reason"
+              placeholder="Ej. Producto defectuoso, error en pedido..."
+              defaultValue={editing?.reason ?? ''}
+              key={draftKey('dispatch-reason')}
+              className="border-line bg-surface mt-1 w-full rounded border px-3 py-1.5 text-sm"
+              data-testid="sales-return-reason-input"
+            />
+          </div>
+
+          <div>
+            <label htmlFor="returnNotes" className="block text-xs font-medium uppercase tracking-wide">
+              Notas
+            </label>
+            <textarea
+              id="returnNotes"
+              name="notes"
+              rows={2}
+              defaultValue={editing?.notes ?? ''}
+              key={draftKey('dispatch-notes')}
+              className="border-line bg-surface mt-1 w-full rounded border px-3 py-1.5 text-sm"
+              data-testid="sales-return-notes-input"
+            />
+          </div>
+
+          <div>
+            <h3 className="mb-2 text-xs font-medium uppercase tracking-wide">Líneas a devolver</h3>
+            <div className="space-y-3">
+              {selectedDispatch.lines.map((line) => {
+                const existingLine = editing?.lines.find(
+                  (l) => l.dispatchLineId === line.id || (l.itemId === line.itemId && !l.dispatchLineId),
+                );
+                const defaultQty = existingLine ? existingLine.quantity : 0;
+
+                return (
+                  <div key={line.id} className="border-line bg-surface/30 flex items-center justify-between rounded border p-3">
+                    <div className="flex-1">
+                      <p className="font-medium text-sm">{line.itemName}</p>
+                      <p className="text-muted text-xs">
+                        {line.sku} · Despachadas: {line.quantity} {line.unitAbbreviation}
+                      </p>
+                      <input type="hidden" name="dispatchLineId" value={line.id} />
+                    </div>
+                    <div className="w-32">
+                      <label htmlFor={`qty-${line.id}`} className="block text-[10px] text-muted uppercase">
+                        Cant. devolver
+                      </label>
+                      <input
+                        id={`qty-${line.id}`}
+                        type="number"
+                        name="returnQuantity"
+                        step="any"
+                        min="0"
+                        max={line.quantity}
+                        defaultValue={defaultQty}
+                        key={draftKey(`qty-${line.id}`)}
+                        className="border-line bg-surface mt-0.5 w-full rounded border px-2 py-1 text-right text-sm"
+                        data-testid={`sales-return-qty-${line.id}`}
+                      />
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+
+          <div className="flex justify-end gap-2 pt-2">
+            <button
+              type="button"
+              onClick={closePanel}
+              className="border-line rounded border px-3 py-1.5 text-sm font-medium hover:bg-surface"
+            >
+              Cancelar
+            </button>
+            <SubmitButton pending={saving} testId="btn-save-sales-return">
+              Guardar devolución
+            </SubmitButton>
+          </div>
+        </>
+      ) : null}
+    </>
   );
 }
 

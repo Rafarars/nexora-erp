@@ -241,3 +241,23 @@ export function summarizeReturnLines(lines: SalesReturnLine[]): string {
   return lines.map((line) => `${formatQuantity(line.quantity)} ${line.unitAbbreviation} ${line.sku}`).join(' · ');
 }
 
+export interface OriginlessReturnLineRow {
+  itemId: string;
+  unitId: string;
+  quantity: string;
+  unitCost: string;
+}
+
+export function initialOriginlessReturnLines(returnDraft?: Pick<SalesReturn, 'lines'> | null): OriginlessReturnLineRow[] {
+  if (returnDraft && returnDraft.lines.length > 0) {
+    return returnDraft.lines.map((l) => ({
+      itemId: l.itemId,
+      unitId: l.unitId,
+      quantity: String(l.quantity),
+      unitCost: l.unitCost !== null ? String(l.unitCost) : '',
+    }));
+  }
+  return [{ itemId: '', unitId: '', quantity: '1', unitCost: '' }];
+}
+
+

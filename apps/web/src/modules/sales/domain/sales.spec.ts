@@ -1,8 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import type { Session } from '../../access/domain/session';
 import { AccessError } from '../../access/domain/access-error';
-import { dispatchActions, dispatchableLines, orderActions, paymentTermLabel, summarizeOrderLines } from './sales';
-import type { Dispatch, OrderLine, SalesOrder } from './sales';
+import { dispatchActions, dispatchableLines, initialOriginlessReturnLines, orderActions, paymentTermLabel, summarizeOrderLines } from './sales';
+import type { Dispatch, OrderLine, SalesOrder, SalesReturn } from './sales';
 import { readableSalesError } from './sales-error';
 import { visibleSalesSections } from './sales-sections';
 
@@ -99,5 +99,26 @@ describe('visibleSalesSections', () => {
     expect(visibleSalesSections(session({ permissions: ['sales.invoices.search'] })).map((s) => s.label)).toEqual(['Facturas']);
     expect(visibleSalesSections(session({ permissions: ['sales.returns.search'] })).map((s) => s.label)).toEqual(['Devoluciones']);
   });
+});
 
+describe('initialOriginlessReturnLines', () => {
+  it('converts return draft lines into form rows preserving values', () => {
+    const draft = {
+      lines: [
+        { itemId: 'item-1', unitId: 'unit-1', quantity: 3.5, unitCost: 12.5 },
+        { itemId: 'item-2', unitId: 'unit-2', quantity: 1, unitCost: null },
+      ],
+    } as unknown as SalesReturn;
+
+    expect(initialOriginlessReturnLines(draft)).toEqual([
+      { itemId: 'item-1', unitId: 'unit-1', quantity: '3.5', unitCost: '12.5' },
+      { itemId: 'item-2', unitId: 'unit-2', quantity: '1', unitCost: '' },
+    ]);
+  });
+
+  it('returns default empty row when draft is missing or has no lines', () => {
+    expect(initialOriginlessReturnLines(null)).toEqual([{ itemId: '', unitId: '', quantity: '1', unitCost: '' }]);
+    expect(initialOriginlessReturnLines(undefined)).toEqual([{ itemId: '', unitId: '', quantity: '1', unitCost: '' }]);
+    expect(initialOriginlessReturnLines({ lines: [] })).toEqual([{ itemId: '', unitId: '', quantity: '1', unitCost: '' }]);
+  });
 });
