@@ -13,20 +13,24 @@ de ninguna conversación anterior**.
 [`H9-COMPRAS-HASTA-EL-PAGO.md`](H9-COMPRAS-HASTA-EL-PAGO.md). **H8 está cerrado y mergeado a
 `main`** desde el 28-sep-2026. Después de H9 viene [H10](H10-CONTABILIDAD.md), sin construir.
 
-**Antes de la primera línea de H9, tres pasos cortos:**
+**El plan de H9 está listo para construir** desde el 28-sep-2026. Se contrastó con el código que
+dejó H8, Rafael cerró sus cinco decisiones abiertas, pasó una validación multiagente (15
+hallazgos, todos verificados y corregidos) y el prompt para `agy` está en
+`~/.gemini/tmp/erp-portafolio/prompt-h9.md`. Lo que cambió, en corto:
 
-1. **H9 se escribió antes de construir H8.** Contrastar el plan con lo que H8 dejó en el código: la
-   devolución de compra (`DVC`), `restoresMovementId` en el kardex, las notas de crédito y el cobro
-   con forma `credit_note`, que H9 repetirá en espejo con los proveedores. Si el plan contradice el
-   código, se corrige el plan antes de construir.
-2. **Validar lo que cambió en H10 el 22-sep-2026**, que sólo revisó Claude. H9 crea tablas que H10
-   va a contabilizar.
-3. **Cerrar las dos preguntas abiertas del plan de H9**, para delegarlo sin decisiones pendientes
-   (lo que mejor funcionó con H8):
-   - §3.3: el ajuste de revaluación por diferencia de precio, ¿nace **en borrador** para que alguien
-     lo apruebe o **confirmado**? Recomendado: borrador.
-   - §3.9: facturar **más de lo recibido**, ¿se rechaza o se permite con aviso? Recomendado:
-     rechazar, porque sin flujo de aprobación no hay a quién avisar.
+- **La diferencia de precio de compra** genera una **revaluación por importe, en borrador**, que
+  se reparte **al aprobarla** entre lo que sigue en bodega y lo que ya salió, con una fórmula exacta
+  para costo promedio (H9 §3.3). Es una clase de línea nueva en Ajustes; la revaluación por costo
+  nuevo de siempre no cambia.
+- **Se mide en la moneda del documento** con las tasas de la entrada; lo que separan las tasas es
+  diferencia en cambio y no toca el inventario.
+- **Facturar más de lo recibido se rechaza.** Sin descuento global, flete ni otros cargos en la
+  cabecera: van como líneas de servicio.
+- **La nota de crédito de proveedor copia el diseño de la de cliente de H8.**
+- **H10 cambió con él**: dos cuentas nuevas (diferencia de precio pendiente y diferencia en cambio),
+  el asiento de la factura de compra reescrito, la diferencia en cambio también en cobros y pagos.
+  **Antes de construir H10**, conviene validarlo entero otra vez: hoy sólo se revisaron las
+  secciones que toca H9.
 
 **Cómo se trabaja desde el 23-sep-2026:** Rafael usa **sólo `agy`**. `agy` ejecuta (construye,
 corrige, revisa con `module-review`, documenta) y Claude, mientras siga disponible, sólo revisa
@@ -69,9 +73,19 @@ bitácora de construcción, [`revision/h8/avance.md`](revision/h8/avance.md).
   la documentación del proyecto y cifras copiadas de la salida real. El método largo sigue en
   `engineering-playbook/method/`. **Pendiente de Rafael:** versionarlas también en el playbook, para
   no depender de una sola máquina.
-- **Navegador**: `/browser`, el servidor de Chrome DevTools integrado. **Hay que activarlo en la
-  sesión antes de pedirle una revisión de interfaz**: sin él, `agy` no tiene las herramientas y en
-  H8 las sustituyó por un script sin avisar.
+- **Navegador: la skill global `web-qa`, con `playwright-cli` y la ventana visible.** Desde el
+  28-sep-2026 la interfaz se prueba con la CLI de Playwright (`@playwright/cli`, instalada de forma
+  global): `open <url> --headed --persistent`, detalle de cada petición, consola, capturas, vídeo con
+  las acciones anotadas y traza. La skill está en `~/.claude/skills/`, `~/.gemini/skills/` y
+  `~/.codex/skills/`, sirve para cualquier sistema, y `module-review` la usa en su etapa de
+  interfaz. **Las credenciales las pone Rafael en la ventana**, salvo las de prueba de la semilla.
+- **Complemento para rendimiento, Lighthouse y estilos: el servidor MCP `qa_browser`** de
+  `~/.gemini/config/mcp_config.json` (el que lee la CLI de `agy`; `~/.gemini/antigravity/mcp_config.json`
+  se mantiene igual), `chrome-devtools-mcp` lanzando **su propio Chrome** con
+  perfil propio. **No usar el `/browser` de serie**: se engancha al Chrome personal de Rafael
+  (`--autoConnect`), con decenas de pestañas se colgaba, pedía permiso en cada conexión y entraba en
+  sus cuentas; en H8 `agy` acabó sustituyéndolo por scripts. La grabación de `qa_browser` usa el
+  `ffmpeg` del sistema: el codificador que trae `agy` está compilado para otra máquina.
 - **Engram**: su configuración (`~/.gemini/antigravity/mcp_config.json`) forzaba el proyecto
   `antigravity`, y `--project` anula la detección por carpeta. Se quitó el 23-sep-2026. Ahora detecta
   `nexora-erp` por el remoto de git.
@@ -736,8 +750,7 @@ diseño: primero cerrar los huecos de cobertura que esa pregunta destapó.
 | **6º** | **Las cuatro decisiones** que esperan a Rafael | Están abajo, cada una con su síntoma, su `archivo:línea` y su coste |
 | **7º** | **Mejoras de diseño del sistema** | **Sólo después de cerrar el 100 %.** Textual: «eso será luego de cerrar al 100 el sistema como tal» |
 
-**Cómo construir H9:** los tres pasos previos de «Lo siguiente, en una línea», arriba; después,
-`agy` con la skill `module-build`, fase por fase, y la fase de revisión con `module-review`, con lo
+**Cómo construir H9:** `agy` con el prompt `~/.gemini/tmp/erp-portafolio/prompt-h9.md` y la skill `module-build`, fase por fase, y la fase de revisión con `module-review`, con lo
 aprendido en H8 exigido desde el primer prompt («Trabajar con `agy`»).
 
 #### 1º · Acceso — cerrado el 19-sep-2026

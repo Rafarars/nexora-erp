@@ -162,6 +162,10 @@ grupo y termina en la empresa.
 | **Mercancía por facturar** | Entrada de mercancía, y la factura de compra que la liquida |
 | **Diferencia de precio de compra** | La diferencia de precio sobre mercancía ya vendida, **en los dos sentidos** |
 | **Gasto de compras** | Factura de compra de servicios o gastos, y la nota de crédito que la rebaja |
+| **Diferencia de precio pendiente** | La factura o `NCP` que deja la diferencia de precio, y la revaluación por importe que la reparte al aprobarse (H9 §3.3) |
+| **Diferencia en cambio** | Lo que separan dos tasas: factura de compra contra sus entradas, cobro y pago contra sus facturas (§2.8) |
+
+*Las dos últimas se añadieron el 28-sep-2026, con H9 §3.3.*
 
 **Las cinco en negrita faltaban**, y su ausencia no era cosmética: §2.5 rechaza la operación cuando
 ninguna cuenta resuelve, así que el cobro por nota de crédito —que §3.6 ya nombraba— **habría sido
@@ -211,6 +215,13 @@ congeló.
 moneda y **las dos tasas congeladas**, y los reportes ya convierten con ellas. El asiento usa el
 mismo camino. Llevar el mayor en dos monedas es un hito propio y se anota.
 
+**Y lo que separa dos tasas es diferencia en cambio**, añadido el 28-sep-2026. Un documento que
+salda otro con distinta tasa —un cobro o un pago que abona una factura de otro día, una factura de
+compra que factura una entrada de otro día— deja en moneda de la empresa una diferencia que no es
+de precio ni de saldo. Va a su cuenta, «Diferencia en cambio», y nunca al inventario (H9 §3.3). El
+cobro ya la calcula por reparto (`payment_allocations.exchange_difference`); sin esta cuenta,
+«Clientes por cobrar» no quedaba en cero al cobrar una factura a otra tasa.
+
 ---
 
 ## 3. Los asientos, operación por operación
@@ -235,8 +246,10 @@ prueba de §6 y es lo que habría detectado el defecto original.
 
 | Cuenta | La debita | La acredita |
 |---|---|---|
-| Inventario | Entrada · Devolución de venta · Ajuste + · Revaluación + | Despacho · Devolución de compra · Ajuste − · Revaluación − |
-| Mercancía por facturar | Factura de compra · Devolución de compra · Revaluación − de un precio de compra | Entrada · Revaluación + de un precio de compra · Nota de crédito de proveedor |
+| Inventario | Entrada · Devolución de venta · Ajuste + · Revaluación + (manual o por importe, su parte en bodega) | Despacho · Devolución de compra · Ajuste − · Revaluación − |
+| Mercancía por facturar | Factura de compra · Devolución de compra | Entrada · Nota de crédito de proveedor que acredita una devolución |
+| Diferencia de precio pendiente | Factura de compra más cara · Revaluación por importe negativa, al aprobarse | Factura de compra más barata · `NCP` de rebaja · Revaluación por importe positiva, al aprobarse |
+| Diferencia en cambio | Documento pagado o facturado a una tasa que sube lo debido | Documento pagado o facturado a una tasa que lo baja |
 | Proveedores por pagar | Pago · Pago sin dinero de la `NCP` | Factura de compra |
 | Clientes por cobrar | Factura de venta | Cobro · Cobro sin dinero de la `NCC` |
 | Costo de ventas | Despacho | Devolución de venta con origen |
@@ -246,7 +259,7 @@ prueba de §6 y es lo que habría detectado el defecto original.
 | Notas de crédito de proveedor por aplicar | Emisión de la `NCP` | Pago sin dinero |
 | Caja y banco | Cobro con dinero | Pago con dinero |
 | Ajuste de inventario | Ajuste − · Revaluación − manual | Ajuste + · Revaluación + manual · Devolución de venta sin origen |
-| Diferencia de precio de compra | Factura más cara sobre lo vendido · `NCP` por menos que el costo devuelto | Factura más barata sobre lo vendido · `NCP` de rebaja sobre lo vendido · `NCP` por más que el costo devuelto |
+| Diferencia de precio de compra | Revaluación por importe positiva, su parte vendida · `NCP` por menos que el costo devuelto | Revaluación por importe negativa, su parte vendida · `NCP` por más que el costo devuelto |
 | Gasto de compras | Factura de compra de servicios | Nota de crédito de proveedor sobre servicios |
 
 ### 3.1 Confirmar una entrada de mercancía
@@ -284,30 +297,27 @@ es la que hace que §3.4 pueda reconciliar la diferencia de precio.
 
 | | Cuenta | Importe |
 |---|---|---|
-| Debe | **Mercancía por facturar** | Costo con que entró la mercancía, **más la diferencia sobre lo que sigue en bodega** |
-| Debe | Diferencia de precio de compra | La diferencia sobre lo ya vendido, si la factura es **más cara** |
+| Debe | **Mercancía por facturar** | Costo con que entró la mercancía facturada, a las tasas de la entrada |
+| Debe o Haber | **Diferencia de precio pendiente** | La diferencia de precio entera (H9 §3.3): al debe si la factura es más cara, al haber si es más barata |
+| Debe o Haber | **Diferencia en cambio** | Lo que separa la factura a sus tasas de la misma a las tasas de las entradas (§2.8) |
 | Debe | Gasto de compras | Las líneas de servicio o gasto, que no pasan por bodega |
 | Debe | Impuesto por pagar | Impuesto de la factura |
-| Haber | Diferencia de precio de compra | La diferencia sobre lo ya vendido, si la factura es **más barata** |
-| Haber | Proveedores por pagar | Total de la factura |
+| Haber | Proveedores por pagar | Total de la factura, a sus tasas |
 
-**Así cierra la cuenta puente, corregido el 22-sep-2026.** La versión anterior la debitaba sólo
-por el costo de entrada y decía que eso la dejaba en cero. **No la dejaba**: con la mercancía en
-bodega, la revaluación de H9 §3.3 ya le había acreditado la diferencia (§3.11), y el asiento de la
-factura **descuadraba justo por esa cifra**. Con números: recibo 100 y la factura llega por 110,
-todo en bodega. La entrada acredita 100 a la puente y la revaluación 10 más; la factura debitaba
-100 y acreditaba 110 a proveedores. Debe 100, haber 110: **la invariante de §2.1 la rechazaba** y la
-factura no se podía confirmar. Ahora la puente se debita por 110 y queda en cero.
+**Reescrito el 28-sep-2026**, al contrastar H9 con el código: la revaluación que nace de la factura
+es un **borrador**, y el reparto entre bodega y lo vendido **no se conoce hasta que se aprueba**
+(H9 §3.3). La factura ya no puede repartirlo: lleva la diferencia entera a «Diferencia de precio
+pendiente», y la aprobación la salda (§3.11). La puente de recepción queda en cero con la factura,
+sin esperar a nadie.
 
-**Cómo se reparte la diferencia** entre la factura y el costo de entrada, con `PriceVariance`
-(H9 §5.3): lo que sigue en bodega va a la puente, y su revaluación la salda; lo ya vendido va a
-«Diferencia de precio de compra» **con signo**, al debe si la factura es más cara y al haber si es
-más barata. Faltaba esa segunda fila: la cuenta prometía acreditarse y ningún asiento lo hacía.
+**Con números**: entran 10 a 100 (la entrada acredita 1.000 a la puente) y la factura dice 110. La
+factura debita 1.000 a la puente, 100 a la pendiente y acredita 1.100 a proveedores: cuadra y la
+puente queda en cero. Si antes de aprobar se venden 6, la aprobación debita 40 a Inventario y 60 a
+«Diferencia de precio de compra» y acredita 100 a la pendiente, que también queda en cero.
 
-**Mientras la revaluación esté en borrador**, la puente queda con la diferencia de lo que sigue en
-bodega. No es un descuadre —el asiento de la factura cuadra igual—, es la consecuencia de la
-pregunta que H9 §3.3 deja abierta a propósito, y la puente vuelve a cero cuando la revaluación se
-confirma. La revaluación genera su propio asiento por §3.11.
+*Historia: el 22-sep-2026 la factura repartía ella misma la diferencia entre la puente y «Diferencia
+de precio de compra», y la puente esperaba a que se confirmara la revaluación. Con la revaluación en
+borrador y el reparto al aprobar, esa versión asignaba el reparto con la existencia equivocada.*
 
 **Una factura de sólo servicios** no toca «Mercancía por facturar»: debita «Gasto de compras»,
 resuelta por la precedencia de §2.5, que ahora sí termina en la empresa. Una factura mixta hace las
@@ -317,8 +327,9 @@ dos cosas, línea por línea.
 
 | | Cuenta | Importe |
 |---|---|---|
-| Debe | Caja o banco, según la forma de pago | Importe |
-| Haber | Clientes por cobrar | El mismo |
+| Debe | Caja o banco, según la forma de pago | Importe, a las tasas del cobro |
+| Debe o Haber | Diferencia en cambio | Lo que separa el cobro a sus tasas de las facturas que abona a las suyas (§2.8) |
+| Haber | Clientes por cobrar | Lo abonado, a las tasas de cada factura |
 
 ### 3.6 Confirmar un cobro sin dinero, de una nota de crédito
 
@@ -350,8 +361,9 @@ par: la emisión la acredita, el cobro la debita, y queda en cero cuando la nota
 
 | | Cuenta | Importe |
 |---|---|---|
-| Debe | Proveedores por pagar | Importe |
-| Haber | Caja o banco | El mismo |
+| Debe | Proveedores por pagar | Lo abonado, a las tasas de cada factura |
+| Debe o Haber | Diferencia en cambio | Lo que separa el pago a sus tasas de las facturas que abona (§2.8) |
+| Haber | Caja o banco | Importe, a las tasas del pago |
 
 **Ésta es la que faltaba y la que H9 §1.2 exige.** Sin ella, Proveedores por pagar sólo crecía.
 
@@ -363,8 +375,10 @@ Emisión:
 |---|---|---|
 | Debe | **Notas de crédito de proveedor por aplicar** | Total |
 | Haber | Impuesto por pagar | Impuesto |
-| Haber | **Mercancía por facturar** | Si acredita una devolución: el costo con que salió la mercancía devuelta. Si rebaja el precio de mercancía que sigue en bodega: esa parte de la rebaja |
-| Haber o Debe | Diferencia de precio de compra | La rebaja sobre lo ya vendido, al haber. O lo que el importe de la nota se separa del costo devuelto: al haber si lo supera, al debe si se queda corto |
+| Haber | **Mercancía por facturar** | Si acredita una devolución: el costo con que salió la mercancía devuelta |
+| Haber | **Diferencia de precio pendiente** | Si rebaja el precio: la rebaja entera, que su revaluación por importe repartirá al aprobarse (§3.11) |
+| Haber o Debe | Diferencia de precio de compra | Si acredita una devolución: lo que el importe de la nota se separa del costo devuelto, al haber si lo supera, al debe si se queda corto |
+| Debe o Haber | Diferencia en cambio | Lo que separan las tasas de la nota de las de la entrada (§2.8) |
 | Haber | Gasto de compras | Las líneas de servicio o gasto |
 
 Y su aplicación, el pago sin dinero: **Debe Proveedores por pagar · Haber Notas de crédito de
@@ -379,9 +393,9 @@ Inventario o la cuenta de gasto»*, y eso fallaba de dos maneras:
 - **Sin devolución, separaba la cuenta del kardex.** Una nota **nunca toca el kardex** (H8 §3.1),
   así que la cuenta Inventario bajaba y la valuación del kardex no.
 
-Ahora una rebaja de precio hace exactamente lo que hace una factura más barata (§3.4): lo que sigue
-en bodega pasa por la puente y H9 genera la revaluación negativa que la salda, bajando cuenta y
-kardex juntos; lo vendido va a resultado. Es el mismo `PriceVariance`, leído al revés.
+Ahora una rebaja de precio hace exactamente lo que hace una factura más barata (§3.4): la rebaja
+entera queda pendiente y su revaluación por importe, al aprobarse, la reparte entre bodega y
+resultado, bajando cuenta y kardex juntos. *Actualizado el 28-sep-2026 con el reparto al aprobar.*
 
 ### 3.10 Confirmar una devolución
 
@@ -436,13 +450,14 @@ justo lo que alguien tiene que ir a reclamar.
 |---|---|---|
 | Positivo | Inventario | Ajuste de inventario |
 | Negativo | Ajuste de inventario | Inventario |
-| Revaluación + | Inventario | **Mercancía por facturar** si nace de un precio de compra; si es manual, Ajuste de inventario |
-| Revaluación − | La misma contrapartida | Inventario |
+| Revaluación manual + | Inventario | Ajuste de inventario |
+| Revaluación manual − | Ajuste de inventario | Inventario |
+| Revaluación **por importe**, de un precio de compra | Inventario (la parte en bodega) y Diferencia de precio de compra (la parte vendida) | **Diferencia de precio pendiente** (el importe entero). Al revés si es negativa |
 
 **La revaluación tiene contrapartida propia** cuando la origina un precio de compra —una factura
 distinta del costo de entrada (H9 §3.3) o una nota de crédito de proveedor que rebaja el precio
-(§3.9)—: ahí lo que se corrige es la cuenta puente, no un ajuste de existencia. El evento dice cuál
-de los dos casos es (§4.4).
+(§3.9)—: salda la «Diferencia de precio pendiente» que dejó el documento, repartida como la repartió
+al aprobarse. El evento dice cuál de los dos casos es y trae el reparto (§4.4).
 
 ### 3.12 Anular cualquiera de las anteriores
 
@@ -509,10 +524,12 @@ model JournalEntryLine {
 }
 ```
 
-**Y las cuentas por omisión de la empresa**, trece columnas nullable en la configuración que ya
+**Y las cuentas por omisión de la empresa**, quince columnas nullable en la configuración que ya
 existe, **una por cada fila de §2.5**: inventario, costo de ventas, ingresos, impuesto por pagar,
 clientes, proveedores, caja, ajuste de inventario, notas de crédito por aplicar, notas de crédito de
-proveedor por aplicar, mercancía por facturar, diferencia de precio de compra y gasto de compras.
+proveedor por aplicar, mercancía por facturar, diferencia de precio de compra, gasto de compras,
+**diferencia de precio pendiente y diferencia en cambio** (las dos últimas, añadidas el 28-sep-2026
+con H9 §3.3).
 
 **Corregido el 22-sep-2026: decía ocho**, las de la primera versión, y las cinco cuentas nuevas no
 tenían dónde configurarse. Como §2.5 rechaza lo que no resuelve, **toda entrada de mercancía se
@@ -548,16 +565,20 @@ export type CostedLine = { itemId: string; quantity: Quantity; unitCost: Money }
 export type PricedLine = { itemId: string; subtotal: Money; tax: Money };
 export type ReturnedLine = CostedLine & { restoresMovementId: string | null };
 
-// Lo que sale de PriceVariance (H9 §5.3), igual en la factura y en la nota del proveedor.
-// Invariante: baseCost + stockDifference + soldDifference + servicios = subtotal.
+// Lo que sale de PurchasePriceDifference (H9 §5.3), igual en la factura y en la nota del proveedor.
+// Invariante: baseCost + priceDifference + exchangeDifference + servicios = subtotal, a sus tasas.
 export type PurchasePricing = {
-  baseCost: Money;          // costo de entrada, o el costo con que salio la devolucion acreditada
-  stockDifference: Money;   // con signo: la parte sobre lo que sigue en bodega
-  soldDifference: Money;    // con signo: la parte sobre lo ya vendido
+  baseCost: Money;            // costo de entrada, o el costo con que salio la devolucion acreditada
+  priceDifference: Money;     // con signo: la diferencia entera, pendiente hasta la revaluacion
+  exchangeDifference: Money;  // con signo: lo que separan las tasas del documento de las de la entrada
   serviceLines: PricedLine[];
   tax: Money;
   total: Money;
 };
+
+// Lo que sale de PriceVariance (H9 §5.3) al aprobar una revaluacion por importe.
+// Invariante: stockPart + soldPart = el importe de la revaluacion.
+export type RevaluationSplit = { stockPart: Money; soldPart: Money };
 
 // Lo que cada contexto entrega. Un evento describe QUE PASO en el idioma del negocio, nunca
 // cuentas: quien las resuelve es el contexto de contabilidad (§2.5).
@@ -569,10 +590,13 @@ export type AccountingEvent =
   | { kind: 'payment-received'; documentId: string; date: ReportDate; method: PaymentMethod; amount: Money }
   | { kind: 'payment-made'; documentId: string; date: ReportDate; method: PaymentMethod; amount: Money }
   | { kind: 'customer-credit-note-issued'; documentId: string; date: ReportDate; customerId: string; lines: PricedLine[] }
-  | { kind: 'supplier-credit-note-issued'; documentId: string; date: ReportDate; supplierId: string; pricing: PurchasePricing }
+  // Si acredita una devolucion, trae su costo; si rebaja el precio, no: el asiento es distinto (§3.9).
+  | { kind: 'supplier-credit-note-issued'; documentId: string; date: ReportDate; supplierId: string; pricing: PurchasePricing; creditsReturn: { returnId: string; returnedCost: Money } | null }
   // Solo las lineas que movieron kardex: una devolucion scrap no publica nada (H8 §4.1).
   | { kind: 'goods-returned'; documentId: string; date: ReportDate; side: 'customer' | 'supplier'; lines: ReturnedLine[] }
-  | { kind: 'stock-adjusted'; documentId: string; date: ReportDate; reason: AdjustmentType; origin: 'manual' | 'purchase-price'; lines: CostedLine[] }
+  | { kind: 'stock-adjusted'; documentId: string; date: ReportDate; reason: AdjustmentType; origin: 'manual'; lines: CostedLine[] }
+  // Una linea por articulo: sin el articulo no se resuelve la cuenta de inventario (§2.5).
+  | { kind: 'purchase-price-revalued'; documentId: string; date: ReportDate; lines: { itemId: string; split: RevaluationSplit }[] }
   | { kind: 'document-cancelled'; originType: string; originId: string; date: ReportDate };
 ```
 
@@ -649,7 +673,9 @@ debe no iguala la del haber, hay un defecto. Esa comprobación es una prueba, no
 | §2.4.1 | **Facturar antes de despachar**: la factura lleva sólo ingreso, y el despacho posterior lleva el costo. Entre las dos, ni se pierde ni se duplica |
 | §2.4.1 | Una factura de sólo servicios lleva asiento de ingreso y **ninguno** de costo |
 | §3.1 y §3.4 | Recibir y luego facturar deja **«Mercancía por facturar» en cero** |
-| §3.4 | Factura **más cara** y **más barata** que el costo de entrada, con la mercancía en bodega, vendida y repartida entre las dos: **el asiento cuadra** en los seis casos, y la puente queda en cero una vez confirmada la revaluación |
+| §3.4 | Factura **más cara** y **más barata** que el costo de entrada: la puente queda en cero **con la factura**, y la «Diferencia de precio pendiente» queda en cero **al aprobar** la revaluación, con la mercancía en bodega, vendida y repartida entre las dos: los seis casos cuadran |
+| §3.4 y §3.11 | 10 a 100, factura 110, se venden 6 antes de aprobar: la aprobación lleva 40 a Inventario y 60 a Diferencia de precio de compra |
+| §2.8 | Una factura de compra, un cobro y un pago a tasa distinta del documento que saldan: la diferencia va a «Diferencia en cambio» y la cuenta del tercero queda en cero |
 | §3.4 | Una factura de sólo servicios sin cuenta de gasto en el artículo ni en la categoría resuelve la de la empresa |
 | §3.9 y §3.10 | Devolver 30 a un proveedor y recibir su nota: Inventario baja **30, una vez**, la deuda baja **una vez**, y la puente vuelve a cero |
 | §3.9 | Una nota de rebaja sin devolución deja la cuenta Inventario **igual a la valuación del kardex** |

@@ -1,7 +1,7 @@
 # H9 — Compras hasta el pago: factura, pago y saldo
 
 **Estado:** plan aprobado, sin construir · **Escrito el 21-sep-2026**, corregido el 21 y el 22-sep-2026
-tras dos validaciones multiagente
+tras dos validaciones multiagente, y el 28-sep-2026 contrastado con el código que dejó H8
 
 Especificación ejecutable, escrita para que **otra sesión la ejecute** y esta la revise. Va después
 de [H8](H8-NOTAS-DE-CREDITO-Y-DEVOLUCIONES.md) y antes de [H10](H10-CONTABILIDAD.md), que la
@@ -121,8 +121,11 @@ posterior. Leer una migración no es leer el esquema.*
 ### 3.3 La diferencia de precio se resuelve con un ajuste de revaluación
 
 **Decisión:** al confirmar una factura cuyo precio difiere del costo con que entró la mercancía, el
-sistema **genera un ajuste de revaluación** por la existencia que todavía queda, y guarda en
-`soldDifference` la diferencia que corresponde a mercancía ya vendida.
+sistema **genera un ajuste de revaluación en borrador** que lleva **el importe** de la diferencia.
+Quien lo aprueba decide cuándo; **al aprobarlo** se reparte ese importe con la existencia de ese
+momento: la parte sobre lo que sigue en bodega sube (o baja) su valor, y la parte sobre lo ya
+vendido va a resultado. *Reescrito el 28-sep-2026 al contrastar el plan con el código: ver
+«El reparto se hace al aprobar», abajo.*
 
 **Por qué, y aquí nos separamos de la referencia porque tiene un hueco entero.**
 
@@ -150,27 +153,68 @@ construido, revisado, con motivo obligatorio y rastro de autor.
 Y el patrón tampoco es nuevo para la referencia: **su módulo de Importación ya genera un ajuste
 espejo de revaluación** para repartir flete y aduana. Simplemente no lo aplicó a este caso.
 
-**Dónde va la parte ya vendida, corregido el 21-sep-2026.** La versión anterior decía que la
-diferencia sobre mercancía ya vendida *«queda anotada»*, y eso no significaba nada: ninguna columna
-la guardaba y ningún asiento la recogía. Ahora sí tiene sitio:
+**El reparto se hace al aprobar, no al facturar. Decisión de Rafael, 28-sep-2026.** La revaluación
+que ya existe (`adjustment-confirmation.ts`, `revaluationEntries`) no suma un importe: fija **un
+costo nuevo** a **toda** la existencia del artículo en la bodega en el momento de confirmarse. Con
+el ajuste naciendo en borrador, entre la factura y la aprobación se vende y entra mercancía, y eso
+rompe las dos formas ingenuas de hacerlo. Con números: entran 10 a 100 y la factura dice 110 (+100).
 
-- **La factura la guarda**, en una columna propia de la cabecera, `soldDifference`, con el importe
-  que no pudo absorber el inventario **y con signo**: positivo si la factura es más cara, negativo
-  si es más barata. Las dos cosas pasan, y la versión anterior sólo contemplaba la primera.
-- **Y tiene cuenta**: H10 §3.4 la lleva a «Diferencia de precio de compra», que es una cuenta de
-  resultado. Es lo que el sector llama *price difference account*, y es lo que impide que la
-  cuenta puente de recepción quede con un saldo residual. La otra mitad de esa garantía la pone el
-  asiento: la factura debita la puente por el costo de entrada **más** la diferencia de lo que sigue
-  en bodega, que es lo que la revaluación le acredita (H10 §3.4, corregido el 22-sep-2026).
+- **Un costo nuevo fijado al facturar** (110) está mal: si antes de aprobar entran 10 más a 90,
+  aprobarlo pone las 14 a 110 y revalúa mercancía que no tiene nada que ver con esa factura.
+- **Un reparto fijado al facturar** (+100 a bodega) también: si antes de aprobar se venden 6, los 4
+  que quedan absorben los +100 y pasan a valer 125 en vez de 110.
+- **Repartir al aprobar** es lo correcto: quedan 4, así que +40 a bodega (los 4 quedan a 110) y
+  +60 a resultado.
 
-Sin las dos piezas, la diferencia desaparecía y la contabilidad no cerraba — que es justo lo que el
-sector advierte que pasa cuando se ignora.
+Lo que eso pide construir:
 
-**Lo que hay que decidir al construir, y que consta como pregunta abierta:** si el ajuste se genera
-**confirmado** o **en borrador para que alguien lo apruebe**. La referencia lo deja en borrador en
-su caso de importación. Borrador es más prudente —una revaluación automática cambia el valor del
-activo sin que nadie mire—, y encaja con la fricción deliberada del ciclo de compras. **Recomendado:
-borrador.**
+- **Una línea de revaluación por importe**, nueva en Inventario: artículo, bodega, **cuánto sube o
+  baja el valor**, y **el movimiento de entrada del que viene** (el de la línea de entrada facturada),
+  en vez de un costo nuevo. Al confirmarse, reparte el importe entre lo que sigue en bodega y lo que
+  ya salió desde esa entrada (§5.3, `PriceVariance`), y guarda las dos partes en la propia línea. La
+  revaluación manual de siempre, por costo nuevo, no cambia.
+- **Cómo se reparte, con costo promedio ponderado.** Las unidades de las distintas entradas se
+  mezclan en el promedio, así que no se puede suponer que lo que queda es del lote facturado. Lo
+  exacto: cada salida del artículo en esa bodega **desde el movimiento de entrada** se lleva la misma
+  fracción de todo el valor, incluida la diferencia; las entradas posteriores la reparten entre más
+  unidades pero no la reducen. La parte que sigue en bodega es la diferencia multiplicada, por cada
+  salida, por *existencia después / existencia antes* (el kardex ya guarda `balanceQuantity` por
+  movimiento). Con números:
+  - Entran 10 a 100 y la factura dice 110 (+100); antes de aprobar se venden 6: 4/10 → **+40** a
+    bodega y +60 a resultado.
+  - Entran 10 a 100 y luego 10 a 150; se venden 15 (de 20); la factura del primer lote dice 110
+    (+100): 5/20 → **+25** a bodega y +75 a resultado. *Corregido el 28-sep-2026: la versión
+    anterior («si quedan menos unidades que las facturadas, la proporción que queda») daba +50.*
+  - Entran 10 a 100, se venden 6, entran 10 a 90: 4/10 → **+40**, que se reparten entre las 14
+    unidades del promedio nuevo.
+  - Las devoluciones a proveedor **de esa misma entrada** no cuentan como salida: salen al costo
+    congelado de la entrada (H8) y lo devuelto no se factura (§3.4).
+- **La factura guarda la diferencia entera, pendiente**: `priceDifference`, con signo (positiva si
+  la factura es más cara, negativa si es más barata). **No guarda `soldDifference`**: esa cifra no
+  se conoce hasta que se aprueba el ajuste, y la guarda el ajuste.
+- **Y tiene cuentas** (H10 §3.4 y §3.11): la factura lleva la diferencia a «Diferencia de precio
+  pendiente», y la aprobación la salda repartiéndola entre Inventario y «Diferencia de precio de
+  compra», que es de resultado —la *price difference account* del sector—.
+
+Sin eso, la diferencia desaparecía o se asignaba a mercancía equivocada, y la contabilidad no
+cerraba: justo lo que el sector advierte que pasa cuando se ignora.
+
+**La diferencia de precio se mide en la moneda del documento. Decisión de Rafael, 28-sep-2026.**
+Las entradas se valoran en la moneda de la empresa con **sus** tasas (`goods-receipt.entity.ts`), y
+la factura llega con las tasas de **su** día. Si 10 unidades a USD 10 entraron a 150 Bs y la factura
+dice el mismo USD 10 a 155, la diferencia de 500 Bs **no es de precio**: es de cambio. Así que:
+
+- Una línea que cita una entrada va **en la misma moneda que esa entrada**.
+- La diferencia de precio se calcula en esa moneda (precio de la factura menos precio de la
+  entrada) y se lleva a la de la empresa **con las tasas de la entrada**. En el ejemplo, cero.
+- Lo que separa la factura a sus tasas de la misma factura a las tasas de la entrada es
+  **diferencia en cambio**, y nunca toca el inventario. La factura la guarda (`exchangeDifference`,
+  con signo) y H10 la lleva a su cuenta.
+
+**Decisión de Rafael, 28-sep-2026: el ajuste nace en borrador**, para que alguien lo apruebe. Un
+ajuste que cambia el valor del inventario no se confirma solo. La referencia hace lo mismo en su
+caso de importación, y encaja con la fricción deliberada del ciclo de compras. Descartado: nacer
+confirmado.
 
 ### 3.4 Lo pedido ≥ lo recibido ≥ lo facturado
 
@@ -276,17 +320,11 @@ propio—, y a medias sería peor que nada.
 **Las tolerancias se anotan**, no se construyen: con una sola empresa y sin política de compras, un
 porcentaje configurable sería una perilla que nadie mueve.
 
-> **Pregunta abierta, que hay que decidir antes de construir la fase 2.** ¿Se rechaza facturar de
-> más, o se permite y se avisa? La referencia tiene las dos respuestas a la vez, y es instructivo:
-> su servicio de dominio **sí lo permite**, con este comentario —*«un proveedor factura a veces de
-> más y el ERP tiene que poder reflejarlo»*— y su pantalla **lo bloquea** sin tolerancia ninguna.
-> La capacidad existe en el dominio y no hay forma de llegar a ella.
->
-> El argumento de su comentario es bueno: la realidad incluye proveedores que facturan de más, y un
-> sistema que no puede registrarlo obliga a mentirle. El argumento contrario también: sin flujo de
-> excepción, permitirlo es dejar pasar en silencio justo lo que la conciliación existe para
-> detectar. **Recomendado: rechazar**, porque sin aprobación no hay a quién avisar. Pero que la
-> decisión se tome, y no se herede.
+**Decisión de Rafael, 28-sep-2026: facturar más cantidad de la recibida se rechaza**, con una
+validación en el dominio. Es un error, no algo que se avisa: sin flujo de aprobación no hay a quién
+avisar, y dejarlo pasar es justo lo que la conciliación existe para detectar. Descartado: permitirlo
+con aviso. La referencia tenía las dos respuestas a la vez —su dominio lo permitía y su pantalla lo
+bloqueaba—; aquí la regla vive en el dominio y la pantalla la refleja.
 
 ### 3.10 La nota de crédito de proveedor vive aquí
 
@@ -296,9 +334,21 @@ porcentaje configurable sería una perilla que nadie mueve.
 proveedor es un documento que no afecta a nada*. Aquí ya hay saldo del que restar, así que la
 pregunta se resuelve sola.
 
-**Y usa el mismo mecanismo que su hermana de ventas** (H8 §3.2): confirmar una `NCP` genera **un
-pago sin dinero** con forma `credit_note`. Así la máquina de saldo, antigüedad y estado de cuenta no
-se entera de que existe un documento nuevo.
+**Y copia el diseño con que terminó su hermana de ventas. Decisión de Rafael, 28-sep-2026.** La NCC
+de H8, tal como está en el código (`receivables/domain/credit-note/`):
+
+- Si cita una factura, al confirmarse **abona sólo esa factura, hasta su saldo vivo**, con un pago
+  sin dinero de forma `credit_note` que nace con ella (el **pago de emisión**, `issuePaymentId`).
+- **Lo que sobra es crédito disponible con el proveedor**, calculado (total de la nota menos sus
+  pagos confirmados, el `NoteCredit` de H8), nunca guardado.
+- Ese crédito se **gasta desde Pagos**, eligiendo la nota en un selector, con forma `credit_note` y
+  la nota como origen (`creditSourceId`). Gastar más de lo disponible se rechaza, con el mismo
+  orden de bloqueo de H8: nota → pago → facturas.
+- **El pago de emisión no se anula desde Pagos**: se anula anulando la nota. Y una nota con pagos
+  confirmados que gastan su crédito no se anula.
+
+Así la máquina de saldo, antigüedad y estado de cuenta no se entera de que existe un documento
+nuevo, y el sistema se entiende igual por los dos lados.
 
 **Y nunca toca el kardex** (H8 §3.1), pero puede cambiar el costo, añadido el 22-sep-2026. Una
 `NCP` hace una de dos cosas:
@@ -306,8 +356,8 @@ se entera de que existe un documento nuevo.
 - **Acredita una devolución de compra.** La mercancía ya salió con la devolución, al costo con que
   entró; la nota sólo baja la deuda. No revalúa nada.
 - **Rebaja el precio** sin que vuelva nada. Es una factura más barata que llega tarde, y se trata
-  igual que §3.3: `PriceVariance` reparte la rebaja, **la parte sobre lo que sigue en bodega genera
-  una revaluación negativa** y la parte sobre lo vendido va a resultado. Sin esto, la deuda bajaría
+  igual que §3.3: genera **una revaluación por importe, negativa, en borrador**, que al aprobarse
+  reparte la rebaja entre lo que sigue en bodega y lo vendido. Sin esto, la deuda bajaría
   y el costo de la mercancía en bodega seguiría siendo el viejo: el mismo hueco que §3.3 cierra en
   la factura, abierto por la puerta de atrás.
 
@@ -320,33 +370,58 @@ Cómo se contabiliza cada caso está en H10 §3.9.
 ### 4.1 Factura de compra (`FCP`)
 
 **Cabecera:** proveedor (obligatorio), **número y serie del proveedor** (obligatorio el número),
-fecha de la factura, fecha de vencimiento, moneda con sus tasas congeladas, notas. Y los importes:
-subtotal, descuento global, impuesto, flete, otros cargos, total.
+fecha de la factura, fecha de vencimiento, moneda con sus tasas congeladas, notas. Y los importes,
+derivados de las líneas: subtotal, impuesto, total.
 
-**Líneas:** artículo o concepto, cantidad, precio unitario, impuesto, y **la línea de entrada que
-factura** (opcional: sin ella es un servicio o un gasto).
+**Sin descuento global, flete ni otros cargos en la cabecera. Decisión de Rafael, 28-sep-2026.** La
+factura de venta tampoco los tiene, el flete es justo el «costo en destino» que este hito deja fuera
+(§2), y H10 no tenía dónde asentarlos. Si el proveedor cobra flete u otro cargo, va como **una
+línea de servicio** (a «Gasto de compras»); un descuento, en el precio de cada línea.
+
+**Líneas:** artículo o concepto, cantidad, precio unitario, impuesto, y **qué factura**:
+- **Una línea de entrada** (mercancía que pasó por bodega), o
+- **Una línea de orden de un servicio** (las órdenes de compra admiten servicios, que nunca pasan
+  por una entrada: `purchase-order-references.ts`, `movesStock: item.type !== 'service'`), o
+- **Nada**: un servicio o gasto sin orden (honorarios, alquiler).
 
 **Reglas al confirmar:**
 
 1. **No existe ya** una factura de ese proveedor con ese número (§3.1).
-2. La fecha no es futura, y el vencimiento no es anterior a la fecha de la factura. Las dos reglas
-   ya existen en Ventas y se reutilizan.
+2. La fecha no es futura (la regla ya existe en Ventas y se reutiliza) y el vencimiento no es
+   anterior a la fecha de la factura. **Esta segunda es nueva**: en Ventas el vencimiento no se
+   captura, se calcula (`invoice.entity.ts`, fecha + días de crédito). Aquí se transcribe del
+   documento del proveedor; la pantalla lo propone con las condiciones de pago del proveedor y
+   deja cambiarlo.
 3. Cada línea con entrada de origen: la cantidad facturada **no supera la recibida menos la
-   devuelta**, contando las facturas confirmadas anteriores (§3.4). Es una lectura seguida de una escritura, así que
-   **necesita su orden de bloqueo**, como lo tienen H4, H5 y H6: factura → líneas de entrada →
-   líneas de orden, tomadas con `FOR UPDATE` dentro de la misma transacción. Sin él, dos facturas
+   devuelta**, contando las facturas confirmadas anteriores (§3.4). Lo devuelto se suma de las
+   líneas de devolución confirmadas de esa línea de entrada, **con la misma consulta que ya calcula
+   el cupo de devolución** (`/api/v1/purchasing/receipts/:id/return-quota`), no con una segunda.
+   Cada línea que cita una **línea de orden de servicio**: no supera lo pedido menos lo ya facturado.
+   Es una lectura seguida de una escritura, así que **necesita su orden de bloqueo, compatible con
+   el que ya existe**: las entradas bloquean entrada → orden → existencias
+   (`prisma-receipt-posting.ts`), y las devoluciones de compra, devolución → entrada → existencias,
+   **leyendo la orden sin bloquearla** (`prisma-purchase-return-posting.ts`). La factura: factura →
+   entradas citadas (en orden de id, para que dos facturas no se crucen) → órdenes, con `FOR UPDATE`
+   en la misma transacción. *Corregido el 28-sep-2026: decía que las devoluciones bloquean la orden,
+   y no lo hacen.* Sin él, dos facturas
    confirmadas a la vez sobre las mismas líneas pasan las dos la comprobación y **suman por encima
    de lo recibido**. Lleva prueba de concurrencia en el contrato del puerto, que es donde este
    proyecto ya demostró que esas pruebas son deterministas.
-4. Todas las entradas citadas son **del mismo proveedor** y están confirmadas.
-5. Los totales se derivan de las líneas más los cargos globales. **Nunca se capturan.**
-6. Si algún precio difiere del costo de entrada, **genera el ajuste de revaluación** (§3.3).
+4. Todas las entradas citadas son **del mismo proveedor** y están confirmadas, y cada línea que
+   cita una línea de entrada lleva **su mismo artículo y su misma unidad**.
+5. Los totales se derivan de las líneas. **Nunca se capturan.**
+6. Si algún precio difiere del costo de entrada, **genera la revaluación por importe, en
+   borrador** (§3.3): **una por bodega**, porque un ajuste es de una sola bodega y una factura puede
+   citar entradas de varias, y **una línea por línea de entrada** con diferencia. Cada ajuste lleva
+   su origen (la factura), para encontrarlo al anular.
 7. **No toca el inventario** por ninguna otra vía (§3.2).
 
-**Al anular:** devuelve la cantidad facturada a las líneas de la orden, y **trata el ajuste de
-revaluación según su estado**: si está en borrador lo descarta, si está confirmado lo revierte, y
-si ya estaba anulado no hace nada. Sin esa distinción, revertir uno ya anulado choca con la
-unicidad del reverso que el kardex hereda, y un borrador huérfano se queda esperando a alguien.
+**Al anular:** devuelve la cantidad facturada a las líneas de la orden, y **trata cada revaluación
+según su estado**: si está en borrador la anula; si está confirmada, **genera otra revaluación por
+importe, del importe contrario y en borrador**, citando la misma entrada, que al aprobarse se
+reparte igual; y si ya estaba anulada no hace nada. **No se deshacen sus movimientos del kardex**:
+anular hoy un ajuste revierte sus movimientos (`adjustment-cancellation.ts`), y eso falla o da
+cifras falsas si desde entonces se vendió parte. *Corregido el 28-sep-2026.*
 Una factura con pagos confirmados no se anula —misma regla que Ventas—.
 
 ### 4.2 Pago a proveedor (`PAG`)
@@ -358,10 +433,10 @@ Espejo del cobro, y aquí la simetría **sí** es real: mismo ciclo, mismo repar
 **Reparto:** entre varias facturas del mismo proveedor, como el cobro. El sector lo confirma: *un
 solo comprobante se reparte para liquidar parcial o totalmente varias facturas*.
 
-**Una idea de la referencia que vale la pena copiar:** su reparto es único por factura y documento
-—un pago abona una factura **una sola vez**—, así que corregir el importe **reescribe esa fila** en
-vez de añadir otra, y una fila revertida se queda marcada en su sitio en lugar de borrarse. Eso
-deja el historial legible: se ve qué se abonó, qué se corrigió y qué se revirtió.
+**El reparto es el del cobro, tal como está:** una fila por factura y pago
+(`@@unique([paymentId, invoiceId])` en `PaymentAllocation`), y anular el pago cambia su estado sin
+borrar el reparto. *Corregido el 28-sep-2026: la versión anterior proponía copiar de la referencia
+filas «revertidas» marcadas una a una, que nuestro cobro no tiene; se copia lo nuestro.*
 
 **Reglas:** no se paga más que el saldo de cada factura; no se pagan facturas de otro proveedor; no
 se paga una factura anulada. Las tres ya existen en cobros y se copian con su porqué.
@@ -382,13 +457,17 @@ H9, no de después: un tablero que enseña lo que cobramos y no lo que debemos e
 
 ### 4.4 Nota de crédito de proveedor (`NCP`)
 
-Las reglas de H8 §4.2, con proveedor en vez de cliente y pago en vez de cobro. Y el cupo de
-importe contra la factura de compra (H8 §3.3).
+Las reglas de H8 §4.2 y §3.10, con proveedor en vez de cliente y pago en vez de cobro (§3.10). Y
+el cupo de importe contra la factura de compra (H8 §3.3).
+
+**Una regla de H8 no se copia tal cual:** la de cliente exige que la devolución que acredita sea
+«del mismo pedido» que la factura (H8 §4.2). Una factura de compra junta entradas de varias órdenes
+(§3.5), así que aquí la regla es: **las líneas de la devolución son de líneas de entrada que esa
+factura facturó.**
 
 **Y las dos propias** (§3.10): si acredita una devolución, la devolución existe, está confirmada,
 es del mismo proveedor y no la acredita ya otra nota confirmada; si rebaja el precio, genera la
-revaluación de lo que sigue en bodega con las mismas reglas que la factura, incluida su anulación
-según el estado del ajuste (§4.1).
+revaluación por importe con las mismas reglas que la factura, incluida su anulación (§4.1).
 
 ---
 
@@ -438,12 +517,21 @@ normalizar, justo lo contrario de lo que decide §3.1.*
 model PurchaseInvoiceLine {
   // Que linea de que entrada factura. Nula en servicios y gastos, que no pasan por bodega.
   receiptLineId String? @map("receipt_line_id") @db.Uuid
+  // Que linea de orden de un servicio factura (los servicios de una orden no pasan por entrada).
+  // Como mucho una de las dos referencias; ninguna en un gasto sin orden.
+  orderLineId   String? @map("order_line_id") @db.Uuid
 }
 
 model PurchaseInvoice {
-  // La parte de la diferencia de precio que el inventario no pudo absorber porque la mercancia ya
-  // se vendio. Con signo: negativa si la factura es mas barata. Va a resultado por H10 3.4.
-  soldDifference Decimal @default(0) @map("sold_difference") @db.Decimal(18, 4)
+  // La diferencia de precio entera, en la moneda de la empresa a las tasas de la entrada. Con signo:
+  // negativa si la factura es mas barata. Queda pendiente hasta que se aprueba su revaluacion, que
+  // es quien la reparte entre bodega y resultado (§3.3).
+  priceDifference Decimal @default(0) @map("price_difference") @db.Decimal(18, 4)
+  // Lo que separa la factura a sus tasas de la misma factura a las tasas de las entradas. No es
+  // precio y no toca el inventario (§3.3). Con signo.
+  exchangeDifference Decimal @default(0) @map("exchange_difference") @db.Decimal(18, 4)
+  // Las revaluaciones que genera no se guardan aqui: cada ajuste lleva su origen (tipo y id del
+  // documento), porque son una por bodega (§4.1).
 }
 
 model PurchaseOrderLine {
@@ -454,8 +542,39 @@ model PurchaseOrderLine {
 
 Más `SupplierPayment` y `SupplierPaymentAllocation`, calcados de `CustomerPayment` y
 `PaymentAllocation`, con `credit_note` en su enum de formas de pago y la columna de origen. Y
-`SupplierCreditNote` con sus líneas, calcadas de las de la `NCC` de H8, con la devolución que
-acredita (opcional) y la misma columna `soldDifference` que la factura.
+`SupplierCreditNote` con sus líneas, calcadas de las de la `NCC` de H8 (incluido su pago de
+emisión), con la devolución que acredita (opcional) y las mismas `priceDifference` y
+`exchangeDifference` que la factura.
+
+Y en Inventario, **la línea de revaluación por importe** (§3.3). Una revaluación sigue siendo un
+ajuste de tipo `revaluation`; lo que cambia es la línea, que dice de cuál de las dos clases es:
+
+```prisma
+model AdjustmentLine {
+  // 'cost': la de siempre, fija un costo nuevo (unitCost). 'amount': suma o resta un importe (H9 §3.3).
+  revaluationKind   RevaluationKind? @map("revaluation_kind")
+  amount            Decimal?         @db.Decimal(18, 4)
+  // El movimiento de entrada desde el que se mide lo que ya salio (PriceVariance, H9 §5.3).
+  sourceMovementId  String?          @map("source_movement_id") @db.Uuid
+  // El reparto, escrito al confirmar.
+  stockPart         Decimal?         @map("stock_part") @db.Decimal(18, 4)
+  soldPart          Decimal?         @map("sold_part") @db.Decimal(18, 4)
+}
+
+model Adjustment {
+  // Quien lo genero, si no fue una persona: 'purchase_invoice' o 'supplier_credit_note' y su id.
+  // Sin esto no hay forma de encontrar las revaluaciones de una factura al anularla (§4.1).
+  originType String? @map("origin_type") @db.VarChar(30)
+  originId   String? @map("origin_id") @db.Uuid
+}
+```
+
+- **Si al aprobar ya salió todo**, la línea por importe se confirma igual: todo va a resultado
+  (`soldPart`) y no escribe movimiento de kardex. La revaluación por costo nuevo sigue lanzando
+  `NothingToRevalueError` sin existencia (`adjustment-confirmation.ts`); la por importe, no.
+- Cuando sí queda existencia, la parte de bodega entra al kardex **como hoy entra una
+  revaluación** (sale todo al costo viejo y vuelve a entrar al nuevo), con el costo nuevo calculado
+  al confirmar: (valor actual + `stockPart`) / existencia actual.
 
 ### 5.3 Dominio
 
@@ -475,9 +594,14 @@ acredita (opcional) y la misma columna `soldDifference` que la factura.
   }
   ```
 - `ThreeWayMatch`: el servicio que compara orden, entrada y factura y devuelve las diferencias.
-- `PriceVariance`: reparte la diferencia entre lo que sigue en bodega y lo ya vendido (§3.3).
-  **La usan la factura y la nota de crédito** (§3.10), y lo que devuelve es lo que viaja en el
-  evento de contabilidad (H10 §4.4).
+- `PriceVariance`, **en Inventario**: al confirmar la revaluación por importe, reparte la
+  diferencia entre lo que sigue en bodega y lo que ya salió **desde el movimiento de entrada**
+  (§3.3). La fórmula, en un solo sitio y con sus pruebas: la parte en bodega es el importe por el
+  producto, en cada salida desde ese movimiento, de *existencia después / existencia antes*; el
+  resto va a resultado. Lo que devuelve viaja en el evento de contabilidad del ajuste (H10 §4.4).
+- `PurchasePriceDifference`, **en Compras**: calcula, al confirmar la factura o la nota, la
+  diferencia de precio en la moneda del documento llevada a la de la empresa con las tasas de la
+  entrada, y la diferencia en cambio (§3.3). La usan la factura y la nota.
 - Los errores, con `publicMessage` sin identificadores y **dados de alta en el
   `error-categories.spec.ts`** de su contexto.
 
@@ -486,7 +610,7 @@ acredita (opcional) y la misma columna `soldDifference` que la factura.
 Una línea por contexto, como en H8:
 
 ```ts
-export type PurchasingCodePrefix = /* los de hoy */ | 'FCP' | 'DVC';
+export type PurchasingCodePrefix = 'PRV' | 'OC' | 'ENT' | 'DVC' | 'FCP'; // DVC ya existe desde H8
 export type PayablesCodePrefix = 'PAG' | 'NCP';
 ```
 
@@ -505,7 +629,8 @@ componente, errores traducidos por código.
 - [ ] **1. Factura de compra** — dominio, la unicidad del número del proveedor, la aritmética de
       cantidades, API y pantallas. **Sin** diferencia de precio todavía.
 - [ ] **2. Conciliación a tres bandas** — la comparación y el rechazo por cantidad (§3.9).
-- [ ] **3. La diferencia de precio** — el ajuste de revaluación y el reparto de lo ya vendido
+- [ ] **3. La diferencia de precio** — la revaluación por importe en Inventario, su reparto al
+      aprobar, y la diferencia en cambio
       (§3.3). Va sola porque es la pieza con más riesgo.
 - [ ] **4. Pago a proveedor** — con su reparto, espejo del cobro.
 - [ ] **5. Saldo, antigüedad y estado de cuenta** — con la fórmula en un solo sitio (§3.8).
@@ -523,8 +648,16 @@ componente, errores traducidos por código.
 | §3.1 | Registrar dos veces la misma factura del mismo proveedor **se rechaza**; el mismo número de **otro** proveedor se acepta |
 | §3.2 | Confirmar una factura de compra **no cambia ninguna existencia** |
 | §3.3 | Factura más cara que la entrada, con mercancía en bodega: se genera la revaluación y la valuación del inventario sube |
-| §3.3 | El mismo caso con la mercancía **ya vendida**: no hay revaluación, y la diferencia va a `soldDifference` |
-| §3.3 | Factura **más barata** que la entrada, en bodega y vendida: revaluación negativa, y `soldDifference` **negativa** |
+| §3.3 | El mismo caso con la mercancía **ya vendida entera** al aprobar: la revaluación se confirma, manda todo a resultado y no escribe kardex |
+| §3.3 | Factura **más barata** que la entrada, parte en bodega y parte vendida: reparto negativo en las dos partes |
+| §3.3 | **Se vende entre la factura y la aprobación** (10 a 100, factura 110, se venden 6): al aprobar, +40 a bodega (quedan a 110) y +60 a resultado |
+| §3.3 | **Entra mercancía entre la factura y la aprobación** (10 a 100, se venden 6, entran 10 a 90): van +40 a bodega, repartidos entre las 14 unidades |
+| §3.3 | **Dos entradas a distinto precio antes de facturar** (10 a 100, 10 a 150, se venden 15, factura del primer lote a 110): +25 a bodega y +75 a resultado |
+| §3.3 | Una devolución a proveedor de esa misma entrada, entre la factura y la aprobación, **no** cuenta como salida en el reparto |
+| §4.1 | Anular una factura con su revaluación **ya confirmada** y parte vendida: genera la revaluación contraria en borrador, y no toca el kardex de la original |
+| §4.1 | Una línea de servicio que cita una línea de orden: marca lo facturado y no supera lo pedido |
+| §3.3 | Factura en USD al mismo precio que la entrada pero con otra tasa: **diferencia de precio cero** y la de cambio en `exchangeDifference` |
+| §3.3 | Una factura que cita entradas de **dos bodegas** genera **dos** revaluaciones |
 | §3.4 | Facturar más cantidad de la recibida se rechaza, y también facturar lo que ya se devolvió |
 | §3.5 | Una factura cubre dos entradas; y una entrada se factura en dos facturas. **Los dos casos** |
 | §3.6 | Una factura de sólo servicios, sin ninguna entrada, se confirma |
@@ -532,7 +665,9 @@ componente, errores traducidos por código.
 | §3.1 | `FAC-001` y `fac-001` del mismo proveedor son **la misma factura**; anular una **libera** su número |
 | §4.1 | Dos facturas confirmadas **a la vez** sobre las mismas líneas de entrada no suman por encima de lo recibido |
 | §4.1 | Anular una factura cuyo ajuste de revaluación está **en borrador** lo descarta; si está confirmado lo revierte |
-| §3.3 | La diferencia sobre mercancía ya vendida **queda en `soldDifference`** y llega al asiento de H10 §3.4 |
+| §3.3 | La revaluación manual por costo nuevo **sigue funcionando igual** |
+| §3.10 | La `NCP` por más de lo que debe la factura abona hasta el saldo; el resto se gasta desde Pagos, y gastar de más se rechaza |
+| §3.10 | El pago de emisión de una `NCP` no se anula desde Pagos; una `NCP` con pagos aplicados no se anula |
 | §4.2 | Pagar más que el saldo se rechaza; pagar facturas de otro proveedor se rechaza |
 | §3.10 | Una `NCP` de rebaja sobre mercancía en bodega **baja su costo** por revaluación; una que acredita una devolución **no** revalúa |
 
@@ -545,6 +680,10 @@ documento que por regla no lo toca (§3.2). La contradicción es aparente —qui
 Ajuste, no la factura— pero es fina, y quien la construya deprisa va a acabar escribiendo en el
 kardex desde `purchasing`. **Por eso va en fase propia y después de que todo lo demás esté en
 verde.**
+
+Y desde el 28-sep-2026 toca además el módulo de Ajustes de H3: la revaluación por importe es un tipo
+de línea nuevo sobre código revisado y en producción. La revaluación por costo nuevo **no cambia**,
+y su prueba de que sigue igual es obligatoria.
 
 **El segundo: la tentación de guardar el saldo.** Es más fácil y es lo que hace la referencia.
 §3.8 explica por qué no, y la prueba de que las cuatro cifras coinciden es la que lo defiende.
