@@ -376,3 +376,135 @@ export class DuplicatePurchaseReturnCodeError extends ConflictError {
   }
 }
 
+// ---------------------------------------------------------------- facturas de compra (H9)
+
+export class PurchaseInvoiceNotFoundError extends NotFoundError {
+  constructor(id: string) {
+    super(`Purchase invoice <${id}> does not exist.`);
+  }
+}
+
+export class DuplicatePurchaseInvoiceCodeError extends ConflictError {
+  constructor(code: string) {
+    super(`Purchase invoice code <${code}> already exists.`, 'This purchase invoice code already exists.');
+  }
+}
+
+export class DuplicateSupplierInvoiceNumberError extends ConflictError {
+  constructor(supplierId: string, invoiceNumber: string) {
+    super(
+      `Supplier <${supplierId}> already has an active invoice with number <${invoiceNumber}>.`,
+      'The supplier already has an active invoice with that number.',
+    );
+  }
+}
+
+export class InvoiceDueDateBeforeIssueDateError extends InvalidArgumentError {
+  constructor(issueDate: string, dueDate: string) {
+    super(
+      `Invoice due date <${dueDate}> cannot be before issue date <${issueDate}>.`,
+      'The invoice due date cannot be earlier than its issue date.',
+    );
+  }
+}
+
+export class EmptyPurchaseInvoiceError extends InvalidArgumentError {
+  constructor() {
+    super('Purchase invoice must have at least one line.', 'The purchase invoice must have at least one line.');
+  }
+}
+
+export class DuplicatePurchaseInvoiceLineError extends InvalidArgumentError {
+  constructor(lineId: string) {
+    super(`Duplicate line <${lineId}> in purchase invoice.`, 'The purchase invoice contains duplicate lines.');
+  }
+}
+
+export class PurchaseInvoiceNotEditableError extends ConflictError {
+  constructor(id: string, status: string) {
+    super(
+      `Purchase invoice <${id}> is in status <${status}> and cannot be edited.`,
+      'The purchase invoice is not editable in its current status.',
+    );
+  }
+}
+
+export class PurchaseInvoiceNotConfirmableError extends ConflictError {
+  constructor(id: string, status: string) {
+    super(
+      `Purchase invoice <${id}> is in status <${status}> and cannot be confirmed.`,
+      'The purchase invoice cannot be confirmed in its current status.',
+    );
+  }
+}
+
+export class PurchaseInvoiceAlreadyCancelledError extends ConflictError {
+  constructor(id: string) {
+    super(`Purchase invoice <${id}> is already cancelled.`, 'The purchase invoice is already cancelled.');
+  }
+}
+
+export class PurchaseInvoiceNotCancellableError extends ConflictError {
+  constructor(id: string, status: string) {
+    super(
+      `Purchase invoice <${id}> is in status <${status}> and cannot be cancelled.`,
+      'The purchase invoice cannot be cancelled in its current status.',
+    );
+  }
+}
+
+export class PurchaseInvoiceWithPaymentsError extends ConflictError {
+  constructor(id: string) {
+    super(
+      `Purchase invoice <${id}> has applied payments and cannot be cancelled.`,
+      'The purchase invoice has payments applied and cannot be cancelled.',
+    );
+  }
+}
+
+export class InvoiceQuantityExceedsReceiptError extends ConflictError {
+  constructor(receiptLineId: string, available: number, requested: number) {
+    super(
+      `Receipt line <${receiptLineId}> has ${available} available to invoice and ${requested} was requested.`,
+      'The invoiced quantity exceeds what is available to invoice from the goods receipt.',
+    );
+  }
+}
+
+export class InvoiceQuantityExceedsOrderServiceError extends ConflictError {
+  constructor(orderLineId: string, available: number, requested: number) {
+    super(
+      `Purchase order service line <${orderLineId}> has ${available} available to invoice and ${requested} was requested.`,
+      'The invoiced quantity exceeds what was ordered for this service.',
+    );
+  }
+}
+
+export class InvoiceLinesFromDifferentSupplierError extends InvalidArgumentError {
+  constructor(receiptSupplierId: string, invoiceSupplierId: string) {
+    super(
+      `Receipt belongs to supplier <${receiptSupplierId}> but invoice belongs to <${invoiceSupplierId}>.`,
+      'All invoiced receipts must belong to the invoice supplier.',
+    );
+  }
+}
+
+export class InvoiceReceiptNotConfirmedError extends ConflictError {
+  constructor(receiptId: string, status: string) {
+    super(
+      `Goods receipt <${receiptId}> is in status <${status}> and cannot be invoiced.`,
+      'Only confirmed goods receipts can be invoiced.',
+    );
+  }
+}
+
+export class InvoiceItemMismatchError extends InvalidArgumentError {
+  constructor(lineId: string, expectedItemOrUnit: string, receivedItemOrUnit: string) {
+    super(
+      `Line <${lineId}> item/unit <${receivedItemOrUnit}> does not match receipt line <${expectedItemOrUnit}>.`,
+      'The item or unit on the invoice line does not match the goods receipt line.',
+    );
+  }
+}
+
+

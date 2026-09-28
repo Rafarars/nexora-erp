@@ -259,6 +259,16 @@ export class PurchaseOrder {
     this.recomputeStatus(now);
   }
 
+  recordInvoice(orderLineId: PurchaseOrderLineId, quantity: number, now: Date): void {
+    this.line(orderLineId).invoice(Quantity.of(quantity));
+    this.updatedAt = now;
+  }
+
+  revertInvoice(orderLineId: PurchaseOrderLineId, quantity: number, now: Date): void {
+    this.line(orderLineId).uninvoice(Quantity.of(quantity));
+    this.updatedAt = now;
+  }
+
   private recomputeStatus(now: Date): void {
     const lines = this.details.lines;
 

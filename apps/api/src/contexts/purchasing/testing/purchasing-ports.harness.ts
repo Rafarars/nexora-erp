@@ -4,6 +4,8 @@ import { GoodsReceiptRepository } from '../domain/receipt/goods-receipt.reposito
 import { ReceiptPosting } from '../domain/receipt/posting/receipt-posting.js';
 import { PurchaseReturnPosting } from '../domain/return/posting/purchase-return-posting.js';
 import { PurchaseReturnRepository } from '../domain/return/purchase-return.repository.js';
+import { PurchaseInvoicePosting } from '../domain/invoice/posting/purchase-invoice-posting.js';
+import { PurchaseInvoiceRepository } from '../domain/invoice/purchase-invoice.repository.js';
 import { PurchasingCodeSequence } from '../domain/shared/code-sequence.js';
 import { SupplierRepository } from '../domain/supplier/supplier.repository.js';
 
@@ -12,9 +14,11 @@ export interface PurchasingPorts {
   orders: PurchaseOrderRepository;
   receipts: GoodsReceiptRepository;
   returns: PurchaseReturnRepository;
+  invoices: PurchaseInvoiceRepository;
   orderPosting: PurchaseOrderPosting;
   receiptPosting: ReceiptPosting;
   returnPosting: PurchaseReturnPosting;
+  invoicePosting: PurchaseInvoicePosting;
   codes: PurchasingCodeSequence;
 }
 

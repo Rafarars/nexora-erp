@@ -24,6 +24,7 @@ export interface PurchaseOrderLinePrimitives {
   unitCost: number;
   taxRate: number;
   receivedQuantity: number;
+  invoicedQuantity?: number;
   // Si la linea entra a una bodega. Un servicio no: se copia al escribir la linea, como el SKU,
   // para que el documento no cambie de sentido si el articulo cambia despues.
   movesStock: boolean;
@@ -45,6 +46,7 @@ export class PurchaseOrderLine {
     readonly taxRate: TaxRate,
     readonly movesStock: boolean,
     private received: Quantity,
+    private invoiced: Quantity,
   ) {}
 
   static of(fields: {
@@ -73,6 +75,7 @@ export class PurchaseOrderLine {
       fields.taxRate,
       fields.movesStock ?? true,
       Quantity.zero(),
+      Quantity.zero(),
     );
   }
 
@@ -90,6 +93,7 @@ export class PurchaseOrderLine {
       TaxRate.of(row.taxRate),
       row.movesStock,
       Quantity.of(row.receivedQuantity),
+      Quantity.of(row.invoicedQuantity ?? 0),
     );
   }
 
@@ -106,12 +110,17 @@ export class PurchaseOrderLine {
       unitCost: this.unitCost.toNumber(),
       taxRate: this.taxRate.toNumber(),
       receivedQuantity: this.received.toNumber(),
+      invoicedQuantity: this.invoiced.toNumber(),
       movesStock: this.movesStock,
     };
   }
 
   receivedQuantity(): Quantity {
     return this.received;
+  }
+
+  invoicedQuantity(): Quantity {
+    return this.invoiced;
   }
 
   pending(): Quantity {
@@ -155,5 +164,13 @@ export class PurchaseOrderLine {
   // si pasara, seria un error de programa y Quantity lo rechaza.
   unreceive(quantity: Quantity): void {
     this.received = this.received.minus(quantity);
+  }
+
+  invoice(quantity: Quantity): void {
+    this.invoiced = this.invoiced.plus(quantity);
+  }
+
+  uninvoice(quantity: Quantity): void {
+    this.invoiced = this.invoiced.minus(quantity);
   }
 }

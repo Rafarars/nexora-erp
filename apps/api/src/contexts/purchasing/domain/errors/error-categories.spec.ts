@@ -58,6 +58,22 @@ const cases: Array<[DomainError, typeof DomainError]> = [
   [new errors.QuantityExceedsReceiptReturnQuotaError(ID, 1, 2), ConflictError],
   [new errors.ReceiptLineNotFoundError(ID), NotFoundError],
   [new errors.DuplicatePurchaseReturnCodeError('DVC-0001'), ConflictError],
+  [new errors.PurchaseInvoiceNotFoundError(ID), NotFoundError],
+  [new errors.DuplicatePurchaseInvoiceCodeError('FCP-000001'), ConflictError],
+  [new errors.DuplicateSupplierInvoiceNumberError(ID, 'FAC-001'), ConflictError],
+  [new errors.InvoiceDueDateBeforeIssueDateError('2026-01-02', '2026-01-01'), InvalidArgumentError],
+  [new errors.EmptyPurchaseInvoiceError(), InvalidArgumentError],
+  [new errors.DuplicatePurchaseInvoiceLineError(ID), InvalidArgumentError],
+  [new errors.PurchaseInvoiceNotEditableError(ID, 'confirmed'), ConflictError],
+  [new errors.PurchaseInvoiceNotConfirmableError(ID, 'cancelled'), ConflictError],
+  [new errors.PurchaseInvoiceAlreadyCancelledError(ID), ConflictError],
+  [new errors.PurchaseInvoiceNotCancellableError(ID, 'cancelled'), ConflictError],
+  [new errors.PurchaseInvoiceWithPaymentsError(ID), ConflictError],
+  [new errors.InvoiceQuantityExceedsReceiptError(ID, 1, 2), ConflictError],
+  [new errors.InvoiceQuantityExceedsOrderServiceError(ID, 1, 2), ConflictError],
+  [new errors.InvoiceLinesFromDifferentSupplierError(ID, ID), InvalidArgumentError],
+  [new errors.InvoiceReceiptNotConfirmedError(ID, 'draft'), ConflictError],
+  [new errors.InvoiceItemMismatchError(ID, ID, ID), InvalidArgumentError],
 ];
 
 describe('purchasing domain errors', () => {

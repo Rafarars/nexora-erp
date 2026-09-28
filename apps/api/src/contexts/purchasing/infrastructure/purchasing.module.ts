@@ -92,6 +92,25 @@ import { PrismaPurchasingCatalog } from './persistence/prisma-purchasing-catalog
 import { PrismaPurchasingCodeSequence } from './persistence/prisma-purchasing-code-sequence.js';
 import { PrismaReceiptPosting } from './persistence/prisma-receipt-posting.js';
 import { PrismaSupplierRepository } from './persistence/prisma-supplier.repository.js';
+import { CancelPurchaseInvoicePutController } from './http/cancel-purchase-invoice-put.controller.js';
+import { ConfirmPurchaseInvoicePutController } from './http/confirm-purchase-invoice-put.controller.js';
+import { CreatePurchaseInvoicePostController } from './http/create-purchase-invoice-post.controller.js';
+import { FindPurchaseInvoiceGetController } from './http/find-purchase-invoice-get.controller.js';
+import { SearchPurchaseInvoicesGetController } from './http/search-purchase-invoices-get.controller.js';
+import { UpdatePurchaseInvoicePutController } from './http/update-purchase-invoice-put.controller.js';
+import { PrismaPurchaseInvoicePosting } from './persistence/prisma-purchase-invoice-posting.js';
+import { PrismaPurchaseInvoiceRepository } from './persistence/prisma-purchase-invoice.repository.js';
+import { PurchaseInvoiceCanceller } from '../application/cancel-invoice/purchase-invoice-canceller.js';
+import { PurchaseInvoiceConfirmer } from '../application/confirm-invoice/purchase-invoice-confirmer.js';
+import { PurchaseInvoiceCreator } from '../application/create-invoice/purchase-invoice-creator.js';
+import { PurchaseInvoiceFinder } from '../application/find-invoice/purchase-invoice-finder.js';
+import { PurchaseInvoiceSearcher } from '../application/search-invoices/purchase-invoice-searcher.js';
+import { PurchaseInvoiceUpdater } from '../application/update-invoice/purchase-invoice-updater.js';
+import { PURCHASE_INVOICE_POSTING } from '../domain/invoice/posting/purchase-invoice-posting.js';
+import type { PurchaseInvoicePosting } from '../domain/invoice/posting/purchase-invoice-posting.js';
+import { PURCHASE_INVOICE_REPOSITORY } from '../domain/invoice/purchase-invoice.repository.js';
+import type { PurchaseInvoiceRepository } from '../domain/invoice/purchase-invoice.repository.js';
+import { PurchaseInvoiceReferences } from '../domain/invoice/lines/purchase-invoice-references.js';
 
 // El cableado de compras. Importa el modulo del inventario por una sola razon: la
 // publicacion de documentos que mueve existencia (DOCUMENT_STOCK_POSTING); y el de la empresa, por
@@ -120,6 +139,12 @@ import { PrismaSupplierRepository } from './persistence/prisma-supplier.reposito
     ConfirmPurchaseReturnPutController,
     CancelPurchaseReturnPutController,
     GetReceiptReturnQuotaGetController,
+    SearchPurchaseInvoicesGetController,
+    CreatePurchaseInvoicePostController,
+    UpdatePurchaseInvoicePutController,
+    ConfirmPurchaseInvoicePutController,
+    CancelPurchaseInvoicePutController,
+    FindPurchaseInvoiceGetController,
   ],
   providers: [
     { provide: SUPPLIER_REPOSITORY, useClass: PrismaSupplierRepository },
@@ -127,9 +152,11 @@ import { PrismaSupplierRepository } from './persistence/prisma-supplier.reposito
     { provide: PURCHASE_ORDER_REPOSITORY, useClass: PrismaPurchaseOrderRepository },
     { provide: GOODS_RECEIPT_REPOSITORY, useClass: PrismaGoodsReceiptRepository },
     { provide: PURCHASE_RETURN_REPOSITORY, useClass: PrismaPurchaseReturnRepository },
+    { provide: PURCHASE_INVOICE_REPOSITORY, useClass: PrismaPurchaseInvoiceRepository },
     { provide: PURCHASE_ORDER_POSTING, useClass: PrismaPurchaseOrderPosting },
     { provide: RECEIPT_POSTING, useClass: PrismaReceiptPosting },
     { provide: PURCHASE_RETURN_POSTING, useClass: PrismaPurchaseReturnPosting },
+    { provide: PURCHASE_INVOICE_POSTING, useClass: PrismaPurchaseInvoicePosting },
     { provide: PURCHASING_CATALOG, useClass: PrismaPurchasingCatalog },
     { provide: PURCHASING_CODE_SEQUENCE, useClass: PrismaPurchasingCodeSequence },
 
@@ -295,6 +322,69 @@ import { PrismaSupplierRepository } from './persistence/prisma-supplier.reposito
       useFactory: (rc: GoodsReceiptFinder, r: PurchaseReturnRepository) =>
         new ReceiptReturnQuotaFinder(rc, r),
       inject: [GoodsReceiptFinder, PURCHASE_RETURN_REPOSITORY],
+    },
+    { provide: PurchaseInvoiceFinder, useFactory: (r: PurchaseInvoiceRepository) => new PurchaseInvoiceFinder(r), inject: [PURCHASE_INVOICE_REPOSITORY] },
+    {
+      provide: PurchaseInvoiceReferences,
+      useFactory: (c: PurchasingCatalog, i: IdGenerator) => new PurchaseInvoiceReferences(c, i),
+      inject: [PURCHASING_CATALOG, ID_GENERATOR],
+    },
+    {
+      provide: PurchaseInvoiceCreator,
+      useFactory: (
+        s: SupplierFinder,
+        x: PurchaseInvoiceReferences,
+        r: PurchaseInvoiceRepository,
+        c: PurchasingCodeSequence,
+        i: IdGenerator,
+        k: Clock,
+        cal: BusinessCalendar,
+        dr: DocumentRates,
+      ) => new PurchaseInvoiceCreator(s, x, r, c, i, k, cal, dr),
+      inject: [
+        SupplierFinder,
+        PurchaseInvoiceReferences,
+        PURCHASE_INVOICE_REPOSITORY,
+        PURCHASING_CODE_SEQUENCE,
+        ID_GENERATOR,
+        CLOCK,
+        BUSINESS_CALENDAR,
+        DOCUMENT_RATES,
+      ],
+    },
+    {
+      provide: PurchaseInvoiceUpdater,
+      useFactory: (
+        s: SupplierFinder,
+        x: PurchaseInvoiceReferences,
+        r: PurchaseInvoiceRepository,
+        k: Clock,
+        cal: BusinessCalendar,
+        dr: DocumentRates,
+      ) => new PurchaseInvoiceUpdater(s, x, r, k, cal, dr),
+      inject: [
+        SupplierFinder,
+        PurchaseInvoiceReferences,
+        PURCHASE_INVOICE_REPOSITORY,
+        CLOCK,
+        BUSINESS_CALENDAR,
+        DOCUMENT_RATES,
+      ],
+    },
+    {
+      provide: PurchaseInvoiceConfirmer,
+      useFactory: (p: PurchaseInvoicePosting, k: Clock) => new PurchaseInvoiceConfirmer(p, k),
+      inject: [PURCHASE_INVOICE_POSTING, CLOCK],
+    },
+    {
+      provide: PurchaseInvoiceCanceller,
+      useFactory: (p: PurchaseInvoicePosting, k: Clock) => new PurchaseInvoiceCanceller(p, k),
+      inject: [PURCHASE_INVOICE_POSTING, CLOCK],
+    },
+    {
+      provide: PurchaseInvoiceSearcher,
+      useFactory: (r: PurchaseInvoiceRepository, s: SupplierFinder) => new PurchaseInvoiceSearcher(r, s),
+      inject: [PURCHASE_INVOICE_REPOSITORY, SupplierFinder],
     },
   ],
 })

@@ -100,6 +100,10 @@ export class InMemoryPurchasingStore {
     this.receiptRows.set(document.id.value, structuredClone(document.toPrimitives()));
   }
 
+  updateConfirmedOrder(order: PurchaseOrder): void {
+    this.orderRows.set(order.id.value, structuredClone(order.toPrimitives()));
+  }
+
   get orders(): PurchaseOrderRepository {
     return {
       save: (order) => this.saveDraft(order),

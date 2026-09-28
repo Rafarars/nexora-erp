@@ -111,8 +111,168 @@ No difference detected.
 ### Lo que no salió como decía el plan
 Ninguno.
 
+---
+
+## Fase 1: Factura de compra (`FCP`)
+
+### Qué se construyó
+- **Dominio (`apps/api/src/contexts/purchasing/domain/invoice/`):**
+  - Entidad `PurchaseInvoice` con ciclo de vida `draft` -> `confirmed` | `cancelled`, cálculo estricto de totales a partir de sus líneas sin capturarlos directamente (H9 §4.1 regla 5), validación de fechas (emisión no futura, vencimiento no anterior a emisión).
+  - VO `SupplierInvoiceNumber`: normalización a mayúsculas y recorte de espacios en extremos para garantizar unicidad antifraude (`FAC-001` y `fac-001` equivalentes, H9 §3.1).
+  - Entidad de línea `PurchaseInvoiceLine`: referencias a `receiptLineId`, `orderLineId` (servicios de orden) o concepto libre (gastos sin orden), importes `Decimal(18, 4)`.
+  - Catálogo de 16 errores de dominio tipados y dados de alta en `error-categories.spec.ts` con `publicMessage` sin identificadores internos ni repetición de datos enviados.
+- **Casos de uso (`apps/api/src/contexts/purchasing/application/`):**
+  - `PurchaseInvoiceCreator`, `PurchaseInvoiceUpdater`, `PurchaseInvoiceConfirmer`, `PurchaseInvoiceCanceller`, `PurchaseInvoiceFinder`, `PurchaseInvoiceSearcher`.
+  - Validación de proveedores activos, verificación de cupo disponible contra entradas (`recibido - devuelto - ya_facturado`) y contra servicios de órdenes (`pedido - ya_facturado`).
+  - Al anular: reversión de `invoicedQuantity` en las líneas de orden de compra y liberación del número de factura del proveedor.
+- **Persistencia y Concurrencia:**
+  - `PrismaPurchaseInvoiceRepository` e `InMemoryPurchaseInvoiceRepository`.
+  - `PrismaPurchaseInvoicePosting` con transacción atómica y orden estricto de bloqueo `FOR UPDATE`: Factura -> Entradas citadas (ordenadas por `id`) -> Órdenes (H9 §4.1 regla 3).
+  - `InMemoryPurchaseInvoicePosting` con cola de ejecución serial.
+- **API HTTP y Módulo NestJS:**
+  - Controladores en `apps/api/src/contexts/purchasing/infrastructure/http/`: creación (POST), edición (PUT), confirmación (PUT), anulación (PUT), detalle (GET) y búsqueda paginada (GET).
+  - DTOs Zod estrictos (`.strict()`) con validación de identificadores, números y fechas.
+  - Permisos en minúsculas en catálogo (`apps/api/src/contexts/access/domain/role/permissions.catalog.ts`): `purchasing.invoices.create`, `purchasing.invoices.update`, `purchasing.invoices.confirm`, `purchasing.invoices.cancel`.
+  - Validación de pertenencia de proveedor en `PurchaseInvoiceSearcher` (retorna 404 ante proveedores de otros tenants).
+- **Frontend Web (`apps/web`):**
+  - Sección «Facturas» agregada a navegación de Compras (`purchasing-sections.ts`).
+  - Tipos `PurchaseInvoice`, `PurchaseInvoiceLine`, `PurchaseInvoiceStatus` y badges en `purchasing.ts`.
+  - Métodos API en `purchasing-api.ts` e implementación en `http-purchasing-api.ts` con mapeo exacto de DTOs.
+  - Pantalla principal `apps/web/src/app/(app)/compras/facturas/page.tsx` y componente `apps/web/src/sections/purchasing/purchase-invoices-board.tsx` con listado paginado, filtros, modal de nueva factura con selección de proveedor y líneas, acciones de confirmar y anular, y ocultamiento estricto de acciones para rol consulta.
+- **Aislamiento Multitenant (`apps/e2e/support/isolation-matrix.ts`):**
+  - 6 casos añadidos a la matriz de aislamiento para todas las rutas nuevas de facturas de compra.
+
+### Reglas de H9 cubiertas
+- **H9 §3.1:** Unicidad de número de factura por proveedor; normalización mayúsculas/espacios; anular libera número; mismo número en distinto proveedor permitido.
+- **H9 §3.2:** Confirmar una factura de compra no altera ninguna existencia física en bodega.
+- **H9 §3.4:** No facturar más de lo recibido ni facturar mercancía ya devuelta al proveedor.
+- **H9 §3.5:** Cobertura de dos entradas en una misma factura y facturación parcial de una entrada en dos facturas.
+- **H9 §3.6:** Facturación directa de servicios o gastos libres sin entrada de bodega.
+- **H9 §4.1:** Reglas de validación al confirmar, derivación de totales, actualización de `invoicedQuantity` en orden y bloqueo ordenado concurrente.
+
+### Pruebas que lo defienden
+- `apps/api/src/contexts/purchasing/domain/invoice/purchase-invoice.entity.spec.ts:60:  it('creates draft purchase invoice and computes totals correctly')`
+- `apps/api/src/contexts/purchasing/domain/invoice/purchase-invoice.entity.spec.ts:86:  it('normalizes supplier invoice number to uppercase without whitespace')`
+- `apps/api/src/contexts/purchasing/domain/invoice/purchase-invoice.entity.spec.ts:91:  it('rejects invoice without lines')`
+- `apps/api/src/contexts/purchasing/domain/invoice/purchase-invoice.entity.spec.ts:113:  it('rejects future issue date')`
+- `apps/api/src/contexts/purchasing/domain/invoice/purchase-invoice.entity.spec.ts:135:  it('rejects due date earlier than issue date (H9 §4.1 regla 2)')`
+- `apps/api/src/contexts/purchasing/domain/invoice/purchase-invoice.entity.spec.ts:182:  it('supports confirmation and cancellation lifecycle')`
+- `apps/api/src/contexts/purchasing/application/purchase-invoice.spec.ts:337:  it('creates draft purchase invoice with correlative FCP and valid totals')`
+- `apps/api/src/contexts/purchasing/application/purchase-invoice.spec.ts:362:  it('rejects duplicate invoice number for the same supplier (H9 §3.1)')`
+- `apps/api/src/contexts/purchasing/application/purchase-invoice.spec.ts:395:  it('allows same invoice number for a different supplier (H9 §3.1)')`
+- `apps/api/src/contexts/purchasing/application/purchase-invoice.spec.ts:428:  it('confirms invoice and updates order invoicedQuantity (H9 §4.1)')`
+- `apps/api/src/contexts/purchasing/application/purchase-invoice.spec.ts:453:  it('rejects invoicing more quantity than available in receipt (H9 §3.4, §4.1 regla 3)')`
+- `apps/api/src/contexts/purchasing/application/purchase-invoice.spec.ts:475:  it('invoicing direct service line marks invoiced and rejects exceeding ordered (H9 §4.1)')`
+- `apps/api/src/contexts/purchasing/application/purchase-invoice.spec.ts:519:  it('confirms invoice of free expense without receipt or order (H9 §3.6)')`
+- `apps/api/src/contexts/purchasing/application/purchase-invoice.spec.ts:537:  it('cancels confirmed invoice and returns invoiced quantities to order and frees supplier number (H9 §3.1, §4.1)')`
+- `apps/api/src/contexts/purchasing/application/purchase-invoice.spec.ts:587:  it('rejects invoicing goods that were already returned (H9 §3.4)')`
+- `apps/api/src/contexts/purchasing/application/purchase-invoice.spec.ts:702:  it('covers two receipts in one invoice, and one receipt split across two invoices (H9 §3.5)')`
+- `apps/api/src/contexts/purchasing/testing/purchasing-ports.contract.ts:756:      it('saves and finds purchase invoice by id, code and search criteria')`
+- `apps/api/src/contexts/purchasing/testing/purchasing-ports.contract.ts:772:      it('rejects duplicate active supplier invoice number for the same supplier')`
+- `apps/api/src/contexts/purchasing/testing/purchasing-ports.contract.ts:787:      it('allows reusing supplier invoice number once the earlier invoice is cancelled')`
+- `apps/api/src/contexts/purchasing/testing/purchasing-ports.contract.ts:806:      it('rejects invoicing more than received on a receipt line')`
+- `apps/api/src/contexts/purchasing/testing/purchasing-ports.contract.ts:818:      it('cancelling a confirmed invoice reverts invoicedQuantity on the order')`
+- `apps/api/src/contexts/purchasing/testing/purchasing-ports.contract.ts:837:      it('two simultaneous confirms compete: exactly one succeeds and one fails without exceeding receipt quantity')`
+- `apps/api/src/contexts/purchasing/testing/purchasing-ports.contract.ts:864:      it('confirming a purchase invoice does not change any stock (H9 §3.2)')`
+- `apps/e2e/tests/isolation/tenant-isolation.api.spec.ts:59:5`:
+  - `the superuser, while working in Acme cannot create a purchase invoice for a supplier of another tenant`
+  - `the superuser, while working in Acme cannot rewrite a draft purchase invoice of another tenant`
+  - `the superuser, while working in Acme cannot confirm a purchase invoice of another tenant`
+  - `the superuser, while working in Acme cannot cancel a purchase invoice of another tenant`
+  - `the superuser, while working in Acme cannot find a purchase invoice of another tenant`
+  - `the superuser, while working in Acme cannot filter the purchase invoices by a supplier of another tenant`
+
+### Mutaciones probadas (H9 §7)
+1. **Fila §3.1 (Duplicado proveedor):**
+   - *Qué se quitó:* Comprobación `if (existing) throw new DuplicateSupplierInvoiceNumberError(...)` en `PurchaseInvoiceCreator`.
+   - *Prueba corrida:* `pnpm --filter api test src/contexts/purchasing/application/purchase-invoice.spec.ts`
+   - *Línea del fallo:* `src/contexts/purchasing/application/purchase-invoice.spec.ts:373:6`
+     `AssertionError: promise resolved "PurchaseInvoice{ …(11) }" instead of rejecting`
+2. **Fila §3.2 (No toca existencias):**
+   - *Qué se quitó:* Expectativa en contrato de que la existencia tras confirmar no cambia (`stockAfterInvoice === initialStock + 10`).
+   - *Prueba corrida:* `pnpm --filter api test src/contexts/purchasing/infrastructure/testing/in-memory-purchasing-ports.contract.spec.ts -t "confirming a purchase invoice does not change any stock"`
+   - *Línea del fallo:* `src/contexts/purchasing/testing/purchasing-ports.contract.ts:876:35`
+     `AssertionError: expected 240 to be 250 // Object.is equality`
+3. **Fila §4.1 (Servicio en orden no supera pedido):**
+   - *Qué se quitó:* Validación `if (lineQty > available) throw new InvoiceQuantityExceedsOrderServiceError(...)` en posting.
+   - *Prueba corrida:* `pnpm --filter api test src/contexts/purchasing/application/purchase-invoice.spec.ts`
+   - *Línea del fallo:* `src/contexts/purchasing/application/purchase-invoice.spec.ts:497:6`
+     `AssertionError: promise resolved "PurchaseInvoice{ …(11) }" instead of rejecting`
+4. **Fila §3.4 (Facturar más de lo recibido o ya devuelto):**
+   - *Qué se quitó:* Validación `if (lineQty > available) throw new InvoiceQuantityExceedsReceiptError(...)` en posting.
+   - *Prueba corrida:* `pnpm --filter api test src/contexts/purchasing/application/purchase-invoice.spec.ts`
+   - *Líneas del fallo:*
+     - Exceso sobre recibo: `src/contexts/purchasing/application/purchase-invoice.spec.ts:453:6`
+       `AssertionError: promise resolved "PurchaseInvoice{ …(11) }" instead of rejecting`
+     - Facturar lo ya devuelto: `src/contexts/purchasing/application/purchase-invoice.spec.ts:661:6`
+       `AssertionError: promise resolved "PurchaseInvoice{ …(11) }" instead of rejecting`
+5. **Fila §3.5 (Una factura cubre dos entradas; una entrada en dos facturas):**
+   - *Qué se alteró:* Rechazo artificial de facturas con más de 1 entrada (`if (distinctReceipts.size > 1) throw new Error(...)`).
+   - *Prueba corrida:* `pnpm --filter api test src/contexts/purchasing/application/purchase-invoice.spec.ts`
+   - *Línea del fallo:* `src/contexts/purchasing/infrastructure/testing/in-memory-purchase-invoice-posting.ts:87:13`
+     `Error: Only one receipt allowed per invoice`
+6. **Fila §3.6 (Factura de sólo servicios sin entrada se confirma):**
+   - *Qué se alteró:* Exigencia forzada de que toda factura deba contener al menos una línea con `receiptLineId`.
+   - *Prueba corrida:* `pnpm --filter api test src/contexts/purchasing/application/purchase-invoice.spec.ts`
+   - *Línea del fallo:* `src/contexts/purchasing/infrastructure/testing/in-memory-purchase-invoice-posting.ts:86:13`
+     `Error: Only invoices with receipt lines are allowed`
+7. **Fila §3.1 (`FAC-001` y `fac-001` normalización a mayúsculas):**
+   - *Qué se quitó:* Llamada a `.toUpperCase()` en `SupplierInvoiceNumber.of`.
+   - *Prueba corrida:* `pnpm --filter api test src/contexts/purchasing/domain/invoice/purchase-invoice.entity.spec.ts`
+   - *Línea del fallo:* `src/contexts/purchasing/domain/invoice/purchase-invoice.entity.spec.ts:88:23`
+     `AssertionError: expected 'fac-xyz-999' to be 'FAC-XYZ-999'`
+8. **Fila §4.1 (Dos facturas confirmadas a la vez no suman por encima de lo recibido):**
+   - *Qué se quitó:* Serialización en cola (`this.serial`) en `InMemoryPurchaseInvoicePosting.confirm` con delay forzado de concurrencia.
+   - *Prueba corrida:* `pnpm --filter api test src/contexts/purchasing/infrastructure/testing/in-memory-purchasing-ports.contract.spec.ts -t "two simultaneous confirms compete"`
+   - *Línea del fallo:* `src/contexts/purchasing/testing/purchasing-ports.contract.ts:855:34`
+     `AssertionError: expected 2 to be 1 // Object.is equality`
+
+### Cómo se verificó
+1. **Corrida intermedia roja 1 (typecheck en verify):**
+   ```
+   apps/api typecheck: src/contexts/purchasing/application/purchase-invoice.spec.ts(36,10): error TS2305: Module '"./create-invoice/purchase-invoice-creator.js"' has no exported member 'CreatePurchaseInvoiceDraft'.
+   apps/api typecheck: src/contexts/purchasing/application/purchase-invoice.spec.ts(70,7): error TS2420: Class 'TestRates' incorrectly implements interface 'DocumentRates'.
+   apps/api typecheck: src/contexts/purchasing/infrastructure/testing/in-memory-purchase-invoice-posting.ts(32,44): error TS2552: Cannot find name 'PurchaseOrder'. Did you mean 'PurchaseOrderId'?
+   apps/api typecheck: src/contexts/purchasing/testing/purchasing-ports.contract.ts(193,36): error TS2345: Property 'concept' is missing in type...
+   make[1]: *** [Makefile:77: typecheck] Error 1
+   make: *** [Makefile:99: verify] Error 2
+   ```
+2. **Corrida intermedia roja 2 (isolation en verify):**
+   ```
+   1) [isolation] › tests/isolation/tenant-isolation.api.spec.ts:59:5 › Tenant isolation: Acme cannot reach Globex › an Acme administrator cannot filter the purchase invoices by a supplier of another tenant
+      Expected: 404
+      Received: 200
+   2) [isolation] › tests/isolation/tenant-isolation.api.spec.ts:59:5 › Tenant isolation: Acme cannot reach Globex › the superuser, while working in Acme cannot filter the purchase invoices by a supplier of another tenant
+      Expected: 404
+      Received: 200
+   ```
+3. **Corrida final verde (`make verify` en `scratch/verify-fase1.log`):**
+   ```
+   9:04PM INF no leaks found
+    Test Files  168 passed (168)
+         Tests  3325 passed (3325)
+    Test Files  24 passed (24)
+         Tests  224 passed (224)
+    Test Files  12 passed (12)
+         Tests  282 passed (282)
+     ✓   10 [api] › tests/api/auth.api.spec.ts:119:3 › Brute force and timing › locks an account after five failed attempts, even for the right password (1.3s)
+     ✓  221 [ui] › tests/ui/login.spec.ts:19:3 › Signing in › rejects a wrong password without saying which field failed (1.3s)
+     486 passed (11.4m)
+     Todo en verde.
+   ```
+4. **Pruebas en navegador con `playwright-cli` (headed y persistent, skill `web-qa`):**
+   - Sesión en `http://localhost:3000`. Login con `ana@acme.com`.
+   - Navegación a Compras -> Facturas. Creación de factura borrador y confirmación a estado `Confirmada`.
+   - Captura: `docs/revision/h9/capturas/fase1-facturas.png`.
+   - Login con usuario consulta `contador@externo.com`: verificado que no ve botón "Nueva factura" ni opciones de confirmación/anulación.
+   - Captura: `docs/revision/h9/capturas/fase1-consulta-sin-acciones.png`.
+
+### Lo que no salió como decía el plan
+- En el endpoint de búsqueda `GET /api/v1/purchasing/invoices`, cuando se filtra por `supplierId`, el atacante de otro tenant recibía `200` con lista vacía en vez de `404 Not Found`. Se incorporó la validación con `SupplierFinder` en `PurchaseInvoiceSearcher` para lanzar `SupplierNotFoundError` (404) y preservar el aislamiento estricto de multitenencia.
+- `purchaseInvoiceCreateSchema` utiliza nombres `supplierInvoiceNumber`, `supplierInvoiceSeries`, `issueDate`, `dueDate`, `taxRate` y `.strict()`. `http-purchasing-api.ts` requirió mapear exactamente estos nombres en lugar de aliases genéricos.
+
 ### Lo que quedó en FUTURE.md
-Ninguno.
+Ninguno para esta fase.
 
 ---
 

@@ -117,5 +117,40 @@ describe('HttpPurchasingApi', () => {
     expect(fetchMock.mock.calls[0][0]).toBe('http://api/api/v1/purchasing/returns');
     expect(fetchMock.mock.calls[0][1].method).toBe('POST');
   });
+
+  it('searches and creates a purchase invoice and confirms it', async () => {
+    const fetchMock = respond(201, { id: 'inv1' });
+    const input = {
+      supplierId: 's1',
+      invoiceNumber: 'FAC-001',
+      series: 'A',
+      controlNumber: 'CTRL-001',
+      issuedAt: '2026-09-10',
+      dueAt: '2026-10-10',
+      notes: 'Factura de prueba',
+      currency: 'USD',
+      exchangeRate: 1,
+      lines: [
+        {
+          lineType: 'EXPENSE' as const,
+          description: 'Gasto de envio',
+          quantity: 1,
+          unitPrice: 50,
+          vatRate: 16,
+          vatExempt: false,
+        },
+      ],
+    };
+
+    const res = await api.createInvoice('t', input);
+    expect(res).toEqual({ id: 'inv1' });
+    expect(fetchMock.mock.calls[0][0]).toBe('http://api/api/v1/purchasing/invoices');
+    expect(fetchMock.mock.calls[0][1].method).toBe('POST');
+
+    const confirmMock = respond(200);
+    await api.confirmInvoice('t', 'inv1');
+    expect(confirmMock.mock.calls[0][0]).toBe('http://api/api/v1/purchasing/invoices/inv1/confirm');
+    expect(confirmMock.mock.calls[0][1].method).toBe('PUT');
+  });
 });
 

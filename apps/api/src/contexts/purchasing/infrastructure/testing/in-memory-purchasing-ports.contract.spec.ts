@@ -6,8 +6,12 @@ import { InMemorySupplierRepository } from './in-memory-supplier.repository.js';
 import { TENANT_A, purchasableItems, purchaseWarehouses } from '../../domain/testing/purchasing.mother.js';
 import { InMemoryPurchasingCatalog } from './in-memory-purchasing-catalog.js';
 
+import { InMemoryPurchaseInvoiceRepository } from './in-memory-purchase-invoice.repository.js';
+import { InMemoryPurchaseInvoicePosting } from './in-memory-purchase-invoice-posting.js';
+
 class InMemoryPurchasingPortsHarness implements PurchasingPortsHarness {
   private store = new InMemoryPurchasingStore(new InMemoryPurchasingCatalog(purchasableItems(), purchaseWarehouses()));
+  private invoiceRepo = new InMemoryPurchaseInvoiceRepository();
   private current = this.build();
 
   ports(): PurchasingPorts {
@@ -24,6 +28,7 @@ class InMemoryPurchasingPortsHarness implements PurchasingPortsHarness {
 
   async reset(): Promise<void> {
     this.store = new InMemoryPurchasingStore(new InMemoryPurchasingCatalog(purchasableItems(), purchaseWarehouses()));
+    this.invoiceRepo = new InMemoryPurchaseInvoiceRepository();
     this.current = this.build();
   }
 
@@ -35,9 +40,17 @@ class InMemoryPurchasingPortsHarness implements PurchasingPortsHarness {
       orders: this.store.orders,
       receipts: this.store.receipts,
       returns: this.store.returns,
+      invoices: this.invoiceRepo,
       orderPosting: this.store.orderPosting,
       receiptPosting: this.store.receiptPosting,
       returnPosting: this.store.returnPosting,
+      invoicePosting: new InMemoryPurchaseInvoicePosting(
+        this.invoiceRepo,
+        this.store.receipts,
+        this.store.orders,
+        this.store.returns,
+        (order) => this.store.updateConfirmedOrder(order),
+      ),
       codes: new InMemoryPurchasingCodeSequence(),
     };
   }

@@ -156,3 +156,67 @@ export async function changePurchaseReturn(_state: FormState, form: FormData): P
   return attempt('No se pudo anular la devolución.', (token) => purchasingApi().cancelReturn(token, id));
 }
 
+export async function savePurchaseInvoice(_state: FormState, form: FormData): Promise<FormState> {
+  const lineTypes = form.getAll('lineType').map(String);
+  const receiptLineIds = form.getAll('receiptLineId').map(String);
+  const orderLineIds = form.getAll('orderLineId').map(String);
+  const itemIds = form.getAll('itemId').map(String);
+  const unitIds = form.getAll('unitId').map(String);
+  const descriptions = form.getAll('lineDescription').map(String);
+  const quantities = form.getAll('lineQuantity').map(String);
+  const unitPrices = form.getAll('lineUnitPrice').map(String);
+  const vatRates = form.getAll('lineVatRate').map(String);
+  const vatExempts = form.getAll('lineVatExempt').map(String);
+
+  const lines = lineTypes.map((type, i) => {
+    const rawQty = (quantities[i] ?? '').trim();
+    const rawPrice = (unitPrices[i] ?? '').trim();
+    const rawVat = (vatRates[i] ?? '').trim();
+    return {
+      lineType: type as 'RECEIPT' | 'SERVICE' | 'EXPENSE',
+      receiptLineId: receiptLineIds[i]?.trim() || null,
+      orderLineId: orderLineIds[i]?.trim() || null,
+      itemId: itemIds[i]?.trim() || null,
+      unitId: unitIds[i]?.trim() || null,
+      description: descriptions[i]?.trim() || '',
+      quantity: parseDecimal(rawQty),
+      unitPrice: parseDecimal(rawPrice),
+      vatRate: parseDecimal(rawVat || '0'),
+      vatExempt: vatExempts[i] === 'true',
+    };
+  }).filter((line) => line.description !== '' || line.receiptLineId !== null || line.orderLineId !== null || line.itemId !== null);
+
+  const input = {
+    supplierId: text(form, 'supplierId'),
+    invoiceNumber: text(form, 'invoiceNumber'),
+    series: optional(form, 'series'),
+    controlNumber: optional(form, 'controlNumber'),
+    issuedAt: text(form, 'issuedAt'),
+    dueAt: text(form, 'dueAt'),
+    notes: optional(form, 'notes'),
+    currency: optional(form, 'currency'),
+    exchangeRate: rate(form),
+    lines,
+  };
+
+  const invoiceId = optional(form, 'id');
+
+  return attempt('No se pudo guardar la factura de compra.', async (token) => {
+    if (invoiceId) {
+      await purchasingApi().updateInvoice(token, invoiceId, input);
+    } else {
+      await purchasingApi().createInvoice(token, input);
+    }
+  });
+}
+
+export async function changePurchaseInvoice(_state: FormState, form: FormData): Promise<FormState> {
+  const id = text(form, 'id');
+  const extra = form.get('extra');
+
+  if (extra === 'confirm') return attempt('No se pudo confirmar la factura de compra.', (token) => purchasingApi().confirmInvoice(token, id));
+
+  return attempt('No se pudo anular la factura de compra.', (token) => purchasingApi().cancelInvoice(token, id));
+}
+
+

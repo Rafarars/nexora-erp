@@ -32,6 +32,8 @@ export const GLOBEX = {
   draftCreditNoteId: 'f8000000-0000-4000-8000-000000000102',
   draftPurchaseReturnId: 'f9000000-0000-4000-8000-000000000101',
   confirmedPurchaseReturnId: 'f9000000-0000-4000-8000-000000000102',
+  draftPurchaseInvoiceId: 'fb000000-0000-4000-8000-000000000101',
+  confirmedPurchaseInvoiceId: 'fb000000-0000-4000-8000-000000000102',
 };
 
 export const ACME = {
@@ -705,5 +707,51 @@ export const ISOLATION_CASES: IsolationCase[] = [
     title: 'filter the purchase returns by a supplier of another tenant',
     method: 'get',
     path: `/api/v1/purchasing/returns?supplierId=${GLOBEX.supplierId}`,
+  },
+  {
+    route: 'POST /api/v1/purchasing/invoices',
+    title: 'create a purchase invoice for a supplier of another tenant',
+    method: 'post',
+    path: '/api/v1/purchasing/invoices',
+    body: {
+      supplierId: GLOBEX.supplierId,
+      supplierInvoiceNumber: 'INV-TEST-001',
+      lines: [{ concept: 'Gasto de prueba', quantity: 1, unitPrice: 10 }],
+    },
+  },
+  {
+    route: 'PUT /api/v1/purchasing/invoices/:invoiceId',
+    title: 'rewrite a draft purchase invoice of another tenant',
+    method: 'put',
+    path: `/api/v1/purchasing/invoices/${GLOBEX.draftPurchaseInvoiceId}`,
+    body: {
+      supplierId: GLOBEX.supplierId,
+      supplierInvoiceNumber: 'INV-TEST-001',
+      lines: [{ concept: 'Gasto de prueba', quantity: 1, unitPrice: 10 }],
+    },
+  },
+  {
+    route: 'PUT /api/v1/purchasing/invoices/:invoiceId/confirm',
+    title: 'confirm a purchase invoice of another tenant',
+    method: 'put',
+    path: `/api/v1/purchasing/invoices/${GLOBEX.draftPurchaseInvoiceId}/confirm`,
+  },
+  {
+    route: 'PUT /api/v1/purchasing/invoices/:invoiceId/cancel',
+    title: 'cancel a purchase invoice of another tenant',
+    method: 'put',
+    path: `/api/v1/purchasing/invoices/${GLOBEX.confirmedPurchaseInvoiceId}/cancel`,
+  },
+  {
+    route: 'GET /api/v1/purchasing/invoices/:invoiceId',
+    title: 'find a purchase invoice of another tenant',
+    method: 'get',
+    path: `/api/v1/purchasing/invoices/${GLOBEX.draftPurchaseInvoiceId}`,
+  },
+  {
+    route: 'GET /api/v1/purchasing/invoices',
+    title: 'filter the purchase invoices by a supplier of another tenant',
+    method: 'get',
+    path: `/api/v1/purchasing/invoices?supplierId=${GLOBEX.supplierId}`,
   },
 ];

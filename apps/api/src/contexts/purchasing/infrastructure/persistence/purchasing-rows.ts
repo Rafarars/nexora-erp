@@ -1,6 +1,7 @@
 import { GoodsReceipt } from '../../domain/receipt/goods-receipt.entity.js';
 import { PurchaseOrder } from '../../domain/order/purchase-order.entity.js';
 import { PurchaseReturn } from '../../domain/return/purchase-return.entity.js';
+import { PurchaseInvoice } from '../../domain/invoice/purchase-invoice.entity.js';
 
 type Decimalish = { toNumber(): number };
 
@@ -46,6 +47,7 @@ export interface PurchaseOrderRow extends CurrencyColumns {
     unitCost: Decimalish;
     taxRate: Decimalish;
     receivedQuantity: Decimalish;
+    invoicedQuantity?: Decimalish;
     movesStock: boolean;
   }[];
 }
@@ -69,6 +71,7 @@ export function orderFromRow(row: PurchaseOrderRow): PurchaseOrder {
       unitCost: n(line.unitCost),
       taxRate: n(line.taxRate),
       receivedQuantity: n(line.receivedQuantity),
+      invoicedQuantity: line.invoicedQuantity ? n(line.invoicedQuantity) : 0,
       movesStock: line.movesStock,
     })),
   });
@@ -175,4 +178,84 @@ export function purchaseReturnFromRow(row: PurchaseReturnRow): PurchaseReturn {
     })),
   });
 }
+
+export const PURCHASE_INVOICE_INCLUDE = { lines: { orderBy: { lineNumber: 'asc' } } } as const;
+
+export interface PurchaseInvoiceRow extends CurrencyColumns {
+  id: string;
+  tenantId: string;
+  code: string;
+  supplierId: string;
+  supplierInvoiceNumber: string;
+  supplierInvoiceSeries: string | null;
+  issueDate: Date;
+  dueDate: Date;
+  notes: string | null;
+  status: 'draft' | 'confirmed' | 'cancelled';
+  subtotal: Decimalish;
+  tax: Decimalish;
+  total: Decimalish;
+  subtotalVes: Decimalish | null;
+  taxVes: Decimalish | null;
+  totalVes: Decimalish | null;
+  priceDifference: Decimalish;
+  exchangeDifference: Decimalish;
+  confirmedAt: Date | null;
+  cancelledAt: Date | null;
+  createdAt: Date;
+  updatedAt: Date;
+  lines: {
+    id: string;
+    lineNumber: number;
+    receiptLineId: string | null;
+    orderLineId: string | null;
+    itemId: string | null;
+    itemSku: string | null;
+    itemName: string;
+    concept: string | null;
+    unitId: string | null;
+    quantity: Decimalish;
+    unitPrice: Decimalish;
+    taxRate: Decimalish;
+    subtotal: Decimalish;
+    tax: Decimalish;
+    total: Decimalish;
+  }[];
+}
+
+export function purchaseInvoiceFromRow(row: PurchaseInvoiceRow): PurchaseInvoice {
+  return PurchaseInvoice.fromPrimitives({
+    ...row,
+    issueDate: day(row.issueDate),
+    dueDate: day(row.dueDate),
+    exchangeRate: rate(row.exchangeRate),
+    baseExchangeRate: rate(row.baseExchangeRate),
+    subtotal: n(row.subtotal),
+    tax: n(row.tax),
+    total: n(row.total),
+    subtotalVes: row.subtotalVes ? n(row.subtotalVes) : null,
+    taxVes: row.taxVes ? n(row.taxVes) : null,
+    totalVes: row.totalVes ? n(row.totalVes) : null,
+    priceDifference: n(row.priceDifference),
+    exchangeDifference: n(row.exchangeDifference),
+    lines: row.lines.map((line) => ({
+      id: line.id,
+      lineNumber: line.lineNumber,
+      receiptLineId: line.receiptLineId,
+      orderLineId: line.orderLineId,
+      itemId: line.itemId,
+      itemSku: line.itemSku,
+      itemName: line.itemName,
+      concept: line.concept,
+      unitId: line.unitId,
+      quantity: n(line.quantity),
+      unitPrice: n(line.unitPrice),
+      taxRate: n(line.taxRate),
+      subtotal: n(line.subtotal),
+      tax: n(line.tax),
+      total: n(line.total),
+    })),
+  });
+}
+
 

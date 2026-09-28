@@ -8,6 +8,8 @@ import { PrismaDocumentStockPosting } from '../../../inventory/infrastructure/pe
 import { BOX, MAIN, NORTH, PIECE, TENANT_A, TENANT_B, WATER } from '../../domain/testing/purchasing.mother.js';
 import { PurchasingPorts, PurchasingPortsHarness } from '../../testing/purchasing-ports.harness.js';
 import { PrismaGoodsReceiptRepository } from '../persistence/prisma-goods-receipt.repository.js';
+import { PrismaPurchaseInvoicePosting } from '../persistence/prisma-purchase-invoice-posting.js';
+import { PrismaPurchaseInvoiceRepository } from '../persistence/prisma-purchase-invoice.repository.js';
 import { PrismaPurchaseOrderPosting } from '../persistence/prisma-purchase-order-posting.js';
 import { PrismaPurchaseOrderRepository } from '../persistence/prisma-purchase-order.repository.js';
 import { PrismaPurchaseReturnPosting } from '../persistence/prisma-purchase-return-posting.js';
@@ -37,9 +39,11 @@ export class PrismaPurchasingPortsHarness implements PurchasingPortsHarness {
       orders: new PrismaPurchaseOrderRepository(this.prisma),
       receipts: new PrismaGoodsReceiptRepository(this.prisma),
       returns: new PrismaPurchaseReturnRepository(this.prisma),
+      invoices: new PrismaPurchaseInvoiceRepository(this.prisma),
       orderPosting: new PrismaPurchaseOrderPosting(this.prisma),
       receiptPosting: new PrismaReceiptPosting(this.prisma, stockPosting),
       returnPosting: new PrismaPurchaseReturnPosting(this.prisma, stockPosting),
+      invoicePosting: new PrismaPurchaseInvoicePosting(this.prisma),
       codes: new PrismaPurchasingCodeSequence(this.prisma),
     };
   }
@@ -71,6 +75,8 @@ export class PrismaPurchasingPortsHarness implements PurchasingPortsHarness {
     await this.prisma.salesReturn.deleteMany();
     await this.prisma.purchaseReturnLine.deleteMany();
     await this.prisma.purchaseReturn.deleteMany();
+    await this.prisma.purchaseInvoiceLine.deleteMany();
+    await this.prisma.purchaseInvoice.deleteMany();
     await this.prisma.customerPayment.deleteMany();
     await this.prisma.invoice.deleteMany();
     await this.prisma.dispatch.deleteMany();
@@ -82,7 +88,7 @@ export class PrismaPurchasingPortsHarness implements PurchasingPortsHarness {
     await this.prisma.inventoryMovement.updateMany({ data: { reversalOfId: null, restoresMovementId: null } });
     await this.prisma.inventoryMovement.deleteMany();
     await this.prisma.itemStock.deleteMany();
-    await this.prisma.codeSequence.deleteMany({ where: { prefix: { in: ['PRV', 'OC', 'ENT', 'DVC'] } } });
+    await this.prisma.codeSequence.deleteMany({ where: { prefix: { in: ['PRV', 'OC', 'ENT', 'DVC', 'FCP'] } } });
 
     for (const [id, slug] of [
       [TENANT_A, 'contract-purchasing-a'],

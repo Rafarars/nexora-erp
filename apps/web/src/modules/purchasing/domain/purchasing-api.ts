@@ -1,4 +1,4 @@
-import type { GoodsReceipt, IncomingStock, PurchaseOrder, PurchaseReturn, ReceiptReturnQuota, Supplier } from './purchasing';
+import type { GoodsReceipt, IncomingStock, PurchaseInvoice, PurchaseOrder, PurchaseReturn, ReceiptReturnQuota, Supplier } from './purchasing';
 
 export interface SupplierInput {
   name: string;
@@ -100,6 +100,47 @@ export interface PurchaseReturnPage extends Page {
   returns: PurchaseReturn[];
 }
 
+export interface PurchaseInvoiceLineInput {
+  id?: string;
+  lineType: 'RECEIPT' | 'SERVICE' | 'EXPENSE';
+  receiptLineId?: string | null;
+  orderLineId?: string | null;
+  itemId?: string | null;
+  unitId?: string | null;
+  description: string;
+  quantity: number;
+  unitPrice: number;
+  vatRate: number;
+  vatExempt?: boolean;
+}
+
+export interface PurchaseInvoiceInput {
+  supplierId: string;
+  invoiceNumber: string;
+  series?: string | null;
+  controlNumber?: string | null;
+  issuedAt: string;
+  dueAt: string;
+  notes?: string | null;
+  currency?: string | null;
+  exchangeRate?: number | null;
+  lines: PurchaseInvoiceLineInput[];
+}
+
+export type PurchaseInvoiceFilters = {
+  q?: string;
+  supplierId?: string;
+  status?: string;
+  from?: string;
+  to?: string;
+  limit?: number;
+  offset?: number;
+};
+
+export interface PurchaseInvoicePage extends Page {
+  invoices: PurchaseInvoice[];
+}
+
 export interface PurchasingApi {
   searchSuppliers(token: string, filters?: SupplierFilters): Promise<SupplierPage>;
   // Todos, para llenar un selector: recorre las paginas que haga falta.
@@ -123,5 +164,11 @@ export interface PurchasingApi {
   confirmReturn(token: string, id: string): Promise<void>;
   cancelReturn(token: string, id: string): Promise<void>;
   getReceiptReturnQuota(token: string, receiptId: string): Promise<ReceiptReturnQuota>;
+  searchInvoices(token: string, filters?: PurchaseInvoiceFilters): Promise<PurchaseInvoicePage>;
+  findInvoice(token: string, id: string): Promise<PurchaseInvoice>;
+  createInvoice(token: string, input: PurchaseInvoiceInput): Promise<{ id: string }>;
+  updateInvoice(token: string, id: string, input: PurchaseInvoiceInput): Promise<void>;
+  confirmInvoice(token: string, id: string): Promise<void>;
+  cancelInvoice(token: string, id: string): Promise<void>;
 }
 

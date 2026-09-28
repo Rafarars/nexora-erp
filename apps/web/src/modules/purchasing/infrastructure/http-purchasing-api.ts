@@ -1,12 +1,15 @@
 import { AccessError } from '../../access/domain/access-error';
 import type { AccessErrorBody } from '../../access/domain/access-error';
-import type { PurchaseOrder, ReceiptReturnQuota, Supplier } from '../domain/purchasing';
+import type { PurchaseInvoice, PurchaseOrder, ReceiptReturnQuota, Supplier } from '../domain/purchasing';
 import type {
   IncomingFilters,
   IncomingPage,
   OrderFilters,
   OrderInput,
   OrderPage,
+  PurchaseInvoiceFilters,
+  PurchaseInvoiceInput,
+  PurchaseInvoicePage,
   PurchaseReturnFilters,
   PurchaseReturnInput,
   PurchaseReturnPage,
@@ -149,6 +152,55 @@ export class HttpPurchasingApi implements PurchasingApi {
 
   async getReceiptReturnQuota(token: string, receiptId: string): Promise<ReceiptReturnQuota> {
     return this.request<ReceiptReturnQuota>('GET', `${BASE}/receipts/${receiptId}/return-quota`, token);
+  }
+
+  async searchInvoices(token: string, filters: PurchaseInvoiceFilters = {}): Promise<PurchaseInvoicePage> {
+    return this.request<PurchaseInvoicePage>('GET', `${BASE}/invoices${queryOf(filters)}`, token);
+  }
+
+  async findInvoice(token: string, id: string): Promise<PurchaseInvoice> {
+    return this.request<PurchaseInvoice>('GET', `${BASE}/invoices/${id}`, token);
+  }
+
+  async createInvoice(token: string, input: PurchaseInvoiceInput): Promise<{ id: string }> {
+    return this.request<{ id: string }>('POST', `${BASE}/invoices`, token, this.invoiceBody(input));
+  }
+
+  async updateInvoice(token: string, id: string, input: PurchaseInvoiceInput): Promise<void> {
+    await this.request('PUT', `${BASE}/invoices/${id}`, token, this.invoiceBody(input));
+  }
+
+  async confirmInvoice(token: string, id: string): Promise<void> {
+    await this.request('PUT', `${BASE}/invoices/${id}/confirm`, token);
+  }
+
+  async cancelInvoice(token: string, id: string): Promise<void> {
+    await this.request('PUT', `${BASE}/invoices/${id}/cancel`, token);
+  }
+
+  private invoiceBody(input: PurchaseInvoiceInput) {
+    return {
+      supplierId: input.supplierId,
+      supplierInvoiceNumber: input.invoiceNumber,
+      supplierInvoiceSeries: input.series || null,
+      issueDate: input.issuedAt || null,
+      dueDate: input.dueAt || null,
+      notes: input.notes || null,
+      currency: input.currency || null,
+      exchangeRate: input.exchangeRate === null || input.exchangeRate === undefined ? null : numeric(input.exchangeRate),
+      lines: input.lines.map((line) => ({
+        ...(line.id ? { id: line.id } : {}),
+        receiptLineId: line.receiptLineId || null,
+        orderLineId: line.orderLineId || null,
+        itemId: line.itemId || null,
+        unitId: line.unitId || null,
+        concept: line.description || null,
+        itemName: line.description || null,
+        quantity: numeric(line.quantity),
+        unitPrice: numeric(line.unitPrice),
+        taxRate: numeric(line.vatRate),
+      })),
+    };
   }
 
   private receiptBody(input: ReceiptInput) {

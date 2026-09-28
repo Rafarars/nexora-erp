@@ -96,6 +96,11 @@ export const PURCHASING_PERMISSIONS: PermissionDefinition[] = [
   { code: 'purchasing.returns.update', description: 'Editar devoluciones de compra en borrador' },
   { code: 'purchasing.returns.confirm', description: 'Confirmar devoluciones: baja la existencia al costo congelado' },
   { code: 'purchasing.returns.cancel', description: 'Anular devoluciones de compra' },
+  { code: 'purchasing.invoices.search', description: 'Consultar las facturas de compra' },
+  { code: 'purchasing.invoices.create', description: 'Crear facturas de compra en borrador' },
+  { code: 'purchasing.invoices.update', description: 'Editar facturas de compra en borrador' },
+  { code: 'purchasing.invoices.confirm', description: 'Confirmar facturas de compra' },
+  { code: 'purchasing.invoices.cancel', description: 'Anular facturas de compra' },
 ];
 
 export const SALES_PERMISSIONS: PermissionDefinition[] = [

@@ -219,3 +219,62 @@ export function purchaseReturnActions(ret: Pick<PurchaseReturn, 'status'>): { ed
 export function summarizePurchaseReturnLines(lines: PurchaseReturnLine[]): string {
   return lines.map((line) => `${formatQuantity(line.quantity)} ${line.unitAbbreviation} ${line.sku}`).join(' · ');
 }
+
+export type PurchaseInvoiceStatus = 'draft' | 'confirmed' | 'cancelled';
+
+export interface PurchaseInvoiceLine {
+  id: string;
+  lineNumber: number;
+  receiptLineId: string | null;
+  orderLineId: string | null;
+  itemId: string | null;
+  itemSku: string | null;
+  itemName: string;
+  concept: string | null;
+  unitId: string | null;
+  quantity: number;
+  unitPrice: number;
+  taxRate: number;
+  subtotal: number;
+  tax: number;
+  total: number;
+}
+
+export interface PurchaseInvoice extends DocumentCurrency {
+  id: string;
+  code: string;
+  supplierId: string;
+  supplierInvoiceNumber: string;
+  supplierInvoiceSeries: string | null;
+  issueDate: string;
+  dueDate: string;
+  notes: string | null;
+  status: PurchaseInvoiceStatus;
+  subtotal: number;
+  tax: number;
+  total: number;
+  subtotalVes: number;
+  taxVes: number;
+  totalVes: number;
+  priceDifference: number;
+  exchangeDifference: number;
+  confirmedAt: string | null;
+  cancelledAt: string | null;
+  createdAt: string;
+  updatedAt: string;
+  lines: PurchaseInvoiceLine[];
+}
+
+export const PURCHASE_INVOICE_STATUS_LABELS: Record<PurchaseInvoiceStatus, string> = {
+  draft: 'Borrador',
+  confirmed: 'Confirmada',
+  cancelled: 'Anulada',
+};
+
+export function purchaseInvoiceActions(inv: Pick<PurchaseInvoice, 'status'>): { edit: boolean; confirm: boolean; cancel: boolean } {
+  return {
+    edit: inv.status === 'draft',
+    confirm: inv.status === 'draft',
+    cancel: inv.status !== 'cancelled',
+  };
+}

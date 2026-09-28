@@ -1,10 +1,15 @@
 import { ConcurrentModificationError } from '../../../shared/domain/concurrent-modification.error.js';
 import { afterAll, afterEach, beforeEach, describe, expect, it } from 'vitest';
 import {
+  DuplicateSupplierInvoiceNumberError,
   DuplicateSupplierNameError,
   GoodsReceiptAlreadyCancelledError,
   GoodsReceiptNotEditableError,
   GoodsReceiptNotFoundError,
+  InvoiceQuantityExceedsReceiptError,
+  PurchaseInvoiceAlreadyCancelledError,
+  PurchaseInvoiceNotConfirmableError,
+  PurchaseInvoiceNotFoundError,
   PurchaseItemChangedError,
   PurchaseOrderNotEditableError,
   PurchaseOrderNotFoundError,
@@ -20,6 +25,9 @@ import {
   ReceivedGoodsAlreadyUsedError,
   ReturnBeforeReceiptError,
 } from '../domain/errors/purchasing.errors.js';
+import { PurchaseInvoice, PurchaseInvoiceId } from '../domain/invoice/purchase-invoice.entity.js';
+import { PurchaseInvoiceLine } from '../domain/invoice/purchase-invoice-line.js';
+import { SupplierInvoiceNumber } from '../domain/invoice/supplier-invoice-number.vo.js';
 import { ensureOrderMatchesCatalog } from '../domain/order/posting/ordered-items-check.js';
 import { PurchaseOrderLine } from '../domain/order/purchase-order-line.js';
 import { PurchaseOrder, PurchaseOrderId } from '../domain/order/purchase-order.entity.js';
@@ -35,7 +43,7 @@ import { Quantity } from '../domain/shared/quantity.vo.js';
 import { WarehouseRef } from '../domain/shared/references.vo.js';
 import { TenantId } from '../domain/shared/tenant-id.vo.js';
 import { Supplier, SupplierId } from '../domain/supplier/supplier.entity.js';
-import { MAIN, NOW, SUPPLIER, TENANT_A, TENANT_B, TODAY, WATER, aDocumentCurrency, anOrderLine } from '../domain/testing/purchasing.mother.js';
+import { BOX, MAIN, NOW, PIECE, SUPPLIER, TENANT_A, TENANT_B, TODAY, WATER, aDocumentCurrency, anOrderLine } from '../domain/testing/purchasing.mother.js';
 import { PurchasingPorts, PurchasingPortsHarness } from './purchasing-ports.harness.js';
 
 const tenant = TenantId.of(TENANT_A);
@@ -159,6 +167,52 @@ export function describePurchasingPortsContract(implementation: string, createHa
       );
 
       return id;
+    }
+
+    async function draftInvoice(options: {
+      receiptLineId?: string;
+      orderLineId?: string;
+      quantity: number;
+      unitPrice: number;
+      unitId?: string;
+      supplierInvoiceNumber?: string;
+    }): Promise<PurchaseInvoice> {
+      const id = PurchaseInvoiceId.of(`0f100000-0000-4000-8000-${next()}`);
+      const invoice = PurchaseInvoice.draft(
+        id,
+        tenant,
+        `FCP${next().slice(-6)}`,
+        {
+          supplierId: SupplierId.of(SUPPLIER),
+          supplierInvoiceNumber: SupplierInvoiceNumber.of(options.supplierInvoiceNumber ?? `FAC-${next().slice(-4)}`),
+          supplierInvoiceSeries: null,
+          issueDate: PurchaseDate.of(TODAY),
+          dueDate: PurchaseDate.of(TODAY),
+          currency: aDocumentCurrency(),
+          lines: [
+            PurchaseInvoiceLine.of({
+              id: `0f200000-0000-4000-8000-${next()}`,
+              lineNumber: 1,
+              receiptLineId: options.receiptLineId ?? null,
+              orderLineId: options.orderLineId ?? null,
+              itemId: WATER,
+              itemSku: 'PRUEBA-SKU',
+              itemName: 'Articulo prueba',
+              concept: null,
+              unitId: options.unitId ?? BOX,
+              quantity: Quantity.of(options.quantity),
+              unitPrice: options.unitPrice,
+              taxRate: 0.16,
+            }),
+          ],
+          notes: 'contrato factura',
+        },
+        NOW,
+        TODAY,
+      );
+
+      await ports.invoices.save(invoice);
+      return invoice;
     }
 
     describe('SupplierRepository', () => {
@@ -695,6 +749,132 @@ export function describePurchasingPortsContract(implementation: string, createHa
         if (harness.averageCostOf) {
           expect(await harness.averageCostOf(WATER, MAIN)).toBeCloseTo(0.833333, 4);
         }
+      });
+    });
+
+    describe('PurchaseInvoiceRepository and PurchaseInvoicePosting', () => {
+      it('saves and finds purchase invoice by id, code and search criteria', async () => {
+        const invoice = await draftInvoice({ quantity: 5, unitPrice: 10, supplierInvoiceNumber: 'FAC-0001' });
+
+        const byId = await ports.invoices.findById(tenant, invoice.id);
+        expect(byId).not.toBeNull();
+        expect(byId!.supplierInvoiceNumber.value).toBe('FAC-0001');
+
+        const byCode = await ports.invoices.findByCode(tenant, invoice.code);
+        expect(byCode).not.toBeNull();
+        expect(byCode!.id.value).toBe(invoice.id.value);
+
+        const searchResult = await ports.invoices.search(tenant, { supplierId: SUPPLIER, limit: 10, offset: 0 });
+        expect(searchResult.total).toBe(1);
+        expect(searchResult.invoices[0].id.value).toBe(invoice.id.value);
+      });
+
+      it('rejects duplicate active supplier invoice number for the same supplier', async () => {
+        const order = await confirmedOrder([anOrderLine({ quantity: 10, unitCost: 12 })]);
+        const receiptId = await draftReceipt(order, [10]);
+        await confirm(receiptId);
+        const receipt = (await ports.receipts.find(tenant, receiptId))!;
+        const receiptLine = receipt.lines()[0];
+
+        const inv1 = await draftInvoice({ receiptLineId: receiptLine.id.value, quantity: 4, unitPrice: 12, supplierInvoiceNumber: 'FACT-DUP-1' });
+        await ports.invoicePosting.confirm(tenant, inv1.id, NOW);
+
+        await expect(
+          draftInvoice({ receiptLineId: receiptLine.id.value, quantity: 3, unitPrice: 12, supplierInvoiceNumber: 'FACT-DUP-1' }),
+        ).rejects.toThrow(DuplicateSupplierInvoiceNumberError);
+      });
+
+      it('allows reusing supplier invoice number once the earlier invoice is cancelled', async () => {
+        const order = await confirmedOrder([anOrderLine({ quantity: 10, unitCost: 12 })]);
+        const receiptId = await draftReceipt(order, [10]);
+        await confirm(receiptId);
+        const receipt = (await ports.receipts.find(tenant, receiptId))!;
+        const receiptLine = receipt.lines()[0];
+
+        const inv1 = await draftInvoice({ receiptLineId: receiptLine.id.value, quantity: 4, unitPrice: 12, supplierInvoiceNumber: 'FACT-REUSE-1' });
+        await ports.invoicePosting.confirm(tenant, inv1.id, NOW);
+
+        // Cancelar la primera
+        await ports.invoicePosting.cancel(tenant, inv1.id, NOW);
+
+        // La segunda con el mismo numero ahora puede guardarse y confirmarse
+        const inv2 = await draftInvoice({ receiptLineId: receiptLine.id.value, quantity: 4, unitPrice: 12, supplierInvoiceNumber: 'FACT-REUSE-1' });
+        const confirmed2 = await ports.invoicePosting.confirm(tenant, inv2.id, NOW);
+        expect(confirmed2.currentStatus).toBe('confirmed');
+      });
+
+      it('rejects invoicing more than received on a receipt line', async () => {
+        const order = await confirmedOrder([anOrderLine({ quantity: 10, unitCost: 12 })]);
+        const receiptId = await draftReceipt(order, [10]);
+        await confirm(receiptId);
+        const receipt = (await ports.receipts.find(tenant, receiptId))!;
+        const receiptLine = receipt.lines()[0];
+
+        // Intentar facturar 11 sobre una entrada de 10
+        const inv = await draftInvoice({ receiptLineId: receiptLine.id.value, quantity: 11, unitPrice: 12 });
+        await expect(ports.invoicePosting.confirm(tenant, inv.id, NOW)).rejects.toThrow(InvoiceQuantityExceedsReceiptError);
+      });
+
+      it('cancelling a confirmed invoice reverts invoicedQuantity on the order', async () => {
+        const order = await confirmedOrder([anOrderLine({ quantity: 10, unitCost: 12 })]);
+        const receiptId = await draftReceipt(order, [10]);
+        await confirm(receiptId);
+        const receipt = (await ports.receipts.find(tenant, receiptId))!;
+        const receiptLine = receipt.lines()[0];
+
+        const inv = await draftInvoice({ receiptLineId: receiptLine.id.value, quantity: 6, unitPrice: 12 });
+        await ports.invoicePosting.confirm(tenant, inv.id, NOW);
+
+        let reloadedOrder = (await ports.orders.find(tenant, order.id))!;
+        expect(reloadedOrder.lines()[0].invoicedQuantity().toNumber()).toBe(6);
+
+        await ports.invoicePosting.cancel(tenant, inv.id, NOW);
+
+        reloadedOrder = (await ports.orders.find(tenant, order.id))!;
+        expect(reloadedOrder.lines()[0].invoicedQuantity().toNumber()).toBe(0);
+      });
+
+      it('two simultaneous confirms compete: exactly one succeeds and one fails without exceeding receipt quantity', async () => {
+        const order = await confirmedOrder([anOrderLine({ quantity: 10, unitCost: 12 })]);
+        const receiptId = await draftReceipt(order, [10]);
+        await confirm(receiptId);
+        const receipt = (await ports.receipts.find(tenant, receiptId))!;
+        const receiptLine = receipt.lines()[0];
+
+        // Dos facturas en borrador por 8 unidades cada una (la entrada solo tiene 10)
+        const invA = await draftInvoice({ receiptLineId: receiptLine.id.value, quantity: 8, unitPrice: 12, supplierInvoiceNumber: 'COMPETE-A' });
+        const invB = await draftInvoice({ receiptLineId: receiptLine.id.value, quantity: 8, unitPrice: 12, supplierInvoiceNumber: 'COMPETE-B' });
+
+        const results = await Promise.allSettled([
+          ports.invoicePosting.confirm(tenant, invA.id, NOW),
+          ports.invoicePosting.confirm(tenant, invB.id, NOW),
+        ]);
+
+        const fulfilled = results.filter((r) => r.status === 'fulfilled');
+        const rejected = results.filter((r) => r.status === 'rejected');
+
+        expect(fulfilled.length).toBe(1);
+        expect(rejected.length).toBe(1);
+
+        // Verificamos que la orden y las cantidades facturadas no superaron 8
+        const finalOrder = (await ports.orders.find(tenant, order.id))!;
+        expect(finalOrder.lines()[0].invoicedQuantity().toNumber()).toBe(8);
+      });
+
+      it('confirming a purchase invoice does not change any stock (H9 §3.2)', async () => {
+        const order = await confirmedOrder([anOrderLine({ quantity: 10, unitCost: 12 })]);
+        const receiptId = await draftReceipt(order, [10]);
+        await confirm(receiptId);
+        const receipt = (await ports.receipts.find(tenant, receiptId))!;
+        const receiptLine = receipt.lines()[0];
+
+        const initialStock = await harness.stockOf(WATER, MAIN);
+
+        const inv = await draftInvoice({ receiptLineId: receiptLine.id.value, quantity: 10, unitPrice: 12 });
+        await ports.invoicePosting.confirm(tenant, inv.id, NOW);
+
+        const stockAfterInvoice = await harness.stockOf(WATER, MAIN);
+        expect(stockAfterInvoice).toBe(initialStock);
       });
     });
 

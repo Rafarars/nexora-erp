@@ -62,6 +62,22 @@ const BY_CODE: Record<string, string> = {
   DuplicatePurchaseReturnLineError: 'Cada línea de la entrada solo puede figurar una vez en la devolución.',
   ReceiptLineNotInReceiptError: 'Una de las líneas seleccionadas no pertenece a la entrada de mercancía.',
   InactiveReturnWarehouseError: 'La bodega de la devolución no está activa.',
+  PurchaseInvoiceNotFoundError: 'Esa factura de compra ya no existe en esta empresa.',
+  DuplicateSupplierInvoiceNumberError: 'Ya existe una factura activa de ese proveedor con ese número de factura.',
+  EmptyPurchaseInvoiceLinesError: 'La factura de compra debe incluir al menos una línea.',
+  DuplicateReceiptLineInInvoiceError: 'Cada línea de entrada solo puede figurar una vez en la factura.',
+  DuplicateOrderLineInInvoiceError: 'Cada línea de orden de servicio solo puede figurar una vez en la factura.',
+  PurchaseInvoiceNotEditableError: 'Solo se puede editar una factura de compra en borrador.',
+  PurchaseInvoiceNotConfirmableError: 'Solo se puede confirmar una factura de compra en borrador.',
+  PurchaseInvoiceNotCancellableError: 'Esta factura de compra ya no se puede anular.',
+  QuantityExceedsReceiptInvoicingQuotaError: 'La cantidad excede el cupo facturable de la entrada (recibido menos devuelto menos ya facturado).',
+  InvoiceSupplierMismatchError: 'El documento o entrada seleccionado no pertenece al proveedor de la factura.',
+  InvoiceItemMismatchError: 'El artículo o unidad de la línea no coincide con la entrada u orden de compra.',
+  InvoiceReceiptNotConfirmedError: 'Solo se pueden facturar entradas de mercancía confirmadas.',
+  InvoiceOrderNotConfirmedError: 'Solo se pueden facturar órdenes de compra confirmadas.',
+  InvoiceLineRequiresServiceError: 'La línea de orden asociada debe corresponder a un ítem de tipo servicio.',
+  InvoiceLineRequiresReceiptError: 'La línea de tipo entrada debe vincularse a una línea de entrada de mercancía.',
+  InvoiceLineRequiresOrderError: 'La línea de tipo servicio debe vincularse a una línea de orden de compra.',
 };
 
 // Los mensajes de compras y, para lo demas, los del inventario, el catalogo y el acceso.

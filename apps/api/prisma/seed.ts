@@ -2,6 +2,7 @@ import { PrismaPg } from '@prisma/adapter-pg';
 import { hash } from '@node-rs/argon2';
 import { PrismaClient } from '../src/generated/prisma/client.js';
 import { assertDisposableDatabase } from './disposable-database.js';
+import { SYSTEM_PERMISSIONS } from '../src/contexts/access/domain/role/permissions.catalog.js';
 
 // Datos de demostracion para desarrollo y para la suite end-to-end. DOS empresas, no
 // una: sin una segunda empresa no se puede probar que el aislamiento funciona, que es
@@ -255,6 +256,7 @@ async function main(): Promise<void> {
 
   try {
     await removeLeftovers(prisma);
+    await syncPermissions(prisma);
     await upsertTenants(prisma);
     await upsertCompanies(prisma);
     await upsertExchangeRates(prisma);
@@ -295,6 +297,16 @@ async function removeLeftovers(prisma: PrismaClient): Promise<void> {
   await prisma.membership.deleteMany({ where: { userId: { notIn: seeded } } });
   await prisma.user.deleteMany({ where: { id: { notIn: seeded } } });
   await prisma.role.deleteMany({ where: { id: { notIn: seededRoles } } });
+}
+
+async function syncPermissions(prisma: PrismaClient): Promise<void> {
+  for (const { code, description } of SYSTEM_PERMISSIONS) {
+    await prisma.permission.upsert({
+      where: { code },
+      create: { code, description },
+      update: { description },
+    });
+  }
 }
 
 async function upsertTenants(prisma: PrismaClient): Promise<void> {
@@ -389,6 +401,7 @@ async function upsertRoles(prisma: PrismaClient): Promise<void> {
         'purchasing.receipts.search',
         'purchasing.incoming.search',
         'purchasing.returns.search',
+        'purchasing.invoices.search',
         'sales.customers.search',
         'sales.orders.search',
         'sales.dispatches.search',
