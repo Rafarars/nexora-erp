@@ -162,7 +162,6 @@ test.describe('Credit notes and returns UI', () => {
     await sales.open('devoluciones');
 
     // 1. Crear borrador con despacho DES000001 y motivo único
-    const beforeCodes1 = await page.locator('[data-testid="sales-return-code"]').allInnerTexts();
     const uniqueReason1 = `Motivo inicial despacho ${Date.now()}`;
     await page.getByTestId('btn-new-sales-return').click();
     await expect(page.getByTestId('sales-return-create-panel')).toBeVisible();
@@ -176,15 +175,10 @@ test.describe('Credit notes and returns UI', () => {
     await page.getByTestId('btn-save-sales-return').click();
     await expect(page.getByTestId('sales-return-create-panel')).toBeHidden();
 
-    // Esperar a que la tabla revalide e incorpore la nueva fila
-    await expect(async () => {
-      const codes = await page.locator('[data-testid="sales-return-code"]').allInnerTexts();
-      expect(codes.some((c) => !beforeCodes1.includes(c))).toBe(true);
-    }).toPass();
-    const afterCodes1 = await page.locator('[data-testid="sales-return-code"]').allInnerTexts();
-    const firstDraftCode = afterCodes1.find((c) => !beforeCodes1.includes(c))!;
-    expect(firstDraftCode).toBeDefined();
-    await expect(page.getByTestId(`sales-return-row-${firstDraftCode}`)).toBeVisible();
+    // Localizar el borrador específico por su motivo único
+    const draftRow1 = page.locator(`[data-testid^="sales-return-row-"][data-reason="${uniqueReason1}"]`);
+    await expect(draftRow1).toBeVisible();
+    const firstDraftCode = await draftRow1.locator('[data-testid="sales-return-code"]').innerText();
 
     // 2. Editar el borrador con despacho: modificar motivo y cantidad
     const editedReason1 = `Motivo editado despacho ${Date.now()}`;
@@ -208,12 +202,11 @@ test.describe('Credit notes and returns UI', () => {
     await page.getByRole('button', { name: 'Cancelar' }).click();
     await expect(page.getByTestId('sales-return-create-panel')).toBeHidden();
 
-    // Comprobar que el código no cambió y no apareció otro
-    await expect(page.getByTestId(`sales-return-row-${firstDraftCode}`)).toBeVisible();
+    // Comprobar que la fila ahora refleja el motivo editado y no se duplicó el código
+    await expect(page.locator(`[data-testid^="sales-return-row-"][data-reason="${editedReason1}"]`)).toBeVisible();
     await expect(page.locator(`[data-testid="sales-return-row-${firstDraftCode}"]`)).toHaveCount(1);
 
     // 3. Crear borrador sin origen con motivo único
-    const beforeCodes2 = await page.locator('[data-testid="sales-return-code"]').allInnerTexts();
     const uniqueReason2 = `Motivo inicial sin origen ${Date.now()}`;
     await page.getByTestId('btn-new-sales-return').click();
     await expect(page.getByTestId('sales-return-create-panel')).toBeVisible();
@@ -232,15 +225,10 @@ test.describe('Credit notes and returns UI', () => {
     await page.getByTestId('btn-save-sales-return').click();
     await expect(page.getByTestId('sales-return-create-panel')).toBeHidden();
 
-    // Esperar a que la tabla revalide e incorpore la nueva fila sin origen
-    await expect(async () => {
-      const codes = await page.locator('[data-testid="sales-return-code"]').allInnerTexts();
-      expect(codes.some((c) => !beforeCodes2.includes(c))).toBe(true);
-    }).toPass();
-    const afterCodes2 = await page.locator('[data-testid="sales-return-code"]').allInnerTexts();
-    const originlessCode = afterCodes2.find((c) => !beforeCodes2.includes(c))!;
-    expect(originlessCode).toBeDefined();
-    await expect(page.getByTestId(`sales-return-row-${originlessCode}`)).toBeVisible();
+    // Localizar el borrador sin origen por su motivo único
+    const draftRow2 = page.locator(`[data-testid^="sales-return-row-"][data-reason="${uniqueReason2}"]`);
+    await expect(draftRow2).toBeVisible();
+    const originlessCode = await draftRow2.locator('[data-testid="sales-return-code"]').innerText();
 
     // 4. Editar el borrador sin origen: modificar motivo y cantidad
     const editedReason2 = `Motivo editado sin origen ${Date.now()}`;
@@ -252,6 +240,7 @@ test.describe('Credit notes and returns UI', () => {
 
     await page.getByTestId('sales-return-reason-input').fill(editedReason2);
     await page.getByTestId('sales-return-qty-0').fill('3');
+
     await page.getByTestId('btn-save-sales-return').click();
     await expect(page.getByTestId('sales-return-create-panel')).toBeHidden();
 
@@ -264,8 +253,8 @@ test.describe('Credit notes and returns UI', () => {
     await page.getByRole('button', { name: 'Cancelar' }).click();
     await expect(page.getByTestId('sales-return-create-panel')).toBeHidden();
 
-    // Comprobar que el código no cambió y no apareció otro
-    await expect(page.getByTestId(`sales-return-row-${originlessCode}`)).toBeVisible();
+    // Comprobar que la fila ahora refleja el motivo editado y no se duplicó el código
+    await expect(page.locator(`[data-testid^="sales-return-row-"][data-reason="${editedReason2}"]`)).toBeVisible();
     await expect(page.locator(`[data-testid="sales-return-row-${originlessCode}"]`)).toHaveCount(1);
   });
 
@@ -278,7 +267,6 @@ test.describe('Credit notes and returns UI', () => {
     await purchasing.open('devoluciones');
 
     // 1. Crear borrador de devolución de compra con motivo único
-    const beforeCodes = await page.locator('[data-testid="purchase-return-code"]').allInnerTexts();
     const uniqueReason = `Motivo compra inicial ${Date.now()}`;
     await page.getByTestId('btn-new-purchase-return').click();
     await expect(page.getByTestId('purchase-return-create-panel')).toBeVisible();
@@ -292,15 +280,10 @@ test.describe('Credit notes and returns UI', () => {
     await page.getByTestId('btn-save-purchase-return').click();
     await expect(page.getByTestId('purchase-return-create-panel')).toBeHidden();
 
-    // Esperar a que la tabla revalide e incorpore la nueva fila
-    await expect(async () => {
-      const codes = await page.locator('[data-testid="purchase-return-code"]').allInnerTexts();
-      expect(codes.some((c) => !beforeCodes.includes(c))).toBe(true);
-    }).toPass();
-    const afterCodes = await page.locator('[data-testid="purchase-return-code"]').allInnerTexts();
-    const returnCode = afterCodes.find((c) => !beforeCodes.includes(c))!;
-    expect(returnCode).toBeDefined();
-    await expect(page.getByTestId(`purchase-return-row-${returnCode}`)).toBeVisible();
+    // Localizar el borrador de compra por su motivo único
+    const draftRow = page.locator(`[data-testid^="purchase-return-row-"][data-reason="${uniqueReason}"]`);
+    await expect(draftRow).toBeVisible();
+    const returnCode = await draftRow.locator('[data-testid="purchase-return-code"]').innerText();
 
     // 2. Editar el borrador: cambiar motivo y cantidad
     const editedReason = `Motivo compra editado ${Date.now()}`;
@@ -324,8 +307,8 @@ test.describe('Credit notes and returns UI', () => {
     await page.getByRole('button', { name: 'Cancelar' }).click();
     await expect(page.getByTestId('purchase-return-create-panel')).toBeHidden();
 
-    // Comprobar que el código no cambió y no apareció otro
-    await expect(page.getByTestId(`purchase-return-row-${returnCode}`)).toBeVisible();
+    // Comprobar que la fila ahora refleja el motivo editado y no se duplicó el código
+    await expect(page.locator(`[data-testid^="purchase-return-row-"][data-reason="${editedReason}"]`)).toBeVisible();
     await expect(page.locator(`[data-testid="purchase-return-row-${returnCode}"]`)).toHaveCount(1);
   });
 });

@@ -143,7 +143,12 @@ export function PurchaseReturnsBoard({
               const showMenu = offered.edit || offered.confirm || offered.cancel;
 
               return (
-                <tr key={ret.id} className="border-line border-t hover:bg-surface/50" data-testid={`purchase-return-row-${ret.code}`}>
+                <tr
+                  key={ret.id}
+                  className="border-line border-t hover:bg-surface/50"
+                  data-testid={`purchase-return-row-${ret.code}`}
+                  data-reason={ret.reason ?? undefined}
+                >
                   <td className="px-4 py-2 font-mono font-medium" data-testid="purchase-return-code">{ret.code}</td>
                   <td className="px-4 py-2">{ret.supplier.name}</td>
                   <td className="px-4 py-2 font-mono">{ret.receipt.code}</td>
