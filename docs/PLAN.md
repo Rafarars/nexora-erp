@@ -376,7 +376,7 @@ El hueco que un reclutador encuentra clicando: hoy se puede anular una factura, 
 
 - [x] **0. Esquema y correlativos** · [x] **1. Revertir líneas sueltas en el kardex**
 - [x] **2. Devolución de venta** · [x] **3. Nota de crédito a cliente** · [x] **4. Devolución de compra**
-- [x] **5. Restringir la anulación de facturas** · [x] **6. Semillas y E2E** · [ ] **7. Revisión**
+- [x] **5. Restringir la anulación de facturas** · [x] **6. Semillas y E2E** · [x] **7. Revisión** ([informe](revision/h8/h8.md))
 
 *La decisión que lo define:* una nota de crédito **no resta el saldo por su cuenta**, genera un
 cobro sin dinero. El saldo de una factura se toca hoy en **dieciséis sitios** —nueve que lo
