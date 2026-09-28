@@ -2,3 +2,7 @@ node_modules/
 dist/
 .env
 .env.local
+
+# Artefactos de playwright-cli y evidencia de QA de la skill web-qa: no se versionan
+.playwright-cli/
+qa-evidence/
