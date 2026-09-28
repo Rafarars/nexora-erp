@@ -1,19 +1,20 @@
 // Funciones puras para resolver el borrador en edicion y calcular su clave determinista.
 // Sin React ni DOM: la logica es portable y se prueba sin montar componentes.
 
-export interface Identifiable {
-  id: string;
-}
+export type IdExtractor<T> = (item: T) => string;
+
+const defaultGetId = <T>(item: T): string => (item as unknown as { id: string }).id;
 
 // Si el registro sigue en las filas actuales, toma la version fresca que traen las props;
 // si desaparecio (otra pagina, filtro activo), preserva la copia del momento de abrir.
-export function resolveEditingDraft<T extends Identifiable>(
+export function resolveEditingDraft<T>(
   items: readonly T[],
   editingId: string | null,
   snapshot: T | null,
+  getId: IdExtractor<T> = defaultGetId,
 ): T | null {
   if (!editingId) return null;
-  const current = items.find((item) => item.id === editingId);
+  const current = items.find((item) => getId(item) === editingId);
   return current ?? snapshot;
 }
 
@@ -48,7 +49,11 @@ export function computeDraftFingerprint(item: unknown): string {
 }
 
 // Clave para el formulario o campos con defaultValue: cambia cuando cambian los datos para remontarlos.
-export function editingDraftKey(prefix: string, item: Identifiable | null): string {
+export function editingDraftKey<T>(
+  prefix: string,
+  item: T | null,
+  getId: IdExtractor<T> = defaultGetId,
+): string {
   if (!item) return `${prefix}-new`;
-  return `${prefix}-${item.id}-${computeDraftFingerprint(item)}`;
+  return `${prefix}-${getId(item)}-${computeDraftFingerprint(item)}`;
 }

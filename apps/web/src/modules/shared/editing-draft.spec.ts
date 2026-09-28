@@ -31,6 +31,16 @@ describe('resolveEditingDraft', () => {
     expect(resolved).toBe(staleSnapshot);
     expect(resolved?.reason).toBe('Motivo preservado');
   });
+
+  it('supports custom id extractor for entities like Person with userId', () => {
+    const staleSnapshot = { userId: 'u-1', name: 'Viejo' };
+    const freshFromProps = { userId: 'u-1', name: 'Nuevo' };
+    const items = [freshFromProps];
+
+    const resolved = resolveEditingDraft(items, 'u-1', staleSnapshot, (p) => p.userId);
+    expect(resolved).toBe(freshFromProps);
+    expect(resolved?.name).toBe('Nuevo');
+  });
 });
 
 describe('computeDraftFingerprint', () => {
