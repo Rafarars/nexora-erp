@@ -754,4 +754,10 @@ export const ISOLATION_CASES: IsolationCase[] = [
     method: 'get',
     path: `/api/v1/purchasing/invoices?supplierId=${GLOBEX.supplierId}`,
   },
+  {
+    route: 'GET /api/v1/purchasing/invoices/:invoiceId/three-way-match',
+    title: 'inspect three-way match of a purchase invoice of another tenant',
+    method: 'get',
+    path: `/api/v1/purchasing/invoices/${GLOBEX.draftPurchaseInvoiceId}/three-way-match`,
+  },
 ];

@@ -278,3 +278,37 @@ export function purchaseInvoiceActions(inv: Pick<PurchaseInvoice, 'status'>): { 
     cancel: inv.status !== 'cancelled',
   };
 }
+
+export interface ThreeWayMatchLineComparison {
+  invoiceLineId: string;
+  lineNumber: number;
+  itemSku: string | null;
+  itemName: string | null;
+  concept: string | null;
+  receiptLineId: string | null;
+  receiptCode: string | null;
+  orderLineId: string | null;
+  orderCode: string | null;
+  orderedQuantity: number | null;
+  receivedQuantity: number | null;
+  returnedQuantity: number | null;
+  availableQuantity: number | null;
+  invoicedQuantity: number;
+  quantityMismatch: boolean;
+  orderUnitPrice: number | null;
+  receiptUnitCost: number | null;
+  invoiceUnitPrice: number;
+  priceDifference: number;
+  priceMismatch: boolean;
+}
+
+export interface ThreeWayMatchResponse {
+  invoiceId: string;
+  invoiceCode: string;
+  status: string;
+  hasDiscrepancies: boolean;
+  hasQuantityExceeded: boolean;
+  totalPriceDifference: number;
+  lines: ThreeWayMatchLineComparison[];
+}
+

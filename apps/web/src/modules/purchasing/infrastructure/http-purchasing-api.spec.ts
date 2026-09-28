@@ -151,6 +151,19 @@ describe('HttpPurchasingApi', () => {
     await api.confirmInvoice('t', 'inv1');
     expect(confirmMock.mock.calls[0][0]).toBe('http://api/api/v1/purchasing/invoices/inv1/confirm');
     expect(confirmMock.mock.calls[0][1].method).toBe('PUT');
+
+    const matchMock = respond(200, {
+      invoiceId: 'inv1',
+      invoiceCode: 'FCP-000001',
+      hasDiscrepancies: false,
+      hasQuantityExceeded: false,
+      totalPriceDifference: 0,
+      lines: [],
+    });
+    const match = await api.getThreeWayMatch('t', 'inv1');
+    expect(match.invoiceCode).toBe('FCP-000001');
+    expect(matchMock.mock.calls[0][0]).toBe('http://api/api/v1/purchasing/invoices/inv1/three-way-match');
+    expect(matchMock.mock.calls[0][1].method).toBe('GET');
   });
 });
 

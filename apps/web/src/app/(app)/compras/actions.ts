@@ -219,4 +219,10 @@ export async function changePurchaseInvoice(_state: FormState, form: FormData): 
   return attempt('No se pudo anular la factura de compra.', (token) => purchasingApi().cancelInvoice(token, id));
 }
 
+export async function getPurchaseInvoiceThreeWayMatchAction(invoiceId: string) {
+  const { token } = await requireSession();
+  return purchasingApi().getThreeWayMatch(token, invoiceId);
+}
+
+
 

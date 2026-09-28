@@ -79,6 +79,10 @@ export class PrismaPurchasingPortsHarness implements PurchasingPortsHarness {
     await this.prisma.purchaseInvoice.deleteMany();
     await this.prisma.customerPayment.deleteMany();
     await this.prisma.invoice.deleteMany();
+    await this.prisma.purchaseReturnLine.deleteMany();
+    await this.prisma.purchaseReturn.deleteMany();
+    await this.prisma.purchaseInvoiceLine.deleteMany();
+    await this.prisma.purchaseInvoice.deleteMany();
     await this.prisma.dispatch.deleteMany();
     await this.prisma.salesOrder.deleteMany();
     await this.prisma.customer.deleteMany();

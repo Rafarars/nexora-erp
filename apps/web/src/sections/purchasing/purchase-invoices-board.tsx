@@ -1,7 +1,7 @@
 'use client';
 
 import { useActionState, useState } from 'react';
-import { changePurchaseInvoice, savePurchaseInvoice } from '@/app/(app)/compras/actions';
+import { changePurchaseInvoice, getPurchaseInvoiceThreeWayMatchAction, savePurchaseInvoice } from '@/app/(app)/compras/actions';
 import { FormError, SubmitButton, TextArea } from '@/sections/shared/field';
 import { RowOptions } from '@/sections/shared/row-options';
 import { SlideOver } from '@/sections/shared/slide-over';
@@ -16,6 +16,7 @@ import type {
   GoodsReceipt,
   PurchaseInvoice,
   Supplier,
+  ThreeWayMatchResponse,
 } from '@/modules/purchasing/domain/purchasing';
 import { currencyOptions, formatRate, offersManualRate } from '@/modules/company/domain/company';
 import type { Currency } from '@/modules/company/domain/company';
@@ -83,7 +84,33 @@ export function PurchaseInvoicesBoard({
   const [formLines, setFormLines] = useState<InvoiceLineFormItem[]>([]);
   const [showReceiptPicker, setShowReceiptPicker] = useState(false);
 
-  const hasOptions = canUpdate || canConfirm || canCancel;
+  const [matchingInvoice, setMatchingInvoice] = useState<PurchaseInvoice | null>(null);
+  const [matchData, setMatchData] = useState<ThreeWayMatchResponse | null>(null);
+  const [loadingMatch, setLoadingMatch] = useState(false);
+  const [matchError, setMatchError] = useState<string | null>(null);
+
+  async function openMatch(inv: PurchaseInvoice) {
+    setMatchingInvoice(inv);
+    setLoadingMatch(true);
+    setMatchData(null);
+    setMatchError(null);
+    try {
+      const data = await getPurchaseInvoiceThreeWayMatchAction(inv.id);
+      setMatchData(data);
+    } catch (err: unknown) {
+      setMatchError(err instanceof Error ? err.message : 'Error al obtener conciliación');
+    } finally {
+      setLoadingMatch(false);
+    }
+  }
+
+  function closeMatch() {
+    setMatchingInvoice(null);
+    setMatchData(null);
+    setMatchError(null);
+  }
+
+  const hasOptions = canUpdate || canConfirm || canCancel || true;
 
   function openCreate() {
     setEditing(null);
@@ -288,6 +315,17 @@ export function PurchaseInvoicesBoard({
                         <RowOptions testId={`invoice-options-${inv.code}`}>
                           {(close) => (
                             <>
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  close();
+                                  openMatch(inv);
+                                }}
+                                data-testid={`match-invoice-${inv.id}`}
+                                className="block w-full px-3 py-1 text-left text-xs text-blue-700 hover:bg-blue-50"
+                              >
+                                Conciliación (3-Way)
+                              </button>
                               {actions.edit && canUpdate && (
                                 <button
                                   type="button"
@@ -644,6 +682,133 @@ export function PurchaseInvoicesBoard({
             </SubmitButton>
           </div>
         </form>
+      </SlideOver>
+
+      <SlideOver
+        open={Boolean(matchingInvoice)}
+        onClose={closeMatch}
+        title={matchingInvoice ? `Conciliación a 3 bandas — ${matchingInvoice.code}` : ''}
+        testId="three-way-match-modal"
+      >
+        {loadingMatch && (
+          <div className="py-8 text-center text-sm text-neutral-500" data-testid="match-loading">
+            Cargando conciliación...
+          </div>
+        )}
+        {matchError && (
+          <div className="rounded bg-red-50 p-3 text-xs text-red-700" data-testid="match-error">
+            {matchError}
+          </div>
+        )}
+        {matchData && (
+          <div className="space-y-4">
+            {matchData.hasQuantityExceeded && (
+              <div
+                className="rounded border border-red-300 bg-red-50 p-3 text-xs text-red-800"
+                data-testid="match-qty-exceeded-alert"
+              >
+                <strong>Exceso de cantidad:</strong> Esta factura excede las cantidades disponibles en las entradas recibidas. No podrá ser confirmada mientras persista el exceso.
+              </div>
+            )}
+            {matchData.totalPriceDifference !== 0 && (
+              <div
+                className="rounded border border-amber-300 bg-amber-50 p-3 text-xs text-amber-800"
+                data-testid="match-price-diff-alert"
+              >
+                <strong>Diferencia de costo/precio:</strong> Se detectaron diferencias en los precios unitarios respecto a las órdenes o entradas (Diferencia total: {formatAmount(matchData.totalPriceDifference)} {matchingInvoice?.currency}).
+              </div>
+            )}
+            {!matchData.hasDiscrepancies && (
+              <div
+                className="rounded border border-emerald-300 bg-emerald-50 p-3 text-xs text-emerald-800"
+                data-testid="match-exact-alert"
+              >
+                <strong>Conciliación exacta:</strong> Todas las cantidades y costos coinciden con las órdenes y recepciones correspondientes.
+              </div>
+            )}
+
+            <div className="space-y-2">
+              <h4 className="text-xs font-semibold uppercase tracking-wider text-neutral-500">
+                Detalle por línea
+              </h4>
+              <div className="space-y-2" data-testid="three-way-match-lines">
+                {matchData.lines.map((l) => (
+                  <div key={l.invoiceLineId} className="rounded border border-neutral-200 bg-neutral-50 p-2.5 text-xs">
+                    <div className="flex items-start justify-between gap-2">
+                      <div>
+                        <span className="font-semibold text-neutral-900">
+                          #{l.lineNumber} {l.itemName || l.concept || 'Línea'}
+                        </span>
+                        {l.itemSku && <span className="ml-1 text-neutral-500">({l.itemSku})</span>}
+                        {l.receiptCode && (
+                          <div className="text-[11px] text-blue-600">
+                            Entrada: {l.receiptCode}
+                          </div>
+                        )}
+                        {l.orderCode && (
+                          <div className="text-[11px] text-neutral-500">
+                            Orden: {l.orderCode}
+                          </div>
+                        )}
+                      </div>
+                      <div className="text-right">
+                        {l.quantityMismatch ? (
+                          <span className="rounded bg-red-100 px-1.5 py-0.5 text-[10px] font-semibold text-red-700">
+                            Exceso cant.
+                          </span>
+                        ) : l.priceMismatch ? (
+                          <span className="rounded bg-amber-100 px-1.5 py-0.5 text-[10px] font-semibold text-amber-700">
+                            Dif. precio
+                          </span>
+                        ) : (
+                          <span className="rounded bg-emerald-100 px-1.5 py-0.5 text-[10px] font-semibold text-emerald-700">
+                            Correcto
+                          </span>
+                        )}
+                      </div>
+                    </div>
+
+                    <div className="mt-2 grid grid-cols-2 gap-2 border-t border-neutral-200 pt-2 text-[11px]">
+                      <div>
+                        <span className="text-neutral-500">Cant. Facturada:</span>{' '}
+                        <strong className="font-mono">{l.invoicedQuantity}</strong>
+                        {l.availableQuantity !== null && (
+                          <div className="text-neutral-500">
+                            Disponible entrada: <span className="font-mono">{l.availableQuantity}</span>
+                          </div>
+                        )}
+                      </div>
+                      <div>
+                        <span className="text-neutral-500">Precio Factura:</span>{' '}
+                        <strong className="font-mono">{formatAmount(l.invoiceUnitPrice)}</strong>
+                        {l.receiptUnitCost !== null && (
+                          <div className="text-neutral-500">
+                            Costo Entrada: <span className="font-mono">{formatAmount(l.receiptUnitCost)}</span>
+                          </div>
+                        )}
+                        {l.priceDifference !== 0 && (
+                          <div className={l.priceDifference > 0 ? 'text-amber-700' : 'text-blue-700'}>
+                            Dif: <span className="font-mono">{formatAmount(l.priceDifference)}</span>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            <div className="pt-2">
+              <button
+                type="button"
+                onClick={closeMatch}
+                className="w-full rounded border border-neutral-300 py-1.5 text-xs font-medium text-neutral-700 hover:bg-neutral-50"
+              >
+                Cerrar
+              </button>
+            </div>
+          </div>
+        )}
       </SlideOver>
     </section>
   );

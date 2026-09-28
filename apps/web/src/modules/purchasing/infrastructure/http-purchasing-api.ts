@@ -1,6 +1,6 @@
 import { AccessError } from '../../access/domain/access-error';
 import type { AccessErrorBody } from '../../access/domain/access-error';
-import type { PurchaseInvoice, PurchaseOrder, ReceiptReturnQuota, Supplier } from '../domain/purchasing';
+import type { PurchaseInvoice, PurchaseOrder, ReceiptReturnQuota, Supplier, ThreeWayMatchResponse } from '../domain/purchasing';
 import type {
   IncomingFilters,
   IncomingPage,
@@ -176,6 +176,10 @@ export class HttpPurchasingApi implements PurchasingApi {
 
   async cancelInvoice(token: string, id: string): Promise<void> {
     await this.request('PUT', `${BASE}/invoices/${id}/cancel`, token);
+  }
+
+  async getThreeWayMatch(token: string, id: string): Promise<ThreeWayMatchResponse> {
+    return this.request<ThreeWayMatchResponse>('GET', `${BASE}/invoices/${id}/three-way-match`, token);
   }
 
   private invoiceBody(input: PurchaseInvoiceInput) {

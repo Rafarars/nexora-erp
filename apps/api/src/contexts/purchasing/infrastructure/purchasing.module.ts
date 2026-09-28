@@ -97,6 +97,7 @@ import { ConfirmPurchaseInvoicePutController } from './http/confirm-purchase-inv
 import { CreatePurchaseInvoicePostController } from './http/create-purchase-invoice-post.controller.js';
 import { FindPurchaseInvoiceGetController } from './http/find-purchase-invoice-get.controller.js';
 import { SearchPurchaseInvoicesGetController } from './http/search-purchase-invoices-get.controller.js';
+import { ThreeWayMatchGetController } from './http/three-way-match-get.controller.js';
 import { UpdatePurchaseInvoicePutController } from './http/update-purchase-invoice-put.controller.js';
 import { PrismaPurchaseInvoicePosting } from './persistence/prisma-purchase-invoice-posting.js';
 import { PrismaPurchaseInvoiceRepository } from './persistence/prisma-purchase-invoice.repository.js';
@@ -106,6 +107,7 @@ import { PurchaseInvoiceCreator } from '../application/create-invoice/purchase-i
 import { PurchaseInvoiceFinder } from '../application/find-invoice/purchase-invoice-finder.js';
 import { PurchaseInvoiceSearcher } from '../application/search-invoices/purchase-invoice-searcher.js';
 import { PurchaseInvoiceUpdater } from '../application/update-invoice/purchase-invoice-updater.js';
+import { ThreeWayMatcher } from '../application/three-way-match/three-way-matcher.js';
 import { PURCHASE_INVOICE_POSTING } from '../domain/invoice/posting/purchase-invoice-posting.js';
 import type { PurchaseInvoicePosting } from '../domain/invoice/posting/purchase-invoice-posting.js';
 import { PURCHASE_INVOICE_REPOSITORY } from '../domain/invoice/purchase-invoice.repository.js';
@@ -145,6 +147,7 @@ import { PurchaseInvoiceReferences } from '../domain/invoice/lines/purchase-invo
     ConfirmPurchaseInvoicePutController,
     CancelPurchaseInvoicePutController,
     FindPurchaseInvoiceGetController,
+    ThreeWayMatchGetController,
   ],
   providers: [
     { provide: SUPPLIER_REPOSITORY, useClass: PrismaSupplierRepository },
@@ -385,6 +388,21 @@ import { PurchaseInvoiceReferences } from '../domain/invoice/lines/purchase-invo
       provide: PurchaseInvoiceSearcher,
       useFactory: (r: PurchaseInvoiceRepository, s: SupplierFinder) => new PurchaseInvoiceSearcher(r, s),
       inject: [PURCHASE_INVOICE_REPOSITORY, SupplierFinder],
+    },
+    {
+      provide: ThreeWayMatcher,
+      useFactory: (
+        inv: PurchaseInvoiceRepository,
+        rec: GoodsReceiptRepository,
+        ord: PurchaseOrderRepository,
+        ret: PurchaseReturnRepository,
+      ) => new ThreeWayMatcher(inv, rec, ord, ret),
+      inject: [
+        PURCHASE_INVOICE_REPOSITORY,
+        GOODS_RECEIPT_REPOSITORY,
+        PURCHASE_ORDER_REPOSITORY,
+        PURCHASE_RETURN_REPOSITORY,
+      ],
     },
   ],
 })

@@ -1,4 +1,4 @@
-import type { GoodsReceipt, IncomingStock, PurchaseInvoice, PurchaseOrder, PurchaseReturn, ReceiptReturnQuota, Supplier } from './purchasing';
+import type { GoodsReceipt, IncomingStock, PurchaseInvoice, PurchaseOrder, PurchaseReturn, ReceiptReturnQuota, Supplier, ThreeWayMatchResponse } from './purchasing';
 
 export interface SupplierInput {
   name: string;
@@ -170,5 +170,6 @@ export interface PurchasingApi {
   updateInvoice(token: string, id: string, input: PurchaseInvoiceInput): Promise<void>;
   confirmInvoice(token: string, id: string): Promise<void>;
   cancelInvoice(token: string, id: string): Promise<void>;
+  getThreeWayMatch(token: string, id: string): Promise<ThreeWayMatchResponse>;
 }
 

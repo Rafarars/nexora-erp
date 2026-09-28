@@ -276,3 +276,88 @@ Ninguno para esta fase.
 
 ---
 
+## Fase 2 — Conciliación a tres bandas (`ThreeWayMatch`)
+
+### Qué se construyó
+- **Servicio de aplicación `ThreeWayMatcher`:**
+  - `apps/api/src/contexts/purchasing/application/three-way-match/three-way-matcher.ts`: Compara orden, entrada y factura sin duplicar lógica de cupos; calcula cantidades pedidas, recibidas, devueltas, disponibles facturables y facturadas, así como diferencias de precio unitario y total.
+  - `apps/api/src/contexts/purchasing/application/three-way-match/three-way-matcher.spec.ts`: Pruebas exhaustivas para conciliación perfecta, diferencias de precio, exceso de cantidad sobre cupo disponible y líneas de servicio directo.
+- **API y Controladores:**
+  - `apps/api/src/contexts/purchasing/infrastructure/http/three-way-match-get.controller.ts`: Endpoint `GET /api/v1/purchasing/invoices/:invoiceId/three-way-match`.
+  - `apps/e2e/support/isolation-matrix.ts`: Ruta incorporada en la matriz de aislamiento para validación estricta de multitenencia 404 entre empresas.
+- **Web y UI:**
+  - Contrato API en `purchasing-api.ts` y `http-purchasing-api.ts`, cubierto con prueba unitaria en `http-purchasing-api.spec.ts`.
+  - Server Action `getPurchaseInvoiceThreeWayMatchAction` en `apps/web/src/app/(app)/compras/actions.ts`.
+  - Acción "Conciliación (3-Way)" en la tabla de facturas de compra y modal SlideOver de Conciliación a tres bandas en `apps/web/src/sections/purchasing/purchase-invoices-board.tsx` con advertencias visuales y comparativa línea a línea.
+
+### Qué reglas de H9 cubre
+- **H9 §3.9 y Ajuste 1:** Conciliación a tres bandas que compara y devuelve diferencias de cantidades y precios contra la orden y la entrada usando el cupo de devolución, con API y pantalla visible antes de confirmar, alertando si hay exceso de cantidad o diferencia de precio.
+
+### Pruebas que lo defienden
+- `apps/api/src/contexts/purchasing/application/three-way-match/three-way-matcher.spec.ts:164:  it('matches perfectly when quantity and price match receipt and order')`
+- `apps/api/src/contexts/purchasing/application/three-way-match/three-way-matcher.spec.ts:218:  it('detects price difference without exceeding quantity')`
+- `apps/api/src/contexts/purchasing/application/three-way-match/three-way-matcher.spec.ts:268:  it('detects quantity exceeding available return quota (H9 §3.9)')`
+- `apps/api/src/contexts/purchasing/application/three-way-match/three-way-matcher.spec.ts:317:  it('matches order direct service line against purchase order')`
+- `apps/e2e/tests/isolation/tenant-isolation.api.spec.ts:469`:
+  - `the superuser, while working in Acme cannot inspect three-way match of a purchase invoice of another tenant`
+
+### Mutaciones probadas (H9 §7)
+1. **Fila §3.9 (Detección de exceso de cantidad en conciliación):**
+   - *Qué se quitó:* Asignación `quantityMismatch = lineQty > available` reemplazada por `quantityMismatch = false` en `ThreeWayMatcher`.
+   - *Prueba corrida:* `pnpm --filter api test src/contexts/purchasing/application/three-way-match/three-way-matcher.spec.ts`
+   - *Línea del fallo:* `src/contexts/purchasing/application/three-way-match/three-way-matcher.spec.ts:310:36`
+     ```
+     FAIL src/contexts/purchasing/application/three-way-match/three-way-matcher.spec.ts > ThreeWayMatcher application service (H9 Fase 2) > detects quantity exceeding available return quota (H9 §3.9)
+     AssertionError: expected false to be true // Object.is equality
+     - Expected
+     + Received
+     - true
+     + false
+     ❯ src/contexts/purchasing/application/three-way-match/three-way-matcher.spec.ts:310:36
+        308|     const match = await matcher.run(TENANT, invId.value);
+        309|
+        310|     expect(match.hasDiscrepancies).toBe(true);
+           |                                    ^
+        311|     expect(match.hasQuantityExceeded).toBe(true);
+     ```
+
+### Cómo se verificó
+1. **Corrida intermedia roja (test-contract falló por orden de limpieza FK en harnesses):**
+   ```
+   FAIL src/contexts/sales/infrastructure/persistence/prisma-sales-ports.contract.integration.spec.ts > Sales ports contract: prisma
+   PrismaClientKnownRequestError: 
+   Invalid `this.prisma.supplier.deleteMany()` invocation in
+   /home/medine01/dev/erp-portafolio/apps/api/src/contexts/sales/infrastructure/testing/prisma-sales-ports.harness.ts:124:32
+   Foreign key constraint violated on the constraint: `purchase_invoices_tenant_id_supplier_id_fkey`
+   ```
+2. **Corrección aplicada:** Se agregaron `deleteMany` para `purchaseInvoiceLine` y `purchaseInvoice` antes de eliminar `supplier` en todos los harnesses de contrato de la base de datos (`sales`, `purchasing`, `reporting`, `inventory`, `catalog`, `access`) y en `seed.ts`.
+3. **Corrida final verde (`make verify` en `scratch/verify-fase2.log`):**
+   ```
+   9:36PM INF no leaks found
+    Test Files  169 passed (169)
+         Tests  3332 passed (3332)
+    Test Files  24 passed (24)
+         Tests  224 passed (224)
+    Test Files  12 passed (12)
+         Tests  282 passed (282)
+     ✓   10 [api] › tests/api/auth.api.spec.ts:119:3 › Brute force and timing › locks an account after five failed attempts, even for the right password (1.1s)
+     ✓  221 [ui] › tests/ui/login.spec.ts:19:3 › Signing in › rejects a wrong password without saying which field failed (1.3s)
+     488 passed (9.2m)
+     Todo en verde.
+   ```
+4. **Pruebas en navegador con `playwright-cli` (headed y persistent, skill `web-qa`):**
+   - Sesión en `http://localhost:3000`. Login con `ana@acme.com`.
+   - Navegación a `/compras/facturas`.
+   - Factura de prueba `FCP000001` desplegada.
+   - Click en menú de opciones y click en "Conciliación (3-Way)".
+   - Modal de conciliación desplegado con verificación exacta de cantidades y costos comparados.
+   - Captura: `docs/revision/h9/capturas/fase2-conciliacion.png`.
+
+### Lo que no salió como decía el plan
+- Al incorporar la foreign key de `PurchaseInvoice` a `Supplier`, cualquier registro residual en `PurchaseInvoice` bloqueaba el `deleteMany` de `Supplier` en los harnesses de prueba de contrato. Se corrigió actualizando la cadena de limpieza en los 7 harnesses de persistencia y en `seed.ts`.
+
+### Lo que quedó en FUTURE.md
+Ninguno para esta fase.
+
+---
+

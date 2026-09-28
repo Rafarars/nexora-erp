@@ -54,6 +54,8 @@ export class PrismaAccessRepositoriesHarness implements AccessRepositoriesHarnes
     await this.prisma.salesReturn.deleteMany();
     await this.prisma.purchaseReturnLine.deleteMany();
     await this.prisma.purchaseReturn.deleteMany();
+    await this.prisma.purchaseInvoiceLine.deleteMany();
+    await this.prisma.purchaseInvoice.deleteMany();
     await this.prisma.customerPayment.deleteMany();
     await this.prisma.invoice.deleteMany();
     await this.prisma.dispatch.deleteMany();

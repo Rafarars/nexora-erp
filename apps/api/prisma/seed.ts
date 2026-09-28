@@ -650,6 +650,8 @@ async function removeInventory(prisma: PrismaClient): Promise<void> {
   await prisma.customerCreditNote.deleteMany();
   await prisma.salesReturn.deleteMany();
   await prisma.purchaseReturn.deleteMany();
+  await prisma.purchaseInvoiceLine.deleteMany();
+  await prisma.purchaseInvoice.deleteMany();
   await prisma.customerPayment.deleteMany();
   await prisma.invoice.deleteMany();
   await prisma.dispatch.deleteMany();
