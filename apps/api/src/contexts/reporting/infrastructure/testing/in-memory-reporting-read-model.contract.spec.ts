@@ -1,6 +1,6 @@
 import { ReportCustomer, ReportingReadModel } from '../../domain/read-model/reporting-read-model.js';
 import { describeReportingReadModelContract } from '../../testing/reporting-read-model.contract.js';
-import { ReportingReadModelHarness, SeedInvoice, SeedPayment, SeedReceipt } from '../../testing/reporting-read-model.harness.js';
+import { ReportingReadModelHarness, SeedCreditNote, SeedInvoice, SeedPayment, SeedReceipt } from '../../testing/reporting-read-model.harness.js';
 import { InMemoryReportingReadModel } from './in-memory-reporting-read-model.js';
 
 type Row<T> = T & { tenantId: string };
@@ -13,6 +13,7 @@ class InMemoryReportingHarness implements ReportingReadModelHarness {
   private items: Row<{ id: string; sku: string; name: string; baseUnit: string }>[] = [];
   private invoices: Row<SeedInvoice>[] = [];
   private payments: Row<SeedPayment>[] = [];
+  private creditNotes: Row<SeedCreditNote>[] = [];
   private receipts: Row<SeedReceipt>[] = [];
   private stocks: Row<{ itemId: string; warehouseId: string; quantity: number; averageCost: number }>[] = [];
 
@@ -23,6 +24,10 @@ class InMemoryReportingHarness implements ReportingReadModelHarness {
     model.company = async (tenantId) => this.companies.get(tenantId.value) ?? { name: '', fiscalId: null };
 
     for (const { tenantId, ...customer } of this.customers) model.customer(tenantId, customer);
+
+    for (const { tenantId, id, code, customerId, total } of this.creditNotes) {
+      model.creditNote(tenantId, { id, code, customerId, total });
+    }
 
     for (const { tenantId, lines, status, ...invoice } of this.invoices.filter((row) => row.status === 'issued')) {
       const paid = this.payments
@@ -43,13 +48,15 @@ class InMemoryReportingHarness implements ReportingReadModelHarness {
       });
     }
 
-    for (const { tenantId, status, code, customerId, date, amount, allocations, ...currency } of this.payments.filter((row) => row.status === 'confirmed')) {
+    for (const { tenantId, status, code, customerId, date, amount, method, creditSourceId, allocations, ...currency } of this.payments.filter((row) => row.status === 'confirmed')) {
       void status;
       model.payment(tenantId, {
         ...currency,
         code,
         customerId,
         date,
+        method,
+        creditSourceId,
         amount: amount ?? allocations.reduce((sum, a) => sum + cents(a.amount), 0) / 100,
         allocations,
       });
@@ -97,6 +104,10 @@ class InMemoryReportingHarness implements ReportingReadModelHarness {
     this.payments.push({ ...payment, tenantId });
   }
 
+  async creditNote(tenantId: string, note: SeedCreditNote): Promise<void> {
+    this.creditNotes.push({ ...note, tenantId });
+  }
+
   async receipt(tenantId: string, receipt: SeedReceipt): Promise<void> {
     this.receipts.push({ ...receipt, tenantId });
   }
@@ -112,6 +123,7 @@ class InMemoryReportingHarness implements ReportingReadModelHarness {
     this.items = [];
     this.invoices = [];
     this.payments = [];
+    this.creditNotes = [];
     this.receipts = [];
     this.stocks = [];
   }

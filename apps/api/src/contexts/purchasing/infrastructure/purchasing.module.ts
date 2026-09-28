@@ -50,24 +50,44 @@ import { SupplierFinder } from '../domain/supplier/find/supplier-finder.js';
 import { SUPPLIER_REPOSITORY } from '../domain/supplier/supplier.repository.js';
 import type { SupplierRepository } from '../domain/supplier/supplier.repository.js';
 import { SupplierUniqueness } from '../domain/supplier/unique/supplier-uniqueness.js';
+import { PurchaseReturnCanceller } from '../application/cancel-return/purchase-return-canceller.js';
+import { PurchaseReturnConfirmer } from '../application/confirm-return/purchase-return-confirmer.js';
+import { PurchaseReturnCreator } from '../application/create-return/purchase-return-creator.js';
+import { PurchaseReturnSearcher } from '../application/search-returns/purchase-return-searcher.js';
+import { PurchaseReturnUpdater } from '../application/update-return/purchase-return-updater.js';
+import { ReceiptReturnQuotaFinder } from '../application/receipt-return-quota/receipt-return-quota-finder.js';
+import { PurchaseReturnFinder } from '../domain/return/find/purchase-return-finder.js';
+import { PurchaseReturnLineFactory } from '../domain/return/lines/purchase-return-line-factory.js';
+import { PURCHASE_RETURN_POSTING } from '../domain/return/posting/purchase-return-posting.js';
+import type { PurchaseReturnPosting } from '../domain/return/posting/purchase-return-posting.js';
+import { PURCHASE_RETURN_REPOSITORY } from '../domain/return/purchase-return.repository.js';
+import type { PurchaseReturnRepository } from '../domain/return/purchase-return.repository.js';
 import { CancelGoodsReceiptPutController } from './http/cancel-goods-receipt-put.controller.js';
 import { CancelPurchaseOrderPutController } from './http/cancel-purchase-order-put.controller.js';
+import { CancelPurchaseReturnPutController } from './http/cancel-purchase-return-put.controller.js';
 import { ChangeSupplierStatusPutController } from './http/change-supplier-status-put.controller.js';
 import { ConfirmGoodsReceiptPutController } from './http/confirm-goods-receipt-put.controller.js';
 import { ConfirmPurchaseOrderPutController } from './http/confirm-purchase-order-put.controller.js';
+import { ConfirmPurchaseReturnPutController } from './http/confirm-purchase-return-put.controller.js';
 import { CreateGoodsReceiptPostController } from './http/create-goods-receipt-post.controller.js';
 import { CreatePurchaseOrderPostController } from './http/create-purchase-order-post.controller.js';
+import { CreatePurchaseReturnPostController } from './http/create-purchase-return-post.controller.js';
 import { CreateSupplierPostController } from './http/create-supplier-post.controller.js';
+import { GetReceiptReturnQuotaGetController } from './http/get-receipt-return-quota-get.controller.js';
 import { SearchGoodsReceiptsGetController } from './http/search-goods-receipts-get.controller.js';
 import { SearchIncomingStockGetController } from './http/search-incoming-stock-get.controller.js';
 import { SearchPurchaseOrdersGetController } from './http/search-purchase-orders-get.controller.js';
+import { SearchPurchaseReturnsGetController } from './http/search-purchase-returns-get.controller.js';
 import { SearchSuppliersGetController } from './http/search-suppliers-get.controller.js';
 import { UpdateGoodsReceiptPutController } from './http/update-goods-receipt-put.controller.js';
 import { UpdatePurchaseOrderPutController } from './http/update-purchase-order-put.controller.js';
+import { UpdatePurchaseReturnPutController } from './http/update-purchase-return-put.controller.js';
 import { UpdateSupplierPutController } from './http/update-supplier-put.controller.js';
 import { PrismaGoodsReceiptRepository } from './persistence/prisma-goods-receipt.repository.js';
 import { PrismaPurchaseOrderPosting } from './persistence/prisma-purchase-order-posting.js';
 import { PrismaPurchaseOrderRepository } from './persistence/prisma-purchase-order.repository.js';
+import { PrismaPurchaseReturnPosting } from './persistence/prisma-purchase-return-posting.js';
+import { PrismaPurchaseReturnRepository } from './persistence/prisma-purchase-return.repository.js';
 import { PrismaPurchasingCatalog } from './persistence/prisma-purchasing-catalog.js';
 import { PrismaPurchasingCodeSequence } from './persistence/prisma-purchasing-code-sequence.js';
 import { PrismaReceiptPosting } from './persistence/prisma-receipt-posting.js';
@@ -94,14 +114,22 @@ import { PrismaSupplierRepository } from './persistence/prisma-supplier.reposito
     ConfirmGoodsReceiptPutController,
     CancelGoodsReceiptPutController,
     SearchIncomingStockGetController,
+    SearchPurchaseReturnsGetController,
+    CreatePurchaseReturnPostController,
+    UpdatePurchaseReturnPutController,
+    ConfirmPurchaseReturnPutController,
+    CancelPurchaseReturnPutController,
+    GetReceiptReturnQuotaGetController,
   ],
   providers: [
     { provide: SUPPLIER_REPOSITORY, useClass: PrismaSupplierRepository },
     { provide: SUPPLIER_USAGE, useClass: PrismaSupplierUsage },
     { provide: PURCHASE_ORDER_REPOSITORY, useClass: PrismaPurchaseOrderRepository },
     { provide: GOODS_RECEIPT_REPOSITORY, useClass: PrismaGoodsReceiptRepository },
+    { provide: PURCHASE_RETURN_REPOSITORY, useClass: PrismaPurchaseReturnRepository },
     { provide: PURCHASE_ORDER_POSTING, useClass: PrismaPurchaseOrderPosting },
     { provide: RECEIPT_POSTING, useClass: PrismaReceiptPosting },
+    { provide: PURCHASE_RETURN_POSTING, useClass: PrismaPurchaseReturnPosting },
     { provide: PURCHASING_CATALOG, useClass: PrismaPurchasingCatalog },
     { provide: PURCHASING_CODE_SEQUENCE, useClass: PrismaPurchasingCodeSequence },
 
@@ -212,6 +240,61 @@ import { PrismaSupplierRepository } from './persistence/prisma-supplier.reposito
       provide: IncomingStockSearcher,
       useFactory: (o: PurchaseOrderRepository, c: PurchasingCatalog, cal: BusinessCalendar) => new IncomingStockSearcher(o, c, cal),
       inject: [PURCHASE_ORDER_REPOSITORY, PURCHASING_CATALOG, BUSINESS_CALENDAR],
+    },
+    { provide: PurchaseReturnFinder, useFactory: (r: PurchaseReturnRepository) => new PurchaseReturnFinder(r), inject: [PURCHASE_RETURN_REPOSITORY] },
+    {
+      provide: PurchaseReturnLineFactory,
+      useFactory: (c: PurchasingCatalog, i: IdGenerator) => new PurchaseReturnLineFactory(c, i),
+      inject: [PURCHASING_CATALOG, ID_GENERATOR],
+    },
+    {
+      provide: PurchaseReturnCreator,
+      useFactory: (
+        s: SupplierFinder,
+        rc: GoodsReceiptFinder,
+        o: PurchaseOrderFinder,
+        r: PurchaseReturnRepository,
+        f: PurchaseReturnLineFactory,
+        c: PurchasingCodeSequence,
+        i: IdGenerator,
+        k: Clock,
+        cal: BusinessCalendar,
+      ) => new PurchaseReturnCreator(s, rc, o, r, f, c, i, k, cal),
+      inject: [SupplierFinder, GoodsReceiptFinder, PurchaseOrderFinder, PURCHASE_RETURN_REPOSITORY, PurchaseReturnLineFactory, PURCHASING_CODE_SEQUENCE, ID_GENERATOR, CLOCK, BUSINESS_CALENDAR],
+    },
+    {
+      provide: PurchaseReturnUpdater,
+      useFactory: (
+        fn: PurchaseReturnFinder,
+        rc: GoodsReceiptFinder,
+        r: PurchaseReturnRepository,
+        f: PurchaseReturnLineFactory,
+        k: Clock,
+        cal: BusinessCalendar,
+      ) => new PurchaseReturnUpdater(fn, rc, r, f, k, cal),
+      inject: [PurchaseReturnFinder, GoodsReceiptFinder, PURCHASE_RETURN_REPOSITORY, PurchaseReturnLineFactory, CLOCK, BUSINESS_CALENDAR],
+    },
+    {
+      provide: PurchaseReturnConfirmer,
+      useFactory: (p: PurchaseReturnPosting, k: Clock) => new PurchaseReturnConfirmer(p, k),
+      inject: [PURCHASE_RETURN_POSTING, CLOCK],
+    },
+    {
+      provide: PurchaseReturnCanceller,
+      useFactory: (p: PurchaseReturnPosting, k: Clock) => new PurchaseReturnCanceller(p, k),
+      inject: [PURCHASE_RETURN_POSTING, CLOCK],
+    },
+    {
+      provide: PurchaseReturnSearcher,
+      useFactory: (r: PurchaseReturnRepository, rc: GoodsReceiptRepository, s: SupplierRepository, c: PurchasingCatalog) =>
+        new PurchaseReturnSearcher(r, rc, s, c),
+      inject: [PURCHASE_RETURN_REPOSITORY, GOODS_RECEIPT_REPOSITORY, SUPPLIER_REPOSITORY, PURCHASING_CATALOG],
+    },
+    {
+      provide: ReceiptReturnQuotaFinder,
+      useFactory: (rc: GoodsReceiptFinder, r: PurchaseReturnRepository) =>
+        new ReceiptReturnQuotaFinder(rc, r),
+      inject: [GoodsReceiptFinder, PURCHASE_RETURN_REPOSITORY],
     },
   ],
 })

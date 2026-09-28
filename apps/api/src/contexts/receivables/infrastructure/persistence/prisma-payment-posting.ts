@@ -1,14 +1,24 @@
 import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../../../../shared/prisma/prisma.service.js';
-import { PaymentNotFoundError } from '../../domain/errors/receivables.errors.js';
+import { ConcurrentModificationError } from '../../../../shared/domain/concurrent-modification.error.js';
+import {
+  CreditNoteCurrencyMismatchError,
+  CreditNoteCustomerMismatchError,
+  CreditNoteExceededError,
+  CreditNoteNotConfirmedError,
+  CreditNoteNotFoundError,
+  PaymentNotFoundError,
+} from '../../domain/errors/receivables.errors.js';
 import { ReceivableInvoice } from '../../domain/ledger/receivable-invoice.js';
 import { CustomerPayment, PaymentId } from '../../domain/payment/customer-payment.entity.js';
 import { PaymentPosting } from '../../domain/payment/posting/payment-posting.js';
+import { NoteCredit } from '../../domain/credit-note/note-credit.service.js';
 import { TenantId } from '../../domain/shared/tenant-id.vo.js';
-import { PAYMENT_INCLUDE, invoiceFromRow, invoiceSelect, paymentFromRow } from './receivables-rows.js';
+import { CREDIT_NOTE_INCLUDE, creditNoteFromRow, CreditNoteRow, PAYMENT_INCLUDE, invoiceFromRow, invoiceSelect, paymentFromRow } from './receivables-rows.js';
+import { queryAppliedPaymentsSum } from './credit-note-applied-query.js';
 
-// Orden de bloqueo: cobro y despues sus facturas por identificador. Ventas, al anular una factura,
-// solo bloquea esa factura; al emitir, bloquea el cliente y no facturas. No hay ciclo posible.
+// Bloqueo determinista (nota -> cobro -> facturas) para evitar deadlocks con
+// PrismaCreditNotePosting, que siempre adquiere la nota antes que su cobro.
 @Injectable()
 export class PrismaPaymentPosting implements PaymentPosting {
   constructor(private readonly prisma: PrismaService) {}
@@ -17,12 +27,62 @@ export class PrismaPaymentPosting implements PaymentPosting {
     const tenant = tenantId.value;
 
     await this.prisma.$transaction(async (tx) => {
+      const peek = await tx.customerPayment.findFirst({
+        where: { tenantId: tenant, id: paymentId.value },
+        select: { creditSourceId: true },
+      });
+
+      if (peek?.creditSourceId) {
+        const lockedNote = await tx.$queryRaw<{ id: string }[]>`
+          SELECT id FROM customer_credit_notes WHERE tenant_id = ${tenant}::uuid AND id = ${peek.creditSourceId}::uuid FOR UPDATE`;
+
+        if (lockedNote.length === 0) {
+          throw new CreditNoteNotFoundError(peek.creditSourceId);
+        }
+      }
+
       const locked = await tx.$queryRaw<{ id: string }[]>`
         SELECT id FROM customer_payments WHERE tenant_id = ${tenant}::uuid AND id = ${paymentId.value}::uuid FOR UPDATE`;
 
       if (locked.length === 0) throw new PaymentNotFoundError(paymentId.value);
 
       const payment = paymentFromRow(await tx.customerPayment.findFirstOrThrow({ where: { tenantId: tenant, id: paymentId.value }, include: PAYMENT_INCLUDE }));
+
+      if (payment.toPrimitives().creditSourceId !== (peek?.creditSourceId ?? null)) {
+        throw new ConcurrentModificationError(paymentId.value);
+      }
+
+      if (payment.toPrimitives().creditSourceId) {
+        const creditSourceId = payment.toPrimitives().creditSourceId!;
+        // La nota ya fue bloqueada arriba con FOR UPDATE en orden determinista
+        const noteRow = (await tx.customerCreditNote.findFirstOrThrow({
+          where: { tenantId: tenant, id: creditSourceId },
+          include: CREDIT_NOTE_INCLUDE,
+        })) as unknown as CreditNoteRow;
+
+        const note = creditNoteFromRow(noteRow);
+
+        if (note.currentStatus() !== 'confirmed') {
+          throw new CreditNoteNotConfirmedError(creditSourceId, note.currentStatus());
+        }
+
+        if (note.customerId() !== payment.customerId()) {
+          throw new CreditNoteCustomerMismatchError(creditSourceId, payment.customerId());
+        }
+
+        if (note.currency().currency !== payment.currency().currency) {
+          throw new CreditNoteCurrencyMismatchError(note.currency().currency, payment.currency().currency);
+        }
+
+        // Sumar cobros confirmados aplicados a la nota (excluyendo el actual)
+        const appliedSum = await queryAppliedPaymentsSum(tx, tenant, creditSourceId, paymentId.value);
+        const available = NoteCredit.available(note.total(), appliedSum);
+
+        if (payment.toPrimitives().amount > available) {
+          throw new CreditNoteExceededError(creditSourceId, available, payment.toPrimitives().amount);
+        }
+      }
+
       const ids = [...payment.invoiceIds()].sort();
 
       await tx.$queryRaw`SELECT id FROM invoices WHERE tenant_id = ${tenant}::uuid AND id = ANY(${ids}::uuid[]) ORDER BY id FOR UPDATE`;

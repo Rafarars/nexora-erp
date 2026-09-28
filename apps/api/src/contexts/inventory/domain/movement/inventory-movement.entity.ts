@@ -13,8 +13,8 @@ export class MovementId extends Uuid {
 export type StockDirection = 'in' | 'out';
 
 // Que documento movio la existencia. El ajuste lo escribe el inventario; la entrada de
-// mercancia y el despacho, compras y ventas a traves de DocumentStockPosting.
-export type MovementOriginType = 'adjustment' | 'receipt' | 'dispatch';
+// mercancia, el despacho y las devoluciones, compras y ventas a traves de DocumentStockPosting.
+export type MovementOriginType = 'adjustment' | 'receipt' | 'dispatch' | 'sales_return' | 'purchase_return';
 
 export interface MovementOrigin {
   type: MovementOriginType;
@@ -41,6 +41,7 @@ export interface InventoryMovementPrimitives {
   originLineId: string | null;
   originDate: string;
   reversalOfId: string | null;
+  restoresMovementId: string | null;
   occurredAt: Date;
 }
 
@@ -60,6 +61,7 @@ export class InventoryMovement {
     readonly balanceAverageCost: UnitCost,
     readonly origin: MovementOrigin,
     readonly reversalOfId: MovementId | null,
+    readonly restoresMovementId: MovementId | null,
     readonly occurredAt: Date,
   ) {}
 
@@ -76,6 +78,7 @@ export class InventoryMovement {
     balanceAverageCost: UnitCost;
     origin: MovementOrigin;
     reversalOfId: MovementId | null;
+    restoresMovementId?: MovementId | null;
     occurredAt: Date;
   }): InventoryMovement {
     return new InventoryMovement(
@@ -91,6 +94,7 @@ export class InventoryMovement {
       fields.balanceAverageCost,
       fields.origin,
       fields.reversalOfId,
+      fields.restoresMovementId ?? null,
       fields.occurredAt,
     );
   }
@@ -109,6 +113,7 @@ export class InventoryMovement {
       UnitCost.of(row.balanceAverageCost),
       { type: row.originType, id: row.originId, lineId: row.originLineId, date: row.originDate },
       row.reversalOfId ? MovementId.of(row.reversalOfId) : null,
+      row.restoresMovementId ? MovementId.of(row.restoresMovementId) : null,
       row.occurredAt,
     );
   }
@@ -130,6 +135,7 @@ export class InventoryMovement {
       originLineId: this.origin.lineId,
       originDate: this.origin.date,
       reversalOfId: this.reversalOfId?.value ?? null,
+      restoresMovementId: this.restoresMovementId?.value ?? null,
       occurredAt: this.occurredAt,
     };
   }

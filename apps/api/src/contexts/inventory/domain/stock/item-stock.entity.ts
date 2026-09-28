@@ -115,6 +115,42 @@ export class ItemStock {
     return this.record('out', original.quantity, original.unitCost, origin, id, original.id, now);
   }
 
+  // Restituye (parcial o totalmente) un movimiento original a su costo congelado.
+  // Si el original fue una salida (despacho), restituirlo es una entrada ('in') a su costo congelado,
+  // ponderando el costo promedio.
+  // Si el original fue una entrada (recepcion de compra), restituirlo es una salida ('out') a su costo congelado,
+  // recalculando el costo promedio de lo que queda (H8 §3.8).
+  restore(
+    original: InventoryMovement,
+    quantity: Quantity,
+    origin: MovementOrigin,
+    id: MovementId,
+    now: Date,
+  ): InventoryMovement {
+    if (original.direction === 'out') {
+      const total = this.quantity.plus(quantity);
+      const value = this.quantity.units * this.averageCost.micros + quantity.units * original.unitCost.micros;
+
+      this.averageCost = total.isZero() ? this.averageCost : UnitCost.fromMicros(roundedDivision(value, total.units));
+      this.quantity = total;
+
+      return this.record('in', quantity, original.unitCost, origin, id, null, now, original.id);
+    }
+
+    this.ensureAvailable(quantity);
+
+    const remaining = this.quantity.minus(quantity);
+    const value = this.quantity.units * this.averageCost.micros - quantity.units * original.unitCost.micros;
+
+    if (!remaining.isZero()) {
+      this.averageCost = value <= 0n ? UnitCost.zero() : UnitCost.fromMicros(roundedDivision(value, remaining.units));
+    }
+
+    this.quantity = remaining;
+
+    return this.record('out', quantity, original.unitCost, origin, id, null, now, original.id);
+  }
+
   private ensureAvailable(quantity: Quantity): void {
     if (quantity.isGreaterThan(this.quantity)) {
       throw new InsufficientStockError(
@@ -134,6 +170,7 @@ export class ItemStock {
     id: MovementId,
     reversalOfId: MovementId | null,
     now: Date,
+    restoresMovementId: MovementId | null = null,
   ): InventoryMovement {
     this.lastSequence += 1;
     this.updatedAt = now;
@@ -151,6 +188,7 @@ export class ItemStock {
       balanceAverageCost: this.averageCost,
       origin,
       reversalOfId,
+      restoresMovementId,
       occurredAt: now,
     });
   }

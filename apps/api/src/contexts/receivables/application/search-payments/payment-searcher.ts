@@ -1,7 +1,9 @@
 import { DocumentCurrencyPrimitives } from '../../../../shared/domain/document-currency.js';
+import { CreditNoteId } from '../../domain/credit-note/customer-credit-note.entity.js';
+import { CustomerCreditNoteRepository } from '../../domain/credit-note/customer-credit-note.repository.js';
 import { ReceivableCustomerNotFoundError } from '../../domain/errors/receivables.errors.js';
 import { ReceivablesLedger } from '../../domain/ledger/receivables-ledger.js';
-import { PaymentMethod, PaymentStatus } from '../../domain/payment/customer-payment.entity.js';
+import { PaymentId, PaymentMethod, PaymentStatus } from '../../domain/payment/customer-payment.entity.js';
 import { PaymentRepository } from '../../domain/payment/payment.repository.js';
 import { CustomerRef } from '../../domain/shared/references.vo.js';
 import { TenantId } from '../../domain/shared/tenant-id.vo.js';
@@ -12,6 +14,10 @@ export interface PaymentResponse extends DocumentCurrencyPrimitives {
   customer: { id: string; code: string; name: string };
   paymentDate: string;
   method: PaymentMethod;
+  creditSourceId: string | null;
+  creditSourceCode: string | null;
+  isIssuePayment: boolean;
+  issueCreditNoteCode: string | null;
   reference: string | null;
   notes: string | null;
   // En la moneda del cobro.
@@ -38,6 +44,7 @@ export class PaymentSearcher {
   constructor(
     private readonly payments: PaymentRepository,
     private readonly ledger: ReceivablesLedger,
+    private readonly creditNotes: CustomerCreditNoteRepository,
   ) {}
 
   async run(request: {
@@ -71,11 +78,18 @@ export class PaymentSearcher {
       offset,
     });
     const rows = page.payments.map((payment) => payment.toPrimitives());
-    // Solo las facturas que la pagina nombra: antes se traia la empresa entera para leer su codigo.
-    const [customers, invoices] = await Promise.all([
+    const creditSourceIds = [...new Set(rows.map((row) => row.creditSourceId).filter((id): id is string => Boolean(id)))];
+    // Solo las facturas y notas de credito que la pagina nombra.
+    const [customers, invoices, creditNotes, issueNotes] = await Promise.all([
       this.ledger.customers(tenantId),
       this.ledger.invoices(tenantId, { ids: [...new Set(rows.flatMap((row) => row.allocations.map((allocation) => allocation.invoiceId)))] }),
+      creditSourceIds.length > 0 ? this.creditNotes.findByIds(tenantId, creditSourceIds.map(CreditNoteId.of)) : Promise.resolve([]),
+      rows.length > 0 ? this.creditNotes.findByIssuePayments(tenantId, rows.map((r) => PaymentId.of(r.id))) : Promise.resolve([]),
     ]);
+    const noteMap = new Map(creditNotes.map((note) => [note.id.value, note.toPrimitives().code]));
+    const issueNoteMap = new Map(
+      issueNotes.filter((note) => note.issuePaymentId() !== null).map((note) => [note.issuePaymentId()!, note.toPrimitives().code]),
+    );
 
     return {
       total: page.total,
@@ -84,6 +98,7 @@ export class PaymentSearcher {
       hasMore: offset + rows.length < page.total,
       payments: rows.map((row) => {
         const customer = customers.find((candidate) => candidate.id === row.customerId);
+        const issueCreditNoteCode = issueNoteMap.get(row.id) ?? null;
 
         return {
           id: row.id,
@@ -91,6 +106,10 @@ export class PaymentSearcher {
           customer: { id: row.customerId, code: customer?.code ?? '', name: customer?.name ?? '' },
           paymentDate: row.paymentDate,
           method: row.method,
+          creditSourceId: row.creditSourceId ?? null,
+          creditSourceCode: row.creditSourceId ? (noteMap.get(row.creditSourceId) ?? null) : null,
+          isIssuePayment: issueCreditNoteCode !== null,
+          issueCreditNoteCode,
           reference: row.reference,
           notes: row.notes,
           amount: row.amount,

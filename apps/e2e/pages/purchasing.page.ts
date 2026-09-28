@@ -1,13 +1,14 @@
 import { expect } from '@playwright/test';
 import type { Locator, Page } from '@playwright/test';
 
-type Section = 'ordenes' | 'entradas' | 'en-camino' | 'proveedores';
+type Section = 'ordenes' | 'entradas' | 'en-camino' | 'proveedores' | 'devoluciones';
 
 const FILTER_PREFIX: Record<Section, string> = {
   ordenes: 'order',
   entradas: 'receipt',
   'en-camino': 'incoming',
   proveedores: 'supplier',
+  devoluciones: 'purchase-return',
 };
 
 export interface OrderLineInput {
@@ -26,10 +27,12 @@ export class PurchasingPage {
   constructor(private readonly page: Page) {}
 
   async open(section: Section, search?: string): Promise<void> {
-    // El modulo redirige a su primera seccion: si se elige la seccion antes de que termine esa
-    // redireccion, la redireccion llega despues y deja la pantalla en la seccion equivocada.
-    await this.page.getByTestId('nav-compras').click();
-    await expect(this.page).toHaveURL(/\/compras\/[a-z-]+/);
+    // Desde fuera, se espera la redireccion del modulo para no cambiar de seccion a destiempo;
+    // una vez dentro, ya no redirige y pulsar la raiz solo recargaria la primera pestaña.
+    if (!this.page.url().includes('/compras/')) {
+      await this.page.getByTestId('nav-compras').click();
+      await expect(this.page).toHaveURL(/\/compras\/[a-z-]+/);
+    }
     // Bajo carga, un clic que llega mientras termina la redireccion del modulo se pierde: si la
     // direccion no cambia, se vuelve a pulsar dentro de la misma espera.
     await expect(async () => {

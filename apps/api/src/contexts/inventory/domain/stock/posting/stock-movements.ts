@@ -1,6 +1,6 @@
 import { IdGenerator } from '../../../../../shared/domain/ports/id-generator.js';
 import { InactiveStockItemError, ServiceHasNoStockError, UnknownEntryCostError } from '../../errors/inventory.errors.js';
-import { MovementId, MovementOrigin, StockDirection } from '../../movement/inventory-movement.entity.js';
+import { InventoryMovement, MovementId, MovementOrigin, StockDirection } from '../../movement/inventory-movement.entity.js';
 import { Quantity } from '../../quantity/quantity.vo.js';
 import { UnitCost } from '../../quantity/unit-cost.vo.js';
 import { ItemRef, WarehouseRef } from '../../shared/references.vo.js';
@@ -19,6 +19,13 @@ export interface StockEntry {
   direction: StockDirection;
   quantity: Quantity;
   unitCost: UnitCost | null;
+}
+
+// Una linea de devolucion que restituye un movimiento de kardex previo a su costo congelado.
+export interface StockRestoreEntry {
+  lineId: string;
+  originalMovement: InventoryMovement;
+  quantity: Quantity;
 }
 
 // Lo que tienen en comun todos los documentos que mueven existencia, sea un ajuste o una
@@ -66,6 +73,25 @@ export class StockMovements {
           now,
         );
       });
+
+    return { stocks: [...touched.values()], movements };
+  }
+
+  // Restituye lineas de un movimiento previo a su costo congelado (devoluciones de venta o compra).
+  // No toca reversalOfId: registra restoresMovementId para permitir devoluciones parciales sucesivas.
+  restore(ledger: Ledger, document: DocumentRef, entries: StockRestoreEntry[], now: Date): StockChanges {
+    const touched = new Map<string, ItemStock>();
+    const movements = entries.map((entry) => {
+      ensureMovable(ledger, entry.originalMovement.itemId);
+
+      const stock = ledger.stock(entry.originalMovement.itemId, entry.originalMovement.warehouseId);
+      const origin = { ...document, lineId: entry.lineId };
+      const id = MovementId.of(this.ids.next());
+
+      touched.set(keyOf(stock), stock);
+
+      return stock.restore(entry.originalMovement, entry.quantity, origin, id, now);
+    });
 
     return { stocks: [...touched.values()], movements };
   }

@@ -1,9 +1,10 @@
-import type { AgingTotals, CustomerBalance, Payment, Receivable, Statement } from './receivables';
+import type { AgingTotals, AvailableCredit, CreditNote, CreditNoteReason, CustomerBalance, Payment, Receivable, Statement } from './receivables';
 
 export interface PaymentInput {
   customerId: string;
   date: string | null;
   method: string;
+  creditSourceId?: string | null;
   reference: string | null;
   notes: string | null;
   currency: string | null;
@@ -35,12 +36,47 @@ export type ReceivableFilters = {
 export type PaymentFilters = { q?: string; customerId?: string; status?: string; from?: string; to?: string; limit?: number; offset?: number };
 export type CustomerBalanceFilters = { q?: string; onlyWithBalance?: 'true' | 'false'; limit?: number; offset?: number };
 
+export type CreditNoteFilters = {
+  q?: string;
+  customerId?: string;
+  invoiceId?: string;
+  status?: string;
+  from?: string;
+  to?: string;
+  limit?: number;
+  offset?: number;
+};
+
 export interface ReceivablePage extends Page {
   receivables: Receivable[];
 }
 
 export interface PaymentPage extends Page {
   payments: Payment[];
+}
+
+export interface CreditNotePage extends Page {
+  creditNotes: CreditNote[];
+}
+
+export interface CreditNoteInput {
+  customerId: string;
+  invoiceId?: string | null;
+  salesReturnId?: string | null;
+  date: string | null;
+  reason: CreditNoteReason;
+  reasonDetail?: string | null;
+  notes?: string | null;
+  currency?: string | null;
+  exchangeRate?: number | null;
+  lines: {
+    id?: string;
+    itemId?: string | null;
+    concept: string | null;
+    quantity: number;
+    unitPrice: number;
+    taxRate: number;
+  }[];
 }
 
 // `totals` suma todo lo que cumple el filtro, no la pagina: es la fila de totales de la pantalla.
@@ -61,4 +97,10 @@ export interface ReceivablesApi {
   // Para el selector de cliente de los filtros, deban o no.
   allCustomers(token: string): Promise<CustomerBalance['customer'][]>;
   searchStatement(token: string, customerId: string): Promise<Statement>;
+  searchCreditNotes(token: string, filters?: CreditNoteFilters): Promise<CreditNotePage>;
+  findCreditNote(token: string, id: string): Promise<CreditNote>;
+  saveCreditNote(token: string, id: string | null, input: CreditNoteInput): Promise<void>;
+  confirmCreditNote(token: string, id: string): Promise<void>;
+  cancelCreditNote(token: string, id: string): Promise<void>;
+  availableCredits(token: string, customerId: string): Promise<AvailableCredit[]>;
 }

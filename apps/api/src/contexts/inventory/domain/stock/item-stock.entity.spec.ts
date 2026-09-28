@@ -130,6 +130,59 @@ describe('ItemStock', () => {
     });
   });
 
+  describe('restoring', () => {
+    it('restores an exit partially, entering at the exit frozen cost and recalculating average', () => {
+      const stock = emptyStock();
+      stock.receive(q(10), c(2), origin, nextId(), NOW);
+      const exit = stock.release(q(6), origin, nextId(), NOW);
+      stock.receive(q(4), c(5), origin, nextId(), NOW); // 4 a 2 + 4 a 5 = 28 / 8 = 3.5
+
+      // Cliente devuelve 2 de las 6 despachadas
+      const restoration = stock.restore(exit, q(2), origin, nextId(), NOW);
+
+      expect(restoration.toPrimitives()).toMatchObject({
+        direction: 'in',
+        quantity: 2,
+        unitCost: 2,
+        reversalOfId: null,
+        restoresMovementId: exit.id.value,
+      });
+      expect(stock.available().toNumber()).toBe(10);
+      // (8 * 3.5 + 2 * 2) / 10 = (28 + 4) / 10 = 3.2
+      expect(stock.currentAverageCost().toNumber()).toBe(3.2);
+    });
+
+    it('restores an entry partially (purchase return), exiting at frozen cost and recalculating average (H8 §3.8)', () => {
+      const stock = emptyStock();
+      stock.receive(q(10), c(2), origin, nextId(), NOW);
+      const entry2 = stock.receive(q(10), c(4), origin, nextId(), NOW); // 20 unidades, valor 60, promedio 3
+
+      // Se devuelven al proveedor 5 de la segunda entrada a costo congelado de 4 (distinto del promedio 3)
+      const restoration = stock.restore(entry2, q(5), origin, nextId(), NOW);
+
+      expect(restoration.toPrimitives()).toMatchObject({
+        direction: 'out',
+        quantity: 5,
+        unitCost: 4,
+        reversalOfId: null,
+        restoresMovementId: entry2.id.value,
+      });
+      expect(stock.available().toNumber()).toBe(15);
+      // Valor remanente = 60 - (5 * 4) = 40. Promedio = 40 / 15 = 2.666667
+      expect(stock.currentAverageCost().toNumber()).toBe(2.666667);
+    });
+
+    it('refuses to restore an entry whose goods are not available', () => {
+      const stock = emptyStock();
+      const entry = stock.receive(q(10), c(2), origin, nextId(), NOW);
+      stock.release(q(8), origin, nextId(), NOW);
+
+      // Solo quedan 2, intentar devolver 5 al proveedor falla
+      expect(() => stock.restore(entry, q(5), origin, nextId(), NOW)).toThrow(InsufficientStockError);
+      expect(stock.available().toNumber()).toBe(2);
+    });
+  });
+
   // La propiedad que el kardex protege, sobre una secuencia larga con decimales.
   it('always equals the signed sum of its movements', () => {
     const stock = emptyStock();

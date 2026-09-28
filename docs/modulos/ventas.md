@@ -12,6 +12,7 @@ Contexto: `apps/api/src/contexts/sales` · Pantallas: `/ventas/*` · Informe té
 | Pedidos | `sales_orders`, `sales_order_lines` | `PED` | Lo que pide un cliente; confirmado, **reserva** existencia |
 | Despachos | `dispatches`, `dispatch_lines` | `DES` | Lo que sale de un pedido; confirmado, **baja** la existencia |
 | Facturas | `invoices`, `invoice_lines` | `FAC` | Lo que se cobra de un despacho; **no toca** la existencia |
+| Devoluciones | `sales_returns`, `sales_return_lines` | `DVV` | Mercancía devuelta por un cliente; confirmada, **reingresa** al costo congelado si es apta |
 | Disponibilidad | — (se calcula) | — | Existencia − reservado, por artículo y bodega |
 
 **Depende de** Catálogo (artículos, unidades, impuestos, bodegas), que lee por su puerto, y de
@@ -30,7 +31,10 @@ el cliente al facturar a crédito y si una factura tiene cobros al anularla
 3. **Nunca sale más de lo vendido** (`CHECK dispatched_quantity <= quantity`, dominio y bloqueo).
 4. **La factura cobra un despacho, una sola vez**, y guarda sus importes: un documento fiscal no
    cambia porque luego cambie un precio.
-5. **Nada se borra.** Un cliente se desactiva; pedidos, despachos y facturas se anulan.
+5. **La devolución de venta reingresa al costo congelado del despacho de origen.** Si es apta para la venta
+   (`resalable`), reingresa al kardex; si es scrap o dañada, no reingresa. Una factura con devoluciones
+   confirmadas no se anula: se emite nota de crédito por el saldo.
+6. **Nada se borra.** Un cliente se desactiva; pedidos, despachos, facturas y devoluciones se anulan.
 
 ---
 
@@ -293,6 +297,7 @@ Se emiten **desde un despacho confirmado**. No tienen borrador: nacen emitidas.
   **lo que debe + esta factura supera su límite**. La de contado no se frena. Con el cliente bloqueado
   ([cuentas-por-cobrar.md §3.2](cuentas-por-cobrar.md#32-la-regla-al-emitir)).
 - **Una factura con cobros confirmados no se anula**: primero se anulan los cobros.
+- **Una factura con devoluciones confirmadas no se anula** (`InvoiceWithReturnsError`): si parte de la mercancía ya fue devuelta, la venta no puede borrarse; se emite una nota de crédito por la diferencia en Cuentas por cobrar.
 
 Ejemplo: 4 cajas a 30 con 16 % → subtotal 120,00, IVA 19,20, total 139,20. Con plazo de 15 días,
 emitida el 15 de enero vence el 30.
@@ -302,7 +307,34 @@ Ejemplo de moneda: un pedido en euros confirmado el 10 de septiembre (171,30) se
 
 ---
 
-## 5. Disponibilidad
+## 5. Devoluciones de cliente — `sales_returns`
+
+Mercancía devuelta por un cliente a partir de un despacho confirmado.
+
+### 5.1 Cabecera y líneas
+
+| Campo | Regla |
+|---|---|
+| `code` | `DVV000001`, asignado por el sistema |
+| `customer_id` | Cliente del despacho |
+| `dispatch_id` | Despacho confirmado de origen |
+| `date` | Por defecto hoy; no futura y no anterior al despacho |
+| `condition` | Condición de la mercancía: `resalable` (apta para la venta), `damaged` (dañada) o `scrap` (desecho) |
+| `reason` | Motivo de la devolución (opcional) |
+| `notes` | Notas adicionales (opcional) |
+| Línea: `dispatch_line_id` | Línea del despacho que se devuelve |
+| Línea: `quantity` | Mayor que cero; no puede superar lo despachado neto de devoluciones previas |
+
+### 5.2 Comportamiento en inventario
+
+- **Apta para venta (`resalable`)**: al confirmarse, reingresa al inventario al **costo unitario congelado del despacho de origen**, sin recalcular costos con precios de venta. Si el artículo fue desactivado comercialmente tras el despacho, el intento de confirmación en `resalable` es rechazado (`InactiveSalesItemError`) y no produce movimientos en el kardex.
+- **Dañada / Scrap (`damaged`, `scrap`)**: no reingresa al inventario vendible (no genera movimiento de kardex). Si el artículo fue desactivado comercialmente, una devolución en `scrap` sí confirma exitosamente porque no compromete ni reingresa existencia vendible.
+- **Devolución sin origen**: una devolución sin despacho de origen con un artículo desactivado es rechazada inmediatamente al crearse (`InactiveSalesItemError`).
+- **Anular devolución confirmada**: genera la contrapartida en el kardex si la devolución había reingresado mercancía.
+
+---
+
+## 6. Disponibilidad
 
 `GET /api/v1/sales/availability?warehouseId=` devuelve, por artículo y bodega, **existencia,
 reservado y disponible**, en unidad base. Es una foto para mirar: la reserva de verdad se decide al
@@ -310,7 +342,7 @@ confirmar, con las filas bloqueadas.
 
 ---
 
-## 6. API y permisos
+## 7. API y permisos
 
 | Acción | Ruta | Permiso |
 |---|---|---|
@@ -324,6 +356,24 @@ confirmar, con las filas bloqueadas.
 | Facturas | `GET /api/v1/sales/invoices` | `sales.invoices.search` |
 | Emitir factura | `POST /api/v1/sales/invoices` `{ "dispatchId": "…" }` | `sales.invoices.issue` |
 | Anular factura | `PUT /api/v1/sales/invoices/:invoiceId/cancel` | `sales.invoices.cancel` |
+| Devoluciones | `GET/POST /api/v1/sales/returns`, `PUT …/:returnId` | `sales.returns.{search,create,update}` |
+| Confirmar devolución | `PUT /api/v1/sales/returns/:returnId/confirm` | `sales.returns.confirm` |
+| Anular devolución | `PUT /api/v1/sales/returns/:returnId/cancel` | `sales.returns.cancel` |
+| Cupo devolución | `GET /api/v1/sales/dispatches/:dispatchId/return-quota` | `sales.returns.create` |
+
+### Errores que devuelve la API
+
+| Error | HTTP | Cuándo sale |
+|---|---|---|
+| `SalesReturnNotFoundError` | 404 | La devolución no existe en esta empresa |
+| `ReturnCustomerMismatchError` | 409 | El cliente no coincide con el cliente del despacho |
+| `ReturnBeforeDispatchError` | 409 | La fecha de devolución es anterior al despacho |
+| `ReturnQuantityExceededError` | 409 | La cantidad a devolver supera lo despachado pendiente |
+| `ReturnAlreadyCancelledError` | 409 | La devolución ya está anulada |
+| `ReturnNotEditableError` | 409 | Solo se puede editar una devolución en borrador |
+| `ReturnNotConfirmableError` | 409 | Solo se puede confirmar una devolución en borrador |
+| `InvoiceWithReturnsError` | 409 | Se intentó anular una factura con devoluciones registradas |
+| `InactiveSalesItemError` | 409 | El artículo a devolver está inactivo (al crear sin origen o confirmar en resalable con despacho) |
 | Disponibilidad | `GET /api/v1/sales/availability` | `sales.availability.search` |
 
 **Errores más frecuentes**
@@ -353,13 +403,14 @@ confirmar, con las filas bloqueadas.
 
 ---
 
-## 7. Pantallas
+## 8. Pantallas
 
 | Ruta | Qué muestra |
 |---|---|
 | `/ventas/pedidos` | Pedidos con cliente, líneas con lo despachado, total con IVA y estado. Menú: despachar, editar, confirmar, anular |
 | `/ventas/despachos` | Despachos con su pedido y cliente, lo que salió, estado y factura. Menú: editar, confirmar, **facturar**, anular |
 | `/ventas/facturas` | Facturas con cliente, despacho, líneas a su precio, total, **vencimiento** y estado. Menú: anular |
+| `/ventas/devoluciones` | Devoluciones con cliente, despacho, condición (`resalable`, `damaged`, `scrap`), líneas devueltas y estado. Menú: confirmar, anular |
 | `/ventas/disponibilidad` | Existencia, reservado y disponible por artículo y bodega |
 | `/ventas/clientes` | Maestro con identificación fiscal, contacto, plazo y límite de crédito |
 
@@ -368,7 +419,7 @@ que no admite el paso siguiente.
 
 ---
 
-## 8. Datos de demostración
+## 9. Datos de demostración
 
 | Empresa | Qué hay |
 |---|---|
@@ -377,21 +428,24 @@ que no admite el paso siguiente.
 | Acme | `DES000001` confirmado: 2 cajas = 48 un al promedio 0,50. El agua pasa de 336 a **288** |
 | Acme | `FAC000001` emitida: 69,60, **vence el 22-09-2026**; Delta abonó 30 y debe 39,60 |
 | Acme | `PED000002` a La Esquina, borrador |
+| Acme | `DVV000001` confirmada: Corner Store devuelve 1 caja de agua de `DES000002` en condición `resalable`; reingreso al costo congelado en kardex sin nota de crédito |
+| Acme | `DVV000002` confirmada: Farmacia San Rafael devuelve 1 jabón líquido de `DES000004` en condición `scrap` (dañado sin reingreso en kardex), acreditada por `NCC000002` |
 | Acme | Disponibilidad en Principal: agua 288 − 72 reservadas = **216**; detergente 50 − 10 = **40** |
 | Globex | Talleres Omega; pedido despachado en parte con despacho y factura, despacho en borrador y pedido en borrador: blancos de la matriz |
 
-El rol **Consulta** ve clientes, pedidos, despachos, facturas y disponibilidad, pero no vende.
+El rol **Consulta** ve clientes, pedidos, despachos, facturas, devoluciones y disponibilidad, pero no vende ni modifica.
 
 ---
 
-## 9. Pruebas que lo protegen
+## 10. Pruebas que lo protegen
 
 | Nivel | Dónde | Qué cubre |
 |---|---|---|
-| Dominio | `contexts/sales/domain/**/*.spec.ts` | Reserva (sumar líneas, reservado de otros, pendiente), ciclo del pedido, despacho proporcional, factura con vencimiento e importes, errores |
-| Aplicación | `customer-lifecycle.spec.ts`, `sales-cycle.spec.ts` | Reservar y liberar, no reservar de más, despachar en partes, existencia que ya no está, facturar una vez, despacho facturado no se anula |
-| Contrato | `sales-ports.contract.ts` | 12 casos contra doble y PostgreSQL con el inventario real: **dos pedidos simultáneos que no caben**, **dos despachos simultáneos**, **dos facturas simultáneas del mismo despacho** |
+| Dominio | `contexts/sales/domain/**/*.spec.ts` | Reserva (sumar líneas, reservado de otros, pendiente), ciclo del pedido, despacho proporcional, factura con vencimiento e importes, devoluciones y cupos, errores |
+| Aplicación | `customer-lifecycle.spec.ts`, `sales-cycle.spec.ts` | Reservar y liberar, no reservar de más, despachar en partes, existencia que ya no está, facturar una vez, despacho facturado no se anula, factura con devoluciones no se anula |
+| Contrato | `sales-ports.contract.ts` | 12 casos contra doble y PostgreSQL con el inventario real: **dos pedidos simultáneos que no caben**, **dos despachos simultáneos**, **dos facturas simultáneas del mismo despacho**, devoluciones |
 | Aplicación | `sales-currency.spec.ts` | Moneda del pedido, tasa manual, factura con la tasa de su emisión e importes en bolívares, crédito en la moneda de la empresa |
 | API | `tests/api/sales.api.spec.ts` | Recorrido por HTTP, reserva, concurrencia, costo promedio en el kardex, vencimiento, permisos, **factura en euros con la tasa de emisión y tasa manual del pedido** |
-| Interfaz | `tests/ui/sales.spec.ts` | **El ciclo completo** comprar → recibir → vender → despachar → facturar en pasos Dado/Cuando/Entonces; error de disponibilidad en español; solo lectura |
-| Aislamiento | `tests/isolation/*` | 13 ataques a clientes, pedidos, despachos, facturas y disponibilidad de Globex |
+| Interfaz | `tests/ui/sales.spec.ts`, `tests/ui/credit-notes-returns.spec.ts` | **El ciclo completo** comprar → recibir → vender → despachar → facturar; navegación y consulta de devoluciones; solo lectura |
+| Destructivas | `tests/destructive/h8-mutations.spec.ts` | Bloqueo de anulación de factura con devolución confirmada; reingreso al costo congelado en kardex y reversión al anular; rechazo en resalable de artículo desactivado sin movimientos de kardex, confirmación en scrap y rechazo al crear sin origen |
+| Aislamiento | `tests/isolation/*` | Ataques a clientes, pedidos, despachos, facturas, devoluciones y disponibilidad de Globex |

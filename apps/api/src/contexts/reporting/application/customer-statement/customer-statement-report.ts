@@ -20,7 +20,7 @@ export interface CustomerStatementResponse {
   // Cubren TODAS las facturas del cliente, no solo la pagina de movimientos enviada.
   balance: number;
   overdue: number;
-  movements: { date: string; type: 'invoice' | 'payment'; code: string; debit: number; credit: number; balance: number }[];
+  movements: { date: string; type: 'invoice' | 'payment'; code: string; debit: number; credit: number; balance: number; noteRemaining?: number | null }[];
 }
 
 // El estado de cuenta para imprimir: facturas emitidas y cobros confirmados con saldo corrido. El
@@ -63,6 +63,7 @@ export class CustomerStatementReport {
           debit: entry.type === 'invoice' ? entry.amount : 0,
           credit: entry.type === 'payment' ? entry.amount : 0,
           balance: unitsToNumber(running),
+          noteRemaining: entry.noteRemaining ?? null,
         };
       });
 

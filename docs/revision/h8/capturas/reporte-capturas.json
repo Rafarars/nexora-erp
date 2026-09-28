@@ -1,0 +1,194 @@
+[
+  {
+    "step": "Inicio de sesión como administradora Ana Rivas",
+    "screenshot": "01-login-admin.png",
+    "consoleErrors": [],
+    "failedRequests": []
+  },
+  {
+    "step": "Listado de Devoluciones de Venta con datos de la semilla",
+    "screenshot": "02-ventas-devoluciones-listado.png",
+    "consoleErrors": [],
+    "failedRequests": []
+  },
+  {
+    "step": "Formulario para crear devolución de venta sobre despacho",
+    "screenshot": "03-ventas-devolucion-con-despacho-form.png",
+    "consoleErrors": [],
+    "failedRequests": []
+  },
+  {
+    "step": "Devolución de venta guardada en estado Borrador",
+    "screenshot": "04-ventas-devolucion-con-despacho-draft.png",
+    "consoleErrors": [],
+    "failedRequests": []
+  },
+  {
+    "step": "Devolución de venta confirmada con reingreso en kardex",
+    "screenshot": "05-ventas-devolucion-confirmed.png",
+    "consoleErrors": [],
+    "failedRequests": []
+  },
+  {
+    "step": "Devolución de venta anulada con reversión de inventario",
+    "screenshot": "06-ventas-devolucion-cancelled.png",
+    "consoleErrors": [],
+    "failedRequests": []
+  },
+  {
+    "step": "Formulario de devolución de venta sin origen con costo manual",
+    "screenshot": "07-ventas-devolucion-sin-origen-form.png",
+    "consoleErrors": [],
+    "failedRequests": []
+  },
+  {
+    "step": "Devolución sin origen guardada en borrador",
+    "screenshot": "08-ventas-devolucion-sin-origen-draft.png",
+    "consoleErrors": [],
+    "failedRequests": []
+  },
+  {
+    "step": "Devolución sin origen confirmada con reingreso al costo escrito",
+    "screenshot": "09-ventas-devolucion-sin-origen-confirmed.png",
+    "consoleErrors": [],
+    "failedRequests": []
+  },
+  {
+    "step": "Error de cupo excedido en ventas mostrado traducido en la interfaz",
+    "screenshot": "10-ventas-devolucion-error-cupo.png",
+    "consoleErrors": [],
+    "failedRequests": []
+  },
+  {
+    "step": "Listado de Notas de Crédito con crédito disponible",
+    "screenshot": "11-notas-credito-listado.png",
+    "consoleErrors": [],
+    "failedRequests": []
+  },
+  {
+    "step": "Formulario para emitir nota de crédito",
+    "screenshot": "12-nota-credito-form.png",
+    "consoleErrors": [],
+    "failedRequests": []
+  },
+  {
+    "step": "Nota de crédito en estado Borrador",
+    "screenshot": "13-nota-credito-draft.png",
+    "consoleErrors": [],
+    "failedRequests": []
+  },
+  {
+    "step": "Edición de borrador de nota de crédito",
+    "screenshot": "14-nota-credito-edit-panel.png",
+    "consoleErrors": [],
+    "failedRequests": []
+  },
+  {
+    "step": "Nota de crédito confirmada con saldo disponible calculado",
+    "screenshot": "15-nota-credito-confirmed.png",
+    "consoleErrors": [],
+    "failedRequests": []
+  },
+  {
+    "step": "Crédito disponible total del cliente agrupado por moneda",
+    "screenshot": "16-cobros-credito-disponible-badge.png",
+    "consoleErrors": [],
+    "failedRequests": []
+  },
+  {
+    "step": "Selector de notas de crédito con código visible y disponible restante",
+    "screenshot": "17-cobros-selector-notas-credito.png",
+    "consoleErrors": [],
+    "failedRequests": []
+  },
+  {
+    "step": "Cobro con nota de crédito en estado Borrador",
+    "screenshot": "18-cobro-credito-draft.png",
+    "consoleErrors": [],
+    "failedRequests": []
+  },
+  {
+    "step": "Cobro con nota de crédito confirmado gastando el crédito disponible",
+    "screenshot": "19-cobro-credito-confirmed.png",
+    "consoleErrors": [],
+    "failedRequests": []
+  },
+  {
+    "step": "Rechazo al anular nota de crédito con cobros de aplicación confirmados",
+    "screenshot": "20-error-anular-nota-con-cobros.png",
+    "consoleErrors": [],
+    "failedRequests": []
+  },
+  {
+    "step": "Rechazo de anulación directa de cobro de emisión desde Cobros",
+    "screenshot": "21-error-anular-cobro-emision.png",
+    "consoleErrors": [],
+    "failedRequests": []
+  },
+  {
+    "step": "Listado de Devoluciones de Compra",
+    "screenshot": "22-compras-devoluciones-listado.png",
+    "consoleErrors": [],
+    "failedRequests": []
+  },
+  {
+    "step": "Formulario para crear devolución de compra",
+    "screenshot": "23-compras-devolucion-form.png",
+    "consoleErrors": [],
+    "failedRequests": []
+  },
+  {
+    "step": "Devolución de compra en estado Borrador",
+    "screenshot": "24-compras-devolucion-draft.png",
+    "consoleErrors": [],
+    "failedRequests": []
+  },
+  {
+    "step": "Devolución de compra confirmada con salida de kardex",
+    "screenshot": "25-compras-devolucion-confirmed.png",
+    "consoleErrors": [],
+    "failedRequests": []
+  },
+  {
+    "step": "Devolución de compra anulada",
+    "screenshot": "26-compras-devolucion-cancelled.png",
+    "consoleErrors": [],
+    "failedRequests": []
+  },
+  {
+    "step": "Error de cupo excedido en compras mostrado traducido en la interfaz",
+    "screenshot": "27-compras-error-cupo.png",
+    "consoleErrors": [],
+    "failedRequests": []
+  },
+  {
+    "step": "Inicio de sesión con usuario de consulta Carla Mena",
+    "screenshot": "28-viewer-login.png",
+    "consoleErrors": [],
+    "failedRequests": []
+  },
+  {
+    "step": "Vista de consulta en Devoluciones de Venta (sin botón Nueva Devolución ni acciones de fila)",
+    "screenshot": "29-viewer-ventas-devoluciones.png",
+    "consoleErrors": [],
+    "failedRequests": []
+  },
+  {
+    "step": "Vista de consulta en Notas de Crédito (sin botón Nueva Nota ni acciones de fila)",
+    "screenshot": "30-viewer-notas-credito.png",
+    "consoleErrors": [],
+    "failedRequests": []
+  },
+  {
+    "step": "Vista de consulta en Cobros (sin botón Registrar Cobro)",
+    "screenshot": "31-viewer-cobros.png",
+    "consoleErrors": [],
+    "failedRequests": []
+  },
+  {
+    "step": "Vista de consulta en Devoluciones de Compra (sin botón Nueva Devolución)",
+    "screenshot": "32-viewer-compras-devoluciones.png",
+    "consoleErrors": [],
+    "failedRequests": []
+  }
+]

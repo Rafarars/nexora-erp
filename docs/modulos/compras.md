@@ -11,6 +11,7 @@ Contexto: `apps/api/src/contexts/purchasing` · Pantallas: `/compras/*` · Infor
 | Proveedores | `suppliers` | `PRV` | A quién se le compra |
 | Órdenes de compra | `purchase_orders`, `purchase_order_lines` | `OC` | Lo que se le pide a un proveedor para una bodega |
 | Entradas de mercancía | `goods_receipts`, `goods_receipt_lines` | `ENT` | Lo que llegó de una orden; al confirmarse sube la existencia |
+| Devoluciones a proveedor | `purchase_returns`, `purchase_return_lines` | `DVC` | Lo que se devuelve al proveedor de una entrada; baja existencia al costo congelado sin reabrir la orden |
 | En camino | — (se calcula de las órdenes) | — | Lo pedido en órdenes confirmadas que todavía no llegó |
 
 **Depende de** Catálogo (artículos, unidades, impuestos, bodegas), que lee por su propio puerto, y de
@@ -28,7 +29,9 @@ de ninguno de los dos.
 3. **El inventario sigue siendo el único que escribe kardex y existencias.** Compras le pasa las
    líneas de la entrada; el inventario aplica el mismo motor que a un ajuste.
 4. **Entrada, orden y existencia cambian juntas o no cambia ninguna.** Una sola transacción.
-5. **Nada se borra.** Un proveedor se desactiva; una orden o una entrada se anulan.
+5. **La devolución a proveedor baja existencia al costo congelado y no reabre la orden de compra.**
+   La orden permanece recibida; no se espera reposición automática salvo que se emita otra orden.
+6. **Nada se borra.** Un proveedor se desactiva; órdenes, entradas y devoluciones se anulan.
 
 ---
 
@@ -278,6 +281,38 @@ PrismaReceiptPosting (compras)                     PrismaDocumentStockPosting (i
 
 ---
 
+## 4. Devoluciones a proveedor — `purchase_returns`
+
+Mercancía devuelta a un proveedor a partir de una entrada confirmada.
+
+### 4.1 Cabecera y líneas
+
+| Campo | Regla |
+|---|---|
+| `code` | `DVC000001`, asignado por el sistema |
+| `supplier_id` | Proveedor de la entrada |
+| `receipt_id` | Entrada confirmada de origen |
+| `date` | Por defecto hoy; no futura y no anterior a la entrada |
+| `reason` | Motivo de la devolución (opcional) |
+| `notes` | Notas adicionales (opcional) |
+| Línea: `receipt_line_id` | Línea de la entrada que se devuelve |
+| Línea: `quantity` | Mayor que cero; no puede superar lo recibido neto de devoluciones previas |
+
+### 4.2 Comportamiento en inventario y orden de compra
+
+- **Salida de mercancía**: al confirmarse, saca del inventario la cantidad devuelta al **costo unitario congelado de la entrada de origen**.
+- **La orden de compra no se reabre**: la orden original permanece con su cantidad recibida intacta; no se espera una reposición automática a menos que se cree una nueva orden de compra.
+- **Anular devolución confirmada**: genera la contrapartida de reingreso en el kardex al mismo costo.
+- **Edición de borradores**: un borrador de devolución permite ajustar cantidades y notas mientras no esté confirmado o anulado. Al editarse, conserva el código asignado (`DVC...`) y revalida el cupo disponible contra la entrada origen.
+
+---
+
+## 5. En camino
+
+Lo pedido en órdenes confirmadas que todavía no llegó a las bodegas.
+
+---
+
 ## 6. API y permisos
 
 | Acción | Ruta | Permiso |
@@ -296,6 +331,12 @@ PrismaReceiptPosting (compras)                     PrismaDocumentStockPosting (i
 | Editar borrador | `PUT /api/v1/purchasing/receipts/:receiptId` | `purchasing.receipts.update` |
 | Confirmar | `PUT /api/v1/purchasing/receipts/:receiptId/confirm` | `purchasing.receipts.confirm` |
 | Anular | `PUT /api/v1/purchasing/receipts/:receiptId/cancel` | `purchasing.receipts.cancel` |
+| Listar devoluciones | `GET /api/v1/purchasing/returns` | `purchasing.returns.search` |
+| Crear devolución | `POST /api/v1/purchasing/returns` | `purchasing.returns.create` |
+| Editar devolución | `PUT /api/v1/purchasing/returns/:returnId` | `purchasing.returns.update` |
+| Confirmar devolución | `PUT /api/v1/purchasing/returns/:returnId/confirm` | `purchasing.returns.confirm` |
+| Anular devolución | `PUT /api/v1/purchasing/returns/:returnId/cancel` | `purchasing.returns.cancel` |
+| Cupo devolución | `GET /api/v1/purchasing/receipts/:receiptId/return-quota` | `purchasing.returns.create` |
 | En camino | `GET /api/v1/purchasing/incoming?warehouseId=&q=&limit=&offset=` | `purchasing.incoming.search` |
 
 **Los cuatro listados paginan de 20 y devuelven `{ total, limit, offset, hasMore, … }`.** Los
@@ -341,6 +382,13 @@ POST /api/v1/purchasing/receipts
 | `PurchaseOrderNotReceivableError` | 409 | Recibir de un borrador, una anulada o una ya recibida |
 | `ReceiptExceedsPendingError` | 409 | La entrada supera lo pendiente |
 | `ReceivedGoodsAlreadyUsedError` | 409 | Anular una entrada cuya mercancía ya salió |
+| `PurchaseReturnNotFoundError` | 404 | La devolución no existe en esta empresa |
+| `ReturnSupplierMismatchError` | 409 | El proveedor no coincide con el de la entrada |
+| `ReturnBeforeReceiptError` | 409 | La fecha de devolución es anterior a la entrada |
+| `ReturnQuantityExceededError` | 409 | La cantidad a devolver supera lo recibido pendiente |
+| `ReturnAlreadyCancelledError` | 409 | La devolución ya está anulada |
+| `ReturnNotEditableError` | 409 | Solo se puede editar una devolución en borrador |
+| `ReturnNotConfirmableError` | 409 | Solo se puede confirmar una devolución en borrador |
 | `MissingExchangeRateError` | 409 | No hay tasa de esa moneda en la fecha del documento ni antes |
 | `RateOverrideNotAllowedError` | 409 | Tasa escrita a mano en una empresa que no lo permite |
 | `FixedExchangeRateError` | 400 | Tasa escrita a mano para la moneda de la empresa o el bolívar |
@@ -355,10 +403,11 @@ POST /api/v1/purchasing/receipts
 |---|---|
 | `/compras/ordenes` | Órdenes con proveedor y su plazo congelado, bodega, líneas con lo recibido, la fecha esperada en rojo y «atrasada» cuando ya pasó, total con IVA y estado. Menú: recibir mercancía, editar, confirmar, anular. Panel de orden con líneas dinámicas y panel de recepción con lo pendiente propuesto. Filtros: texto (código, SKU o artículo), proveedor, bodega, estado y rango de fechas |
 | `/compras/entradas` | Entradas con su orden y proveedor, lo que llegó y el estado. Menú: editar, confirmar, anular (revierte la existencia). Filtros: texto (código de la entrada o de su orden), estado y rango de fechas |
+| `/compras/devoluciones` | Devoluciones a proveedor con proveedor, entrada de origen, líneas devueltas y estado. Menú: editar (borradores), confirmar, anular. Filtros: texto (código de la devolución o entrada), proveedor, estado y rango de fechas. Formulario con validación de cupo remanente de la entrada origen |
 | `/compras/en-camino` | Por artículo y bodega, lo que viene y de qué órdenes, con la fecha en rojo y «atrasada» cuando ya pasó. Filtros: texto (SKU o nombre) y bodega |
 | `/compras/proveedores` | Maestro con identificación fiscal, contacto y plazo («Contado» o «N días»). Filtros: texto (código, nombre o identificación fiscal) y estado |
 
-- Las cuatro pantallas paginan de 20 en 20 y dejan los filtros en la dirección: un listado
+- Las pantallas paginan de 20 en 20 y dejan los filtros en la dirección: un listado
   filtrado se comparte pegando el enlace.
 - El módulo aparece en la barra lateral solo si el rol puede ver alguna de sus secciones.
 - Los menús ofrecen solo lo que el estado permite; la API lo vuelve a comprobar.
@@ -376,11 +425,12 @@ POST /api/v1/purchasing/receipts
 | Acme | `OC000001` a Andina, **recibida en parte**: 10 cajas de agua a 12 (4 recibidas) y 20 kg de detergente a 3,10 |
 | Acme | `ENT000001` **confirmada**: 4 cajas = 96 unidades a 0,50. El agua de Principal pasa de 240 a **336** |
 | Acme | `OC000002` a Aguas del Valle, **borrador** |
+| Acme | `DVC000001` **confirmada**: Distribuidora del Valle devuelve 10 botellas de agua de `ENT000002`, salida en kardex al costo congelado 0,50 USD, orden `OC000003` intacta |
 | Acme | En camino: **144 un** de agua y **20 kg** de detergente en Principal |
 | Globex | Repuestos Industriales; `OC000001` confirmada, `OC000002` borrador y `ENT000001` en borrador. Son los blancos de la matriz de aislamiento |
 
-El rol **Consulta** de Acme ve proveedores, órdenes, entradas y lo que viene en camino, pero no
-compra.
+El rol **Consulta** de Acme ve proveedores, órdenes, entradas, devoluciones y lo que viene en camino, pero no
+compra ni modifica.
 
 ---
 
@@ -388,10 +438,10 @@ compra.
 
 | Nivel | Dónde | Qué cubre |
 |---|---|---|
-| Dominio | `contexts/purchasing/domain/**/*.spec.ts` | Montos con los decimales de la empresa (0, 2 y 4), cantidades exactas, proveedor, ciclo de la orden (recibir todo o nada, retroceder al anular), ciclo de la entrada, confirmación y anulación puras |
-| Aplicación | `supplier-lifecycle.spec.ts`, `purchase-cycle.spec.ts` | Proveedores; órdenes con revalidación y conservación de líneas; en camino; entradas parciales, dos borradores que se pasan, anular y retroceder, mercancía que ya salió |
-| Contrato | `purchasing-ports.contract.ts` | 14 casos contra doble y PostgreSQL con el inventario real: atomicidad, **dos entradas simultáneas que no caben**, doble confirmación, **anular la orden mientras una entrada la recibe** |
+| Dominio | `contexts/purchasing/domain/**/*.spec.ts` | Montos con los decimales de la empresa (0, 2 y 4), cantidades exactas, proveedor, ciclo de la orden (recibir todo o nada, retroceder al anular), ciclo de la entrada y devoluciones a proveedor, confirmación y anulación puras |
+| Aplicación | `supplier-lifecycle.spec.ts`, `purchase-cycle.spec.ts` | Proveedores; órdenes con revalidación y conservación de líneas; en camino; entradas parciales, devoluciones a proveedor sin reabrir orden, dos borradores que se pasan, anular y retroceder, mercancía que ya salió |
+| Contrato | `purchasing-ports.contract.ts` | 14 casos contra doble y PostgreSQL con el inventario real: atomicidad, **dos entradas simultáneas que no caben**, doble confirmación, devoluciones a proveedor |
 | API | `tests/api/purchasing.api.spec.ts` | Recorrido por HTTP, costo promedio con dos compras, entradas simultáneas, anulación con retroceso, permisos |
-| Interfaz | `tests/ui/purchasing.spec.ts` | Pedir → en camino → recibir en parte → existencias → kardex → anular entrada; error en español; proveedor; solo lectura |
-| Aislamiento | `tests/isolation/*` | 11 ataques: proveedores, órdenes y entradas de Globex, pedirle a su proveedor, recibir su orden y filtrar lo que le viene en camino |
+| Interfaz | `tests/ui/purchasing.spec.ts`, `tests/ui/credit-notes-returns.spec.ts` | Pedir → en camino → recibir en parte → existencias → kardex → anular entrada; navegación de devoluciones; solo lectura |
+| Aislamiento | `tests/isolation/*` | 11 ataques: proveedores, órdenes, entradas y devoluciones de Globex, pedirle a su proveedor, recibir su orden y filtrar lo que le viene en camino |
 | Moneda y tasas | `application/purchase-currency.spec.ts`, `document-currency.spec.ts`, `tests/api/purchasing.api.spec.ts`, `tests/ui/purchasing.spec.ts` | La moneda de la empresa por defecto, tasas que se refrescan en el borrador y se congelan al confirmar, tasa a mano, sin tasa no se guarda, la entrada con las tasas de su día y el costo en la moneda de la empresa |

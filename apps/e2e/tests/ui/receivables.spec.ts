@@ -10,6 +10,8 @@ const API = process.env.API_URL ?? 'http://localhost:3001';
 // Cobrar una factura desde la pantalla, en pasos Dado, Cuando y Entonces. La factura se emite por
 // API con cliente y articulo propios: la prueba es sobre la cobranza.
 test('collects part of an invoice from the screen and cancelling the payment gives the balance back', async ({ page, request }) => {
+  // Siete navegaciones completas bajo la concurrencia de la suite: medida en 21,5 s sola y 31,4 s con la suite.
+  test.slow();
   const token = await tokenFor(request, ACME_ADMIN.email, API);
   const customer = await aCreditCustomer(request, token, { paymentTermDays: 15, creditLimit: 500 }, API);
   const invoice = await anInvoice(request, token, customer.id, 100, undefined, API);

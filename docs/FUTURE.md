@@ -793,3 +793,13 @@ congelarlo sería un segundo sitio con el mismo número, justo lo que ese plan e
 declarado en la columna y **no cableado** —no entra en el total, aunque su comentario diga que
 sí—, y su retención se suma en la cabecera pero **nunca se resta**, que es lo que ya destapó la
 revisión de Impuestos.
+
+## Monitoreo de varianza de CPU en prueba de tiempos de Argon2
+
+**Qué es.** En la tercera ronda de correcciones de H8 falló de forma intermitente `argon2-password-hasher.spec.ts` en el caso que comprueba la mitigación de ataques de temporización (`takes as long to reject a missing account as a real one`).
+
+**Por qué no se tocó.** Argon2 es intensivo en cómputo y memoria por especificación de diseño criptográfico. La aserción compara la latencia al rechazar un usuario inexistente frente a uno real. En entornos con fluctuaciones de carga de CPU o concurrencia, pueden presentarse variaciones puntuales. En la medición sistemática realizada durante la fase 7 se verificó su estabilidad: **argon2: 5 de 5 en verde** (8/8 pruebas superadas en las 5 corridas consecutivas, con tiempos estables de ~1,6 s a ~1,7 s).
+
+**Qué haría falta.** Mantener bajo observación en entornos de CI compartidos. Si se volvieran a observar falsos positivos por contención de CPU en runners virtualizados, evaluar ampliar el margen porcentual de tolerancia en la aserción de temporización sin comprometer la validación de seguridad contra enumeración de cuentas.
+
+

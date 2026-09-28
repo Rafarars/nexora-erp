@@ -117,3 +117,42 @@ export async function changeReceipt(_state: FormState, form: FormData): Promise<
 
   return attempt('No se pudo anular la entrada.', (token) => purchasingApi().cancelReceipt(token, id));
 }
+
+export async function savePurchaseReturn(_state: FormState, form: FormData): Promise<FormState> {
+  const receiptLines = form.getAll('receiptLineId').map(String);
+  const quantities = form.getAll('returnQuantity').map(String);
+
+  const input = {
+    date: optional(form, 'date'),
+    reason: optional(form, 'reason'),
+    notes: optional(form, 'notes'),
+    lines: receiptLines
+      .map((receiptLineId, index) => ({ receiptLineId, raw: (quantities[index] ?? '').trim() }))
+      .filter(({ raw }) => raw !== '' && raw !== '0')
+      .map(({ receiptLineId, raw }) => ({ receiptLineId, quantity: parseDecimal(raw) })),
+  };
+
+  const returnId = optional(form, 'id');
+
+  return attempt('No se pudo guardar la devolución.', async (token) => {
+    if (returnId) {
+      await purchasingApi().updateReturn(token, returnId, input);
+    } else {
+      await purchasingApi().createReturn(token, {
+        supplierId: text(form, 'supplierId'),
+        receiptId: text(form, 'receiptId'),
+        ...input,
+      });
+    }
+  });
+}
+
+export async function changePurchaseReturn(_state: FormState, form: FormData): Promise<FormState> {
+  const id = text(form, 'id');
+  const extra = form.get('extra');
+
+  if (extra === 'confirm') return attempt('No se pudo confirmar la devolución.', (token) => purchasingApi().confirmReturn(token, id));
+
+  return attempt('No se pudo anular la devolución.', (token) => purchasingApi().cancelReturn(token, id));
+}
+

@@ -147,6 +147,15 @@ export class PrismaItemPortsHarness implements ItemPortsHarness {
   // Vacia en el orden de las claves ajenas y garantiza que las dos empresas existen: sin ellas,
   // la base rechazaria cada fila.
   async reset(): Promise<void> {
+    await this.prisma.paymentAllocation.deleteMany();
+    await this.prisma.customerCreditNote.updateMany({ data: { issuePaymentId: null } });
+    await this.prisma.customerPayment.updateMany({ data: { creditSourceId: null } });
+    await this.prisma.customerCreditNoteLine.deleteMany();
+    await this.prisma.customerCreditNote.deleteMany();
+    await this.prisma.salesReturnLine.deleteMany();
+    await this.prisma.salesReturn.deleteMany();
+    await this.prisma.purchaseReturnLine.deleteMany();
+    await this.prisma.purchaseReturn.deleteMany();
     await this.prisma.customerPayment.deleteMany();
     await this.prisma.invoice.deleteMany();
     await this.prisma.dispatch.deleteMany();
@@ -155,7 +164,7 @@ export class PrismaItemPortsHarness implements ItemPortsHarness {
     await this.prisma.goodsReceipt.deleteMany();
     await this.prisma.purchaseOrder.deleteMany();
     await this.prisma.supplier.deleteMany();
-    await this.prisma.inventoryMovement.updateMany({ data: { reversalOfId: null } });
+    await this.prisma.inventoryMovement.updateMany({ data: { reversalOfId: null, restoresMovementId: null } });
     await this.prisma.inventoryMovement.deleteMany();
     await this.prisma.itemStock.deleteMany();
     await this.prisma.adjustment.deleteMany();

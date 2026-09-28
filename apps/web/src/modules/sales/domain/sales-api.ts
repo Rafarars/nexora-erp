@@ -100,6 +100,57 @@ export interface SalesApi {
   cancelDispatch(token: string, id: string): Promise<void>;
   searchInvoices(token: string, filters?: InvoiceFilters): Promise<InvoicePage>;
   issueInvoice(token: string, origin: { dispatchId: string } | { orderId: string }): Promise<void>;
-  cancelInvoice(token: string, id: string): Promise<void>;
   searchAvailability(token: string, filters?: AvailabilityFilters): Promise<AvailabilityPage>;
+  searchReturns(token: string, filters?: SalesReturnFilters): Promise<SalesReturnPage>;
+  createReturn(token: string, input: SalesReturnInput): Promise<{ id: string }>;
+  updateReturn(token: string, id: string, input: Omit<SalesReturnInput, 'customerId' | 'dispatchId'>): Promise<void>;
+  confirmReturn(token: string, id: string): Promise<void>;
+  cancelReturn(token: string, id: string): Promise<void>;
+  getDispatchReturnQuota(token: string, dispatchId: string): Promise<DispatchReturnQuota>;
 }
+
+export interface SalesReturnInput {
+  customerId: string;
+  dispatchId?: string | null;
+  warehouseId?: string | null;
+  currency?: string | null;
+  exchangeRate?: number | null;
+  date: string | null;
+  condition: 'resalable' | 'damaged' | 'scrap';
+  reason: string | null;
+  notes: string | null;
+  lines: {
+    dispatchLineId?: string | null;
+    itemId?: string;
+    unitId?: string;
+    quantity: number;
+    unitCost?: number;
+  }[];
+}
+
+export type SalesReturnFilters = {
+  q?: string;
+  customerId?: string;
+  dispatchId?: string;
+  status?: string;
+  from?: string;
+  to?: string;
+  limit?: number;
+  offset?: number;
+};
+
+export interface SalesReturnPage extends Page {
+  returns: import('./sales').SalesReturn[];
+}
+
+export interface DispatchReturnQuota {
+  dispatchId: string;
+  lines: {
+    dispatchLineId: string;
+    itemId: string;
+    dispatchedQuantity: number;
+    alreadyReturnedQuantity: number;
+    availableToReturnQuantity: number;
+  }[];
+}
+

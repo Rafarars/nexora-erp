@@ -125,3 +125,66 @@ export async function changeDispatch(_state: FormState, form: FormData): Promise
 export async function cancelInvoice(_state: FormState, form: FormData): Promise<FormState> {
   return attempt('No se pudo anular la factura.', (token) => salesApi().cancelInvoice(token, text(form, 'id')));
 }
+
+export async function saveSalesReturn(_state: FormState, form: FormData): Promise<FormState> {
+  const dispatchId = optional(form, 'dispatchId');
+  const condition = (text(form, 'condition') || 'resalable') as 'resalable' | 'damaged' | 'scrap';
+  const warehouseId = optional(form, 'warehouseId');
+
+  let lines;
+  if (dispatchId) {
+    const dispatchLines = form.getAll('dispatchLineId').map(String);
+    const quantities = form.getAll('returnQuantity').map(String);
+    lines = dispatchLines
+      .map((dispatchLineId, index) => ({ dispatchLineId, raw: (quantities[index] ?? '').trim() }))
+      .filter(({ raw }) => raw !== '' && raw !== '0')
+      .map(({ dispatchLineId, raw }) => ({ dispatchLineId, quantity: parseDecimal(raw) }));
+  } else {
+    const itemIds = form.getAll('itemId').map(String);
+    const unitIds = form.getAll('unitId').map(String);
+    const quantities = form.getAll('returnQuantity').map(String);
+    const unitCosts = form.getAll('unitCost').map(String);
+    lines = itemIds
+      .map((itemId, index) => ({
+        itemId,
+        unitId: unitIds[index] || undefined,
+        quantity: parseDecimal(quantities[index] ?? '0'),
+        unitCost: parseDecimal(unitCosts[index] ?? '0'),
+      }))
+      .filter((l) => l.quantity > 0);
+  }
+
+  const input = {
+    date: optional(form, 'date'),
+    condition,
+    reason: optional(form, 'reason'),
+    notes: optional(form, 'notes'),
+    lines,
+  };
+
+  const returnId = optional(form, 'id');
+
+  return attempt('No se pudo guardar la devolución.', async (token) => {
+    if (returnId) {
+      await salesApi().updateReturn(token, returnId, input);
+    } else {
+      await salesApi().createReturn(token, {
+        customerId: text(form, 'customerId'),
+        dispatchId: dispatchId ?? null,
+        warehouseId: warehouseId ?? null,
+        ...input,
+      });
+    }
+  });
+}
+
+
+export async function changeSalesReturn(_state: FormState, form: FormData): Promise<FormState> {
+  const id = text(form, 'id');
+  const extra = form.get('extra');
+
+  if (extra === 'confirm') return attempt('No se pudo confirmar la devolución.', (token) => salesApi().confirmReturn(token, id));
+
+  return attempt('No se pudo anular la devolución.', (token) => salesApi().cancelReturn(token, id));
+}
+

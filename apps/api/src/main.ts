@@ -15,6 +15,11 @@ async function bootstrap() {
   // La frontera donde los errores de dominio se vuelven respuestas HTTP.
   app.useGlobalFilters(new DomainErrorFilter());
 
+  // Evita carreras de socket hang up con clientes HTTP manteniendo la conexion abierta mas tiempo que el cliente.
+  const server = app.getHttpServer();
+  server.keepAliveTimeout = 65000;
+  server.headersTimeout = 66000;
+
   await app.listen(config.get('PORT', { infer: true }));
 }
 await bootstrap();

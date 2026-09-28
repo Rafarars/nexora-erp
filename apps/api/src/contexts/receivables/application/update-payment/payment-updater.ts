@@ -48,6 +48,7 @@ export class PaymentUpdater {
         customerId: request.customerId,
         date,
         method: request.method,
+        creditSourceId: request.creditSourceId,
         reference: request.reference,
         notes: request.notes,
         allocations: request.allocations.map((allocation) => ({

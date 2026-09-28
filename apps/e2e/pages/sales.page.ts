@@ -1,7 +1,7 @@
 import { expect } from '@playwright/test';
 import type { Locator, Page } from '@playwright/test';
 
-type Section = 'pedidos' | 'despachos' | 'facturas' | 'disponibilidad' | 'clientes';
+type Section = 'pedidos' | 'despachos' | 'facturas' | 'disponibilidad' | 'clientes' | 'devoluciones';
 
 const FILTER_PREFIX: Record<Section, string> = {
   pedidos: 'sales-order',
@@ -9,6 +9,7 @@ const FILTER_PREFIX: Record<Section, string> = {
   facturas: 'invoice',
   disponibilidad: 'availability',
   clientes: 'customer',
+  devoluciones: 'sales-return',
 };
 
 // Las pantallas de ventas. Un pedido se busca por su cliente, un despacho por sus notas y una
@@ -20,10 +21,12 @@ export class SalesPage {
   constructor(private readonly page: Page) {}
 
   async open(section: Section, search?: string): Promise<void> {
-    // El modulo redirige a su primera seccion: si se elige la seccion antes de que termine esa
-    // redireccion, la redireccion llega despues y deja la pantalla en la seccion equivocada.
-    await this.page.getByTestId('nav-ventas').click();
-    await expect(this.page).toHaveURL(/\/ventas\/[a-z-]+/);
+    // Desde fuera, se espera la redireccion del modulo para no cambiar de seccion a destiempo;
+    // una vez dentro, ya no redirige y pulsar la raiz solo recargaria la primera pestaña.
+    if (!this.page.url().includes('/ventas/')) {
+      await this.page.getByTestId('nav-ventas').click();
+      await expect(this.page).toHaveURL(/\/ventas\/[a-z-]+/);
+    }
     // Bajo carga, un clic que llega mientras termina la redireccion del modulo se pierde: si la
     // direccion no cambia, se vuelve a pulsar dentro de la misma espera.
     await expect(async () => {

@@ -77,6 +77,7 @@ export function movementFromRow(row: {
   originLineId: string | null;
   originDate: Date;
   reversalOfId: string | null;
+  restoresMovementId: string | null;
   occurredAt: Date;
 }): InventoryMovement {
   return InventoryMovement.fromPrimitives({

@@ -2,7 +2,7 @@ import { TenantId } from './tenant-id.vo.js';
 
 export const SALES_CODE_SEQUENCE = Symbol('SalesCodeSequence');
 
-export type SalesCodePrefix = 'CLI' | 'PED' | 'DES' | 'FAC';
+export type SalesCodePrefix = 'CLI' | 'PED' | 'DES' | 'FAC' | 'DVV';
 
 // Mismo contrato que el del catalogo y el inventario, declarado aqui para no depender de
 // ellos: numero siguiente, atomico, por empresa y prefijo.

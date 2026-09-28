@@ -1,4 +1,4 @@
-import type { GoodsReceipt, IncomingStock, PurchaseOrder, Supplier } from './purchasing';
+import type { GoodsReceipt, IncomingStock, PurchaseOrder, PurchaseReturn, ReceiptReturnQuota, Supplier } from './purchasing';
 
 export interface SupplierInput {
   name: string;
@@ -75,6 +75,31 @@ export interface IncomingPage extends Page {
   incoming: IncomingStock[];
 }
 
+export interface PurchaseReturnInput {
+  supplierId: string;
+  receiptId: string;
+  date: string | null;
+  reason: string | null;
+  notes: string | null;
+  lines: { receiptLineId: string; quantity: number }[];
+}
+
+export type PurchaseReturnFilters = {
+  q?: string;
+  supplierId?: string;
+  receiptId?: string;
+  warehouseId?: string;
+  status?: string;
+  from?: string;
+  to?: string;
+  limit?: number;
+  offset?: number;
+};
+
+export interface PurchaseReturnPage extends Page {
+  returns: PurchaseReturn[];
+}
+
 export interface PurchasingApi {
   searchSuppliers(token: string, filters?: SupplierFilters): Promise<SupplierPage>;
   // Todos, para llenar un selector: recorre las paginas que haga falta.
@@ -92,4 +117,11 @@ export interface PurchasingApi {
   confirmReceipt(token: string, id: string): Promise<void>;
   cancelReceipt(token: string, id: string): Promise<void>;
   searchIncoming(token: string, filters?: IncomingFilters): Promise<IncomingPage>;
+  searchReturns(token: string, filters?: PurchaseReturnFilters): Promise<PurchaseReturnPage>;
+  createReturn(token: string, input: PurchaseReturnInput): Promise<{ id: string }>;
+  updateReturn(token: string, id: string, input: { date?: string | null; reason?: string | null; notes?: string | null; lines: { receiptLineId: string; quantity: number }[] }): Promise<void>;
+  confirmReturn(token: string, id: string): Promise<void>;
+  cancelReturn(token: string, id: string): Promise<void>;
+  getReceiptReturnQuota(token: string, receiptId: string): Promise<ReceiptReturnQuota>;
 }
+

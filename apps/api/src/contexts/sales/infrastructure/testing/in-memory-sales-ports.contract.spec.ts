@@ -27,6 +27,13 @@ class InMemorySalesPortsHarness implements SalesPortsHarness {
     this.store.pay(invoiceId, amount);
   }
 
+  async movementsOf(
+    originType: string,
+    originId: string,
+  ): Promise<Array<{ id: string; unitCost: number; restoresMovementId: string | null; reversalOfId: string | null; direction: string; quantity: number }>> {
+    return this.store.movementsOf(originType, originId);
+  }
+
   async reset(): Promise<void> {
     this.customers = new InMemoryCustomerRepository();
     this.store = new InMemorySalesStore(this.customers, new InMemorySalesCatalog(sellableItems(), salesWarehouses()));
@@ -41,12 +48,15 @@ class InMemorySalesPortsHarness implements SalesPortsHarness {
       orders: this.store.orders,
       dispatches: this.store.dispatches,
       invoices: this.store.invoices,
+      returns: this.store.returns,
       orderPosting: this.store.orderPosting,
       dispatchPosting: this.store.dispatchPosting,
       invoicePosting: this.store.invoicePosting,
+      returnPosting: this.store.returnPosting,
       codes: new InMemorySalesCodeSequence(),
     };
   }
 }
+
 
 describeSalesPortsContract('in memory', () => new InMemorySalesPortsHarness());

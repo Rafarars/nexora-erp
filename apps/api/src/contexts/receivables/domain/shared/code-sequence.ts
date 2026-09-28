@@ -2,7 +2,7 @@ import { TenantId } from './tenant-id.vo.js';
 
 export const RECEIVABLES_CODE_SEQUENCE = Symbol('ReceivablesCodeSequence');
 
-export type ReceivablesCodePrefix = 'COB';
+export type ReceivablesCodePrefix = 'COB' | 'NCC';
 
 // Mismo contrato que el de los demas contextos, declarado aqui para no depender de ellos.
 export interface ReceivablesCodeSequence {

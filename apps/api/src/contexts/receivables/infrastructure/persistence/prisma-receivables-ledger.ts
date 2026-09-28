@@ -1,7 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../../../../shared/prisma/prisma.service.js';
 import { ReceivableInvoice } from '../../domain/ledger/receivable-invoice.js';
-import { ReceivableCustomer, ReceivableCustomerFilter, ReceivableInvoiceFilter, ReceivablesLedger } from '../../domain/ledger/receivables-ledger.js';
+import { ReceivableCustomer, ReceivableCustomerFilter, ReceivableInvoiceFilter, ReceivableSalesReturn, ReceivableSalesReturnFilter, ReceivablesLedger } from '../../domain/ledger/receivables-ledger.js';
 import { TenantId } from '../../domain/shared/tenant-id.vo.js';
 import { asDate, customerFromRow, invoiceFromRow, invoiceSelect } from './receivables-rows.js';
 
@@ -48,5 +48,20 @@ export class PrismaReceivablesLedger implements ReceivablesLedger {
     });
 
     return rows.map(invoiceFromRow);
+  }
+
+  async salesReturns(tenantId: TenantId, filter: ReceivableSalesReturnFilter = {}): Promise<ReceivableSalesReturn[]> {
+    if (filter.ids && filter.ids.length === 0) return [];
+
+    const rows = await this.prisma.salesReturn.findMany({
+      where: {
+        tenantId: tenantId.value,
+        ...(filter.ids ? { id: { in: filter.ids } } : {}),
+      },
+      select: { id: true, code: true },
+      orderBy: { code: 'desc' },
+    });
+
+    return rows.map((r) => ({ id: r.id, code: r.code }));
   }
 }

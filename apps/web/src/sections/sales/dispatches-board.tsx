@@ -1,6 +1,6 @@
 'use client';
 
-import { useActionState, useState } from 'react';
+import { useActionState } from 'react';
 import { changeDispatch, saveDispatch } from '@/app/(app)/ventas/actions';
 import { MenuButton } from '@/sections/purchasing/menu-button';
 import { FormError, SubmitButton } from '@/sections/shared/field';
@@ -14,6 +14,7 @@ import type { Warehouse } from '@/modules/catalog/domain/catalog';
 import { Filter, Pager } from '@/sections/shared/filters';
 import { DispatchFields } from './dispatch-fields';
 import { submitKeepingValues } from '@/shared/forms/submit-keeping-values';
+import { useEditingDraft } from '@/shared/forms/use-editing-draft';
 
 export interface DispatchSearch {
   q: string;
@@ -50,7 +51,7 @@ export function DispatchesBoard({
   canCancel: boolean;
   canInvoice: boolean;
 }) {
-  const [editing, setEditing] = useState<Dispatch | null>(null);
+  const { editing, setEditing, draftKey } = useEditingDraft(dispatches);
   const hasOptions = canUpdate || canConfirm || canCancel || canInvoice;
   const orderOf = (dispatch: Dispatch) => orders.find((order) => order.id === dispatch.order.id) ?? null;
 
@@ -164,7 +165,7 @@ export function DispatchesBoard({
 
       <SlideOver title={editing ? `Editar ${editing.code}` : ''} open={editing !== null} onClose={() => setEditing(null)} testId="dispatch-edit-panel">
         {editing && editingOrder ? (
-          <form onSubmit={submitKeepingValues(save)} className="space-y-4" key={editing.id}>
+          <form onSubmit={submitKeepingValues(save)} className="space-y-4" key={draftKey()}>
             <input type="hidden" name="id" value={editing.id} />
             <DispatchFields order={editingOrder} dispatch={editing} today={today} />
             <FormError message={saveState.error} testId="dispatch-edit-error" />

@@ -100,4 +100,22 @@ describe('HttpPurchasingApi', () => {
       'http://api/api/v1/purchasing/suppliers?limit=50&offset=1',
     ]);
   });
+
+  it('searches returns and creates a purchase return', async () => {
+    const fetchMock = respond(201, { id: 'ret1' });
+    const input = {
+      supplierId: 's1',
+      receiptId: 'rc1',
+      date: '2026-09-10',
+      reason: 'Defectuoso',
+      notes: null,
+      lines: [{ receiptLineId: 'l1', quantity: 2 }],
+    };
+
+    const res = await api.createReturn('t', input);
+    expect(res).toEqual({ id: 'ret1' });
+    expect(fetchMock.mock.calls[0][0]).toBe('http://api/api/v1/purchasing/returns');
+    expect(fetchMock.mock.calls[0][1].method).toBe('POST');
+  });
 });
+

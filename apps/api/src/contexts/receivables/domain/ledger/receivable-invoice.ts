@@ -37,6 +37,10 @@ export class ReceivableInvoice {
     return this.row.id;
   }
 
+  get code(): string {
+    return this.row.code;
+  }
+
   customerId(): string {
     return this.row.customerId;
   }
@@ -48,6 +52,10 @@ export class ReceivableInvoice {
   // En la moneda de la factura, en diezmilesimas.
   balanceUnits(): bigint {
     return this.row.status === 'cancelled' ? 0n : amountUnits(this.row.total) - amountUnits(this.row.paid);
+  }
+
+  total(): number {
+    return this.row.total;
   }
 
   balance(): number {

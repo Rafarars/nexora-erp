@@ -1,13 +1,14 @@
 import { expect } from '@playwright/test';
 import type { Locator, Page } from '@playwright/test';
 
-type Section = 'cobros' | 'facturas' | 'antiguedad' | 'estado-de-cuenta';
+type Section = 'cobros' | 'facturas' | 'antiguedad' | 'estado-de-cuenta' | 'notas-de-credito';
 
 // El estado de cuenta no es un listado: se elige el cliente dentro, no se filtra.
 const FILTER_PREFIX: Partial<Record<Section, string>> = {
   cobros: 'payment',
   facturas: 'receivable',
   antiguedad: 'aging',
+  'notas-de-credito': 'credit-note',
 };
 
 // Las pantallas de cuentas por cobrar. Un cobro se busca por su cliente: los codigos los asigna
@@ -19,9 +20,12 @@ export class ReceivablesPage {
   constructor(private readonly page: Page) {}
 
   async open(section: Section, search?: string): Promise<void> {
-    // Como en ventas: se espera la redireccion del modulo antes de elegir la seccion.
-    await this.page.getByTestId('nav-cuentas-por-cobrar').click();
-    await expect(this.page).toHaveURL(/\/cuentas-por-cobrar\/[a-z-]+/);
+    // Desde fuera, se espera la redireccion del modulo para no cambiar de seccion a destiempo;
+    // una vez dentro, ya no redirige y pulsar la raiz solo recargaria la primera pestaña.
+    if (!this.page.url().includes('/cuentas-por-cobrar/')) {
+      await this.page.getByTestId('nav-cuentas-por-cobrar').click();
+      await expect(this.page).toHaveURL(/\/cuentas-por-cobrar\/[a-z-]+/);
+    }
     // Bajo carga, un clic que llega mientras termina la redireccion del modulo se pierde: si la
     // direccion no cambia, se vuelve a pulsar dentro de la misma espera.
     await expect(async () => {

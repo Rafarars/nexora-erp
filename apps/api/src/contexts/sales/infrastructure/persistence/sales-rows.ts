@@ -1,6 +1,8 @@
 import { Dispatch } from '../../domain/dispatch/dispatch.entity.js';
 import { Invoice } from '../../domain/invoice/invoice.entity.js';
 import { SalesOrder } from '../../domain/order/sales-order.entity.js';
+import { SalesReturn } from '../../domain/return/sales-return.entity.js';
+
 
 type Decimalish = { toNumber(): number };
 
@@ -180,3 +182,81 @@ export function invoiceFromRow(row: InvoiceRow): Invoice {
       })),
   });
 }
+
+export interface SalesReturnRow {
+  id: string;
+  tenantId: string;
+  code: string;
+  customerId: string;
+  dispatchId: string | null;
+  warehouseId: string;
+  returnDate: Date;
+  condition: 'resalable' | 'damaged' | 'scrap';
+  reason: string | null;
+  notes: string | null;
+  status: 'draft' | 'confirmed' | 'cancelled';
+  currency: string;
+  exchangeRate: Decimalish | null;
+  baseCurrency: string;
+  baseExchangeRate: Decimalish | null;
+  manualExchangeRate: boolean;
+  confirmedAt: Date | null;
+  cancelledAt: Date | null;
+  createdAt: Date;
+  updatedAt: Date;
+  lines: {
+    id: string;
+    lineNumber: number;
+    dispatchLineId: string | null;
+    itemId: string;
+    itemSku: string;
+    itemName: string;
+    unitId: string;
+    quantity: Decimalish;
+    baseQuantity: Decimalish;
+    unitCost: Decimalish | null;
+    restoresMovementId: string | null;
+  }[];
+}
+
+export function salesReturnFromRow(row: SalesReturnRow): SalesReturn {
+  return SalesReturn.fromPrimitives({
+    id: row.id,
+    tenantId: row.tenantId,
+    code: row.code,
+    customerId: row.customerId,
+    dispatchId: row.dispatchId,
+    warehouseId: row.warehouseId,
+    returnDate: day(row.returnDate),
+    condition: row.condition,
+    reason: row.reason,
+    notes: row.notes,
+    status: row.status,
+    currency: row.currency,
+    exchangeRate: row.exchangeRate ? n(row.exchangeRate) : null,
+    baseCurrency: row.baseCurrency,
+    baseExchangeRate: row.baseExchangeRate ? n(row.baseExchangeRate) : null,
+    manualExchangeRate: row.manualExchangeRate,
+    confirmedAt: row.confirmedAt,
+    cancelledAt: row.cancelledAt,
+    createdAt: row.createdAt,
+    updatedAt: row.updatedAt,
+    lines: row.lines
+      .sort((a, b) => a.lineNumber - b.lineNumber)
+      .map((line) => ({
+        id: line.id,
+        lineNumber: line.lineNumber,
+        dispatchLineId: line.dispatchLineId,
+        itemId: line.itemId,
+        itemSku: line.itemSku,
+        itemName: line.itemName,
+        unitId: line.unitId,
+        quantity: n(line.quantity),
+        baseQuantity: n(line.baseQuantity),
+        unitCost: line.unitCost ? n(line.unitCost) : 0,
+        restoresMovementId: line.restoresMovementId,
+      })),
+  });
+}
+
+

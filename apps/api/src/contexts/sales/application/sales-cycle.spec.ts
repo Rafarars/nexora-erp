@@ -19,6 +19,7 @@ import {
   SalesFractionalQuantityError,
   CustomerWithOpenOrdersError,
   CustomerNotFoundError,
+  InvoiceWithReturnsError,
 } from '../domain/errors/sales.errors.js';
 import { BOX, FOREIGN_WAREHOUSE, KILO, MAIN, NORTH, PIECE, SOAP, TENANT_A, TENANT_B, WATER, NOT_TRADED_ITEM } from '../domain/testing/sales.mother.js';
 import { SalesOrderCreatorRequest } from './create-order/sales-order-creator.js';
@@ -316,6 +317,37 @@ describe('invoices', () => {
 
     await s.cancelDispatch.run({ tenantId: TENANT_A, dispatchId: id });
     expect(s.store.stockOf(TENANT_A, WATER, MAIN)).toBe(480);
+  });
+
+  it('an invoice with confirmed returns on its lines cannot be cancelled (§3.6)', async () => {
+    const { s, order } = await confirmedOrder();
+    const id = await dispatch(s, order.id, [{ orderLineId: order.lines[0].id, quantity: 2 }]);
+    await s.issueInvoice.run({ tenantId: TENANT_A, dispatchId: id });
+    const invoice = await latestInvoice(s);
+
+    // Mercancia devuelta con devolucion confirmada
+    s.store.confirmReturnOfOrderLine(order.lines[0].id);
+
+    await expect(s.cancelInvoice.run({ tenantId: TENANT_A, invoiceId: invoice.id })).rejects.toThrow(InvoiceWithReturnsError);
+    expect((await latestInvoice(s)).status).toBe('issued');
+
+    // Documentos anulados no bloquean: al anular la devolucion, la factura se anula
+    s.store.cancelReturnOfOrderLine(order.lines[0].id);
+    await expect(s.cancelInvoice.run({ tenantId: TENANT_A, invoiceId: invoice.id })).resolves.toBeUndefined();
+    expect((await latestInvoice(s)).status).toBe('cancelled');
+  });
+
+  it('does not block cancelling an invoice when returns belong to another order (§3.6)', async () => {
+    const { s, order } = await confirmedOrder();
+    const id = await dispatch(s, order.id, [{ orderLineId: order.lines[0].id, quantity: 2 }]);
+    await s.issueInvoice.run({ tenantId: TENANT_A, dispatchId: id });
+    const invoice = await latestInvoice(s);
+
+    // Devolucion de otra linea de pedido que no es de esta factura
+    s.store.confirmReturnOfOrderLine('00000000-0000-4000-8000-999999999999');
+
+    await expect(s.cancelInvoice.run({ tenantId: TENANT_A, invoiceId: invoice.id })).resolves.toBeUndefined();
+    expect((await latestInvoice(s)).status).toBe('cancelled');
   });
 
   it('filters the availability by warehouse and answers not found for a warehouse of another tenant', async () => {

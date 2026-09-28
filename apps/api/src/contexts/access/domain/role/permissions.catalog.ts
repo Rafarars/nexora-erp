@@ -91,6 +91,11 @@ export const PURCHASING_PERMISSIONS: PermissionDefinition[] = [
   { code: 'purchasing.receipts.confirm', description: 'Confirmar entradas: sube la existencia' },
   { code: 'purchasing.receipts.cancel', description: 'Anular entradas, revirtiendo la existencia' },
   { code: 'purchasing.incoming.search', description: 'Consultar la mercancía en camino' },
+  { code: 'purchasing.returns.search', description: 'Consultar las devoluciones de compra' },
+  { code: 'purchasing.returns.create', description: 'Crear devoluciones de compra en borrador' },
+  { code: 'purchasing.returns.update', description: 'Editar devoluciones de compra en borrador' },
+  { code: 'purchasing.returns.confirm', description: 'Confirmar devoluciones: baja la existencia al costo congelado' },
+  { code: 'purchasing.returns.cancel', description: 'Anular devoluciones de compra' },
 ];
 
 export const SALES_PERMISSIONS: PermissionDefinition[] = [
@@ -112,7 +117,13 @@ export const SALES_PERMISSIONS: PermissionDefinition[] = [
   { code: 'sales.invoices.issue', description: 'Emitir facturas de despachos confirmados' },
   { code: 'sales.invoices.cancel', description: 'Anular facturas' },
   { code: 'sales.availability.search', description: 'Consultar la existencia disponible para vender' },
+  { code: 'sales.returns.search', description: 'Consultar las devoluciones de venta' },
+  { code: 'sales.returns.create', description: 'Crear devoluciones de venta en borrador' },
+  { code: 'sales.returns.update', description: 'Editar devoluciones de venta en borrador' },
+  { code: 'sales.returns.confirm', description: 'Confirmar devoluciones: reingresa la mercancía' },
+  { code: 'sales.returns.cancel', description: 'Anular devoluciones de venta' },
 ];
+
 
 export const RECEIVABLES_PERMISSIONS: PermissionDefinition[] = [
   { code: 'receivables.payments.search', description: 'Consultar los cobros' },
@@ -122,6 +133,11 @@ export const RECEIVABLES_PERMISSIONS: PermissionDefinition[] = [
   { code: 'receivables.payments.cancel', description: 'Anular cobros, devolviendo el saldo' },
   { code: 'receivables.balances.search', description: 'Consultar saldos, vencidas y antigüedad' },
   { code: 'receivables.statements.search', description: 'Consultar el estado de cuenta de un cliente' },
+  { code: 'receivables.creditnotes.search', description: 'Consultar notas de crédito a clientes' },
+  { code: 'receivables.creditnotes.create', description: 'Crear notas de crédito a clientes en borrador' },
+  { code: 'receivables.creditnotes.update', description: 'Editar notas de crédito a clientes en borrador' },
+  { code: 'receivables.creditnotes.confirm', description: 'Confirmar notas de crédito a clientes' },
+  { code: 'receivables.creditnotes.cancel', description: 'Anular notas de crédito a clientes' },
 ];
 
 export const REPORTS_PERMISSIONS: PermissionDefinition[] = [

@@ -119,6 +119,15 @@ export class PrismaCatalogRepositoriesHarness implements CatalogRepositoriesHarn
   // empresas existen: sin ellas, la base rechazaria cada fila.
   async reset(): Promise<void> {
     // Documentos, inventario y articulos apuntan al catalogo: se vacian primero.
+    await this.prisma.paymentAllocation.deleteMany();
+    await this.prisma.customerCreditNote.updateMany({ data: { issuePaymentId: null } });
+    await this.prisma.customerPayment.updateMany({ data: { creditSourceId: null } });
+    await this.prisma.customerCreditNoteLine.deleteMany();
+    await this.prisma.customerCreditNote.deleteMany();
+    await this.prisma.salesReturnLine.deleteMany();
+    await this.prisma.salesReturn.deleteMany();
+    await this.prisma.purchaseReturnLine.deleteMany();
+    await this.prisma.purchaseReturn.deleteMany();
     await this.prisma.customerPayment.deleteMany();
     await this.prisma.invoice.deleteMany();
     await this.prisma.dispatch.deleteMany();
@@ -127,7 +136,7 @@ export class PrismaCatalogRepositoriesHarness implements CatalogRepositoriesHarn
     await this.prisma.goodsReceipt.deleteMany();
     await this.prisma.purchaseOrder.deleteMany();
     await this.prisma.supplier.deleteMany();
-    await this.prisma.inventoryMovement.updateMany({ data: { reversalOfId: null } });
+    await this.prisma.inventoryMovement.updateMany({ data: { reversalOfId: null, restoresMovementId: null } });
     await this.prisma.inventoryMovement.deleteMany();
     await this.prisma.itemStock.deleteMany();
     await this.prisma.adjustment.deleteMany();

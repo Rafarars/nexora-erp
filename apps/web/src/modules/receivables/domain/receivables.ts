@@ -1,7 +1,7 @@
 import type { DocumentCurrency } from '../../company/domain/company';
 
 export type PaymentStatus = 'draft' | 'confirmed' | 'cancelled';
-export type PaymentMethod = 'cash' | 'transfer' | 'card' | 'check';
+export type PaymentMethod = 'cash' | 'transfer' | 'card' | 'check' | 'credit_note';
 export type CollectionStatus = 'pending' | 'partially_paid' | 'paid' | 'cancelled';
 export type AgingBucket = 'current' | 'days1To30' | 'days31To60' | 'days61To90' | 'over90';
 export type AgingTotals = Record<AgingBucket | 'total', number>;
@@ -12,14 +12,76 @@ export interface Payment extends DocumentCurrency {
   customer: { id: string; code: string; name: string };
   paymentDate: string;
   method: PaymentMethod;
+  creditSourceId?: string | null;
+  creditSourceCode?: string | null;
   reference: string | null;
   notes: string | null;
+  isIssuePayment?: boolean;
+  issueCreditNoteCode?: string | null;
   // En la moneda del cobro.
   amount: number;
   amountVes: number | null;
   status: PaymentStatus;
   // Cada importe en la moneda de su factura; el diferencial cambiario, en bolivares.
   allocations: { invoiceId: string; invoiceCode: string; dueDate: string; currency: string; amount: number; exchangeRate: number | null; exchangeDifference: number | null }[];
+}
+
+export type CreditNoteStatus = 'draft' | 'confirmed' | 'cancelled';
+export const CREDIT_NOTE_REASONS = ['return', 'subsequent_discount', 'price_correction', 'damaged_goods', 'cancellation', 'other'] as const;
+export type CreditNoteReason = (typeof CREDIT_NOTE_REASONS)[number];
+
+export interface CreditNoteLine {
+  id: string;
+  lineNumber: number;
+  itemId: string | null;
+  itemSku: string | null;
+  itemName: string | null;
+  concept: string | null;
+  unitId: string | null;
+  quantity: number;
+  unitPrice: number;
+  taxRate: number;
+  subtotal: number;
+  tax: number;
+  total: number;
+}
+
+export interface CreditNote {
+  id: string;
+  code: string;
+  customer: { id: string; name: string };
+  invoice: { id: string; code: string } | null;
+  salesReturnId: string | null;
+  salesReturn?: { id: string; code: string } | null;
+  issuePaymentId: string | null;
+  issueDate: string;
+  reason: CreditNoteReason;
+  reasonDetail: string | null;
+  notes: string | null;
+  status: CreditNoteStatus;
+  subtotal: number;
+  tax: number;
+  total: number;
+  currency: {
+    code: string;
+    symbol: string;
+    exchangeRate: number | null;
+  };
+  appliedAmount: number;
+  availableCredit: number;
+  lines: CreditNoteLine[];
+}
+
+export interface AvailableCredit {
+  id: string;
+  code: string;
+  issueDate: string;
+  total: number;
+  appliedAmount: number;
+  availableCredit: number;
+  currency: string;
+  exchangeRate: number;
+  notes: string | null;
 }
 
 export interface Receivable {
@@ -69,7 +131,32 @@ export interface Statement {
 
 export const PAYMENT_STATUS_LABELS: Record<PaymentStatus, string> = { draft: 'Borrador', confirmed: 'Confirmado', cancelled: 'Anulado' };
 
-export const PAYMENT_METHOD_LABELS: Record<PaymentMethod, string> = { cash: 'Efectivo', transfer: 'Transferencia', card: 'Tarjeta', check: 'Cheque' };
+export const PAYMENT_METHOD_LABELS: Record<PaymentMethod, string> = {
+  cash: 'Efectivo',
+  transfer: 'Transferencia',
+  card: 'Tarjeta',
+  check: 'Cheque',
+  credit_note: 'Nota de crédito',
+};
+
+export const CREDIT_NOTE_STATUS_LABELS: Record<CreditNoteStatus, string> = {
+  draft: 'Borrador',
+  confirmed: 'Confirmada',
+  cancelled: 'Anulada',
+};
+
+export const CREDIT_NOTE_REASON_LABELS: Record<CreditNoteReason, string> = {
+  return: 'Devolución de mercancía',
+  subsequent_discount: 'Descuento posterior',
+  price_correction: 'Corrección de precio',
+  damaged_goods: 'Mercancía dañada',
+  cancellation: 'Anulación de operación',
+  other: 'Otro motivo',
+};
+
+export function creditNoteActions(note: Pick<CreditNote, 'status'>): { edit: boolean; confirm: boolean; cancel: boolean } {
+  return { edit: note.status === 'draft', confirm: note.status === 'draft', cancel: note.status !== 'cancelled' };
+}
 
 export const COLLECTION_STATUS_LABELS: Record<CollectionStatus, string> = {
   pending: 'Pendiente',
@@ -87,8 +174,8 @@ export const AGING_COLUMNS: { bucket: AgingBucket; label: string }[] = [
 ];
 
 // Lo que la interfaz ofrece en cada estado; la API lo vuelve a comprobar.
-export function paymentActions(payment: Pick<Payment, 'status'>): { edit: boolean; confirm: boolean; cancel: boolean } {
-  return { edit: payment.status === 'draft', confirm: payment.status === 'draft', cancel: payment.status !== 'cancelled' };
+export function paymentActions(payment: Pick<Payment, 'status'> & { isIssuePayment?: boolean }): { edit: boolean; confirm: boolean; cancel: boolean } {
+  return { edit: payment.status === 'draft', confirm: payment.status === 'draft', cancel: payment.status !== 'cancelled' && !payment.isIssuePayment };
 }
 
 export function overdueLabel(days: number): string {
@@ -119,3 +206,26 @@ export function payableInvoices(receivables: Receivable[], customerId: string, p
 export function creditLabel(creditLimit: number | null, format: (value: number) => string): string {
   return creditLimit === null ? 'Sin límite' : format(creditLimit);
 }
+
+// Agrupa el credito disponible por moneda sin convertir para no mezclar importes nominales.
+export function summarizeAvailableCredits(
+  credits: AvailableCredit[],
+  baseCurrency: string,
+  format: (amount: number) => string = (n) => n.toFixed(2),
+): string {
+  if (credits.length === 0) return `${baseCurrency} ${format(0)}`;
+
+  const byCurrency = new Map<string, number>();
+  for (const credit of credits) {
+    if (credit.availableCredit <= 0) continue;
+    const current = byCurrency.get(credit.currency) ?? 0;
+    byCurrency.set(credit.currency, current + credit.availableCredit);
+  }
+
+  if (byCurrency.size === 0) return `${baseCurrency} ${format(0)}`;
+
+  return [...byCurrency.entries()]
+    .map(([currency, total]) => `${currency} ${format(total)}`)
+    .join(' · ');
+}
+

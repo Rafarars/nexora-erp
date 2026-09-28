@@ -11,6 +11,7 @@ import { emptyState } from '@/shared/forms/form-state';
 import type { FormState } from '@/shared/forms/form-state';
 import { Select } from './select';
 import { submitKeepingValues } from '@/shared/forms/submit-keeping-values';
+import { useEditingDraft } from '@/shared/forms/use-editing-draft';
 
 const keyOf = (rate: ExchangeRate) => `${rate.currency}-${rate.type}-${rate.rateDate}`;
 
@@ -33,7 +34,8 @@ export function ExchangeRatesBoard({
   canRecord: boolean;
   canDeactivate: boolean;
 }) {
-  const [editing, setEditing] = useState<ExchangeRate | null>(null);
+  const rates = board?.rates ?? [];
+  const { editing, setEditing, draftKey } = useEditingDraft(rates);
   const [creating, setCreating] = useState(false);
   const hasOptions = canRecord || canDeactivate;
 
@@ -207,7 +209,7 @@ export function ExchangeRatesBoard({
         testId="rate-panel"
       >
         {/* La `key` rehace el formulario al cambiar de tasa: sin ella quedarian los valores de la anterior. */}
-        <form onSubmit={submitKeepingValues(saveAction)} className="space-y-4" key={editing?.id ?? 'new'}>
+        <form onSubmit={submitKeepingValues(saveAction)} className="space-y-4" key={draftKey()}>
           {editing ? (
             <>
               <input type="hidden" name="currency" value={editing.currency} />

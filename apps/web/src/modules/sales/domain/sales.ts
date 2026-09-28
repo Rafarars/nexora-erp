@@ -182,3 +182,82 @@ export function dispatchableLines(order: SalesOrder, dispatch: Dispatch | null):
 export function paymentTermLabel(days: number): string {
   return days === 0 ? 'Contado' : `${days} días`;
 }
+
+export type SalesReturnStatus = 'draft' | 'confirmed' | 'cancelled';
+export type ReturnCondition = 'resalable' | 'damaged' | 'scrap';
+
+export const RETURN_CONDITION_LABELS: Record<ReturnCondition, string> = {
+  resalable: 'Apta para reventa',
+  damaged: 'Dañada',
+  scrap: 'Desecho / Scrap',
+};
+
+export const SALES_RETURN_STATUS_LABELS: Record<SalesReturnStatus, string> = {
+  draft: 'Borrador',
+  confirmed: 'Confirmada',
+  cancelled: 'Anulada',
+};
+
+export interface SalesReturnLine {
+  id: string;
+  lineNumber: number;
+  dispatchLineId: string | null;
+  itemId: string;
+  sku: string;
+  itemName: string;
+  unitId: string;
+  unitAbbreviation: string;
+  quantity: number;
+  baseQuantity: number;
+  unitCost: number | null;
+  restoresMovementId: string | null;
+}
+
+export interface SalesReturn extends DocumentCurrency {
+  id: string;
+  code: string;
+  customer: { id: string; name: string };
+  dispatch: { id: string; code: string } | null;
+  warehouse: { id: string; name: string };
+  date: string;
+  condition: ReturnCondition;
+  reason: string | null;
+  notes: string | null;
+  status: SalesReturnStatus;
+  confirmedAt: string | null;
+  cancelledAt: string | null;
+  lines: SalesReturnLine[];
+}
+
+export function salesReturnActions(ret: Pick<SalesReturn, 'status'>): { edit: boolean; confirm: boolean; cancel: boolean } {
+  return {
+    edit: ret.status === 'draft',
+    confirm: ret.status === 'draft',
+    cancel: ret.status !== 'cancelled',
+  };
+}
+
+export function summarizeReturnLines(lines: SalesReturnLine[]): string {
+  return lines.map((line) => `${formatQuantity(line.quantity)} ${line.unitAbbreviation} ${line.sku}`).join(' · ');
+}
+
+export interface OriginlessReturnLineRow {
+  itemId: string;
+  unitId: string;
+  quantity: string;
+  unitCost: string;
+}
+
+export function initialOriginlessReturnLines(returnDraft?: Pick<SalesReturn, 'lines'> | null): OriginlessReturnLineRow[] {
+  if (returnDraft && returnDraft.lines.length > 0) {
+    return returnDraft.lines.map((l) => ({
+      itemId: l.itemId,
+      unitId: l.unitId,
+      quantity: String(l.quantity),
+      unitCost: l.unitCost !== null ? String(l.unitCost) : '',
+    }));
+  }
+  return [{ itemId: '', unitId: '', quantity: '1', unitCost: '' }];
+}
+
+

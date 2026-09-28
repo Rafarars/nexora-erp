@@ -16,6 +16,7 @@ export interface PaymentRequest {
   customerId: string;
   date?: string | null;
   method: string;
+  creditSourceId?: string | null;
   reference?: string | null;
   notes?: string | null;
   // Sin moneda, la de la empresa.
@@ -59,6 +60,7 @@ export class PaymentCreator {
       customerId: request.customerId,
       date,
       method: request.method,
+      creditSourceId: request.creditSourceId,
       reference: request.reference,
       notes: request.notes,
       allocations: request.allocations.map((allocation) => ({ id: this.ids.next(), ...allocation })),

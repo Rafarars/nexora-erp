@@ -4,9 +4,11 @@ import { DocumentCurrency, DocumentCurrencyPrimitives, rateUnits } from '../../.
 import { MissingExchangeRateError } from '../../../../shared/domain/ports/document-rates.js';
 import { Uuid } from '../../../../shared/domain/uuid.vo.js';
 import {
+  CreditNotePaymentWithoutSourceError,
   DuplicatePaymentInvoiceError,
   EmptyPaymentError,
   InvalidPaymentMethodError,
+  MoneyPaymentWithCreditSourceError,
   PaymentAlreadyCancelledError,
   PaymentNotConfirmableError,
   PaymentNotEditableError,
@@ -24,7 +26,7 @@ export class PaymentId extends Uuid {
   }
 }
 
-export const PAYMENT_METHODS = ['cash', 'transfer', 'card', 'check'] as const;
+export const PAYMENT_METHODS = ['cash', 'transfer', 'card', 'check', 'credit_note'] as const;
 
 export type PaymentMethod = (typeof PAYMENT_METHODS)[number];
 
@@ -49,6 +51,7 @@ export interface PaymentPrimitives extends DocumentCurrencyPrimitives {
   customerId: string;
   paymentDate: string;
   method: PaymentMethod;
+  creditSourceId?: string | null;
   reference: string | null;
   notes: string | null;
   // En la moneda del cobro: lo aplicado a cada factura convertido por el bolivar.
@@ -66,6 +69,7 @@ export interface PaymentDetails {
   customerId: string;
   date: ReceivablesDate;
   method: string;
+  creditSourceId?: string | null;
   reference?: string | null;
   notes?: string | null;
   // Cada importe en la moneda de su factura.
@@ -193,6 +197,7 @@ export class CustomerPayment {
       method: this.row.method,
       reference: this.row.reference,
       notes: this.row.notes,
+      creditSourceId: this.row.creditSourceId,
       allocations: this.row.allocations.map(({ id, invoiceId, amount }) => ({ id, invoiceId, amount })),
     };
     const valuedRow = { ...this.row, ...valued(details, invoices, rates, today) };
@@ -212,6 +217,8 @@ export class CustomerPayment {
 
 function valued(details: PaymentDetails, invoices: ReceivableInvoice[], rates: PaymentRates, today: string): Body {
   if (!PAYMENT_METHODS.includes(details.method as PaymentMethod)) throw new InvalidPaymentMethodError(details.method);
+  if (details.method === 'credit_note' && !details.creditSourceId) throw new CreditNotePaymentWithoutSourceError();
+  if (details.method !== 'credit_note' && details.creditSourceId) throw new MoneyPaymentWithCreditSourceError();
   if (details.allocations.length === 0) throw new EmptyPaymentError();
 
   details.date.ensureNotAfter(today);
@@ -256,6 +263,7 @@ function valued(details: PaymentDetails, invoices: ReceivableInvoice[], rates: P
     customerId: details.customerId,
     paymentDate: details.date.value,
     method: details.method as PaymentMethod,
+    creditSourceId: details.creditSourceId ?? null,
     reference: optionalText(details.reference, 100, 'PaymentReference'),
     notes: optionalText(details.notes, 500, 'PaymentNotes'),
     ...rates.currency.toPrimitives(),

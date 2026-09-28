@@ -16,7 +16,12 @@ import type {
   OrderInput,
   OrderPage,
   SalesApi,
+  SalesReturnFilters,
+  SalesReturnInput,
+  SalesReturnPage,
+  DispatchReturnQuota,
 } from '../domain/sales-api';
+
 
 const BASE = '/api/v1/sales';
 
@@ -127,7 +132,42 @@ export class HttpSalesApi implements SalesApi {
     return this.request<AvailabilityPage>('GET', `${BASE}/availability${queryOf(filters)}`, token);
   }
 
+  async searchReturns(token: string, filters: SalesReturnFilters = {}): Promise<SalesReturnPage> {
+    return this.request<SalesReturnPage>('GET', `${BASE}/returns${queryOf(filters)}`, token);
+  }
+
+  async createReturn(token: string, input: SalesReturnInput): Promise<{ id: string }> {
+    return this.request<{ id: string }>('POST', `${BASE}/returns`, token, this.returnBody(input));
+  }
+
+  async updateReturn(token: string, id: string, input: Omit<SalesReturnInput, 'customerId' | 'dispatchId'>): Promise<void> {
+    await this.request('PUT', `${BASE}/returns/${id}`, token, {
+      ...input,
+      lines: input.lines.map((line) => ({ ...line, quantity: numeric(line.quantity) })),
+    });
+  }
+
+  async confirmReturn(token: string, id: string): Promise<void> {
+    await this.request('PUT', `${BASE}/returns/${id}/confirm`, token);
+  }
+
+  async cancelReturn(token: string, id: string): Promise<void> {
+    await this.request('PUT', `${BASE}/returns/${id}/cancel`, token);
+  }
+
+  async getDispatchReturnQuota(token: string, dispatchId: string): Promise<DispatchReturnQuota> {
+    return this.request<DispatchReturnQuota>('GET', `${BASE}/dispatches/${dispatchId}/return-quota`, token);
+  }
+
+  private returnBody(input: SalesReturnInput) {
+    return {
+      ...input,
+      lines: input.lines.map((line) => ({ ...line, quantity: numeric(line.quantity) })),
+    };
+  }
+
   private dispatchBody(input: DispatchInput) {
+
     return { ...input, lines: input.lines.map((line) => ({ ...line, quantity: numeric(line.quantity) })) };
   }
 

@@ -356,6 +356,12 @@ empresa y el perfil viven en el menú del nombre, al pie. Los listados llevan un
 el formulario al terminar la acción, también cuando el servidor la rechazó, y se perdía lo escrito;
 peor con un `select` controlado, que se quedaba mostrando una opción distinta de su estado.
 
+**El panel de edición guarda el id y la copia de apertura** (`shared/forms/use-editing-draft.ts`): no congela
+una copia fija de la fila en el estado del cliente; deriva el registro en edición de las filas actualizadas que
+devuelve el servidor tras la acción, y calcula una huella determinista sobre los campos editables como clave
+(`key`) de los controles no controlados, remontándolos sólo cuando los datos cambian efectivamente. Si el registro
+desaparece del listado (por paginación o filtro) mientras el panel está abierto, preserva la copia de apertura.
+
 **El menú de Opciones se posiciona fijo** junto a su botón y se recoloca al desplazar: dentro del
 contenedor con desplazamiento de una tabla, quedaba recortado.
 
@@ -454,6 +460,7 @@ de que la arquitectura está bien hecha**. Si necesitan base de datos, algo se f
 | Que otro contexto escriba las tablas del inventario | Pedírselo por `DocumentStockPosting`, dentro de la misma transacción |
 | En un page object, elegir la sección justo después de hacer clic en el módulo | Esperar la URL del módulo: su redirección a la primera sección puede llegar después y ganar |
 | Guardar la reserva de un pedido en una tabla aparte | Calcularla de lo pendiente: nunca se desincroniza |
+| Congelar la fila en el estado local (`setEditing(fila)`) tras guardar | `useEditingDraft`: derivar de las filas nuevas por id y clave determinista de los datos |
 
 ---
 

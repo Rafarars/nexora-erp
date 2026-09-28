@@ -140,6 +140,51 @@ describe('searching the payments', () => {
     await expect(s.searchPayments.run({ tenantId: TENANT_A, customerId: 'undefined' })).rejects.toThrow(InvalidUuidError);
     await expect(s.searchPayments.run({ tenantId: TENANT_A, customerId: 'not-a-uuid' })).rejects.toThrow(InvalidUuidError);
   });
+
+  it('resolves the credit note code when a payment cites a credit note', async () => {
+    const s = world();
+    const { id: noteId, code: noteCode } = await s.createCreditNote.run({
+      tenantId: TENANT_A,
+      customerId: CUSTOMER,
+      reason: 'other',
+      reasonDetail: 'Ajuste comercial',
+      issueDate: '2026-01-15',
+      lines: [{ quantity: 1, unitPrice: 50, taxRate: 0 }],
+    });
+    await s.confirmCreditNote.run({ tenantId: TENANT_A, creditNoteId: noteId });
+
+    await s.createPayment.run({
+      tenantId: TENANT_A,
+      customerId: CUSTOMER,
+      method: 'credit_note',
+      creditSourceId: noteId,
+      allocations: [{ invoiceId: INVOICE, amount: 25 }],
+    });
+
+    const page = await s.searchPayments.run({ tenantId: TENANT_A });
+    const payment = page.payments.find((p) => p.method === 'credit_note')!;
+
+    expect(payment.creditSourceId).toBe(noteId);
+    expect(payment.creditSourceCode).toBe(noteCode);
+  });
+
+  it('marks issue payments as isIssuePayment with the credit note code', async () => {
+    const s = world();
+    const { id: noteId, code: noteCode } = await s.createCreditNote.run({
+      tenantId: TENANT_A,
+      customerId: CUSTOMER,
+      invoiceId: INVOICE,
+      reason: 'subsequent_discount',
+      lines: [{ quantity: 1, unitPrice: 30, taxRate: 0 }],
+    });
+    await s.confirmCreditNote.run({ tenantId: TENANT_A, creditNoteId: noteId });
+
+    const page = await s.searchPayments.run({ tenantId: TENANT_A });
+    const issuePayment = page.payments.find((p) => p.isIssuePayment);
+    expect(issuePayment).toBeDefined();
+    expect(issuePayment?.isIssuePayment).toBe(true);
+    expect(issuePayment?.issueCreditNoteCode).toBe(noteCode);
+  });
 });
 
 describe('searching the customer balances', () => {
@@ -182,5 +227,29 @@ describe('searching the customer balances', () => {
     expect((await s.searchCustomerBalances.run({ tenantId: TENANT_A, onlyWithBalance: 'false' })).total).toBe(4);
     // El que no debe nada no cambia los totales.
     expect((await s.searchCustomerBalances.run({ tenantId: TENANT_A, onlyWithBalance: 'false' })).totals.total).toBe(200);
+  });
+});
+
+describe('searching credit notes', () => {
+  it('resolves the sales return code instead of showing raw id', async () => {
+    const s = world();
+    const RETURN_ID = '57000000-0000-4000-8000-000000000055';
+    s.store.salesReturn(TENANT_A, RETURN_ID, CUSTOMER, 'confirmed', 'DVV-000055');
+
+    const created = await s.createCreditNote.run({
+      tenantId: TENANT_A,
+      customerId: CUSTOMER,
+      salesReturnId: RETURN_ID,
+      reason: 'return',
+      lines: [{ quantity: 1, unitPrice: 20 }],
+    });
+
+    const page = await s.searchCreditNotes.run({ tenantId: TENANT_A });
+    const note = page.notes.find((n) => n.id === created.id);
+    expect(note).toBeDefined();
+    expect(note?.salesReturn).toEqual({ id: RETURN_ID, code: 'DVV-000055' });
+
+    const detail = await s.searchCreditNotes.findById({ tenantId: TENANT_A, creditNoteId: created.id });
+    expect(detail.salesReturn).toEqual({ id: RETURN_ID, code: 'DVV-000055' });
   });
 });

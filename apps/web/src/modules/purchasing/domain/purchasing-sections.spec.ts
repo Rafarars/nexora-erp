@@ -16,7 +16,7 @@ const session = (overrides: Partial<Session>): Session => ({
 
 describe('visiblePurchasingSections', () => {
   it('shows every section to an administrator, orders first', () => {
-    expect(visiblePurchasingSections(session({ grantsAll: true })).map((s) => s.label)).toEqual(['Órdenes', 'Entradas', 'En camino', 'Proveedores']);
+    expect(visiblePurchasingSections(session({ grantsAll: true })).map((s) => s.label)).toEqual(['Órdenes', 'Entradas', 'Devoluciones', 'En camino', 'Proveedores']);
   });
 
   it('shows only what the role can read', () => {

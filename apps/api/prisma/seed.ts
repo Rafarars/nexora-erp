@@ -51,6 +51,7 @@ const CATALOG = {
       water: 'e4000000-0000-4000-8000-000000000001',
       detergent: 'e4000000-0000-4000-8000-000000000002',
       delivery: 'e4000000-0000-4000-8000-000000000003',
+      soap: 'e4000000-0000-4000-8000-000000000004',
     },
   },
   globex: {
@@ -76,6 +77,7 @@ const ITEM_LABELS: Record<string, { itemSku: string; itemName: string }> = {
   'e4000000-0000-4000-8000-000000000001': { itemSku: 'AGUA-500', itemName: 'Agua mineral 500 ml' },
   'e4000000-0000-4000-8000-000000000002': { itemSku: 'DETERGENTE-1KG', itemName: 'Detergente en polvo 1 kg' },
   'e4000000-0000-4000-8000-000000000003': { itemSku: 'SERV-ENTREGA', itemName: 'Servicio de entrega' },
+  'e4000000-0000-4000-8000-000000000004': { itemSku: 'JABON-500', itemName: 'Jabón líquido 500 ml' },
   'e4000000-0000-4000-8000-000000000101': { itemSku: 'FILTRO-ACEITE', itemName: 'Filtro de aceite' },
 };
 
@@ -96,6 +98,14 @@ const PURCHASING = {
     receipt: 'eb000000-0000-4000-8000-000000000001',
     receiptWater: 'ec000000-0000-4000-8000-000000000001',
     receiptMovement: 'e7000000-0000-4000-8000-000000000003',
+    soapOrder: 'e9000000-0000-4000-8000-000000000003',
+    soapOrderLine: 'ea000000-0000-4000-8000-000000000004',
+    soapReceipt: 'eb000000-0000-4000-8000-000000000002',
+    soapReceiptLine: 'ec000000-0000-4000-8000-000000000002',
+    soapReceiptMovement: 'e7000000-0000-4000-8000-000000000006',
+    purchaseReturn: 'f9000000-0000-4000-8000-000000000001',
+    purchaseReturnLine: 'fa000000-0000-4000-8000-000000000001',
+    purchaseReturnMovement: 'e7000000-0000-4000-8000-000000000007',
   },
   globex: {
     supplier: 'e8000000-0000-4000-8000-000000000101',
@@ -114,6 +124,7 @@ const SALES = {
   acme: {
     delta: 'ed000000-0000-4000-8000-000000000001',
     corner: 'ed000000-0000-4000-8000-000000000002',
+    farmacia: 'ed000000-0000-4000-8000-000000000003',
     partialOrder: 'ee000000-0000-4000-8000-000000000001',
     draftOrder: 'ee000000-0000-4000-8000-000000000002',
     partialWater: 'ef000000-0000-4000-8000-000000000001',
@@ -126,6 +137,64 @@ const SALES = {
     dispatchMovement: 'e7000000-0000-4000-8000-000000000004',
     payment: 'd3000000-0000-4000-8000-000000000001',
     paymentAllocation: 'd4000000-0000-4000-8000-000000000001',
+    // H8 Caso 1: Devolucion sin nota
+    cornerOrder: 'ee000000-0000-4000-8000-000000000003',
+    cornerOrderSoap: 'ef000000-0000-4000-8000-000000000004',
+    cornerDispatch: 'f1000000-0000-4000-8000-000000000002',
+    cornerDispatchSoap: 'f2000000-0000-4000-8000-000000000002',
+    cornerInvoice: 'f3000000-0000-4000-8000-000000000002',
+    cornerInvoiceSoap: 'f4000000-0000-4000-8000-000000000002',
+    cornerDispatchMovement: 'e7000000-0000-4000-8000-000000000008',
+    salesReturn1: 'f7000000-0000-4000-8000-000000000001',
+    salesReturn1Line: 'f7100000-0000-4000-8000-000000000001',
+    salesReturn1Movement: 'e7000000-0000-4000-8000-000000000009',
+    // H8 Caso 2: Nota sin devolucion
+    farmaciaOrder1: 'ee000000-0000-4000-8000-000000000004',
+    farmaciaOrder1Soap: 'ef000000-0000-4000-8000-000000000005',
+    farmaciaDispatch1: 'f1000000-0000-4000-8000-000000000003',
+    farmaciaDispatch1Soap: 'f2000000-0000-4000-8000-000000000003',
+    farmaciaInvoice1: 'f3000000-0000-4000-8000-000000000003',
+    farmaciaInvoice1Soap: 'f4000000-0000-4000-8000-000000000003',
+    farmaciaDispatch1Movement: 'e7000000-0000-4000-8000-000000000010',
+    creditNote1: 'f8000000-0000-4000-8000-000000000001',
+    creditNote1Line: 'f8100000-0000-4000-8000-000000000001',
+    issuePayment1: 'd3000000-0000-4000-8000-000000000002',
+    issuePayment1Allocation: 'd4000000-0000-4000-8000-000000000002',
+    // H8 Caso 3: Devolucion scrap con nota
+    farmaciaOrder2: 'ee000000-0000-4000-8000-000000000005',
+    farmaciaOrder2Soap: 'ef000000-0000-4000-8000-000000000006',
+    farmaciaDispatch2: 'f1000000-0000-4000-8000-000000000004',
+    farmaciaDispatch2Soap: 'f2000000-0000-4000-8000-000000000004',
+    farmaciaInvoice2: 'f3000000-0000-4000-8000-000000000004',
+    farmaciaInvoice2Soap: 'f4000000-0000-4000-8000-000000000004',
+    farmaciaDispatch2Movement: 'e7000000-0000-4000-8000-000000000011',
+    salesReturn2: 'f7000000-0000-4000-8000-000000000002',
+    salesReturn2Line: 'f7100000-0000-4000-8000-000000000002',
+    creditNote2: 'f8000000-0000-4000-8000-000000000002',
+    creditNote2Line: 'f8100000-0000-4000-8000-000000000002',
+    issuePayment2: 'd3000000-0000-4000-8000-000000000003',
+    issuePayment2Allocation: 'd4000000-0000-4000-8000-000000000003',
+    // H8 Caso 4: Nota con credito sobrante gastado desde Cobros
+    farmaciaOrder3: 'ee000000-0000-4000-8000-000000000006',
+    farmaciaOrder3Soap: 'ef000000-0000-4000-8000-000000000007',
+    farmaciaOrder4: 'ee000000-0000-4000-8000-000000000007',
+    farmaciaOrder4Soap: 'ef000000-0000-4000-8000-000000000008',
+    farmaciaDispatch3: 'f1000000-0000-4000-8000-000000000005',
+    farmaciaDispatch3Soap: 'f2000000-0000-4000-8000-000000000005',
+    farmaciaDispatch4: 'f1000000-0000-4000-8000-000000000006',
+    farmaciaDispatch4Soap: 'f2000000-0000-4000-8000-000000000006',
+    farmaciaDispatch3Movement: 'e7000000-0000-4000-8000-000000000012',
+    farmaciaDispatch4Movement: 'e7000000-0000-4000-8000-000000000013',
+    farmaciaInvoice3: 'f3000000-0000-4000-8000-000000000005',
+    farmaciaInvoice3Soap: 'f4000000-0000-4000-8000-000000000005',
+    farmaciaInvoice4: 'f3000000-0000-4000-8000-000000000006',
+    farmaciaInvoice4Soap: 'f4000000-0000-4000-8000-000000000006',
+    creditNote3: 'f8000000-0000-4000-8000-000000000003',
+    creditNote3Line: 'f8100000-0000-4000-8000-000000000003',
+    issuePayment3: 'd3000000-0000-4000-8000-000000000004',
+    issuePayment3Allocation: 'd4000000-0000-4000-8000-000000000004',
+    appliedPayment: 'd3000000-0000-4000-8000-000000000005',
+    appliedPaymentAllocation: 'd4000000-0000-4000-8000-000000000005',
   },
   globex: {
     customer: 'ed000000-0000-4000-8000-000000000101',
@@ -156,6 +225,8 @@ const INVENTORY = {
     breakageWater: 'e6000000-0000-4000-8000-000000000003',
     waterMovement: 'e7000000-0000-4000-8000-000000000001',
     detergentMovement: 'e7000000-0000-4000-8000-000000000002',
+    openingSoap: 'e6000000-0000-4000-8000-000000000004',
+    soapMovement: 'e7000000-0000-4000-8000-000000000005',
   },
   globex: {
     opening: 'e5000000-0000-4000-8000-000000000101',
@@ -202,11 +273,11 @@ async function main(): Promise<void> {
 
     console.log(
       '  semillas aplicadas: 4 empresas con sus datos y parametros, 5 roles, 6 personas, 8 membresias; ' +
-        'catalogo: 7 unidades, 3 categorias, 3 impuestos, 5 bodegas, 3 listas de precio, 4 articulos con 6 precios; ' +
-        'inventario: 4 ajustes (2 confirmados), 3 existencias; ' +
-        'compras: 3 proveedores, 4 ordenes, 2 entradas; ' +
-        'ventas: 3 clientes, 4 pedidos, 3 despachos, 2 facturas; ' +
-        'cuentas por cobrar: 3 cobros (2 confirmados); ' +
+        'catalogo: 7 unidades, 3 categorias, 3 impuestos, 5 bodegas, 3 listas de precio, 5 articulos con 8 precios; ' +
+        'inventario: 4 ajustes (2 confirmados), 4 existencias; ' +
+        'compras: 3 proveedores, 5 ordenes, 3 entradas, 1 devolucion; ' +
+        'ventas: 4 clientes, 7 pedidos, 6 despachos, 6 facturas, 2 devoluciones; ' +
+        'cuentas por cobrar: 3 notas de credito, 5 cobros (5 confirmados); ' +
         'volumen: 50 clientes, 5000 facturas, 3000 cobros',
     );
   } finally {
@@ -317,14 +388,17 @@ async function upsertRoles(prisma: PrismaClient): Promise<void> {
         'purchasing.orders.search',
         'purchasing.receipts.search',
         'purchasing.incoming.search',
+        'purchasing.returns.search',
         'sales.customers.search',
         'sales.orders.search',
         'sales.dispatches.search',
         'sales.invoices.search',
         'sales.availability.search',
+        'sales.returns.search',
         'receivables.payments.search',
         'receivables.balances.search',
         'receivables.statements.search',
+        'receivables.creditnotes.search',
         // Sin la valuacion del inventario: muestra costos.
         'reports.dashboard.search',
         'reports.receivables.search',
@@ -444,6 +518,11 @@ async function seedCatalog(prisma: PrismaClient): Promise<void> {
       salesTaxId: acme.taxes.exempt, purchaseTaxId: acme.taxes.exempt, units: [{ unitId: acme.units.piece, conversionFactor: 1, isBase: true }],
     },
     {
+      id: acme.items.soap, tenantId: ACME, code: 'ART000004', sku: 'JABON-500', name: 'Jabón líquido 500 ml', barcode: null,
+      description: null, type: 'inventoried' as const, categoryId: acme.categories.cleaning, salesTaxId: acme.taxes.vat, purchaseTaxId: acme.taxes.vat,
+      units: [{ unitId: acme.units.piece, conversionFactor: 1, isBase: true }],
+    },
+    {
       id: globex.items.filter, tenantId: GLOBEX, code: 'ART000001', sku: 'FILTRO-ACEITE', name: 'Filtro de aceite',
       description: null, type: 'inventoried' as const, categoryId: globex.categories.parts, salesTaxId: globex.taxes.vat, purchaseTaxId: globex.taxes.vat,
       units: [{ unitId: globex.units.piece, conversionFactor: 1, isBase: true }],
@@ -492,6 +571,8 @@ async function seedCatalog(prisma: PrismaClient): Promise<void> {
       { tenantId: ACME, itemId: acme.items.detergent, priceListId: acme.priceLists.retail, price: 4.5 },
       { tenantId: ACME, itemId: acme.items.detergent, priceListId: acme.priceLists.wholesale, price: 3.9 },
       { tenantId: ACME, itemId: acme.items.delivery, priceListId: acme.priceLists.retail, price: 3 },
+      { tenantId: ACME, itemId: acme.items.soap, priceListId: acme.priceLists.retail, price: 4.0 },
+      { tenantId: ACME, itemId: acme.items.soap, priceListId: acme.priceLists.wholesale, price: 3.5 },
       { tenantId: GLOBEX, itemId: globex.items.filter, priceListId: globex.priceLists.retail, price: 12 },
     ],
   });
@@ -551,6 +632,11 @@ async function removeCatalogLeftovers(
 // confirman y anulan documentos, y dejar sus existencias haria que el seed no fuera el mismo
 // dos veces. Compras primero: sus documentos apuntan a articulos y bodegas.
 async function removeInventory(prisma: PrismaClient): Promise<void> {
+  await prisma.customerCreditNote.updateMany({ data: { issuePaymentId: null } });
+  await prisma.customerPayment.updateMany({ data: { creditSourceId: null } });
+  await prisma.customerCreditNote.deleteMany();
+  await prisma.salesReturn.deleteMany();
+  await prisma.purchaseReturn.deleteMany();
   await prisma.customerPayment.deleteMany();
   await prisma.invoice.deleteMany();
   await prisma.dispatch.deleteMany();
@@ -559,7 +645,7 @@ async function removeInventory(prisma: PrismaClient): Promise<void> {
   await prisma.goodsReceipt.deleteMany();
   await prisma.purchaseOrder.deleteMany();
   await prisma.supplier.deleteMany();
-  await prisma.inventoryMovement.updateMany({ data: { reversalOfId: null } });
+  await prisma.inventoryMovement.updateMany({ data: { reversalOfId: null, restoresMovementId: null } });
   await prisma.inventoryMovement.deleteMany();
   await prisma.itemStock.deleteMany();
   await prisma.adjustment.deleteMany();
@@ -579,6 +665,7 @@ async function seedInventory(prisma: PrismaClient): Promise<void> {
       lines: [
         { id: INVENTORY.acme.openingWater, itemId: acme.items.water, unitId: acme.units.box, quantity: 10, baseQuantity: 240, unitCost: 12 },
         { id: INVENTORY.acme.openingDetergent, itemId: acme.items.detergent, unitId: acme.units.kilo, quantity: 50, baseQuantity: 50, unitCost: 3.2 },
+        { id: INVENTORY.acme.openingSoap, itemId: acme.items.soap, unitId: acme.units.piece, quantity: 100, baseQuantity: 100, unitCost: 1.5 },
       ],
     },
     {
@@ -617,6 +704,7 @@ async function seedInventory(prisma: PrismaClient): Promise<void> {
   const stocks = [
     { tenantId: ACME, itemId: acme.items.water, warehouseId: acme.warehouses.main, quantity: 240, cost: 0.5, movement: INVENTORY.acme.waterMovement, adjustmentId: INVENTORY.acme.opening, lineId: INVENTORY.acme.openingWater },
     { tenantId: ACME, itemId: acme.items.detergent, warehouseId: acme.warehouses.main, quantity: 50, cost: 3.2, movement: INVENTORY.acme.detergentMovement, adjustmentId: INVENTORY.acme.opening, lineId: INVENTORY.acme.openingDetergent },
+    { tenantId: ACME, itemId: acme.items.soap, warehouseId: acme.warehouses.main, quantity: 100, cost: 1.5, movement: INVENTORY.acme.soapMovement, adjustmentId: INVENTORY.acme.opening, lineId: INVENTORY.acme.openingSoap },
     { tenantId: GLOBEX, itemId: globex.items.filter, warehouseId: globex.warehouses.main, quantity: 30, cost: 8.5, movement: INVENTORY.globex.filterMovement, adjustmentId: INVENTORY.globex.opening, lineId: INVENTORY.globex.openingFilter },
   ];
 
@@ -691,6 +779,14 @@ async function seedPurchasing(prisma: PrismaClient): Promise<void> {
       lines: [{ id: PURCHASING.acme.draftWater, itemId: acme.items.water, unitId: acme.units.piece, quantity: 48, baseQuantity: 48, unitCost: 0.45, taxRate: 16, receivedQuantity: 0 }],
     },
     {
+      id: PURCHASING.acme.soapOrder, tenantId: ACME, code: 'OC000003', supplierId: PURCHASING.acme.valle,
+      warehouseId: acme.warehouses.main, orderDate: date('2026-09-03'), expectedDate: date('2026-09-04'),
+      notes: 'Compra de jabón líquido', paymentTermDays: 0, status: 'received' as const, confirmedAt: at('2026-09-03'),
+      lines: [
+        { id: PURCHASING.acme.soapOrderLine, itemId: acme.items.soap, unitId: acme.units.piece, quantity: 20, baseQuantity: 20, unitCost: 1.5, taxRate: 16, receivedQuantity: 20 },
+      ],
+    },
+    {
       id: PURCHASING.globex.confirmedOrder, tenantId: GLOBEX, code: 'OC000001', supplierId: PURCHASING.globex.supplier,
       warehouseId: globex.warehouses.main, orderDate: date('2026-09-03'), expectedDate: null, notes: 'Filtros para taller',
       paymentTermDays: 15, status: 'confirmed' as const, confirmedAt: at('2026-09-03'),
@@ -719,6 +815,12 @@ async function seedPurchasing(prisma: PrismaClient): Promise<void> {
       lines: [{ id: PURCHASING.acme.receiptWater, orderLineId: PURCHASING.acme.partialWater, itemId: acme.items.water, unitId: acme.units.box, quantity: 4, baseQuantity: 96, unitCost: 12 }],
     },
     {
+      id: PURCHASING.acme.soapReceipt, tenantId: ACME, code: 'ENT000002', orderId: PURCHASING.acme.soapOrder,
+      warehouseId: acme.warehouses.main, receiptDate: date('2026-09-04'), notes: 'Recepción conforme',
+      status: 'confirmed' as const, confirmedAt: at('2026-09-04'),
+      lines: [{ id: PURCHASING.acme.soapReceiptLine, orderLineId: PURCHASING.acme.soapOrderLine, itemId: acme.items.soap, unitId: acme.units.piece, quantity: 20, baseQuantity: 20, unitCost: 1.5 }],
+    },
+    {
       id: PURCHASING.globex.draftReceipt, tenantId: GLOBEX, code: 'ENT000001', orderId: PURCHASING.globex.confirmedOrder,
       warehouseId: globex.warehouses.main, receiptDate: date('2026-09-06'), notes: null,status: 'draft' as const, confirmedAt: null,
       lines: [{ id: PURCHASING.globex.draftReceiptFilter, orderLineId: PURCHASING.globex.confirmedFilter, itemId: globex.items.filter, unitId: globex.units.piece, quantity: 5, baseQuantity: 5, unitCost: 8 }],
@@ -744,8 +846,80 @@ async function seedPurchasing(prisma: PrismaClient): Promise<void> {
     data: { quantity: 336, lastSequence: 2, updatedAt: at('2026-09-05') },
   });
 
+  await prisma.inventoryMovement.create({
+    data: {
+      id: PURCHASING.acme.soapReceiptMovement, tenantId: ACME, itemId: acme.items.soap, warehouseId: acme.warehouses.main, sequence: 2,
+      direction: 'in', quantity: 20, unitCost: 1.5, balanceQuantity: 120, balanceAverageCost: 1.5, originType: 'receipt',
+      originId: PURCHASING.acme.soapReceipt, originLineId: PURCHASING.acme.soapReceiptLine, originDate: at('2026-09-04'), occurredAt: at('2026-09-04'),
+    },
+  });
+  await prisma.itemStock.update({
+    where: { tenantId_itemId_warehouseId: { tenantId: ACME, itemId: acme.items.soap, warehouseId: acme.warehouses.main } },
+    data: { quantity: 120, lastSequence: 2, updatedAt: at('2026-09-04') },
+  });
+
+  // H8 Caso 5: Devolucion de compra DVC000001
+  await prisma.purchaseReturn.create({
+    data: {
+      id: PURCHASING.acme.purchaseReturn,
+      tenantId: ACME,
+      code: 'DVC000001',
+      supplierId: PURCHASING.acme.valle,
+      receiptId: PURCHASING.acme.soapReceipt,
+      warehouseId: acme.warehouses.main,
+      returnDate: date('2026-09-05'),
+      reason: 'Empaque defectuoso',
+      notes: 'Devolución acordada con el proveedor',
+      status: 'confirmed',
+      confirmedAt: at('2026-09-05'),
+      ...dollars(ACME),
+      createdAt: at('2026-09-05'),
+      updatedAt: at('2026-09-05'),
+    },
+  });
+  await prisma.purchaseReturnLine.create({
+    data: {
+      id: PURCHASING.acme.purchaseReturnLine,
+      tenantId: ACME,
+      purchaseReturnId: PURCHASING.acme.purchaseReturn,
+      receiptLineId: PURCHASING.acme.soapReceiptLine,
+      lineNumber: 1,
+      itemId: acme.items.soap,
+      ...labelsOf(acme.items.soap),
+      unitId: acme.units.piece,
+      quantity: 4,
+      baseQuantity: 4,
+      unitCost: 1.5,
+      restoresMovementId: PURCHASING.acme.soapReceiptMovement,
+    },
+  });
+  await prisma.inventoryMovement.create({
+    data: {
+      id: PURCHASING.acme.purchaseReturnMovement,
+      tenantId: ACME,
+      itemId: acme.items.soap,
+      warehouseId: acme.warehouses.main,
+      sequence: 3,
+      direction: 'out',
+      quantity: 4,
+      unitCost: 1.5,
+      balanceQuantity: 116,
+      balanceAverageCost: 1.5,
+      originType: 'purchase_return',
+      originId: PURCHASING.acme.purchaseReturn,
+      originLineId: PURCHASING.acme.purchaseReturnLine,
+      restoresMovementId: PURCHASING.acme.soapReceiptMovement,
+      originDate: at('2026-09-05'),
+      occurredAt: at('2026-09-05'),
+    },
+  });
+  await prisma.itemStock.update({
+    where: { tenantId_itemId_warehouseId: { tenantId: ACME, itemId: acme.items.soap, warehouseId: acme.warehouses.main } },
+    data: { quantity: 116, lastSequence: 3, updatedAt: at('2026-09-05') },
+  });
+
   for (const [tenantId, prefix, lastValue] of [
-    [ACME, 'PRV', 2], [ACME, 'OC', 2], [ACME, 'ENT', 1],
+    [ACME, 'PRV', 2], [ACME, 'OC', 3], [ACME, 'ENT', 2], [ACME, 'DVC', 1],
     [GLOBEX, 'PRV', 1], [GLOBEX, 'OC', 2], [GLOBEX, 'ENT', 1],
   ] as const) {
     await prisma.$executeRaw`
@@ -771,6 +945,10 @@ async function seedSales(prisma: PrismaClient): Promise<void> {
         email: 'compras@delta.com', phone: '+58 212 555 0202', address: 'Calle Real de Sabana Grande', paymentTermDays: 15, creditLimit: 1000,
       },
       { id: SALES.acme.corner, tenantId: ACME, code: 'CLI000002', name: 'Bodegón La Esquina', paymentTermDays: 0 },
+      {
+        id: SALES.acme.farmacia, tenantId: ACME, code: 'CLI000003', name: 'Farmacia San Rafael', fiscalId: 'J-40987654-3',
+        email: 'administracion@farmaciasanrafael.com', phone: '+58 212 555 0303', address: 'Av. Andrés Bello, La Candelaria', paymentTermDays: 30, creditLimit: 2000,
+      },
       { id: SALES.globex.customer, tenantId: GLOBEX, code: 'CLI000001', name: 'Talleres Omega', paymentTermDays: 30, creditLimit: 500 },
     ],
   });
@@ -788,6 +966,31 @@ async function seedSales(prisma: PrismaClient): Promise<void> {
       id: SALES.acme.draftOrder, tenantId: ACME, code: 'PED000002', customerId: SALES.acme.corner, warehouseId: acme.warehouses.main,
       orderDate: date('2026-09-08'), notes: null, ...dollarsAt(152.4), status: 'draft' as const, confirmedAt: null,
       lines: [{ id: SALES.acme.draftWater, itemId: acme.items.water, unitId: acme.units.piece, quantity: 24, baseQuantity: 24, unitPrice: 1.5, taxRate: 16, dispatchedQuantity: 0 }],
+    },
+    {
+      id: SALES.acme.cornerOrder, tenantId: ACME, code: 'PED000003', customerId: SALES.acme.corner, warehouseId: acme.warehouses.main,
+      orderDate: date('2026-09-06'), notes: 'Pedido de jabón', ...dollarsAt(150.25), status: 'dispatched' as const, confirmedAt: at('2026-09-06'),
+      lines: [{ id: SALES.acme.cornerOrderSoap, itemId: acme.items.soap, unitId: acme.units.piece, quantity: 10, baseQuantity: 10, unitPrice: 4.0, taxRate: 16, dispatchedQuantity: 10 }],
+    },
+    {
+      id: SALES.acme.farmaciaOrder1, tenantId: ACME, code: 'PED000004', customerId: SALES.acme.farmacia, warehouseId: acme.warehouses.main,
+      orderDate: date('2026-09-06'), notes: 'Pedido farmacia 1', ...dollarsAt(150.25), status: 'dispatched' as const, confirmedAt: at('2026-09-06'),
+      lines: [{ id: SALES.acme.farmaciaOrder1Soap, itemId: acme.items.soap, unitId: acme.units.piece, quantity: 10, baseQuantity: 10, unitPrice: 4.0, taxRate: 16, dispatchedQuantity: 10 }],
+    },
+    {
+      id: SALES.acme.farmaciaOrder2, tenantId: ACME, code: 'PED000005', customerId: SALES.acme.farmacia, warehouseId: acme.warehouses.main,
+      orderDate: date('2026-09-06'), notes: 'Pedido farmacia 2', ...dollarsAt(150.25), status: 'dispatched' as const, confirmedAt: at('2026-09-06'),
+      lines: [{ id: SALES.acme.farmaciaOrder2Soap, itemId: acme.items.soap, unitId: acme.units.piece, quantity: 10, baseQuantity: 10, unitPrice: 4.0, taxRate: 16, dispatchedQuantity: 10 }],
+    },
+    {
+      id: SALES.acme.farmaciaOrder3, tenantId: ACME, code: 'PED000006', customerId: SALES.acme.farmacia, warehouseId: acme.warehouses.main,
+      orderDate: date('2026-09-06'), notes: 'Pedido farmacia 3', ...dollarsAt(150.25), status: 'dispatched' as const, confirmedAt: at('2026-09-06'),
+      lines: [{ id: SALES.acme.farmaciaOrder3Soap, itemId: acme.items.soap, unitId: acme.units.piece, quantity: 1, baseQuantity: 1, unitPrice: 4.0, taxRate: 16, dispatchedQuantity: 1 }],
+    },
+    {
+      id: SALES.acme.farmaciaOrder4, tenantId: ACME, code: 'PED000007', customerId: SALES.acme.farmacia, warehouseId: acme.warehouses.main,
+      orderDate: date('2026-09-06'), notes: 'Pedido farmacia 4', ...dollarsAt(150.25), status: 'dispatched' as const, confirmedAt: at('2026-09-06'),
+      lines: [{ id: SALES.acme.farmaciaOrder4Soap, itemId: acme.items.soap, unitId: acme.units.piece, quantity: 2, baseQuantity: 2, unitPrice: 4.0, taxRate: 16, dispatchedQuantity: 2 }],
     },
     {
       id: SALES.globex.partialOrder, tenantId: GLOBEX, code: 'PED000001', customerId: SALES.globex.customer, warehouseId: globex.warehouses.main,
@@ -813,6 +1016,31 @@ async function seedSales(prisma: PrismaClient): Promise<void> {
       lines: [{ id: SALES.acme.dispatchWater, orderLineId: SALES.acme.partialWater, itemId: acme.items.water, unitId: acme.units.box, quantity: 2, baseQuantity: 48 }],
     },
     {
+      id: SALES.acme.cornerDispatch, tenantId: ACME, code: 'DES000002', orderId: SALES.acme.cornerOrder, warehouseId: acme.warehouses.main,
+      dispatchDate: date('2026-09-07'), notes: 'Entrega Bodegón', status: 'confirmed' as const, confirmedAt: at('2026-09-07'),
+      lines: [{ id: SALES.acme.cornerDispatchSoap, orderLineId: SALES.acme.cornerOrderSoap, itemId: acme.items.soap, unitId: acme.units.piece, quantity: 10, baseQuantity: 10 }],
+    },
+    {
+      id: SALES.acme.farmaciaDispatch1, tenantId: ACME, code: 'DES000003', orderId: SALES.acme.farmaciaOrder1, warehouseId: acme.warehouses.main,
+      dispatchDate: date('2026-09-07'), notes: 'Entrega Farmacia 1', status: 'confirmed' as const, confirmedAt: at('2026-09-07'),
+      lines: [{ id: SALES.acme.farmaciaDispatch1Soap, orderLineId: SALES.acme.farmaciaOrder1Soap, itemId: acme.items.soap, unitId: acme.units.piece, quantity: 10, baseQuantity: 10 }],
+    },
+    {
+      id: SALES.acme.farmaciaDispatch2, tenantId: ACME, code: 'DES000004', orderId: SALES.acme.farmaciaOrder2, warehouseId: acme.warehouses.main,
+      dispatchDate: date('2026-09-07'), notes: 'Entrega Farmacia 2', status: 'confirmed' as const, confirmedAt: at('2026-09-07'),
+      lines: [{ id: SALES.acme.farmaciaDispatch2Soap, orderLineId: SALES.acme.farmaciaOrder2Soap, itemId: acme.items.soap, unitId: acme.units.piece, quantity: 10, baseQuantity: 10 }],
+    },
+    {
+      id: SALES.acme.farmaciaDispatch3, tenantId: ACME, code: 'DES000005', orderId: SALES.acme.farmaciaOrder3, warehouseId: acme.warehouses.main,
+      dispatchDate: date('2026-09-07'), notes: 'Entrega Farmacia 3', status: 'confirmed' as const, confirmedAt: at('2026-09-07'),
+      lines: [{ id: SALES.acme.farmaciaDispatch3Soap, orderLineId: SALES.acme.farmaciaOrder3Soap, itemId: acme.items.soap, unitId: acme.units.piece, quantity: 1, baseQuantity: 1 }],
+    },
+    {
+      id: SALES.acme.farmaciaDispatch4, tenantId: ACME, code: 'DES000006', orderId: SALES.acme.farmaciaOrder4, warehouseId: acme.warehouses.main,
+      dispatchDate: date('2026-09-07'), notes: 'Entrega Farmacia 4', status: 'confirmed' as const, confirmedAt: at('2026-09-07'),
+      lines: [{ id: SALES.acme.farmaciaDispatch4Soap, orderLineId: SALES.acme.farmaciaOrder4Soap, itemId: acme.items.soap, unitId: acme.units.piece, quantity: 2, baseQuantity: 2 }],
+    },
+    {
       id: SALES.globex.dispatch, tenantId: GLOBEX, code: 'DES000001', orderId: SALES.globex.partialOrder, warehouseId: globex.warehouses.main,
       dispatchDate: date('2026-09-06'), notes: null, status: 'confirmed' as const, confirmedAt: at('2026-09-06'),
       lines: [{ id: SALES.globex.dispatchFilter, orderLineId: SALES.globex.partialFilter, itemId: globex.items.filter, unitId: globex.units.piece, quantity: 5, baseQuantity: 5 }],
@@ -834,9 +1062,37 @@ async function seedSales(prisma: PrismaClient): Promise<void> {
       id: SALES.acme.invoice, tenantId: ACME, code: 'FAC000001', dispatchId: SALES.acme.dispatch, orderId: SALES.acme.partialOrder, customerId: SALES.acme.delta,
       issueDate: date('2026-09-07'), dueDate: date('2026-09-22'), subtotal: 60, tax: 9.6, total: 69.6,
       ...dollarsAt(150.25), subtotalVes: 9015, taxVes: 1442.4, totalVes: 10457.4,
-      // La linea de pedido que factura: sin ella la factura no se puede anular, porque no hay
-      // a donde devolver lo facturado.
       line: { id: SALES.acme.invoiceWater, orderLineId: SALES.acme.partialWater, itemId: acme.items.water, unitId: acme.units.box, quantity: 2, unitPrice: 30, taxRate: 16, subtotal: 60, tax: 9.6 },
+    },
+    {
+      id: SALES.acme.cornerInvoice, tenantId: ACME, code: 'FAC000002', dispatchId: SALES.acme.cornerDispatch, orderId: SALES.acme.cornerOrder, customerId: SALES.acme.corner,
+      issueDate: date('2026-09-07'), dueDate: date('2026-09-22'), subtotal: 40, tax: 6.4, total: 46.4,
+      ...dollarsAt(150.25), subtotalVes: 6010, taxVes: 961.6, totalVes: 6971.6,
+      line: { id: SALES.acme.cornerInvoiceSoap, orderLineId: SALES.acme.cornerOrderSoap, itemId: acme.items.soap, unitId: acme.units.piece, quantity: 10, unitPrice: 4.0, taxRate: 16, subtotal: 40, tax: 6.4 },
+    },
+    {
+      id: SALES.acme.farmaciaInvoice1, tenantId: ACME, code: 'FAC000003', dispatchId: SALES.acme.farmaciaDispatch1, orderId: SALES.acme.farmaciaOrder1, customerId: SALES.acme.farmacia,
+      issueDate: date('2026-09-07'), dueDate: date('2026-09-22'), subtotal: 40, tax: 6.4, total: 46.4,
+      ...dollarsAt(150.25), subtotalVes: 6010, taxVes: 961.6, totalVes: 6971.6,
+      line: { id: SALES.acme.farmaciaInvoice1Soap, orderLineId: SALES.acme.farmaciaOrder1Soap, itemId: acme.items.soap, unitId: acme.units.piece, quantity: 10, unitPrice: 4.0, taxRate: 16, subtotal: 40, tax: 6.4 },
+    },
+    {
+      id: SALES.acme.farmaciaInvoice2, tenantId: ACME, code: 'FAC000004', dispatchId: SALES.acme.farmaciaDispatch2, orderId: SALES.acme.farmaciaOrder2, customerId: SALES.acme.farmacia,
+      issueDate: date('2026-09-07'), dueDate: date('2026-09-22'), subtotal: 40, tax: 6.4, total: 46.4,
+      ...dollarsAt(150.25), subtotalVes: 6010, taxVes: 961.6, totalVes: 6971.6,
+      line: { id: SALES.acme.farmaciaInvoice2Soap, orderLineId: SALES.acme.farmaciaOrder2Soap, itemId: acme.items.soap, unitId: acme.units.piece, quantity: 10, unitPrice: 4.0, taxRate: 16, subtotal: 40, tax: 6.4 },
+    },
+    {
+      id: SALES.acme.farmaciaInvoice3, tenantId: ACME, code: 'FAC000005', dispatchId: SALES.acme.farmaciaDispatch3, orderId: SALES.acme.farmaciaOrder3, customerId: SALES.acme.farmacia,
+      issueDate: date('2026-09-07'), dueDate: date('2026-09-22'), subtotal: 4.0, tax: 0.64, total: 4.64,
+      ...dollarsAt(150.25), subtotalVes: 601, taxVes: 96.16, totalVes: 697.16,
+      line: { id: SALES.acme.farmaciaInvoice3Soap, orderLineId: SALES.acme.farmaciaOrder3Soap, itemId: acme.items.soap, unitId: acme.units.piece, quantity: 1, unitPrice: 4.0, taxRate: 16, subtotal: 4.0, tax: 0.64 },
+    },
+    {
+      id: SALES.acme.farmaciaInvoice4, tenantId: ACME, code: 'FAC000006', dispatchId: SALES.acme.farmaciaDispatch4, orderId: SALES.acme.farmaciaOrder4, customerId: SALES.acme.farmacia,
+      issueDate: date('2026-09-07'), dueDate: date('2026-09-22'), subtotal: 8.0, tax: 1.28, total: 9.28,
+      ...dollarsAt(150.25), subtotalVes: 1202, taxVes: 192.32, totalVes: 1394.32,
+      line: { id: SALES.acme.farmaciaInvoice4Soap, orderLineId: SALES.acme.farmaciaOrder4Soap, itemId: acme.items.soap, unitId: acme.units.piece, quantity: 2, unitPrice: 4.0, taxRate: 16, subtotal: 8.0, tax: 1.28 },
     },
     {
       id: SALES.globex.invoice, tenantId: GLOBEX, code: 'FAC000001', dispatchId: SALES.globex.dispatch, orderId: SALES.globex.partialOrder, customerId: SALES.globex.customer,
@@ -853,6 +1109,11 @@ async function seedSales(prisma: PrismaClient): Promise<void> {
 
   const exits = [
     { id: SALES.acme.dispatchMovement, tenantId: ACME, itemId: acme.items.water, warehouseId: acme.warehouses.main, sequence: 3, quantity: 48, cost: 0.5, balance: 288, originId: SALES.acme.dispatch, lineId: SALES.acme.dispatchWater, day: '2026-09-07' },
+    { id: SALES.acme.cornerDispatchMovement, tenantId: ACME, itemId: acme.items.soap, warehouseId: acme.warehouses.main, sequence: 4, quantity: 10, cost: 1.5, balance: 106, originId: SALES.acme.cornerDispatch, lineId: SALES.acme.cornerDispatchSoap, day: '2026-09-07' },
+    { id: SALES.acme.farmaciaDispatch1Movement, tenantId: ACME, itemId: acme.items.soap, warehouseId: acme.warehouses.main, sequence: 5, quantity: 10, cost: 1.5, balance: 96, originId: SALES.acme.farmaciaDispatch1, lineId: SALES.acme.farmaciaDispatch1Soap, day: '2026-09-07' },
+    { id: SALES.acme.farmaciaDispatch2Movement, tenantId: ACME, itemId: acme.items.soap, warehouseId: acme.warehouses.main, sequence: 6, quantity: 10, cost: 1.5, balance: 86, originId: SALES.acme.farmaciaDispatch2, lineId: SALES.acme.farmaciaDispatch2Soap, day: '2026-09-07' },
+    { id: SALES.acme.farmaciaDispatch3Movement, tenantId: ACME, itemId: acme.items.soap, warehouseId: acme.warehouses.main, sequence: 7, quantity: 1, cost: 1.5, balance: 85, originId: SALES.acme.farmaciaDispatch3, lineId: SALES.acme.farmaciaDispatch3Soap, day: '2026-09-07' },
+    { id: SALES.acme.farmaciaDispatch4Movement, tenantId: ACME, itemId: acme.items.soap, warehouseId: acme.warehouses.main, sequence: 8, quantity: 2, cost: 1.5, balance: 83, originId: SALES.acme.farmaciaDispatch4, lineId: SALES.acme.farmaciaDispatch4Soap, day: '2026-09-07' },
     { id: SALES.globex.dispatchMovement, tenantId: GLOBEX, itemId: globex.items.filter, warehouseId: globex.warehouses.main, sequence: 2, quantity: 5, cost: 8.5, balance: 25, originId: SALES.globex.dispatch, lineId: SALES.globex.dispatchFilter, day: '2026-09-06' },
   ];
 
@@ -870,8 +1131,106 @@ async function seedSales(prisma: PrismaClient): Promise<void> {
     });
   }
 
+  // H8 Caso 1: Devolucion de venta sin nota (DVV000001, resalable)
+  await prisma.salesReturn.create({
+    data: {
+      id: SALES.acme.salesReturn1,
+      tenantId: ACME,
+      code: 'DVV000001',
+      customerId: SALES.acme.corner,
+      dispatchId: SALES.acme.cornerDispatch,
+      warehouseId: acme.warehouses.main,
+      returnDate: date('2026-09-08'),
+      condition: 'resalable',
+      reason: 'Sobró pedido',
+      notes: 'Mercancía en perfecto estado, reingresa a bodega',
+      status: 'confirmed',
+      confirmedAt: at('2026-09-08'),
+      ...dollarsAt(152.4),
+      createdAt: at('2026-09-08'),
+      updatedAt: at('2026-09-08'),
+    },
+  });
+  await prisma.salesReturnLine.create({
+    data: {
+      id: SALES.acme.salesReturn1Line,
+      tenantId: ACME,
+      salesReturnId: SALES.acme.salesReturn1,
+      dispatchLineId: SALES.acme.cornerDispatchSoap,
+      lineNumber: 1,
+      itemId: acme.items.soap,
+      ...labelsOf(acme.items.soap),
+      unitId: acme.units.piece,
+      quantity: 2,
+      baseQuantity: 2,
+      unitCost: 1.5,
+      restoresMovementId: SALES.acme.cornerDispatchMovement,
+    },
+  });
+  await prisma.inventoryMovement.create({
+    data: {
+      id: SALES.acme.salesReturn1Movement,
+      tenantId: ACME,
+      itemId: acme.items.soap,
+      warehouseId: acme.warehouses.main,
+      sequence: 9,
+      direction: 'in',
+      quantity: 2,
+      unitCost: 1.5,
+      balanceQuantity: 85,
+      balanceAverageCost: 1.5,
+      originType: 'sales_return',
+      originId: SALES.acme.salesReturn1,
+      originLineId: SALES.acme.salesReturn1Line,
+      restoresMovementId: SALES.acme.cornerDispatchMovement,
+      originDate: at('2026-09-08'),
+      occurredAt: at('2026-09-08'),
+    },
+  });
+  await prisma.itemStock.update({
+    where: { tenantId_itemId_warehouseId: { tenantId: ACME, itemId: acme.items.soap, warehouseId: acme.warehouses.main } },
+    data: { quantity: 85, lastSequence: 9, updatedAt: at('2026-09-08') },
+  });
+
+  // H8 Caso 3: Devolucion de venta scrap (DVV000002) - NO genera movimiento en kardex
+  await prisma.salesReturn.create({
+    data: {
+      id: SALES.acme.salesReturn2,
+      tenantId: ACME,
+      code: 'DVV000002',
+      customerId: SALES.acme.farmacia,
+      dispatchId: SALES.acme.farmaciaDispatch2,
+      warehouseId: acme.warehouses.main,
+      returnDate: date('2026-09-08'),
+      condition: 'scrap',
+      reason: 'Producto roto en traslado',
+      notes: 'Mercancía destruida, no reingresa a inventario',
+      status: 'confirmed',
+      confirmedAt: at('2026-09-08'),
+      ...dollarsAt(152.4),
+      createdAt: at('2026-09-08'),
+      updatedAt: at('2026-09-08'),
+    },
+  });
+  await prisma.salesReturnLine.create({
+    data: {
+      id: SALES.acme.salesReturn2Line,
+      tenantId: ACME,
+      salesReturnId: SALES.acme.salesReturn2,
+      dispatchLineId: SALES.acme.farmaciaDispatch2Soap,
+      lineNumber: 1,
+      itemId: acme.items.soap,
+      ...labelsOf(acme.items.soap),
+      unitId: acme.units.piece,
+      quantity: 3,
+      baseQuantity: 3,
+      unitCost: 1.5,
+      restoresMovementId: SALES.acme.farmaciaDispatch2Movement,
+    },
+  });
+
   for (const [tenantId, prefix, lastValue] of [
-    [ACME, 'CLI', 2], [ACME, 'PED', 2], [ACME, 'DES', 1], [ACME, 'FAC', 1],
+    [ACME, 'CLI', 3], [ACME, 'PED', 7], [ACME, 'DES', 6], [ACME, 'FAC', 6], [ACME, 'DVV', 2],
     [GLOBEX, 'CLI', 1], [GLOBEX, 'PED', 2], [GLOBEX, 'DES', 2], [GLOBEX, 'FAC', 1],
   ] as const) {
     await prisma.$executeRaw`
@@ -884,7 +1243,9 @@ async function seedSales(prisma: PrismaClient): Promise<void> {
 
 // Delta abono 30 a su factura de 69,60, que queda con 39,60 por cobrar. Globex tiene un cobro
 // confirmado y un borrador: son los blancos de la matriz de aislamiento.
+// H8: Notas de credito y cobros por credit_note de Acme.
 async function seedReceivables(prisma: PrismaClient): Promise<void> {
+  const { acme } = CATALOG;
   const at = (day: string) => new Date(`${day}T12:00:00.000Z`);
   const date = (day: string) => new Date(`${day}T00:00:00.000Z`);
 
@@ -892,21 +1253,91 @@ async function seedReceivables(prisma: PrismaClient): Promise<void> {
     {
       id: SALES.acme.payment, tenantId: ACME, code: 'COB000001', customerId: SALES.acme.delta, paymentDate: date('2026-09-10'), method: 'transfer' as const,
       reference: 'TRF-88231', amount: 30, ...dollarsAt(152.4), amountVes: 4572, difference: 64.5, status: 'confirmed' as const, confirmedAt: at('2026-09-10'),
-      allocation: { id: SALES.acme.paymentAllocation, invoiceId: SALES.acme.invoice },
+      creditSourceId: null, allocation: { id: SALES.acme.paymentAllocation, invoiceId: SALES.acme.invoice },
+    },
+    // H8 Caso 2: Cobro de emision de NCC000001 aplicado a FAC000003
+    {
+      id: SALES.acme.issuePayment1, tenantId: ACME, code: 'COB000002', customerId: SALES.acme.farmacia, paymentDate: date('2026-09-08'), method: 'credit_note' as const,
+      reference: null, amount: 11.60, ...dollarsAt(152.4), amountVes: 1767.84, difference: 24.94, status: 'confirmed' as const, confirmedAt: at('2026-09-08'),
+      creditSourceId: SALES.acme.creditNote1, allocation: { id: SALES.acme.issuePayment1Allocation, invoiceId: SALES.acme.farmaciaInvoice1 },
+    },
+    // H8 Caso 3: Cobro de emision de NCC000002 aplicado a FAC000004
+    {
+      id: SALES.acme.issuePayment2, tenantId: ACME, code: 'COB000003', customerId: SALES.acme.farmacia, paymentDate: date('2026-09-08'), method: 'credit_note' as const,
+      reference: null, amount: 13.92, ...dollarsAt(152.4), amountVes: 2121.41, difference: 29.93, status: 'confirmed' as const, confirmedAt: at('2026-09-08'),
+      creditSourceId: SALES.acme.creditNote2, allocation: { id: SALES.acme.issuePayment2Allocation, invoiceId: SALES.acme.farmaciaInvoice2 },
+    },
+    // H8 Caso 4: Cobro de emision de NCC000003 aplicado a FAC000005 (topado a su saldo vivo de 4.64)
+    {
+      id: SALES.acme.issuePayment3, tenantId: ACME, code: 'COB000004', customerId: SALES.acme.farmacia, paymentDate: date('2026-09-08'), method: 'credit_note' as const,
+      reference: null, amount: 4.64, ...dollarsAt(152.4), amountVes: 707.14, difference: 9.98, status: 'confirmed' as const, confirmedAt: at('2026-09-08'),
+      creditSourceId: SALES.acme.creditNote3, allocation: { id: SALES.acme.issuePayment3Allocation, invoiceId: SALES.acme.farmaciaInvoice3 },
+    },
+    // H8 Caso 4: Cobro posterior desde Cobros que gasta 5.00 del credito disponible en FAC000006
+    {
+      id: SALES.acme.appliedPayment, tenantId: ACME, code: 'COB000005', customerId: SALES.acme.farmacia, paymentDate: date('2026-09-09'), method: 'credit_note' as const,
+      reference: null, amount: 5.00, ...dollarsAt(152.4), amountVes: 762.00, difference: 10.75, status: 'confirmed' as const, confirmedAt: at('2026-09-09'),
+      creditSourceId: SALES.acme.creditNote3, allocation: { id: SALES.acme.appliedPaymentAllocation, invoiceId: SALES.acme.farmaciaInvoice4 },
     },
     {
       id: SALES.globex.confirmedPayment, tenantId: GLOBEX, code: 'COB000001', customerId: SALES.globex.customer, paymentDate: date('2026-09-08'), method: 'cash' as const,
       reference: null, amount: 20, ...dollarsAt(141), amountVes: 2820, difference: 0, status: 'confirmed' as const, confirmedAt: at('2026-09-08'),
-      allocation: { id: SALES.globex.confirmedAllocation, invoiceId: SALES.globex.invoice },
+      creditSourceId: null, allocation: { id: SALES.globex.confirmedAllocation, invoiceId: SALES.globex.invoice },
     },
     {
       id: SALES.globex.draftPayment, tenantId: GLOBEX, code: 'COB000002', customerId: SALES.globex.customer, paymentDate: date('2026-09-09'), method: 'transfer' as const,
       reference: null, amount: 10, ...dollarsAt(141), amountVes: 1410, difference: 0, status: 'draft' as const, confirmedAt: null,
-      allocation: { id: SALES.globex.draftAllocation, invoiceId: SALES.globex.invoice },
+      creditSourceId: null, allocation: { id: SALES.globex.draftAllocation, invoiceId: SALES.globex.invoice },
     },
   ];
 
-  // Lo cobrado a la tasa del cobro menos lo facturado a la de la factura: 30 USD de 150,25 a 152,40 son 64,50 Bs.
+  // Las notas de credito se crean ANTES de los cobros para que los cobros puedan referenciar creditSourceId,
+  // y luego se actualiza issuePaymentId en las notas.
+  const creditNotes = [
+    // H8 Caso 2: Nota de credito sin devolucion (descuento posterior)
+    {
+      id: SALES.acme.creditNote1, tenantId: ACME, code: 'NCC000001', customerId: SALES.acme.farmacia,
+      invoiceId: SALES.acme.farmaciaInvoice1, salesReturnId: null, issuePaymentId: SALES.acme.issuePayment1,
+      issueDate: date('2026-09-08'), reason: 'subsequent_discount' as const, reasonDetail: null, notes: 'Descuento por pronto pago',
+      status: 'confirmed' as const, subtotal: 10.0, tax: 1.6, total: 11.60,
+      ...dollarsAt(152.4), subtotalVes: 1524, taxVes: 243.84, totalVes: 1767.84, confirmedAt: at('2026-09-08'),
+      line: { id: SALES.acme.creditNote1Line, lineNumber: 1, concept: 'Descuento comercial', itemId: null, unitId: null, quantity: 1, unitPrice: 10.0, taxRate: 16, subtotal: 10.0, tax: 1.6, total: 11.60 },
+    },
+    // H8 Caso 3: Nota de credito que acredita devolucion scrap
+    {
+      id: SALES.acme.creditNote2, tenantId: ACME, code: 'NCC000002', customerId: SALES.acme.farmacia,
+      invoiceId: SALES.acme.farmaciaInvoice2, salesReturnId: SALES.acme.salesReturn2, issuePaymentId: SALES.acme.issuePayment2,
+      issueDate: date('2026-09-08'), reason: 'damaged_goods' as const, reasonDetail: null, notes: 'Mercancía dañada',
+      status: 'confirmed' as const, subtotal: 12.0, tax: 1.92, total: 13.92,
+      ...dollarsAt(152.4), subtotalVes: 1828.8, taxVes: 292.61, totalVes: 2121.41, confirmedAt: at('2026-09-08'),
+      line: { id: SALES.acme.creditNote2Line, lineNumber: 1, concept: null, itemId: acme.items.soap, unitId: acme.units.piece, quantity: 3, unitPrice: 4.0, taxRate: 16, subtotal: 12.0, tax: 1.92, total: 13.92 },
+    },
+    // H8 Caso 4: Nota de credito con credito sobrante gastado desde Cobros
+    {
+      id: SALES.acme.creditNote3, tenantId: ACME, code: 'NCC000003', customerId: SALES.acme.farmacia,
+      invoiceId: SALES.acme.farmaciaInvoice3, salesReturnId: null, issuePaymentId: SALES.acme.issuePayment3,
+      issueDate: date('2026-09-08'), reason: 'price_correction' as const, reasonDetail: null, notes: 'Ajuste de precio con saldo a favor',
+      status: 'confirmed' as const, subtotal: 10.0, tax: 1.6, total: 11.60,
+      ...dollarsAt(152.4), subtotalVes: 1524, taxVes: 243.84, totalVes: 1767.84, confirmedAt: at('2026-09-08'),
+      line: { id: SALES.acme.creditNote3Line, lineNumber: 1, concept: 'Corrección de precio acordada', itemId: null, unitId: null, quantity: 1, unitPrice: 10.0, taxRate: 16, subtotal: 10.0, tax: 1.6, total: 11.60 },
+    },
+  ];
+
+  for (const { line, ...creditNote } of creditNotes) {
+    // Se crea inicialmente con issuePaymentId nulo para satisfacer la FK hacia customer_payments
+    await prisma.customerCreditNote.create({
+      data: { ...creditNote, issuePaymentId: null, createdAt: creditNote.issueDate, updatedAt: creditNote.confirmedAt ?? creditNote.issueDate },
+    });
+    await prisma.customerCreditNoteLine.create({
+      data: {
+        ...line,
+        ...(line.itemId ? labelsOf(line.itemId) : { itemSku: null, itemName: null }),
+        tenantId: creditNote.tenantId,
+        creditNoteId: creditNote.id,
+      },
+    });
+  }
+
   for (const { allocation, difference, ...payment } of payments) {
     await prisma.customerPayment.create({ data: { ...payment, createdAt: payment.paymentDate, updatedAt: payment.confirmedAt ?? payment.paymentDate } });
     await prisma.paymentAllocation.create({
@@ -914,13 +1345,34 @@ async function seedReceivables(prisma: PrismaClient): Promise<void> {
     });
   }
 
+  // Ahora se enlazan los cobros de emision en las notas de credito
+  for (const creditNote of creditNotes) {
+    if (creditNote.issuePaymentId) {
+      await prisma.customerCreditNote.update({
+        where: { tenantId_id: { tenantId: creditNote.tenantId, id: creditNote.id } },
+        data: { issuePaymentId: creditNote.issuePaymentId },
+      });
+    }
+  }
+
   for (const [tenantId, lastValue] of [
-    [ACME, 1],
+    [ACME, 5],
     [GLOBEX, 2],
   ] as const) {
     await prisma.$executeRaw`
       INSERT INTO code_sequences (tenant_id, prefix, last_value)
       VALUES (${tenantId}::uuid, 'COB', ${lastValue})
+      ON CONFLICT (tenant_id, prefix)
+      DO UPDATE SET last_value = GREATEST(code_sequences.last_value, EXCLUDED.last_value)`;
+  }
+
+  for (const [tenantId, lastValue] of [
+    [ACME, 3],
+    [GLOBEX, 0],
+  ] as const) {
+    await prisma.$executeRaw`
+      INSERT INTO code_sequences (tenant_id, prefix, last_value)
+      VALUES (${tenantId}::uuid, 'NCC', ${lastValue})
       ON CONFLICT (tenant_id, prefix)
       DO UPDATE SET last_value = GREATEST(code_sequences.last_value, EXCLUDED.last_value)`;
   }

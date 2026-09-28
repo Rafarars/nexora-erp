@@ -289,3 +289,90 @@ export class ServiceNotReceivableError extends InvalidArgumentError {
     super(`Item <${itemId}> is a service and cannot be received.`, 'A service is not received into a warehouse.');
   }
 }
+
+// ---------------------------------------------------------------- devoluciones a proveedor
+
+export class PurchaseReturnNotFoundError extends NotFoundError {
+  constructor(id: string) {
+    super(`Purchase return <${id}> does not exist.`, 'The purchase return does not exist.');
+  }
+}
+
+export class PurchaseReturnNotEditableError extends ConflictError {
+  constructor(id: string, status: string) {
+    super(`Purchase return <${id}> is ${status} and can no longer be edited.`, 'Only a draft purchase return can be edited.');
+  }
+}
+
+export class PurchaseReturnNotConfirmableError extends ConflictError {
+  constructor(id: string, status: string) {
+    super(`Purchase return <${id}> is ${status} and cannot be confirmed.`, 'Only a draft purchase return can be confirmed.');
+  }
+}
+
+export class PurchaseReturnAlreadyCancelledError extends ConflictError {
+  constructor(id: string) {
+    super(`Purchase return <${id}> is already cancelled.`, 'The purchase return is already cancelled.');
+  }
+}
+
+export class EmptyPurchaseReturnError extends InvalidArgumentError {
+  constructor() {
+    super('A purchase return needs at least one line.', 'A purchase return needs at least one line.');
+  }
+}
+
+export class DuplicatePurchaseReturnLineError extends InvalidArgumentError {
+  constructor(receiptLineId: string) {
+    super(`Receipt line <${receiptLineId}> appears twice in the return.`, 'Each receipt line can appear only once in a purchase return.');
+  }
+}
+
+export class PurchaseReturnSupplierMismatchError extends InvalidArgumentError {
+  constructor(receiptId: string, supplierId: string) {
+    super(
+      `Goods receipt <${receiptId}> belongs to another supplier than <${supplierId}>.`,
+      'The goods receipt does not belong to the selected supplier.',
+    );
+  }
+}
+
+export class ReceiptNotReturnableError extends ConflictError {
+  constructor(receiptId: string, status: string) {
+    super(
+      `Goods receipt <${receiptId}> is ${status} and cannot be returned.`,
+      'Goods can only be returned from a confirmed receipt.',
+    );
+  }
+}
+
+export class ReturnBeforeReceiptError extends InvalidArgumentError {
+  constructor(receiptId: string, returnDate: string, receiptDate: string) {
+    super(
+      `Return date <${returnDate}> is before receipt <${receiptId}> date <${receiptDate}>.`,
+      'The return date cannot be before the goods receipt date.',
+    );
+  }
+}
+
+export class QuantityExceedsReceiptReturnQuotaError extends ConflictError {
+  constructor(receiptLineId: string, available: number, requested: number) {
+    super(
+      `Receipt line <${receiptLineId}> has ${available} available for return and ${requested} was requested.`,
+      'The returned quantity cannot exceed the received quantity minus previous returns.',
+    );
+  }
+}
+
+export class ReceiptLineNotFoundError extends NotFoundError {
+  constructor(receiptLineId: string) {
+    super(`Receipt line <${receiptLineId}> was not found on the goods receipt.`, 'The receipt line does not exist on this receipt.');
+  }
+}
+
+export class DuplicatePurchaseReturnCodeError extends ConflictError {
+  constructor(code: string) {
+    super(`Purchase return code <${code}> already exists.`, 'This purchase return code already exists.');
+  }
+}
+

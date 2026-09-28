@@ -1,6 +1,6 @@
 'use client';
 
-import { useActionState, useState } from 'react';
+import { useActionState } from 'react';
 import { changeReceipt, saveReceipt } from '@/app/(app)/compras/actions';
 import { FormError, SubmitButton } from '@/sections/shared/field';
 import { RowOptions } from '@/sections/shared/row-options';
@@ -14,6 +14,7 @@ import { Filter, Pager } from '@/sections/shared/filters';
 import { MenuButton } from './menu-button';
 import { ReceiptFields } from './receipt-fields';
 import { submitKeepingValues } from '@/shared/forms/submit-keeping-values';
+import { useEditingDraft } from '@/shared/forms/use-editing-draft';
 
 export interface ReceiptSearch {
   q: string;
@@ -49,7 +50,7 @@ export function ReceiptsBoard({
   canConfirm: boolean;
   canCancel: boolean;
 }) {
-  const [editing, setEditing] = useState<GoodsReceipt | null>(null);
+  const { editing, setEditing, draftKey } = useEditingDraft(receipts);
   const hasOptions = canUpdate || canConfirm || canCancel;
   const orderOf = (receipt: GoodsReceipt) => orders.find((order) => order.id === receipt.order.id) ?? null;
 
@@ -180,7 +181,7 @@ export function ReceiptsBoard({
         testId="receipt-panel"
       >
         {editing && editingOrder ? (
-          <form onSubmit={submitKeepingValues(save)} className="space-y-4" key={editing.id}>
+          <form onSubmit={submitKeepingValues(save)} className="space-y-4" key={draftKey()}>
             <input type="hidden" name="id" value={editing.id} />
             <ReceiptFields
               order={editingOrder}

@@ -422,3 +422,99 @@ export class SalesOrderNotInvoiceableError extends ConflictError {
     super(`Sales order <${id}> is <${status}> and cannot be invoiced.`, 'Confirm the sales order before invoicing it.');
   }
 }
+
+// ---------------------------------------------------------------- devoluciones de venta
+
+export class SalesReturnNotFoundError extends NotFoundError {
+  constructor(id: string) {
+    super(`Sales return <${id}> does not exist.`);
+  }
+}
+
+export class SalesReturnNotEditableError extends ConflictError {
+  constructor(id: string, status: string) {
+    super(`Sales return <${id}> is in status <${status}> and cannot be edited.`, 'A sales return that is confirmed or cancelled cannot be edited.');
+  }
+}
+
+export class SalesReturnNotConfirmableError extends ConflictError {
+  constructor(id: string, status: string) {
+    super(`Sales return <${id}> is in status <${status}> and cannot be confirmed.`, 'Only draft sales returns can be confirmed.');
+  }
+}
+
+export class SalesReturnAlreadyCancelledError extends ConflictError {
+  constructor(id: string) {
+    super(`Sales return <${id}> is already cancelled.`, 'That sales return is already cancelled.');
+  }
+}
+
+export class EmptySalesReturnError extends InvalidArgumentError {
+  constructor() {
+    super('A sales return must have at least one line.', 'Add at least one line to the sales return.');
+  }
+}
+
+export class DuplicateSalesReturnLineError extends InvalidArgumentError {
+  constructor(dispatchLineId: string) {
+    super(`Dispatch line <${dispatchLineId}> is included multiple times in the sales return.`, 'A dispatch line cannot appear more than once in the same return.');
+  }
+}
+
+export class ReturnBeforeDispatchError extends InvalidArgumentError {
+  constructor(returnDate: string, dispatchDate: string) {
+    super(`Return date <${returnDate}> cannot be earlier than dispatch date <${dispatchDate}>.`, 'The return date cannot be earlier than the dispatch date.');
+  }
+}
+
+export class ReturnCustomerMismatchError extends ConflictError {
+  constructor(returnCustomerId: string, dispatchCustomerId: string) {
+    super(`Return customer <${returnCustomerId}> does not match dispatch customer <${dispatchCustomerId}>.`, 'The dispatch belongs to a different customer.');
+  }
+}
+
+export class DispatchNotReturnableError extends ConflictError {
+  constructor(id: string, status: string) {
+    super(`Dispatch <${id}> is in status <${status}> and cannot be returned.`, 'Only confirmed dispatches can be returned.');
+  }
+}
+
+export class QuantityExceedsDispatchedReturnQuotaError extends ConflictError {
+  constructor(dispatchLineId: string, available: number, requested: number) {
+    super(
+      `Requested return quantity <${requested}> exceeds available dispatch return quota <${available}> for line <${dispatchLineId}>.`,
+      'The returned quantity exceeds the quantity available to return from that dispatch.',
+    );
+  }
+}
+
+export class DispatchLineNotFoundError extends NotFoundError {
+  constructor(id: string) {
+    super(`Dispatch line <${id}> does not exist.`);
+  }
+}
+
+export class InvalidReturnConditionError extends InvalidArgumentError {
+  constructor(condition: string) {
+    super(`Return condition <${condition}> is invalid.`, 'The return condition must be resalable, damaged, or scrap.');
+  }
+}
+
+export class SalesReturnWithCreditNoteError extends ConflictError {
+  constructor(id: string) {
+    super(
+      `Sales return <${id}> has confirmed credit notes and cannot be cancelled.`,
+      'A sales return with confirmed credit notes cannot be cancelled: cancel the credit notes first.',
+    );
+  }
+}
+
+export class InvoiceWithReturnsError extends ConflictError {
+  constructor(invoiceId: string) {
+    super(
+      `Invoice <${invoiceId}> has confirmed sales returns on its lines.`,
+      'The invoice has goods returned: issue a credit note for the rest instead of cancelling it.',
+    );
+  }
+}
+

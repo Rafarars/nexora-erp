@@ -22,6 +22,7 @@ import {
 } from '@/modules/inventory/domain/inventory';
 import type { Adjustment, AdjustmentType } from '@/modules/inventory/domain/inventory';
 import { submitKeepingValues } from '@/shared/forms/submit-keeping-values';
+import { useEditingDraft } from '@/shared/forms/use-editing-draft';
 
 const TYPE_OPTIONS = Object.keys(ADJUSTMENT_TYPE_LABELS) as AdjustmentType[];
 
@@ -59,7 +60,7 @@ export function AdjustmentsBoard({
   canConfirm: boolean;
   canCancel: boolean;
 }) {
-  const [editing, setEditing] = useState<Adjustment | null>(null);
+  const { editing, setEditing, draftKey } = useEditingDraft(adjustments);
   const [creating, setCreating] = useState(false);
   const hasOptions = canUpdate || canConfirm || canCancel;
   const baseUnitOf = (itemId: string) => items.find((item) => item.id === itemId)?.units.find((unit) => unit.isBase)?.abbreviation ?? '';
@@ -209,7 +210,7 @@ export function AdjustmentsBoard({
         }}
         testId="adjustment-panel"
       >
-        <form onSubmit={submitKeepingValues(save)} className="space-y-4" key={editing?.id ?? 'new'}>
+        <form onSubmit={submitKeepingValues(save)} className="space-y-4" key={draftKey()}>
           <input type="hidden" name="id" value={editing?.id ?? ''} />
           <AdjustmentFields adjustment={editing} items={items} warehouses={warehouses} today={today} />
           <FormError message={saveState.error} testId="adjustment-error" />

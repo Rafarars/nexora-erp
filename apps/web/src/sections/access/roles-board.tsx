@@ -9,6 +9,7 @@ import { SlideOver } from '@/sections/shared/slide-over';
 import { groupByModule, moduleLabel } from '@/modules/access/domain/role';
 import type { Permission, Role } from '@/modules/access/domain/role';
 import { submitKeepingValues } from '@/shared/forms/submit-keeping-values';
+import { useEditingDraft } from '@/shared/forms/use-editing-draft';
 
 export function RolesBoard({
   roles,
@@ -21,7 +22,7 @@ export function RolesBoard({
   canCreate: boolean;
   canUpdate: boolean;
 }) {
-  const [editing, setEditing] = useState<Role | null>(null);
+  const { editing, setEditing, draftKey } = useEditingDraft(roles);
   const [creating, setCreating] = useState(false);
   // Cerrar al guardar bien se decide DENTRO de la accion, no en un efecto que
   // reaccione al resultado: si falla, el panel se queda abierto con el error.
@@ -97,7 +98,7 @@ export function RolesBoard({
         }}
         testId="role-panel"
       >
-        <form onSubmit={submitKeepingValues(save)} className="space-y-5">
+        <form onSubmit={submitKeepingValues(save)} className="space-y-5" key={draftKey()}>
           <input type="hidden" name="roleId" value={editing?.id ?? ''} />
           <Field label="Nombre" name="name" testId="role-name" defaultValue={editing?.name} />
 

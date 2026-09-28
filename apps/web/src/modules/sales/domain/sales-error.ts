@@ -50,9 +50,23 @@ const BY_CODE: Record<string, string> = {
   DispatchAlreadyInvoicedError: 'Este despacho ya tiene una factura emitida.',
   InvoiceAlreadyCancelledError: 'La factura ya está anulada.',
   CustomerWithOverdueInvoicesError: 'El cliente tiene facturas vencidas: no se le puede facturar a crédito hasta que pague.',
-  CreditLimitExceededError: 'La factura supera el límite de crédito del cliente.',
   InvoiceWithPaymentsError: 'La factura tiene cobros aplicados: anula primero esos cobros.',
+  SalesReturnNotFoundError: 'Esa devolución ya no existe en esta empresa.',
+  SalesReturnNotEditableError: 'Solo se puede editar una devolución en borrador.',
+  SalesReturnNotConfirmableError: 'Solo se puede confirmar una devolución en borrador.',
+  SalesReturnAlreadyCancelledError: 'La devolución ya está anulada.',
+  EmptySalesReturnError: 'Agrega al menos una línea a la devolución.',
+  DuplicateSalesReturnLineError: 'Una línea de despacho no puede aparecer más de una vez en la misma devolución.',
+  ReturnBeforeDispatchError: 'La fecha de la devolución no puede ser anterior a la del despacho.',
+  ReturnCustomerMismatchError: 'El despacho pertenece a otro cliente.',
+  DispatchNotReturnableError: 'Solo se puede devolver mercancía de despachos confirmados.',
+  QuantityExceedsDispatchedReturnQuotaError: 'La cantidad a devolver supera lo que queda disponible de ese despacho.',
+  DispatchLineNotFoundError: 'Una línea del despacho a devolver no existe.',
+  InvalidReturnConditionError: 'El estado de la mercancía devuelta no es válido (debe ser apta, dañada o desecho).',
+  SalesReturnWithCreditNoteError: 'La devolución tiene notas de crédito confirmadas: anula primero las notas de crédito.',
+  InvoiceWithReturnsError: 'La factura tiene mercancía devuelta: emite una nota de crédito por el resto en vez de anularla.',
 };
+
 
 // Los mensajes de ventas y, para lo demas, los de compras, inventario, catalogo y acceso.
 export function readableSalesError(error: unknown, fallback: string): string {

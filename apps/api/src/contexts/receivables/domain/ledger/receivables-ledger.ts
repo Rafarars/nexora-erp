@@ -30,6 +30,15 @@ export interface ReceivableInvoiceFilter {
   to?: string | null;
 }
 
+export interface ReceivableSalesReturn {
+  id: string;
+  code: string;
+}
+
+export interface ReceivableSalesReturnFilter {
+  ids?: string[];
+}
+
 // Lo que cuentas por cobrar lee de ventas: clientes y facturas, con lo cobrado de cada una. En la
 // base el adaptador lee las tablas de ventas; el dominio no sabe que existen.
 //
@@ -41,4 +50,5 @@ export interface ReceivablesLedger {
   customer(tenantId: TenantId, customerId: string): Promise<ReceivableCustomer | null>;
   // Emitidas y anuladas, las mas recientes primero. Sin filtro, todas las de la empresa.
   invoices(tenantId: TenantId, filter?: ReceivableInvoiceFilter): Promise<ReceivableInvoice[]>;
+  salesReturns(tenantId: TenantId, filter?: ReceivableSalesReturnFilter): Promise<ReceivableSalesReturn[]>;
 }

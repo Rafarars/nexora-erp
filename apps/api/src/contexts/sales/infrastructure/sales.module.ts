@@ -91,6 +91,32 @@ import { PrismaSalesCodeSequence } from './persistence/prisma-sales-code-sequenc
 import { PrismaSalesOrderPosting } from './persistence/prisma-sales-order-posting.js';
 import { PrismaSalesOrderRepository } from './persistence/prisma-sales-order.repository.js';
 import { PrismaSalesStock } from './persistence/prisma-sales-stock.js';
+import { CancelSalesReturnPutController } from './http/cancel-sales-return-put.controller.js';
+import { ConfirmSalesReturnPutController } from './http/confirm-sales-return-put.controller.js';
+import { CreateSalesReturnPostController } from './http/create-sales-return-post.controller.js';
+import { GetDispatchReturnQuotaGetController } from './http/get-dispatch-return-quota-get.controller.js';
+import { SearchSalesReturnsGetController } from './http/search-sales-returns-get.controller.js';
+import { UpdateSalesReturnPutController } from './http/update-sales-return-put.controller.js';
+import { SalesReturnCanceller } from '../application/cancel-return/sales-return-canceller.js';
+import { SalesReturnConfirmer } from '../application/confirm-return/sales-return-confirmer.js';
+import { SalesReturnCreator } from '../application/create-return/sales-return-creator.js';
+import { DispatchReturnQuotaFinder } from '../application/dispatch-return-quota/dispatch-return-quota-finder.js';
+import { SalesReturnSearcher } from '../application/search-returns/sales-return-searcher.js';
+import { SalesReturnUpdater } from '../application/update-return/sales-return-updater.js';
+import { SALES_RETURN_CREDITED_CHECKER } from '../domain/return/credited/sales-return-credited-checker.js';
+import { SalesReturnFinder } from '../domain/return/find/sales-return-finder.js';
+import { SalesReturnLineFactory } from '../domain/return/lines/sales-return-line-factory.js';
+import { SALES_RETURN_POSTING } from '../domain/return/posting/sales-return-posting.js';
+import type { SalesReturnPosting } from '../domain/return/posting/sales-return-posting.js';
+import { SALES_RETURN_REPOSITORY } from '../domain/return/sales-return.repository.js';
+import type { SalesReturnRepository } from '../domain/return/sales-return.repository.js';
+import { PrismaSalesReturnCreditedChecker } from './persistence/prisma-sales-return-credited-checker.js';
+import { PrismaSalesReturnPosting } from './persistence/prisma-sales-return-posting.js';
+import { PrismaSalesReturnRepository } from './persistence/prisma-sales-return.repository.js';
+import { SALES_RETURNS_OF_INVOICE } from '../domain/invoice/returns/sales-returns-of-invoice.js';
+import type { SalesReturnsOfInvoice } from '../domain/invoice/returns/sales-returns-of-invoice.js';
+import { PrismaSalesReturnsOfInvoice } from './persistence/prisma-sales-returns-of-invoice.js';
+
 
 // El cableado de ventas. Como compras, importa el modulo del inventario solo por
 // DOCUMENT_STOCK_POSTING: reservar bloquea existencias y despachar las saca. Importa cuentas por
@@ -116,7 +142,14 @@ import { PrismaSalesStock } from './persistence/prisma-sales-stock.js';
     IssueInvoicePostController,
     CancelInvoicePutController,
     SearchAvailabilityGetController,
+    SearchSalesReturnsGetController,
+    CreateSalesReturnPostController,
+    UpdateSalesReturnPutController,
+    ConfirmSalesReturnPutController,
+    CancelSalesReturnPutController,
+    GetDispatchReturnQuotaGetController,
   ],
+
   providers: [
     { provide: CUSTOMER_REPOSITORY, useClass: PrismaCustomerRepository },
     { provide: CUSTOMER_USAGE, useClass: PrismaCustomerUsage },
@@ -222,7 +255,12 @@ import { PrismaSalesStock } from './persistence/prisma-sales-stock.js';
         new InvoiceIssuer(d, o, v, p, u, s, i, k, cal, dr),
       inject: [DispatchFinder, SalesOrderFinder, INVOICE_REPOSITORY, INVOICE_POSTING, InvoiceIssuance, SALES_CODE_SEQUENCE, ID_GENERATOR, CLOCK, BUSINESS_CALENDAR, DOCUMENT_RATES],
     },
-    { provide: InvoiceCanceller, useFactory: (p: InvoicePosting, u: InvoiceIssuance, k: Clock) => new InvoiceCanceller(p, u, k), inject: [INVOICE_POSTING, InvoiceIssuance, CLOCK] },
+    {
+      provide: InvoiceCanceller,
+      useFactory: (p: InvoicePosting, u: InvoiceIssuance, r: SalesReturnsOfInvoice, k: Clock) => new InvoiceCanceller(p, u, r, k),
+      inject: [INVOICE_POSTING, InvoiceIssuance, SALES_RETURNS_OF_INVOICE, CLOCK],
+    },
+    { provide: SALES_RETURNS_OF_INVOICE, useClass: PrismaSalesReturnsOfInvoice },
     {
       provide: InvoiceSearcher,
       useFactory: (v: InvoiceRepository, d: DispatchRepository, o: SalesOrderRepository, c: CustomerRepository, k: SalesCatalog) => new InvoiceSearcher(v, d, o, c, k),
@@ -233,6 +271,63 @@ import { PrismaSalesStock } from './persistence/prisma-sales-stock.js';
       useFactory: (s: SalesStock, o: SalesOrderRepository, k: SalesCatalog) => new AvailabilitySearcher(s, o, k),
       inject: [SALES_STOCK, SALES_ORDER_REPOSITORY, SALES_CATALOG],
     },
+    { provide: SALES_RETURN_REPOSITORY, useClass: PrismaSalesReturnRepository },
+    { provide: SALES_RETURN_POSTING, useClass: PrismaSalesReturnPosting },
+    { provide: SALES_RETURN_CREDITED_CHECKER, useClass: PrismaSalesReturnCreditedChecker },
+    {
+      provide: SalesReturnFinder,
+      useFactory: (r: SalesReturnRepository) => new SalesReturnFinder(r),
+      inject: [SALES_RETURN_REPOSITORY],
+    },
+    {
+      provide: SalesReturnLineFactory,
+      useFactory: (k: SalesCatalog, i: IdGenerator) => new SalesReturnLineFactory(k, i),
+      inject: [SALES_CATALOG, ID_GENERATOR],
+    },
+    {
+      provide: SalesReturnCreator,
+      useFactory: (
+        cu: CustomerRepository,
+        d: DispatchRepository,
+        o: SalesOrderFinder,
+        r: SalesReturnRepository,
+        f: SalesReturnLineFactory,
+        c: SalesCodeSequence,
+        i: IdGenerator,
+        k: Clock,
+        cal: BusinessCalendar,
+        dr: DocumentRates,
+      ) => new SalesReturnCreator(cu, d, o, r, f, c, i, k, cal, dr),
+      inject: [CUSTOMER_REPOSITORY, DISPATCH_REPOSITORY, SalesOrderFinder, SALES_RETURN_REPOSITORY, SalesReturnLineFactory, SALES_CODE_SEQUENCE, ID_GENERATOR, CLOCK, BUSINESS_CALENDAR, DOCUMENT_RATES],
+    },
+    {
+      provide: SalesReturnUpdater,
+      useFactory: (f: SalesReturnFinder, d: DispatchRepository, r: SalesReturnRepository, lf: SalesReturnLineFactory, k: Clock, cal: BusinessCalendar) =>
+        new SalesReturnUpdater(f, d, r, lf, k, cal),
+      inject: [SalesReturnFinder, DISPATCH_REPOSITORY, SALES_RETURN_REPOSITORY, SalesReturnLineFactory, CLOCK, BUSINESS_CALENDAR],
+    },
+    {
+      provide: SalesReturnConfirmer,
+      useFactory: (p: SalesReturnPosting, k: Clock) => new SalesReturnConfirmer(p, k),
+      inject: [SALES_RETURN_POSTING, CLOCK],
+    },
+    {
+      provide: SalesReturnCanceller,
+      useFactory: (p: SalesReturnPosting, k: Clock) => new SalesReturnCanceller(p, k),
+      inject: [SALES_RETURN_POSTING, CLOCK],
+    },
+    {
+      provide: SalesReturnSearcher,
+      useFactory: (r: SalesReturnRepository, d: DispatchRepository, c: CustomerRepository, k: SalesCatalog) =>
+        new SalesReturnSearcher(r, d, c, k),
+      inject: [SALES_RETURN_REPOSITORY, DISPATCH_REPOSITORY, CUSTOMER_REPOSITORY, SALES_CATALOG],
+    },
+    {
+      provide: DispatchReturnQuotaFinder,
+      useFactory: (d: DispatchFinder, r: SalesReturnRepository) => new DispatchReturnQuotaFinder(d, r),
+      inject: [DispatchFinder, SALES_RETURN_REPOSITORY],
+    },
   ],
 })
 export class SalesModule {}
+
