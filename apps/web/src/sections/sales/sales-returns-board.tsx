@@ -583,7 +583,7 @@ export function SalesReturnsBoard({
                     name="date"
                     defaultValue={editing?.date ?? today}
                     max={today}
-                    key={`date-${editing?.id ?? 'new'}`}
+                    key={draftKey('dispatch-date')}
                     className="border-line bg-surface mt-1 w-full rounded border px-3 py-1.5 text-sm"
                     data-testid="sales-return-date-input"
                   />
@@ -596,7 +596,7 @@ export function SalesReturnsBoard({
                     id="returnCondition"
                     name="condition"
                     defaultValue={editing?.condition ?? 'resalable'}
-                    key={`condition-${editing?.id ?? 'new'}`}
+                    key={draftKey('dispatch-condition')}
                     className="border-line bg-surface mt-1 w-full rounded border px-3 py-1.5 text-sm"
                     data-testid="sales-return-condition-select"
                   >
@@ -617,7 +617,7 @@ export function SalesReturnsBoard({
                   name="reason"
                   placeholder="Ej. Producto defectuoso, error en pedido..."
                   defaultValue={editing?.reason ?? ''}
-                  key={`reason-${editing?.id ?? 'new'}`}
+                  key={draftKey('dispatch-reason')}
                   className="border-line bg-surface mt-1 w-full rounded border px-3 py-1.5 text-sm"
                   data-testid="sales-return-reason-input"
                 />
@@ -632,7 +632,7 @@ export function SalesReturnsBoard({
                   name="notes"
                   rows={2}
                   defaultValue={editing?.notes ?? ''}
-                  key={`notes-${editing?.id ?? 'new'}`}
+                  key={draftKey('dispatch-notes')}
                   className="border-line bg-surface mt-1 w-full rounded border px-3 py-1.5 text-sm"
                   data-testid="sales-return-notes-input"
                 />
@@ -668,7 +668,7 @@ export function SalesReturnsBoard({
                             min="0"
                             max={line.quantity}
                             defaultValue={defaultQty}
-                            key={`qty-${editing?.id ?? 'new'}-${line.id}`}
+                            key={draftKey(`qty-${line.id}`)}
                             className="border-line bg-surface mt-0.5 w-full rounded border px-2 py-1 text-right text-sm"
                             data-testid={`sales-return-qty-${line.id}`}
                           />

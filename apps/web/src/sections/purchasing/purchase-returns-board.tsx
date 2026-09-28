@@ -355,7 +355,7 @@ export function PurchaseReturnsBoard({
                             min="0"
                             max={line.quantity}
                             defaultValue={defaultQty}
-                            key={`qty-${editing?.id ?? 'new'}-${line.id}`}
+                            key={draftKey(`qty-${line.id}`)}
                             className="border-line bg-surface mt-0.5 w-full rounded border px-2 py-1 text-right text-sm"
                             data-testid={`purchase-return-qty-${line.id}`}
                           />
