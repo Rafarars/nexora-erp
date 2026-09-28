@@ -13,7 +13,7 @@ de ninguna conversación anterior**.
 [`H9-COMPRAS-HASTA-EL-PAGO.md`](H9-COMPRAS-HASTA-EL-PAGO.md). **H8 está cerrado y mergeado a
 `main`** desde el 28-sep-2026. Después de H9 viene [H10](H10-CONTABILIDAD.md), sin construir.
 
-**Antes de la primera línea de H9, dos comprobaciones cortas:**
+**Antes de la primera línea de H9, tres pasos cortos:**
 
 1. **H9 se escribió antes de construir H8.** Contrastar el plan con lo que H8 dejó en el código: la
    devolución de compra (`DVC`), `restoresMovementId` en el kardex, las notas de crédito y el cobro
@@ -21,6 +21,12 @@ de ninguna conversación anterior**.
    código, se corrige el plan antes de construir.
 2. **Validar lo que cambió en H10 el 22-sep-2026**, que sólo revisó Claude. H9 crea tablas que H10
    va a contabilizar.
+3. **Cerrar las dos preguntas abiertas del plan de H9**, para delegarlo sin decisiones pendientes
+   (lo que mejor funcionó con H8):
+   - §3.3: el ajuste de revaluación por diferencia de precio, ¿nace **en borrador** para que alguien
+     lo apruebe o **confirmado**? Recomendado: borrador.
+   - §3.9: facturar **más de lo recibido**, ¿se rechaza o se permite con aviso? Recomendado:
+     rechazar, porque sin flujo de aprobación no hay a quién avisar.
 
 **Cómo se trabaja desde el 23-sep-2026:** Rafael usa **sólo `agy`**. `agy` ejecuta (construye,
 corrige, revisa con `module-review`, documenta) y Claude, mientras siga disponible, sólo revisa
@@ -730,7 +736,7 @@ diseño: primero cerrar los huecos de cobertura que esa pregunta destapó.
 | **6º** | **Las cuatro decisiones** que esperan a Rafael | Están abajo, cada una con su síntoma, su `archivo:línea` y su coste |
 | **7º** | **Mejoras de diseño del sistema** | **Sólo después de cerrar el 100 %.** Textual: «eso será luego de cerrar al 100 el sistema como tal» |
 
-**Cómo construir H9:** las dos comprobaciones de «Lo siguiente, en una línea», arriba; después,
+**Cómo construir H9:** los tres pasos previos de «Lo siguiente, en una línea», arriba; después,
 `agy` con la skill `module-build`, fase por fase, y la fase de revisión con `module-review`, con lo
 aprendido en H8 exigido desde el primer prompt («Trabajar con `agy`»).
 
