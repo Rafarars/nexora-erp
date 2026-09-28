@@ -16,6 +16,7 @@ import type { AvailableCredit, CustomerBalance, Payment, PaymentMethod, PaymentS
 import type { CompanySettings, Currency } from '@/modules/company/domain/company';
 import { Filter, Pager } from '@/sections/shared/filters';
 import { submitKeepingValues } from '@/shared/forms/submit-keeping-values';
+import { useEditingDraft } from '@/shared/forms/use-editing-draft';
 
 export interface PaymentSearch {
   q: string;
@@ -52,7 +53,7 @@ export function PaymentsBoard({
   canConfirm: boolean;
   canCancel: boolean;
 }) {
-  const [editing, setEditing] = useState<Payment | null>(null);
+  const { editing, setEditing, draftKey } = useEditingDraft(payments);
   const [creating, setCreating] = useState(false);
   const hasOptions = canUpdate || canConfirm || canCancel;
 
@@ -222,7 +223,7 @@ export function PaymentsBoard({
         }}
         testId="payment-panel"
       >
-        <form onSubmit={submitKeepingValues(save)} className="space-y-4" key={editing?.id ?? 'new'}>
+        <form onSubmit={submitKeepingValues(save)} className="space-y-4" key={draftKey()}>
           <input type="hidden" name="id" value={editing?.id ?? ''} />
           <PaymentFields payment={editing} receivables={receivables} currencies={currencies} settings={settings} />
           <FormError message={saveState.error} testId="payment-error" />

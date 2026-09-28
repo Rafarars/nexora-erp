@@ -22,6 +22,7 @@ import type {
 } from '@/modules/receivables/domain/receivables';
 import { Filter, Pager } from '@/sections/shared/filters';
 import { submitKeepingValues } from '@/shared/forms/submit-keeping-values';
+import { useEditingDraft } from '@/shared/forms/use-editing-draft';
 
 export interface CreditNoteSearch {
   q: string;
@@ -56,7 +57,7 @@ export function CreditNotesBoard({
   canConfirm: boolean;
   canCancel: boolean;
 }) {
-  const [editing, setEditing] = useState<CreditNote | null>(null);
+  const { editing, setEditing, draftKey } = useEditingDraft(creditNotes);
   const [creating, setCreating] = useState(false);
   const hasOptions = canUpdate || canConfirm || canCancel;
 
@@ -232,7 +233,7 @@ export function CreditNotesBoard({
         }}
         testId="credit-note-panel"
       >
-        <form onSubmit={submitKeepingValues(save)} className="space-y-4" key={editing?.id ?? 'new'}>
+        <form onSubmit={submitKeepingValues(save)} className="space-y-4" key={draftKey()}>
           <input type="hidden" name="id" value={editing?.id ?? ''} />
           <CreditNoteFields
             note={editing}

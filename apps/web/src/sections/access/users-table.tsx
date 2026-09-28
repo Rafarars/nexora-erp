@@ -14,6 +14,7 @@ import type { FormState } from '@/shared/forms/form-state';
 import type { Person } from '@/modules/access/domain/person';
 import type { Role } from '@/modules/access/domain/role';
 import { submitKeepingValues } from '@/shared/forms/submit-keeping-values';
+import { useEditingDraft } from '@/shared/forms/use-editing-draft';
 
 export function UsersTable({
   people,
@@ -31,7 +32,7 @@ export function UsersTable({
   canDeactivate: boolean;
 }) {
   const [creating, setCreating] = useState(false);
-  const [editing, setEditing] = useState<Person | null>(null);
+  const { editing, setEditing, draftKey } = useEditingDraft(people, (p) => p.userId);
   const hasOptions = canUpdate || canDeactivate;
 
   const [createState, create, saving] = useActionState(
@@ -198,7 +199,7 @@ export function UsersTable({
         testId="user-edit-panel"
       >
         {editing ? (
-          <form onSubmit={submitKeepingValues(update)} className="space-y-4" key={editing.userId}>
+          <form onSubmit={submitKeepingValues(update)} className="space-y-4" key={draftKey()}>
             <input type="hidden" name="userId" value={editing.userId} />
             <Field label="Nombre" name="name" testId="edit-name" defaultValue={editing.name} />
 

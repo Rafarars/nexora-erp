@@ -27,6 +27,7 @@ import { Filter, Pager } from '@/sections/shared/filters';
 import { MenuButton } from './menu-button';
 import { ReceiptFields } from './receipt-fields';
 import { submitKeepingValues } from '@/shared/forms/submit-keeping-values';
+import { useEditingDraft } from '@/shared/forms/use-editing-draft';
 
 export interface OrderSearch {
   q: string;
@@ -72,7 +73,7 @@ export function OrdersBoard({
   canCancel: boolean;
   canReceive: boolean;
 }) {
-  const [editing, setEditing] = useState<PurchaseOrder | null>(null);
+  const { editing, setEditing, draftKey } = useEditingDraft(orders);
   const [creating, setCreating] = useState(false);
   const [receiving, setReceiving] = useState<PurchaseOrder | null>(null);
   const hasOptions = canUpdate || canConfirm || canCancel || canReceive;
@@ -261,7 +262,7 @@ export function OrdersBoard({
         }}
         testId="order-panel"
       >
-        <form onSubmit={submitKeepingValues(save)} className="space-y-4" key={editing?.id ?? 'new'}>
+        <form onSubmit={submitKeepingValues(save)} className="space-y-4" key={draftKey()}>
           <input type="hidden" name="id" value={editing?.id ?? ''} />
           <OrderFields
             order={editing}

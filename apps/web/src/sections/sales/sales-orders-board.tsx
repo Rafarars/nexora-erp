@@ -22,6 +22,7 @@ import { MenuButton } from '@/sections/purchasing/menu-button';
 import { Filter, Pager } from '@/sections/shared/filters';
 import { DispatchFields } from './dispatch-fields';
 import { submitKeepingValues } from '@/shared/forms/submit-keeping-values';
+import { useEditingDraft } from '@/shared/forms/use-editing-draft';
 
 export interface SalesOrderSearch {
   q: string;
@@ -75,7 +76,7 @@ export function SalesOrdersBoard({
   canDispatch: boolean;
   canInvoice: boolean;
 }) {
-  const [editing, setEditing] = useState<SalesOrder | null>(null);
+  const { editing, setEditing, draftKey } = useEditingDraft(orders);
   const [creating, setCreating] = useState(false);
   const [dispatching, setDispatching] = useState<SalesOrder | null>(null);
   const hasOptions = canUpdate || canConfirm || canCancel || canDispatch;
@@ -261,7 +262,7 @@ export function SalesOrdersBoard({
         }}
         testId="sales-order-panel"
       >
-        <form onSubmit={submitKeepingValues(save)} className="space-y-4" key={editing?.id ?? 'new'}>
+        <form onSubmit={submitKeepingValues(save)} className="space-y-4" key={draftKey()}>
           <input type="hidden" name="id" value={editing?.id ?? ''} />
           <OrderFields
             order={editing}

@@ -9,6 +9,7 @@ import { SlideOver } from '@/sections/shared/slide-over';
 import { emptyState } from '@/shared/forms/form-state';
 import type { FormState } from '@/shared/forms/form-state';
 import { submitKeepingValues } from '@/shared/forms/submit-keeping-values';
+import { useEditingDraft } from '@/shared/forms/use-editing-draft';
 import {
   PURCHASE_RETURN_STATUS_LABELS,
   purchaseReturnActions,
@@ -51,7 +52,7 @@ export function PurchaseReturnsBoard({
   canCancel: boolean;
 }) {
   const [creating, setCreating] = useState(false);
-  const [editing, setEditing] = useState<PurchaseReturn | null>(null);
+  const { editing, setEditing, draftKey } = useEditingDraft(returns);
   const [selectedReceiptId, setSelectedReceiptId] = useState<string>('');
 
   function openCreate() {
@@ -241,7 +242,7 @@ export function PurchaseReturnsBoard({
         onClose={closePanel}
         testId="purchase-return-create-panel"
       >
-        <form onSubmit={submitKeepingValues(save)} className="space-y-4" key={editing?.id ?? 'new'} data-testid="purchase-return-form">
+        <form onSubmit={submitKeepingValues(save)} className="space-y-4" key={draftKey()} data-testid="purchase-return-form">
           <FormError message={saveState.error} testId="purchase-return-form-error" />
 
           {editing ? <input type="hidden" name="id" value={editing.id} /> : null}
@@ -287,7 +288,7 @@ export function PurchaseReturnsBoard({
                   name="date"
                   defaultValue={editing?.date ?? today}
                   max={today}
-                  key={`date-${editing?.id ?? 'new'}`}
+                  key={draftKey('date')}
                   className="border-line bg-surface mt-1 w-full rounded border px-3 py-1.5 text-sm"
                   data-testid="purchase-return-date-input"
                 />
@@ -303,7 +304,7 @@ export function PurchaseReturnsBoard({
                   name="reason"
                   placeholder="Ej. Mercancía defectuosa, no solicitada..."
                   defaultValue={editing?.reason ?? ''}
-                  key={`reason-${editing?.id ?? 'new'}`}
+                  key={draftKey('reason')}
                   className="border-line bg-surface mt-1 w-full rounded border px-3 py-1.5 text-sm"
                   data-testid="purchase-return-reason-input"
                 />
@@ -318,7 +319,7 @@ export function PurchaseReturnsBoard({
                   name="notes"
                   rows={2}
                   defaultValue={editing?.notes ?? ''}
-                  key={`notes-${editing?.id ?? 'new'}`}
+                  key={draftKey('notes')}
                   className="border-line bg-surface mt-1 w-full rounded border px-3 py-1.5 text-sm"
                   data-testid="purchase-return-notes-input"
                 />

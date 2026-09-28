@@ -1,6 +1,6 @@
 'use client';
 
-import { useActionState, useState } from 'react';
+import { useActionState, useEffect, useState } from 'react';
 import { changeSalesReturn, saveSalesReturn } from '@/app/(app)/ventas/actions';
 import { MenuButton } from '@/sections/purchasing/menu-button';
 import { FormError, SubmitButton } from '@/sections/shared/field';
@@ -9,6 +9,7 @@ import { SlideOver } from '@/sections/shared/slide-over';
 import { emptyState } from '@/shared/forms/form-state';
 import type { FormState } from '@/shared/forms/form-state';
 import { submitKeepingValues } from '@/shared/forms/submit-keeping-values';
+import { useEditingDraft } from '@/shared/forms/use-editing-draft';
 import {
   RETURN_CONDITION_LABELS,
   SALES_RETURN_STATUS_LABELS,
@@ -61,11 +62,26 @@ export function SalesReturnsBoard({
   canCancel: boolean;
 }) {
   const [creating, setCreating] = useState(false);
-  const [editing, setEditing] = useState<SalesReturn | null>(null);
+  const { editing, setEditing, draftKey } = useEditingDraft(returns);
   const [selectedDispatchId, setSelectedDispatchId] = useState<string>('');
   const [originlessLines, setOriginlessLines] = useState<{ itemId: string; unitId: string; quantity: string; unitCost: string }[]>([
     { itemId: '', unitId: '', quantity: '1', unitCost: '' },
   ]);
+
+  useEffect(() => {
+    if (editing && !editing.dispatch) {
+      setOriginlessLines(
+        editing.lines.length > 0
+          ? editing.lines.map((l) => ({
+              itemId: l.itemId,
+              unitId: l.unitId,
+              quantity: String(l.quantity),
+              unitCost: l.unitCost !== null ? String(l.unitCost) : '',
+            }))
+          : [{ itemId: '', unitId: '', quantity: '1', unitCost: '' }],
+      );
+    }
+  }, [editing]);
 
   function openCreate() {
     setEditing(null);
@@ -275,7 +291,7 @@ export function SalesReturnsBoard({
         onClose={closePanel}
         testId="sales-return-create-panel"
       >
-        <form onSubmit={submitKeepingValues(save)} className="space-y-4" key={editing?.id ?? 'new'} data-testid="sales-return-form">
+        <form onSubmit={submitKeepingValues(save)} className="space-y-4" key={draftKey()} data-testid="sales-return-form">
           <FormError message={saveState.error} testId="sales-return-form-error" />
 
           {editing ? <input type="hidden" name="id" value={editing.id} /> : null}
@@ -325,7 +341,7 @@ export function SalesReturnsBoard({
                     required
                     disabled={Boolean(editing)}
                     defaultValue={editing?.customer.id ?? ''}
-                    key={`customer-${editing?.id ?? 'new'}`}
+                    key={draftKey('customer')}
                     className="border-line bg-surface mt-1 w-full rounded border px-3 py-1.5 text-sm disabled:opacity-60"
                     data-testid="sales-return-customer-select"
                   >
@@ -347,7 +363,7 @@ export function SalesReturnsBoard({
                     required
                     disabled={Boolean(editing)}
                     defaultValue={editing?.warehouse.id ?? ''}
-                    key={`warehouse-${editing?.id ?? 'new'}`}
+                    key={draftKey('warehouse')}
                     className="border-line bg-surface mt-1 w-full rounded border px-3 py-1.5 text-sm disabled:opacity-60"
                     data-testid="sales-return-warehouse-select"
                   >
@@ -372,7 +388,7 @@ export function SalesReturnsBoard({
                     name="date"
                     defaultValue={editing?.date ?? today}
                     max={today}
-                    key={`date-${editing?.id ?? 'new'}`}
+                    key={draftKey('date')}
                     className="border-line bg-surface mt-1 w-full rounded border px-3 py-1.5 text-sm"
                     data-testid="sales-return-date-input"
                   />
@@ -385,7 +401,7 @@ export function SalesReturnsBoard({
                     id="returnCondition"
                     name="condition"
                     defaultValue={editing?.condition ?? 'resalable'}
-                    key={`condition-${editing?.id ?? 'new'}`}
+                    key={draftKey('condition')}
                     className="border-line bg-surface mt-1 w-full rounded border px-3 py-1.5 text-sm"
                     data-testid="sales-return-condition-select"
                   >
@@ -406,7 +422,7 @@ export function SalesReturnsBoard({
                   name="reason"
                   placeholder="Ej. Producto vendido antes del sistema..."
                   defaultValue={editing?.reason ?? ''}
-                  key={`reason-${editing?.id ?? 'new'}`}
+                  key={draftKey('reason')}
                   className="border-line bg-surface mt-1 w-full rounded border px-3 py-1.5 text-sm"
                   data-testid="sales-return-reason-input"
                 />
@@ -421,7 +437,7 @@ export function SalesReturnsBoard({
                   name="notes"
                   rows={2}
                   defaultValue={editing?.notes ?? ''}
-                  key={`notes-${editing?.id ?? 'new'}`}
+                  key={draftKey('notes')}
                   className="border-line bg-surface mt-1 w-full rounded border px-3 py-1.5 text-sm"
                   data-testid="sales-return-notes-input"
                 />
