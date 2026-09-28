@@ -52,6 +52,12 @@ model Tenant {
   creditNoteLines  CustomerCreditNoteLine[]
   purchaseReturns  PurchaseReturn[]
   purchaseReturnLines PurchaseReturnLine[]
+  purchaseInvoices        PurchaseInvoice[]
+  purchaseInvoiceLines    PurchaseInvoiceLine[]
+  supplierPayments        SupplierPayment[]
+  supplierPaymentAllocations SupplierPaymentAllocation[]
+  supplierCreditNotes     SupplierCreditNote[]
+  supplierCreditNoteLines SupplierCreditNoteLine[]
   profile          CompanyProfile?
   settings         CompanySettings?
   exchangeRates    ExchangeRate[]
@@ -186,6 +192,12 @@ model Currency {
   creditNotesAsBase      CustomerCreditNote[] @relation("CreditNoteBaseCurrency")
   purchaseReturns        PurchaseReturn[]     @relation("PurchaseReturnCurrency")
   purchaseReturnsAsBase  PurchaseReturn[]     @relation("PurchaseReturnBaseCurrency")
+  purchaseInvoices          PurchaseInvoice[]    @relation("PurchaseInvoiceCurrency")
+  purchaseInvoicesAsBase    PurchaseInvoice[]    @relation("PurchaseInvoiceBaseCurrency")
+  supplierPayments          SupplierPayment[]    @relation("SupplierPaymentCurrency")
+  supplierPaymentsAsBase    SupplierPayment[]    @relation("SupplierPaymentBaseCurrency")
+  supplierCreditNotes       SupplierCreditNote[] @relation("SupplierCreditNoteCurrency")
+  supplierCreditNotesAsBase SupplierCreditNote[] @relation("SupplierCreditNoteBaseCurrency")
 
   @@map("currencies")
 }
@@ -319,6 +331,8 @@ model MeasurementUnit {
   salesReturnLines    SalesReturnLine[]
   creditNoteLines     CustomerCreditNoteLine[]
   purchaseReturnLines PurchaseReturnLine[]
+  purchaseInvoiceLines PurchaseInvoiceLine[]
+  supplierCreditNoteLines SupplierCreditNoteLine[]
 
   @@unique([tenantId, id])
   @@unique([tenantId, code])
@@ -454,6 +468,8 @@ model Item {
   salesReturnLines    SalesReturnLine[]
   creditNoteLines     CustomerCreditNoteLine[]
   purchaseReturnLines PurchaseReturnLine[]
+  purchaseInvoiceLines PurchaseInvoiceLine[]
+  supplierCreditNoteLines SupplierCreditNoteLine[]
 
   @@unique([tenantId, id])
   @@unique([tenantId, code])
@@ -551,6 +567,8 @@ model Adjustment {
   confirmedBy    String?          @map("confirmed_by") @db.Uuid
   cancelledAt    DateTime?        @map("cancelled_at")
   cancelledBy    String?          @map("cancelled_by") @db.Uuid
+  originType     String?          @map("origin_type") @db.VarChar(30)
+  originId       String?          @map("origin_id") @db.Uuid
   createdAt      DateTime         @default(now()) @map("created_at")
   updatedAt      DateTime         @updatedAt @map("updated_at")
 
@@ -565,6 +583,7 @@ model Adjustment {
   @@unique([tenantId, code])
   @@index([tenantId, status])
   @@index([tenantId, type])
+  @@index([tenantId, originType, originId])
   @@map("adjustments")
 }
 
@@ -591,6 +610,13 @@ enum AdjustmentStatus {
   @@map("adjustment_status")
 }
 
+enum RevaluationKind {
+  cost
+  amount
+
+  @@map("revaluation_kind")
+}
+
 enum StockDirection {
   in
   out
@@ -601,26 +627,33 @@ enum StockDirection {
 /// Una linea del ajuste. `quantity` en la unidad elegida; `base_quantity` ya convertida a
 /// la unidad base del articulo, que es en la que se guarda el stock.
 model AdjustmentLine {
-  id           String         @id @db.Uuid
-  tenantId     String         @map("tenant_id") @db.Uuid
-  adjustmentId String         @map("adjustment_id") @db.Uuid
-  lineNumber   Int            @map("line_number")
-  itemId       String         @map("item_id") @db.Uuid
-  itemSku  String   @map("item_sku") @db.VarChar(60)
-  itemName String   @map("item_name") @db.VarChar(200)
-  unitId       String         @map("unit_id") @db.Uuid
-  direction    StockDirection
-  quantity     Decimal        @db.Decimal(18, 4)
-  baseQuantity Decimal        @map("base_quantity") @db.Decimal(18, 4)
-  unitCost     Decimal?       @map("unit_cost") @db.Decimal(18, 6)
+  id               String           @id @db.Uuid
+  tenantId         String           @map("tenant_id") @db.Uuid
+  adjustmentId     String           @map("adjustment_id") @db.Uuid
+  lineNumber       Int              @map("line_number")
+  itemId           String           @map("item_id") @db.Uuid
+  itemSku          String           @map("item_sku") @db.VarChar(60)
+  itemName         String           @map("item_name") @db.VarChar(200)
+  unitId           String           @map("unit_id") @db.Uuid
+  direction        StockDirection
+  quantity         Decimal          @db.Decimal(18, 4)
+  baseQuantity     Decimal          @map("base_quantity") @db.Decimal(18, 4)
+  unitCost         Decimal?         @map("unit_cost") @db.Decimal(18, 6)
+  revaluationKind  RevaluationKind? @map("revaluation_kind")
+  amount           Decimal?         @db.Decimal(18, 4)
+  sourceMovementId String?          @map("source_movement_id") @db.Uuid
+  stockPart        Decimal?         @map("stock_part") @db.Decimal(18, 4)
+  soldPart         Decimal?         @map("sold_part") @db.Decimal(18, 4)
 
-  tenant     Tenant          @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  adjustment Adjustment      @relation(fields: [tenantId, adjustmentId], references: [tenantId, id], onDelete: Cascade)
-  item       Item            @relation(fields: [tenantId, itemId], references: [tenantId, id], onDelete: Restrict)
-  unit       MeasurementUnit @relation(fields: [tenantId, unitId], references: [tenantId, id], onDelete: Restrict)
+  tenant         Tenant             @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  adjustment     Adjustment         @relation(fields: [tenantId, adjustmentId], references: [tenantId, id], onDelete: Cascade)
+  item           Item               @relation(fields: [tenantId, itemId], references: [tenantId, id], onDelete: Restrict)
+  unit           MeasurementUnit    @relation(fields: [tenantId, unitId], references: [tenantId, id], onDelete: Restrict)
+  sourceMovement InventoryMovement? @relation("AdjustmentLineSourceMovement", fields: [sourceMovementId], references: [id], onDelete: Restrict)
 
   @@unique([adjustmentId, lineNumber])
   @@index([tenantId, itemId])
+  @@index([tenantId, sourceMovementId])
   @@map("adjustment_lines")
 }
 
@@ -656,6 +689,7 @@ model InventoryMovement {
   restoredBy          InventoryMovement[] @relation("Restores")
   salesReturnLines    SalesReturnLine[]
   purchaseReturnLines PurchaseReturnLine[]
+  adjustmentLines     AdjustmentLine[]   @relation("AdjustmentLineSourceMovement")
 
   @@unique([tenantId, itemId, warehouseId, sequence])
   // Un movimiento se revierte una sola vez: anular dos veces no puede duplicar la contrapartida.
@@ -707,8 +741,11 @@ model Supplier {
   updatedAt       DateTime @updatedAt @map("updated_at")
 
   tenant          Tenant           @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  orders          PurchaseOrder[]
-  purchaseReturns PurchaseReturn[]
+  orders              PurchaseOrder[]
+  purchaseReturns     PurchaseReturn[]
+  purchaseInvoices    PurchaseInvoice[]
+  supplierPayments    SupplierPayment[]
+  supplierCreditNotes SupplierCreditNote[]
 
   @@unique([tenantId, id])
   @@unique([tenantId, code])
@@ -781,15 +818,17 @@ model PurchaseOrderLine {
   baseQuantity     Decimal @map("base_quantity") @db.Decimal(18, 4)
   unitCost         Decimal @map("unit_cost") @db.Decimal(18, 6)
   taxRate          Decimal @default(0) @map("tax_rate") @db.Decimal(7, 4)
-  receivedQuantity Decimal @default(0) @map("received_quantity") @db.Decimal(18, 4)
+  receivedQuantity Decimal             @default(0) @map("received_quantity") @db.Decimal(18, 4)
+  invoicedQuantity Decimal             @default(0) @map("invoiced_quantity") @db.Decimal(18, 4)
   /// Si la linea entra a una bodega. Un servicio no: se copia al escribirla, como el SKU.
-  movesStock       Boolean @default(true) @map("moves_stock")
+  movesStock       Boolean             @default(true) @map("moves_stock")
 
-  tenant       Tenant             @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  order        PurchaseOrder      @relation(fields: [tenantId, orderId], references: [tenantId, id], onDelete: Cascade)
-  item         Item               @relation(fields: [tenantId, itemId], references: [tenantId, id], onDelete: Restrict)
-  unit         MeasurementUnit    @relation(fields: [tenantId, unitId], references: [tenantId, id], onDelete: Restrict)
+  tenant       Tenant                @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  order        PurchaseOrder         @relation(fields: [tenantId, orderId], references: [tenantId, id], onDelete: Cascade)
+  item         Item                  @relation(fields: [tenantId, itemId], references: [tenantId, id], onDelete: Restrict)
+  unit         MeasurementUnit       @relation(fields: [tenantId, unitId], references: [tenantId, id], onDelete: Restrict)
   receiptLines GoodsReceiptLine[]
+  invoiceLines PurchaseInvoiceLine[]
 
   @@unique([tenantId, id])
   @@unique([orderId, lineNumber])
@@ -859,8 +898,9 @@ model GoodsReceiptLine {
   receipt     GoodsReceipt      @relation(fields: [tenantId, receiptId], references: [tenantId, id], onDelete: Cascade)
   orderLine   PurchaseOrderLine @relation(fields: [tenantId, orderLineId], references: [tenantId, id], onDelete: Restrict)
   item        Item              @relation(fields: [tenantId, itemId], references: [tenantId, id], onDelete: Restrict)
-  unit        MeasurementUnit   @relation(fields: [tenantId, unitId], references: [tenantId, id], onDelete: Restrict)
-  returnLines PurchaseReturnLine[]
+  unit         MeasurementUnit   @relation(fields: [tenantId, unitId], references: [tenantId, id], onDelete: Restrict)
+  returnLines  PurchaseReturnLine[]
+  invoiceLines PurchaseInvoiceLine[]
 
   @@unique([tenantId, id])
   @@unique([receiptId, lineNumber])
@@ -1441,6 +1481,7 @@ model PurchaseReturn {
   currencyInfo     Currency             @relation("PurchaseReturnCurrency", fields: [currency], references: [code], onDelete: Restrict)
   baseCurrencyInfo Currency             @relation("PurchaseReturnBaseCurrency", fields: [baseCurrency], references: [code], onDelete: Restrict)
   lines            PurchaseReturnLine[]
+  creditNotes      SupplierCreditNote[]
 
   @@unique([tenantId, id])
   @@unique([tenantId, code])
@@ -1476,4 +1517,234 @@ model PurchaseReturnLine {
   @@index([tenantId, receiptLineId])
   @@index([tenantId, restoresMovementId])
   @@map("purchase_return_lines")
+}
+
+// ---------------------------------------------------------------- compras: facturas de compra (H9)
+
+enum PurchaseInvoiceStatus {
+  draft
+  confirmed
+  cancelled
+
+  @@map("purchase_invoice_status")
+}
+
+/// Factura de compra: transcripcion del documento del proveedor (FCP).
+/// No mueve inventario: si hay diferencias de precio respecto a la entrada,
+/// genera un ajuste de revaluacion en borrador.
+model PurchaseInvoice {
+  id                    String                @id @db.Uuid
+  tenantId              String                @map("tenant_id") @db.Uuid
+  code                  String                @db.VarChar(12)
+  supplierId            String                @map("supplier_id") @db.Uuid
+  supplierInvoiceNumber String                @map("supplier_invoice_number") @db.VarChar(60)
+  supplierInvoiceSeries String?               @map("supplier_invoice_series") @db.VarChar(20)
+  issueDate             DateTime              @map("issue_date") @db.Date
+  dueDate               DateTime              @map("due_date") @db.Date
+  notes                 String?               @db.VarChar(500)
+  status                PurchaseInvoiceStatus @default(draft)
+  subtotal              Decimal               @db.Decimal(18, 4)
+  tax                   Decimal               @db.Decimal(18, 4)
+  total                 Decimal               @db.Decimal(18, 4)
+  priceDifference       Decimal               @default(0) @map("price_difference") @db.Decimal(18, 4)
+  exchangeDifference    Decimal               @default(0) @map("exchange_difference") @db.Decimal(18, 4)
+  confirmedAt           DateTime?             @map("confirmed_at")
+  cancelledAt           DateTime?             @map("cancelled_at")
+  createdAt             DateTime              @default(now()) @map("created_at")
+  updatedAt             DateTime              @updatedAt @map("updated_at")
+  currency              String                @db.Char(3)
+  exchangeRate          Decimal?              @map("exchange_rate") @db.Decimal(18, 8)
+  baseCurrency          String                @map("base_currency") @db.Char(3)
+  baseExchangeRate      Decimal?              @map("base_exchange_rate") @db.Decimal(18, 8)
+  manualExchangeRate    Boolean               @default(false) @map("manual_exchange_rate")
+  subtotalVes           Decimal?              @map("subtotal_ves") @db.Decimal(18, 4)
+  taxVes                Decimal?              @map("tax_ves") @db.Decimal(18, 4)
+  totalVes              Decimal?              @map("total_ves") @db.Decimal(18, 4)
+
+  tenant           Tenant                      @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  currencyInfo     Currency                    @relation("PurchaseInvoiceCurrency", fields: [currency], references: [code], onDelete: Restrict)
+  baseCurrencyInfo Currency                    @relation("PurchaseInvoiceBaseCurrency", fields: [baseCurrency], references: [code], onDelete: Restrict)
+  supplier         Supplier                    @relation(fields: [tenantId, supplierId], references: [tenantId, id], onDelete: Restrict)
+  lines            PurchaseInvoiceLine[]
+  allocations      SupplierPaymentAllocation[]
+  creditNotes      SupplierCreditNote[]
+
+  @@unique([tenantId, id])
+  @@unique([tenantId, code])
+  @@index([tenantId, supplierId])
+  @@index([tenantId, status])
+  @@map("purchase_invoices")
+}
+
+model PurchaseInvoiceLine {
+  id            String             @id @db.Uuid
+  tenantId      String             @map("tenant_id") @db.Uuid
+  invoiceId     String             @map("invoice_id") @db.Uuid
+  lineNumber    Int                @map("line_number")
+  receiptLineId String?            @map("receipt_line_id") @db.Uuid
+  orderLineId   String?            @map("order_line_id") @db.Uuid
+  itemId        String?            @map("item_id") @db.Uuid
+  itemSku       String?            @map("item_sku") @db.VarChar(60)
+  itemName      String             @map("item_name") @db.VarChar(200)
+  concept       String?            @db.VarChar(200)
+  unitId        String?            @map("unit_id") @db.Uuid
+  quantity      Decimal            @db.Decimal(18, 4)
+  unitPrice     Decimal            @map("unit_price") @db.Decimal(18, 6)
+  taxRate       Decimal            @map("tax_rate") @db.Decimal(7, 4)
+  subtotal      Decimal            @db.Decimal(18, 4)
+  tax           Decimal            @db.Decimal(18, 4)
+  total         Decimal            @db.Decimal(18, 4)
+
+  tenant      Tenant             @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  invoice     PurchaseInvoice    @relation(fields: [tenantId, invoiceId], references: [tenantId, id], onDelete: Cascade)
+  receiptLine GoodsReceiptLine?  @relation(fields: [tenantId, receiptLineId], references: [tenantId, id], onDelete: Restrict)
+  orderLine   PurchaseOrderLine? @relation(fields: [tenantId, orderLineId], references: [tenantId, id], onDelete: Restrict)
+  item        Item?              @relation(fields: [tenantId, itemId], references: [tenantId, id], onDelete: Restrict)
+  unit        MeasurementUnit?   @relation(fields: [tenantId, unitId], references: [tenantId, id], onDelete: Restrict)
+
+  @@unique([invoiceId, lineNumber])
+  @@index([tenantId, receiptLineId])
+  @@index([tenantId, orderLineId])
+  @@map("purchase_invoice_lines")
+}
+
+// ---------------------------------------------------------------- cuentas por pagar: pagos y notas de credito (H9)
+
+/// Pago a proveedor (PAG): espejo del cobro a cliente. Repartido entre facturas de compra.
+model SupplierPayment {
+  id                 String        @id @db.Uuid
+  tenantId           String        @map("tenant_id") @db.Uuid
+  code               String        @db.VarChar(12)
+  supplierId         String        @map("supplier_id") @db.Uuid
+  paymentDate        DateTime      @map("payment_date") @db.Date
+  method             PaymentMethod
+  creditSourceId     String?       @map("credit_source_id") @db.Uuid
+  reference          String?       @db.VarChar(100)
+  notes              String?       @db.VarChar(500)
+  status             PaymentStatus @default(draft)
+  amount             Decimal       @db.Decimal(18, 4)
+  amountVes          Decimal?      @map("amount_ves") @db.Decimal(18, 4)
+  confirmedAt        DateTime?     @map("confirmed_at")
+  cancelledAt        DateTime?     @map("cancelled_at")
+  createdAt          DateTime      @default(now()) @map("created_at")
+  updatedAt          DateTime      @updatedAt @map("updated_at")
+  currency           String        @db.Char(3)
+  exchangeRate       Decimal?      @map("exchange_rate") @db.Decimal(18, 8)
+  baseCurrency       String        @map("base_currency") @db.Char(3)
+  baseExchangeRate   Decimal?      @map("base_exchange_rate") @db.Decimal(18, 8)
+  manualExchangeRate Boolean       @default(false) @map("manual_exchange_rate")
+
+  tenant             Tenant                      @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  currencyInfo       Currency                    @relation("SupplierPaymentCurrency", fields: [currency], references: [code], onDelete: Restrict)
+  baseCurrencyInfo   Currency                    @relation("SupplierPaymentBaseCurrency", fields: [baseCurrency], references: [code], onDelete: Restrict)
+  supplier           Supplier                    @relation(fields: [tenantId, supplierId], references: [tenantId, id], onDelete: Restrict)
+  creditSource       SupplierCreditNote?         @relation("CreditSourceSupplierPayment", fields: [tenantId, creditSourceId], references: [tenantId, id], onDelete: Restrict)
+  issueOfCreditNotes SupplierCreditNote[]        @relation("SupplierCreditNoteIssuePayment")
+  allocations        SupplierPaymentAllocation[]
+
+  @@unique([tenantId, id])
+  @@unique([tenantId, code])
+  @@index([tenantId, supplierId])
+  @@index([tenantId, status])
+  @@index([tenantId, creditSourceId])
+  @@map("supplier_payments")
+}
+
+/// Cuanto de un pago a proveedor va a una factura de compra.
+model SupplierPaymentAllocation {
+  id                 String          @id @db.Uuid
+  tenantId           String          @map("tenant_id") @db.Uuid
+  paymentId          String          @map("payment_id") @db.Uuid
+  invoiceId          String          @map("invoice_id") @db.Uuid
+  amount             Decimal         @db.Decimal(18, 4)
+  exchangeRate       Decimal?        @map("exchange_rate") @db.Decimal(18, 8)
+  exchangeDifference Decimal?        @map("exchange_difference") @db.Decimal(18, 4)
+  createdAt          DateTime        @default(now()) @map("created_at")
+
+  tenant  Tenant          @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  payment SupplierPayment @relation(fields: [tenantId, paymentId], references: [tenantId, id], onDelete: Cascade)
+  invoice PurchaseInvoice @relation(fields: [tenantId, invoiceId], references: [tenantId, id], onDelete: Restrict)
+
+  @@unique([tenantId, id])
+  @@unique([paymentId, invoiceId])
+  @@index([tenantId, invoiceId])
+  @@map("supplier_payment_allocations")
+}
+
+/// Nota de credito de proveedor (NCP): espejo de la NCC. Baja deuda con pago de emision
+/// o genera credito disponible. Puede acreditar una devolucion o rebajar precio.
+model SupplierCreditNote {
+  id                 String           @id @db.Uuid
+  tenantId           String           @map("tenant_id") @db.Uuid
+  code               String           @db.VarChar(12)
+  supplierId         String           @map("supplier_id") @db.Uuid
+  invoiceId          String?          @map("invoice_id") @db.Uuid
+  purchaseReturnId   String?          @map("purchase_return_id") @db.Uuid
+  issuePaymentId     String?          @map("issue_payment_id") @db.Uuid
+  issueDate          DateTime         @map("issue_date") @db.Date
+  reason             CreditNoteReason
+  reasonDetail       String?          @map("reason_detail") @db.VarChar(500)
+  notes              String?          @db.VarChar(500)
+  status             CreditNoteStatus @default(draft)
+  subtotal           Decimal          @db.Decimal(18, 4)
+  tax                Decimal          @db.Decimal(18, 4)
+  total              Decimal          @db.Decimal(18, 4)
+  subtotalVes        Decimal?         @map("subtotal_ves") @db.Decimal(18, 4)
+  taxVes             Decimal?         @map("tax_ves") @db.Decimal(18, 4)
+  totalVes           Decimal?         @map("total_ves") @db.Decimal(18, 4)
+  priceDifference    Decimal          @default(0) @map("price_difference") @db.Decimal(18, 4)
+  exchangeDifference Decimal          @default(0) @map("exchange_difference") @db.Decimal(18, 4)
+  confirmedAt        DateTime?        @map("confirmed_at")
+  cancelledAt        DateTime?        @map("cancelled_at")
+  createdAt          DateTime         @default(now()) @map("created_at")
+  updatedAt          DateTime         @updatedAt @map("updated_at")
+  currency           String           @db.Char(3)
+  exchangeRate       Decimal?         @map("exchange_rate") @db.Decimal(18, 8)
+  baseCurrency       String           @map("base_currency") @db.Char(3)
+  baseExchangeRate   Decimal?         @map("base_exchange_rate") @db.Decimal(18, 8)
+  manualExchangeRate Boolean          @default(false) @map("manual_exchange_rate")
+
+  tenant           Tenant                   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  supplier         Supplier                 @relation(fields: [tenantId, supplierId], references: [tenantId, id], onDelete: Restrict)
+  invoice          PurchaseInvoice?         @relation(fields: [tenantId, invoiceId], references: [tenantId, id], onDelete: Restrict)
+  purchaseReturn   PurchaseReturn?          @relation(fields: [tenantId, purchaseReturnId], references: [tenantId, id], onDelete: Restrict)
+  issuePayment     SupplierPayment?         @relation("SupplierCreditNoteIssuePayment", fields: [tenantId, issuePaymentId], references: [tenantId, id], onDelete: Restrict)
+  currencyInfo     Currency                 @relation("SupplierCreditNoteCurrency", fields: [currency], references: [code], onDelete: Restrict)
+  baseCurrencyInfo Currency                 @relation("SupplierCreditNoteBaseCurrency", fields: [baseCurrency], references: [code], onDelete: Restrict)
+  lines            SupplierCreditNoteLine[]
+  appliedPayments  SupplierPayment[]        @relation("CreditSourceSupplierPayment")
+
+  @@unique([tenantId, id])
+  @@unique([tenantId, code])
+  @@index([tenantId, supplierId])
+  @@index([tenantId, invoiceId])
+  @@index([tenantId, purchaseReturnId])
+  @@index([tenantId, status])
+  @@map("supplier_credit_notes")
+}
+
+model SupplierCreditNoteLine {
+  id           String             @id @db.Uuid
+  tenantId     String             @map("tenant_id") @db.Uuid
+  creditNoteId String             @map("credit_note_id") @db.Uuid
+  lineNumber   Int                @map("line_number")
+  itemId       String?            @map("item_id") @db.Uuid
+  itemSku      String?            @map("item_sku") @db.VarChar(60)
+  itemName     String?            @map("item_name") @db.VarChar(200)
+  concept      String?            @db.VarChar(200)
+  unitId       String?            @map("unit_id") @db.Uuid
+  quantity     Decimal            @db.Decimal(18, 4)
+  unitPrice    Decimal            @map("unit_price") @db.Decimal(18, 6)
+  taxRate      Decimal            @map("tax_rate") @db.Decimal(7, 4)
+  subtotal     Decimal            @db.Decimal(18, 4)
+  tax          Decimal            @db.Decimal(18, 4)
+  total        Decimal            @db.Decimal(18, 4)
+
+  tenant     Tenant             @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  creditNote SupplierCreditNote @relation(fields: [tenantId, creditNoteId], references: [tenantId, id], onDelete: Cascade)
+  item       Item?              @relation(fields: [tenantId, itemId], references: [tenantId, id], onDelete: Restrict)
+  unit       MeasurementUnit?   @relation(fields: [tenantId, unitId], references: [tenantId, id], onDelete: Restrict)
+
+  @@unique([creditNoteId, lineNumber])
+  @@map("supplier_credit_note_lines")
 }
