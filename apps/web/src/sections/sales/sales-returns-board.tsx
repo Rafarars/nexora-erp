@@ -1,6 +1,6 @@
 'use client';
 
-import { useActionState, useEffect, useState } from 'react';
+import { useActionState, useState } from 'react';
 import { changeSalesReturn, saveSalesReturn } from '@/app/(app)/ventas/actions';
 import { MenuButton } from '@/sections/purchasing/menu-button';
 import { FormError, SubmitButton } from '@/sections/shared/field';
@@ -67,21 +67,6 @@ export function SalesReturnsBoard({
   const [originlessLines, setOriginlessLines] = useState<{ itemId: string; unitId: string; quantity: string; unitCost: string }[]>([
     { itemId: '', unitId: '', quantity: '1', unitCost: '' },
   ]);
-
-  useEffect(() => {
-    if (editing && !editing.dispatch) {
-      setOriginlessLines(
-        editing.lines.length > 0
-          ? editing.lines.map((l) => ({
-              itemId: l.itemId,
-              unitId: l.unitId,
-              quantity: String(l.quantity),
-              unitCost: l.unitCost !== null ? String(l.unitCost) : '',
-            }))
-          : [{ itemId: '', unitId: '', quantity: '1', unitCost: '' }],
-      );
-    }
-  }, [editing]);
 
   function openCreate() {
     setEditing(null);

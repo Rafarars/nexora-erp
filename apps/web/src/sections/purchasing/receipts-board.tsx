@@ -1,6 +1,6 @@
 'use client';
 
-import { useActionState, useState } from 'react';
+import { useActionState } from 'react';
 import { changeReceipt, saveReceipt } from '@/app/(app)/compras/actions';
 import { FormError, SubmitButton } from '@/sections/shared/field';
 import { RowOptions } from '@/sections/shared/row-options';
