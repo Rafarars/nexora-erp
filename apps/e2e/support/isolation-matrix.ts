@@ -794,4 +794,16 @@ export const ISOLATION_CASES: IsolationCase[] = [
     method: 'get',
     path: `/api/v1/payables/payments?supplierId=${GLOBEX.supplierId}`,
   },
+  {
+    route: 'GET /api/v1/payables/invoices',
+    title: 'filter payable invoices by a supplier of another tenant',
+    method: 'get',
+    path: `/api/v1/payables/invoices?supplierId=${GLOBEX.supplierId}`,
+  },
+  {
+    route: 'GET /api/v1/payables/suppliers/:supplierId/statement',
+    title: 'read the statement of a supplier of another tenant',
+    method: 'get',
+    path: `/api/v1/payables/suppliers/${GLOBEX.supplierId}/statement`,
+  },
 ];

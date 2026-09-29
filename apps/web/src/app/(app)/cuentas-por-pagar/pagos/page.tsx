@@ -2,10 +2,8 @@ import { PaymentsBoard } from '@/sections/payables/payments-board';
 import { can } from '@/modules/access/domain/session';
 import { readablePayablesError } from '@/modules/payables/domain/payables-error';
 import { payablesApi } from '@/shared/session/payables-api';
-import { purchasingApi } from '@/shared/session/purchasing-api';
 import { companyApi } from '@/shared/session/company-api';
 import { requireSession } from '@/shared/session/current-session';
-import type { PayableInvoice } from '@/modules/payables/domain/payables';
 
 export const dynamic = 'force-dynamic';
 
@@ -34,8 +32,10 @@ export default async function PaymentsPage({ searchParams }: { searchParams: Pro
   const { q, proveedor, estado, desde, hasta, pagina } = await searchParams;
   const page = Math.max(1, Number(pagina ?? '1') || 1);
 
-  const canCreate = can(session, 'payables.payments.create');
-  const canUpdate = can(session, 'payables.payments.update');
+  // Para registrar o editar un pago hay que ver las facturas pendientes
+  const canPick = can(session, 'payables.balances.search');
+  const canCreate = can(session, 'payables.payments.create') && canPick;
+  const canUpdate = can(session, 'payables.payments.update') && canPick;
 
   let loaded;
   try {
@@ -49,7 +49,8 @@ export default async function PaymentsPage({ searchParams }: { searchParams: Pro
         limit: PAGE_SIZE,
         offset: (page - 1) * PAGE_SIZE,
       }),
-      purchasingApi().allSuppliers(token),
+      canCreate || canUpdate ? payablesApi().allInvoices(token) : [],
+      canPick ? payablesApi().allSuppliers(token) : [],
       canCreate || canUpdate ? companyApi().currencies(token) : [],
       companyApi().settings(token),
     ]);
@@ -61,35 +62,7 @@ export default async function PaymentsPage({ searchParams }: { searchParams: Pro
     );
   }
 
-  const [payments, suppliers, currencies, settings] = loaded;
-
-  // Facturas para asignar: en Fase 4 cargamos facturas confirmadas de compra como base
-  let invoices: PayableInvoice[] = [];
-  try {
-    if (canCreate || canUpdate) {
-      const purchaseInvoicesResult = await purchasingApi().searchInvoices(token, { status: 'confirmed' });
-      const suppliersMap = new Map(suppliers.map((s) => [s.id, s]));
-      invoices = purchaseInvoicesResult.invoices.map((inv) => {
-        const sup = suppliersMap.get(inv.supplierId) ?? { id: inv.supplierId, code: '', name: 'Proveedor' };
-        return {
-          id: inv.id,
-          code: inv.code,
-          supplier: { id: sup.id, code: sup.code, name: sup.name },
-          issueDate: inv.issueDate,
-          dueDate: inv.dueDate,
-          currency: inv.currency,
-          total: inv.total,
-          paid: 0,
-          balance: inv.total,
-          companyBalance: inv.total,
-          status: 'pending' as const,
-        };
-      });
-    }
-  } catch {
-    // Si no tiene permiso de purchasing.invoices.search o falla, continua con lista vacia
-    invoices = [];
-  }
+  const [payments, invoices, suppliers, currencies, settings] = loaded;
 
   return (
     <PaymentsBoard

@@ -11,11 +11,23 @@ import { CompanyModule } from '../../company/infrastructure/company.module.js';
 import { SharedModule } from '../../../shared/infrastructure/shared.module.js';
 import { PrismaModule } from '../../../shared/prisma/prisma.module.js';
 
+import { CancelPaymentPutController } from './http/cancel-payment-put.controller.js';
+import { ConfirmPaymentPutController } from './http/confirm-payment-put.controller.js';
+import { CreatePaymentPostController } from './http/create-payment-post.controller.js';
+import { SearchPaymentsGetController } from './http/search-payments-get.controller.js';
+import { UpdatePaymentPutController } from './http/update-payment-put.controller.js';
+import { SearchPayableInvoicesGetController } from './http/search-payable-invoices-get.controller.js';
+import { SearchSupplierBalancesGetController } from './http/search-supplier-balances-get.controller.js';
+import { SearchSupplierStatementGetController } from './http/search-supplier-statement-get.controller.js';
+
 import { PaymentCanceller } from '../application/cancel-payment/payment-canceller.js';
 import { PaymentConfirmer } from '../application/confirm-payment/payment-confirmer.js';
 import { PaymentCreator } from '../application/create-payment/payment-creator.js';
 import { PaymentSearcher } from '../application/search-payments/payment-searcher.js';
 import { PaymentUpdater } from '../application/update-payment/payment-updater.js';
+import { PayableInvoiceSearcher } from '../application/search-invoices/payable-invoice-searcher.js';
+import { SupplierBalanceSearcher } from '../application/search-supplier-balances/supplier-balance-searcher.js';
+import { SupplierStatementSearcher } from '../application/search-supplier-statement/supplier-statement-searcher.js';
 
 import { PAYABLES_LEDGER } from '../domain/ledger/payables-ledger.js';
 import type { PayablesLedger } from '../domain/ledger/payables-ledger.js';
@@ -26,12 +38,6 @@ import { SUPPLIER_PAYMENT_POSTING } from '../domain/payment/posting/supplier-pay
 import type { SupplierPaymentPosting } from '../domain/payment/posting/supplier-payment-posting.js';
 import { PAYABLES_CODE_SEQUENCE } from '../domain/shared/code-sequence.js';
 import type { PayablesCodeSequence } from '../domain/shared/code-sequence.js';
-
-import { CancelPaymentPutController } from './http/cancel-payment-put.controller.js';
-import { ConfirmPaymentPutController } from './http/confirm-payment-put.controller.js';
-import { CreatePaymentPostController } from './http/create-payment-post.controller.js';
-import { SearchPaymentsGetController } from './http/search-payments-get.controller.js';
-import { UpdatePaymentPutController } from './http/update-payment-put.controller.js';
 
 import { PrismaPayablesCodeSequence } from './persistence/prisma-payables-code-sequence.js';
 import { PrismaPayablesLedger } from './persistence/prisma-payables-ledger.js';
@@ -46,6 +52,9 @@ import { PrismaSupplierPaymentRepository } from './persistence/prisma-supplier-p
     UpdatePaymentPutController,
     ConfirmPaymentPutController,
     CancelPaymentPutController,
+    SearchPayableInvoicesGetController,
+    SearchSupplierBalancesGetController,
+    SearchSupplierStatementGetController,
   ],
   providers: [
     { provide: SUPPLIER_PAYMENT_REPOSITORY, useClass: PrismaSupplierPaymentRepository },
@@ -106,12 +115,31 @@ import { PrismaSupplierPaymentRepository } from './persistence/prisma-supplier-p
       useFactory: (r: SupplierPaymentRepository, l: PayablesLedger) => new PaymentSearcher(r, l),
       inject: [SUPPLIER_PAYMENT_REPOSITORY, PAYABLES_LEDGER],
     },
+    {
+      provide: PayableInvoiceSearcher,
+      useFactory: (l: PayablesLedger, cal: BusinessCalendar, dr: DocumentRates) => new PayableInvoiceSearcher(l, cal, dr),
+      inject: [PAYABLES_LEDGER, BUSINESS_CALENDAR, DOCUMENT_RATES],
+    },
+    {
+      provide: SupplierBalanceSearcher,
+      useFactory: (l: PayablesLedger, cal: BusinessCalendar, dr: DocumentRates) => new SupplierBalanceSearcher(l, cal, dr),
+      inject: [PAYABLES_LEDGER, BUSINESS_CALENDAR, DOCUMENT_RATES],
+    },
+    {
+      provide: SupplierStatementSearcher,
+      useFactory: (l: PayablesLedger, r: SupplierPaymentRepository, cal: BusinessCalendar, dr: DocumentRates) =>
+        new SupplierStatementSearcher(l, r, cal, dr),
+      inject: [PAYABLES_LEDGER, SUPPLIER_PAYMENT_REPOSITORY, BUSINESS_CALENDAR, DOCUMENT_RATES],
+    },
   ],
   exports: [
     SUPPLIER_PAYMENT_REPOSITORY,
     SUPPLIER_PAYMENT_POSTING,
     PAYABLES_LEDGER,
     PAYABLES_CODE_SEQUENCE,
+    PayableInvoiceSearcher,
+    SupplierBalanceSearcher,
+    SupplierStatementSearcher,
   ],
 })
 export class PayablesModule {}

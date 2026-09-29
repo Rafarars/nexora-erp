@@ -6,6 +6,14 @@ export type PayableStatus = 'pending' | 'partially_paid' | 'paid' | 'cancelled';
 export type AgingBucket = 'current' | 'days1To30' | 'days31To60' | 'days61To90' | 'over90';
 export type AgingTotals = Record<AgingBucket | 'total', number>;
 
+export const AGING_COLUMNS: { bucket: AgingBucket; label: string }[] = [
+  { bucket: 'current', label: 'Por vencer' },
+  { bucket: 'days1To30', label: '1 a 30 días' },
+  { bucket: 'days31To60', label: '31 a 60 días' },
+  { bucket: 'days61To90', label: '61 a 90 días' },
+  { bucket: 'over90', label: 'Más de 90 días' },
+];
+
 export interface SupplierPaymentAllocation {
   invoiceId: string;
   invoiceCode: string;
@@ -48,16 +56,31 @@ export interface PayableInvoice {
   balance: number;
   companyBalance: number;
   status: PayableStatus;
+  daysOverdue: number;
+  bucket: AgingBucket | null;
 }
 
 export interface SupplierBalance {
-  supplier: { id: string; code: string; name: string; fiscalId: string | null };
-  current: number;
-  days1To30: number;
-  days31To60: number;
-  days61To90: number;
-  over90: number;
-  total: number;
+  supplier: { id: string; code: string; name: string; isActive: boolean };
+  paymentTermDays: number;
+  balance: number;
+  overdue: number;
+  aging: AgingTotals;
+}
+
+export interface StatementMovement {
+  date: string;
+  type: 'invoice' | 'payment';
+  code: string;
+  debit: number;
+  credit: number;
+  balance: number;
+  exchangeDifference: number | null;
+}
+
+export interface Statement {
+  summary: SupplierBalance;
+  movements: StatementMovement[];
 }
 
 export interface SupplierAvailableCredit {
@@ -86,6 +109,13 @@ export const PAYMENT_METHOD_LABELS: Record<PaymentMethod, string> = {
   credit_note: 'Nota de crédito',
 };
 
+export const PAYABLE_STATUS_LABELS: Record<PayableStatus, string> = {
+  pending: 'Pendiente',
+  partially_paid: 'Abonada',
+  paid: 'Pagada',
+  cancelled: 'Anulada',
+};
+
 export function paymentActions(payment: SupplierPayment, canUpdate: boolean, canConfirm: boolean, canCancel: boolean) {
   return {
     canEdit: payment.status === 'draft' && canUpdate,
@@ -96,4 +126,10 @@ export function paymentActions(payment: SupplierPayment, canUpdate: boolean, can
 
 export function payableInvoices(invoices: PayableInvoice[], supplierId: string): PayableInvoice[] {
   return invoices.filter((invoice) => invoice.supplier.id === supplierId && invoice.balance > 0);
+}
+
+export function overdueLabel(days: number): string {
+  if (days <= 0) return 'Al día';
+  if (days === 1) return 'Vencida hace 1 día';
+  return `Vencida hace ${days} días`;
 }

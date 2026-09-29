@@ -565,3 +565,101 @@ Ninguno para esta fase.
 - Los adaptadores web y clientes HTTP requirieron ajustar el mapeo de `AccessErrorBody` con la función auxiliar `errorBodyOf`, garantizando que las respuestas de error de la API se traduzcan limpiamente sin advertencias de tipos.
 
 ---
+
+## Fase 5: Saldo, antigüedad y estado de cuenta (`PayableBalances`)
+
+### Qué se construyó
+- **Dominio (`apps/api/src/contexts/payables/domain/aging/`):**
+  - Módulo puro `aging.ts` y cálculo de tramos de vencimiento: `current`, `days1To30`, `days31To60`, `days61To90`, `over90`.
+  - Función `bucketOf(invoice, today)`: asignación estricta de tramo según `daysOverdue`, retornando `null` para facturas con saldo cero o anuladas.
+  - Función `agingOf(invoices, today, decimals)`: consolidación de totales por tramo reexpresados a la moneda principal de la empresa.
+- **Casos de uso (`apps/api/src/contexts/payables/application/`):**
+  - `PayableInvoiceSearcher`: consulta y filtrado de facturas por pagar con cálculo dinámico de saldo pendiente, días de vencimiento y tramo asignado (`bucket`). Ocultamiento o filtrado opcional de facturas ya saldadas o solo vencidas.
+  - `SupplierBalanceSearcher`: consolidación de saldos por proveedor, cálculo de importe vencido, tramos de antigüedad y totales globales de la empresa.
+  - `SupplierStatementSearcher`: reconstrucción cronológica del estado de cuenta de un proveedor con saldo progresivo (*running balance*) combinando facturas y cobros/pagos confirmados.
+- **API HTTP y DTOs (`apps/api/src/contexts/payables/infrastructure/http/`):**
+  - `SearchPayableInvoicesGetController` (`GET /api/v1/payables/invoices`): consulta de facturas por pagar con filtros por proveedor, estado, rango de fechas y solo vencidas.
+  - `SearchSupplierBalancesGetController` (`GET /api/v1/payables/suppliers`): listado de proveedores con saldo, importes vencidos y desglose por antigüedad.
+  - `SearchSupplierStatementGetController` (`GET /api/v1/payables/suppliers/:supplierId/statement`): estado de cuenta histórico de un proveedor con movimientos cronológicos y saldo acumulado.
+  - DTOs Zod validados (`payable-invoice.query.dto.ts`, `supplier-balance.query.dto.ts`).
+  - Mapeo en `PayablesModule` con guardianes de autenticación y permisos.
+- **Permisos y Aislamiento Multitenant:**
+  - Permisos sincronizados: `payables.balances.search` y `payables.statements.search` (116 permisos totales en el sistema).
+  - Rutas integradas en `isolation-matrix.ts` y verificadas en `tenant-isolation.api.spec.ts` (pruebas 482 y 483 pasando).
+- **Frontend Web (`apps/web`):**
+  - Tipos en `payables.ts`: `PayableInvoice`, `SupplierBalance`, `Statement`, `StatementMovement`, `AGING_COLUMNS`.
+  - Métodos API en `payables-api.ts` e implementación en `http-payables-api.ts`.
+  - Componentes de interfaz:
+    - `PayablesTable` (`apps/web/src/sections/payables/payables-table.tsx`): tabla paginada de facturas con filtros interactivos, indicador de vencimiento y estado.
+    - `AgingTable` (`apps/web/src/sections/payables/aging-table.tsx`): tabla de antigüedad por proveedor con columnas por tramo y fila de totales globales.
+    - `StatementView` (`apps/web/src/sections/payables/statement-view.tsx`): vista de movimientos cronológicos y saldo progresivo con selección de proveedor.
+  - Páginas Next.js registradas:
+    - `/cuentas-por-pagar/facturas` (`apps/web/src/app/(app)/cuentas-por-pagar/facturas/page.tsx`).
+    - `/cuentas-por-pagar/antiguedad` (`apps/web/src/app/(app)/cuentas-por-pagar/antiguedad/page.tsx`).
+    - `/cuentas-por-pagar/estado-de-cuenta` (`apps/web/src/app/(app)/cuentas-por-pagar/estado-de-cuenta/page.tsx`).
+
+### Reglas de H9 cubiertas
+- **H9 §4.3:** El saldo de cada factura es su total menos lo abonado en pagos confirmados; las facturas anuladas tienen saldo cero; los tramos de antigüedad agrupan estrictamente por días transcurridos desde la fecha de vencimiento (`current`, `days1To30`, `days31To60`, `days61To90`, `over90`).
+- **Ajuste 6 del usuario:** Rutas de saldos y estados de cuenta añadidas a la matriz de aislamiento multitenant y protegidas por permisos específicos.
+
+### Pruebas que lo defienden
+- `src/contexts/payables/domain/aging/aging.spec.ts` (9 pruebas unitarias de cálculo puro).
+- `src/contexts/payables/application/payables-balances.spec.ts` (7 pruebas unitarias de búsqueda, saldos y estado de cuenta).
+- `src/contexts/access/infrastructure/http/route-declaration.spec.ts` (150 pruebas de rutas y permisos requeridos).
+- `tests/isolation/tenant-isolation.api.spec.ts:59:5` (pruebas 482 y 483 de aislamiento para saldos y estados de cuenta).
+
+### Mutaciones probadas (H9 §7)
+1. **Fila §4.3 (Los tramos de antigüedad agrupan por días de vencimiento):**
+   - *Qué se alteró:* En `apps/api/src/contexts/payables/domain/aging/aging.ts`, se mutó `if (days <= 30) return 'days1To30';` a `if (days <= 30) return 'days31To60';`.
+   - *Prueba corrida:* `pnpm --filter api test aging.spec.ts payables-balances.spec.ts`
+   - *Líneas del fallo:*
+     - `src/contexts/payables/application/payables-balances.spec.ts:110:41`:
+       ```
+       FAIL src/contexts/payables/application/payables-balances.spec.ts > payables balances and statements > PayableInvoiceSearcher > returns all payable invoices ordered by due date
+       AssertionError: expected 'days31To60' to be 'days1To30' // Object.is equality
+       Expected: "days1To30"
+       Received: "days31To60"
+        ❯ src/contexts/payables/application/payables-balances.spec.ts:110:41
+           108| expect(result.invoices.map((i) => i.code)).toEqual(['FCP000003',…
+           109| expect(result.invoices[0].daysOverdue).toBe(19);
+           110| expect(result.invoices[0].bucket).toBe('days1To30');
+              |                                  ^
+       ```
+     - `src/contexts/payables/domain/aging/aging.spec.ts:56:40`:
+       ```
+       FAIL src/contexts/payables/domain/aging/aging.spec.ts > payables aging > classifies 1 to 30 days overdue in days1To30
+       AssertionError: expected 'days31To60' to be 'days1To30' // Object.is equality
+       Expected: "days1To30"
+       Received: "days31To60"
+        ❯ src/contexts/payables/domain/aging/aging.spec.ts:56:40
+            54| it('classifies 1 to 30 days overdue in days1To30', () => {
+            55|   const overdue10 = invoice({ dueDate: '2026-09-10', total: 100 });
+            56|   expect(bucketOf(overdue10, TODAY)).toBe('days1To30');
+              |                                      ^
+       ```
+
+### Cómo se verificó
+1. **Corridas intermedias corregidas:**
+   - La suite `route-declaration.spec.ts` detectó 5 permisos no mapeados de `creditnotes` agregados anticipadamente; se ajustó el catálogo para mantener estrictamente los permisos que cuentan con controladores activos en la fase actual.
+2. **Corrida final verde (`make verify` en `docs/revision/h9/logs/verify-fase5-2.log`):**
+   ```
+   Test Files 178 passed (178)
+        Tests 3534 passed (3534)
+   Test Files 24 passed (24)
+        Tests 229 passed (229)
+   Test Files 13 passed (13)
+        Tests 292 passed (292)
+   502 passed (8.5m)
+   Todo en verde.
+   ```
+3. **Pruebas en navegador con `playwright-cli` (headed y persistent, skill `web-qa`):**
+   - Sesión abierta con `playwright-cli -s=nexora open http://localhost:3000 --headed --persistent`.
+   - Inicio de sesión anunciado con `admin@nexora.com`.
+   - Navegación y verificación visual en `/cuentas-por-pagar/facturas` y `/cuentas-por-pagar/antiguedad`.
+   - Captura guardada en: `docs/revision/h9/capturas/fase5-saldos.png`.
+   - Sesión cerrada con `playwright-cli -s=nexora close`.
+
+### Lo que no salió como decía el plan
+- Los permisos de notas de crédito a proveedores debieron posponerse al catálogo de la Fase 7 para mantener la invariante arquitectónica de que cada permiso declarado en el catálogo cuente con una ruta consumidora activa.
+
+---

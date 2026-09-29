@@ -151,6 +151,8 @@ export const PAYABLES_PERMISSIONS: PermissionDefinition[] = [
   { code: 'payables.payments.update', description: 'Editar pagos a proveedores en borrador' },
   { code: 'payables.payments.confirm', description: 'Confirmar pagos a proveedores: baja el saldo de las facturas' },
   { code: 'payables.payments.cancel', description: 'Anular pagos a proveedores, devolviendo el saldo' },
+  { code: 'payables.balances.search', description: 'Consultar facturas por pagar y antigüedad de saldos de proveedores' },
+  { code: 'payables.statements.search', description: 'Consultar el estado de cuenta de un proveedor' },
 ];
 
 export const REPORTS_PERMISSIONS: PermissionDefinition[] = [

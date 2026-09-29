@@ -1,0 +1,785 @@
+==> 1/6 secrets
+docker run --rm -v "$PWD:/repo:ro" zricethezav/gitleaks:v8.18.4 detect --source=/repo --redact
+
+    ○
+    │╲
+    │ ○
+    ○ ░
+    ░    gitleaks
+
+[90m1:02AM[0m [32mINF[0m 285 commits scanned.
+[90m1:02AM[0m [32mINF[0m scan completed in 2.36s
+[90m1:02AM[0m [32mINF[0m no leaks found
+==> 2/6 lint
+pnpm lint
+$ pnpm -r --if-present lint
+apps/e2e lint$ echo 'sin linter propio'
+apps/api lint$ oxlint src/
+apps/web lint$ eslint
+apps/e2e lint: sin linter propio
+apps/e2e lint: Done
+apps/api lint: 
+apps/api lint:   ! eslint(no-unused-vars): Identifier 'CreditNoteReturnCustomerMismatchError' is imported but never used.
+apps/api lint:    ,-[src/contexts/receivables/application/create-credit-note/credit-note-creator.ts:7:3]
+apps/api lint:  6 | import {
+apps/api lint:  7 |   CreditNoteReturnCustomerMismatchError,
+apps/api lint:    :   ^^^^^^^^^^^^^^^^^^|^^^^^^^^^^^^^^^^^^
+apps/api lint:    :                     `-- 'CreditNoteReturnCustomerMismatchError' is imported here
+apps/api lint:  8 |   CreditNoteReturnNotConfirmedError,
+apps/api lint:    `----
+apps/api lint:   help: Consider removing this import.
+apps/api lint: 
+apps/api lint:   ! eslint(no-unused-vars): Identifier 'CreditNoteReturnNotConfirmedError' is imported but never used.
+apps/api lint:    ,-[src/contexts/receivables/application/create-credit-note/credit-note-creator.ts:8:3]
+apps/api lint:  7 |   CreditNoteReturnCustomerMismatchError,
+apps/api lint:  8 |   CreditNoteReturnNotConfirmedError,
+apps/api lint:    :   ^^^^^^^^^^^^^^^^|^^^^^^^^^^^^^^^^
+apps/api lint:    :                   `-- 'CreditNoteReturnNotConfirmedError' is imported here
+apps/api lint:  9 |   InvoiceNotPayableError,
+apps/api lint:    `----
+apps/api lint:   help: Consider removing this import.
+apps/api lint: 
+apps/api lint:   ! eslint(no-unused-vars): Identifier 'SalesReturnId' is imported but never used.
+apps/api lint:     ,-[src/contexts/sales/infrastructure/testing/in-memory-sales-store.ts:39:23]
+apps/api lint:  38 | import { SalesReturnPosting } from '../../domain/return/posting/sales-return-posting.js';
+apps/api lint:  39 | import { SalesReturn, SalesReturnId, SalesReturnPrimitives } from '../../domain/return/sales-return.entity.js';
+apps/api lint:     :                       ^^^^^^|^^^^^^
+apps/api lint:     :                             `-- 'SalesReturnId' is imported here
+apps/api lint:  40 | import { SalesReturnCriteria, SalesReturnRepository } from '../../domain/return/sales-return.repository.js';
+apps/api lint:     `----
+apps/api lint:   help: Consider removing this import.
+apps/api lint: 
+apps/api lint:   ! eslint(no-unused-vars): Identifier 'SalesReturnCriteria' is imported but never used.
+apps/api lint:     ,-[src/contexts/sales/infrastructure/testing/in-memory-sales-store.ts:40:10]
+apps/api lint:  39 | import { SalesReturn, SalesReturnId, SalesReturnPrimitives } from '../../domain/return/sales-return.entity.js';
+apps/api lint:  40 | import { SalesReturnCriteria, SalesReturnRepository } from '../../domain/return/sales-return.repository.js';
+apps/api lint:     :          ^^^^^^^^^|^^^^^^^^^
+apps/api lint:     :                   `-- 'SalesReturnCriteria' is imported here
+apps/api lint:  41 | import { Quantity } from '../../domain/shared/quantity.vo.js';
+apps/api lint:     `----
+apps/api lint:   help: Consider removing this import.
+apps/api lint: 
+apps/api lint:   ! eslint(no-unused-vars): Identifier 'GoodsReceiptId' is imported but never used.
+apps/api lint:     ,-[src/contexts/purchasing/infrastructure/testing/in-memory-purchase-invoice-posting.ts:26:10]
+apps/api lint:  25 | import { TenantId } from '../../domain/shared/tenant-id.vo.js';
+apps/api lint:  26 | import { GoodsReceiptId } from '../../domain/receipt/goods-receipt.entity.js';
+apps/api lint:     :          ^^^^^^^|^^^^^^
+apps/api lint:     :                 `-- 'GoodsReceiptId' is imported here
+apps/api lint:  27 | import { PurchaseOrder, PurchaseOrderId } from '../../domain/order/purchase-order.entity.js';
+apps/api lint:     `----
+apps/api lint:   help: Consider removing this import.
+apps/api lint: 
+apps/api lint:   ! eslint(no-unused-vars): Variable 'dispatchIds' is declared but never used. Unused variables should start with a '_'.
+apps/api lint:      ,-[src/contexts/sales/application/search-returns/sales-return-searcher.ts:107:11]
+apps/api lint:  106 | 
+apps/api lint:  107 |     const dispatchIds = [...new Set(rows.map((r) => r.dispatchId).filter((id): id is string => id !== null))];
+apps/api lint:      :           ^^^^^|^^^^^
+apps/api lint:      :                `-- 'dispatchIds' is declared here
+apps/api lint:  108 |     const customerIds = [...new Set(rows.map((r) => r.customerId))];
+apps/api lint:      `----
+apps/api lint:   help: Consider removing this declaration.
+apps/api lint: 
+apps/api lint:   ! eslint(no-unused-vars): Variable 'customerIds' is declared but never used. Unused variables should start with a '_'.
+apps/api lint:      ,-[src/contexts/sales/application/search-returns/sales-return-searcher.ts:108:11]
+apps/api lint:  107 |     const dispatchIds = [...new Set(rows.map((r) => r.dispatchId).filter((id): id is string => id !== null))];
+apps/api lint:  108 |     const customerIds = [...new Set(rows.map((r) => r.customerId))];
+apps/api lint:      :           ^^^^^|^^^^^
+apps/api lint:      :                `-- 'customerIds' is declared here
+apps/api lint:  109 |     const warehouseIds = [...new Set(rows.map((r) => r.warehouseId))];
+apps/api lint:      `----
+apps/api lint:   help: Consider removing this declaration.
+apps/api lint: 
+apps/api lint:   ! eslint(no-unused-vars): Identifier 'IssuePaymentCannotBeCancelledDirectlyError' is imported but never used.
+apps/api lint:     ,-[src/contexts/receivables/infrastructure/testing/in-memory-receivables-store.ts:16:3]
+apps/api lint:  15 |   InvoiceNotPayableError,
+apps/api lint:  16 |   IssuePaymentCannotBeCancelledDirectlyError,
+apps/api lint:     :   ^^^^^^^^^^^^^^^^^^^^^|^^^^^^^^^^^^^^^^^^^^
+apps/api lint:     :                        `-- 'IssuePaymentCannotBeCancelledDirectlyError' is imported here
+apps/api lint:  17 |   PaymentNotEditableError,
+apps/api lint:     `----
+apps/api lint:   help: Consider removing this import.
+apps/api lint: 
+apps/api lint:   ! eslint(no-unused-vars): Identifier 'DocumentCurrency' is imported but never used.
+apps/api lint:    ,-[src/contexts/sales/application/sales-return.spec.ts:3:10]
+apps/api lint:  2 | import { Clock } from '../../../shared/domain/ports/clock.js';
+apps/api lint:  3 | import { DocumentCurrency } from '../../../shared/domain/document-currency.js';
+apps/api lint:    :          ^^^^^^^^|^^^^^^^
+apps/api lint:    :                  `-- 'DocumentCurrency' is imported here
+apps/api lint:  4 | 
+apps/api lint:    `----
+apps/api lint:   help: Consider removing this import.
+apps/api lint: 
+apps/api lint:   ! eslint(no-unused-vars): Identifier 'CustomerId' is imported but never used.
+apps/api lint:    ,-[src/contexts/sales/application/sales-return.spec.ts:5:10]
+apps/api lint:  4 | 
+apps/api lint:  5 | import { CustomerId } from '../domain/customer/customer.entity.js';
+apps/api lint:    :          ^^^^^|^^^^
+apps/api lint:    :               `-- 'CustomerId' is imported here
+apps/api lint:  6 | import { CustomerRepository } from '../domain/customer/customer.repository.js';
+apps/api lint:    `----
+apps/api lint:   help: Consider removing this import.
+apps/api lint: 
+apps/api lint:   ! eslint(no-unused-vars): Identifier 'DispatchId' is imported but never used.
+apps/api lint:    ,-[src/contexts/sales/application/sales-return.spec.ts:7:20]
+apps/api lint:  6 | import { CustomerRepository } from '../domain/customer/customer.repository.js';
+apps/api lint:  7 | import { Dispatch, DispatchId } from '../domain/dispatch/dispatch.entity.js';
+apps/api lint:    :                    ^^^^^|^^^^
+apps/api lint:    :                         `-- 'DispatchId' is imported here
+apps/api lint:  8 | import { DispatchRepository } from '../domain/dispatch/dispatch.repository.js';
+apps/api lint:    `----
+apps/api lint:   help: Consider removing this import.
+apps/api lint: 
+apps/api lint:   ! eslint(no-unused-vars): Identifier 'DispatchNotFoundError' is imported but never used.
+apps/api lint:     ,-[src/contexts/sales/application/sales-return.spec.ts:10:3]
+apps/api lint:   9 | import {
+apps/api lint:  10 |   DispatchNotFoundError,
+apps/api lint:     :   ^^^^^^^^^^|^^^^^^^^^^
+apps/api lint:     :             `-- 'DispatchNotFoundError' is imported here
+apps/api lint:  11 |   DispatchNotReturnableError,
+apps/api lint:     `----
+apps/api lint:   help: Consider removing this import.
+apps/api lint: 
+apps/api lint:   ! eslint(no-unused-vars): Identifier 'InvoiceNotPayableError' is imported but never used.
+apps/api lint:    ,-[src/contexts/payables/application/payables-cycle.spec.ts:3:3]
+apps/api lint:  2 | import {
+apps/api lint:  3 |   InvoiceNotPayableError,
+apps/api lint:    :   ^^^^^^^^^^^|^^^^^^^^^^
+apps/api lint:    :              `-- 'InvoiceNotPayableError' is imported here
+apps/api lint:  4 |   InvoiceOfAnotherSupplierError,
+apps/api lint:    `----
+apps/api lint:   help: Consider removing this import.
+apps/api lint: 
+apps/api lint:   ! eslint(no-unused-vars): Identifier 'PaymentNotFoundError' is imported but never used.
+apps/api lint:    ,-[src/contexts/payables/application/payables-cycle.spec.ts:7:3]
+apps/api lint:  6 |   PaymentNotEditableError,
+apps/api lint:  7 |   PaymentNotFoundError,
+apps/api lint:    :   ^^^^^^^^^^|^^^^^^^^^
+apps/api lint:    :             `-- 'PaymentNotFoundError' is imported here
+apps/api lint:  8 |   PayableSupplierNotFoundError,
+apps/api lint:    `----
+apps/api lint:   help: Consider removing this import.
+apps/api lint: 
+apps/api lint:   ! eslint(no-unused-vars): Identifier 'PaymentAlreadyCancelledError' is imported but never used.
+apps/api lint:    ,-[src/contexts/payables/testing/payables-ports.contract.ts:5:3]
+apps/api lint:  4 |   InvoiceOfAnotherSupplierError,
+apps/api lint:  5 |   PaymentAlreadyCancelledError,
+apps/api lint:    :   ^^^^^^^^^^^^^^|^^^^^^^^^^^^^
+apps/api lint:    :                 `-- 'PaymentAlreadyCancelledError' is imported here
+apps/api lint:  6 |   PaymentExceedsBalanceError,
+apps/api lint:    `----
+apps/api lint:   help: Consider removing this import.
+apps/api lint: 
+apps/api lint:   ! eslint(no-unused-vars): Identifier 'PaymentNotEditableError' is imported but never used.
+apps/api lint:    ,-[src/contexts/payables/testing/payables-ports.contract.ts:7:3]
+apps/api lint:  6 |   PaymentExceedsBalanceError,
+apps/api lint:  7 |   PaymentNotEditableError,
+apps/api lint:    :   ^^^^^^^^^^^|^^^^^^^^^^^
+apps/api lint:    :              `-- 'PaymentNotEditableError' is imported here
+apps/api lint:  8 |   PaymentNotFoundError,
+apps/api lint:    `----
+apps/api lint:   help: Consider removing this import.
+apps/api lint: 
+apps/api lint:   ! eslint(no-unused-vars): Identifier 'PaymentNotFoundError' is imported but never used.
+apps/api lint:    ,-[src/contexts/payables/testing/payables-ports.contract.ts:8:3]
+apps/api lint:  7 |   PaymentNotEditableError,
+apps/api lint:  8 |   PaymentNotFoundError,
+apps/api lint:    :   ^^^^^^^^^^|^^^^^^^^^
+apps/api lint:    :             `-- 'PaymentNotFoundError' is imported here
+apps/api lint:  9 | } from '../domain/errors/payables.errors.js';
+apps/api lint:    `----
+apps/api lint:   help: Consider removing this import.
+apps/api lint: 
+apps/api lint:   ! eslint(no-unused-vars): Identifier 'INVOICE' is imported but never used.
+apps/api lint:     ,-[src/contexts/payables/domain/payment/supplier-payment.entity.spec.ts:22:3]
+apps/api lint:  21 | import {
+apps/api lint:  22 |   INVOICE,
+apps/api lint:     :   ^^^|^^^
+apps/api lint:     :      `-- 'INVOICE' is imported here
+apps/api lint:  23 |   NOW,
+apps/api lint:     `----
+apps/api lint:   help: Consider removing this import.
+apps/api lint: 
+apps/api lint:   ! eslint(no-unused-vars): Identifier 'PaymentAlreadyCancelledError' is imported but never used.
+apps/api lint:    ,-[src/contexts/payables/infrastructure/testing/in-memory-payables-store.ts:3:3]
+apps/api lint:  2 | import {
+apps/api lint:  3 |   PaymentAlreadyCancelledError,
+apps/api lint:    :   ^^^^^^^^^^^^^^|^^^^^^^^^^^^^
+apps/api lint:    :                 `-- 'PaymentAlreadyCancelledError' is imported here
+apps/api lint:  4 |   PaymentNotEditableError,
+apps/api lint:    `----
+apps/api lint:   help: Consider removing this import.
+apps/api lint: 
+apps/api lint:   ! eslint(no-unused-vars): Identifier 'PaymentNotEditableError' is imported but never used.
+apps/api lint:    ,-[src/contexts/payables/infrastructure/testing/in-memory-payables-store.ts:4:3]
+apps/api lint:  3 |   PaymentAlreadyCancelledError,
+apps/api lint:  4 |   PaymentNotEditableError,
+apps/api lint:    :   ^^^^^^^^^^^|^^^^^^^^^^^
+apps/api lint:    :              `-- 'PaymentNotEditableError' is imported here
+apps/api lint:  5 |   PaymentNotFoundError,
+apps/api lint:    `----
+apps/api lint:   help: Consider removing this import.
+apps/api lint: 
+apps/api lint:   ! eslint(no-unused-vars): Parameter '_' is declared but never used.
+apps/api lint:     ,-[src/contexts/payables/infrastructure/testing/in-memory-payables-store.ts:56:29]
+apps/api lint:  55 |           .filter((row) => !text || row.code.toLowerCase().includes(text) || row.name.toLowerCase().includes(text))
+apps/api lint:  56 |           .map(({ tenantId: _, ...supplier }) => supplier);
+apps/api lint:     :                             |
+apps/api lint:     :                             `-- '_' is declared here
+apps/api lint:  57 |       },
+apps/api lint:     `----
+apps/api lint:   help: Consider removing this parameter.
+apps/api lint: 
+apps/api lint:   ! eslint(no-unused-vars): Identifier 'GoodsReceiptFinder' is imported but never used.
+apps/api lint:    ,-[src/contexts/purchasing/application/search-returns/purchase-return-searcher.ts:2:10]
+apps/api lint:  1 | import { PurchasingCatalog } from '../../domain/catalog/purchasing-catalog.js';
+apps/api lint:  2 | import { GoodsReceiptFinder } from '../../domain/receipt/find/goods-receipt-finder.js';
+apps/api lint:    :          ^^^^^^^^^|^^^^^^^^
+apps/api lint:    :                   `-- 'GoodsReceiptFinder' is imported here
+apps/api lint:  3 | import { GoodsReceiptId } from '../../domain/receipt/goods-receipt.entity.js';
+apps/api lint:    `----
+apps/api lint:   help: Consider removing this import.
+apps/api lint: 
+apps/api lint:   ! eslint(no-unused-vars): Identifier 'PurchaseWarehouseNotFoundError' is imported but never used.
+apps/api lint:    ,-[src/contexts/purchasing/application/search-returns/purchase-return-searcher.ts:8:3]
+apps/api lint:  7 |   PurchaseReturnNotFoundError,
+apps/api lint:  8 |   PurchaseWarehouseNotFoundError,
+apps/api lint:    :   ^^^^^^^^^^^^^^^|^^^^^^^^^^^^^^
+apps/api lint:    :                  `-- 'PurchaseWarehouseNotFoundError' is imported here
+apps/api lint:  9 |   SupplierNotFoundError,
+apps/api lint:    `----
+apps/api lint:   help: Consider removing this import.
+apps/api lint: 
+apps/api lint:   ! eslint(no-unused-vars): Identifier 'SupplierFinder' is imported but never used.
+apps/api lint:     ,-[src/contexts/purchasing/application/search-returns/purchase-return-searcher.ts:13:10]
+apps/api lint:  12 | import { PurchaseReturnRepository } from '../../domain/return/purchase-return.repository.js';
+apps/api lint:  13 | import { SupplierFinder } from '../../domain/supplier/find/supplier-finder.js';
+apps/api lint:     :          ^^^^^^^|^^^^^^
+apps/api lint:     :                 `-- 'SupplierFinder' is imported here
+apps/api lint:  14 | import { SupplierId } from '../../domain/supplier/supplier.entity.js';
+apps/api lint:     `----
+apps/api lint:   help: Consider removing this import.
+apps/api lint: 
+apps/api lint:   ! eslint(no-unused-vars): Identifier 'GoodsReceiptId' is imported but never used.
+apps/api lint:    ,-[src/contexts/purchasing/application/three-way-match/three-way-matcher.ts:4:10]
+apps/api lint:  3 | import { GoodsReceiptRepository } from '../../domain/receipt/goods-receipt.repository.js';
+apps/api lint:  4 | import { GoodsReceiptId } from '../../domain/receipt/goods-receipt.entity.js';
+apps/api lint:    :          ^^^^^^^|^^^^^^
+apps/api lint:    :                 `-- 'GoodsReceiptId' is imported here
+apps/api lint:  5 | import { PurchaseOrderRepository } from '../../domain/order/purchase-order.repository.js';
+apps/api lint:    `----
+apps/api lint:   help: Consider removing this import.
+apps/api lint: 
+apps/api lint:   ! eslint(no-unused-vars): Identifier 'PurchaseOrderId' is imported but never used.
+apps/api lint:    ,-[src/contexts/purchasing/application/three-way-match/three-way-matcher.ts:6:10]
+apps/api lint:  5 | import { PurchaseOrderRepository } from '../../domain/order/purchase-order.repository.js';
+apps/api lint:  6 | import { PurchaseOrderId } from '../../domain/order/purchase-order.entity.js';
+apps/api lint:    :          ^^^^^^^|^^^^^^^
+apps/api lint:    :                 `-- 'PurchaseOrderId' is imported here
+apps/api lint:  7 | import { PurchaseReturnRepository } from '../../domain/return/purchase-return.repository.js';
+apps/api lint:    `----
+apps/api lint:   help: Consider removing this import.
+apps/api lint: 
+apps/api lint:   ! eslint(no-unused-vars): Identifier 'InactiveSupplierError' is imported but never used.
+apps/api lint:    ,-[src/contexts/purchasing/application/purchase-invoice.spec.ts:8:3]
+apps/api lint:  7 |   DuplicateSupplierInvoiceNumberError,
+apps/api lint:  8 |   InactiveSupplierError,
+apps/api lint:    :   ^^^^^^^^^^|^^^^^^^^^^
+apps/api lint:    :             `-- 'InactiveSupplierError' is imported here
+apps/api lint:  9 |   InvoiceLinesFromDifferentSupplierError,
+apps/api lint:    `----
+apps/api lint:   help: Consider removing this import.
+apps/api lint: 
+apps/api lint:   ! eslint(no-unused-vars): Identifier 'InvoiceLinesFromDifferentSupplierError' is imported but never used.
+apps/api lint:     ,-[src/contexts/purchasing/application/purchase-invoice.spec.ts:9:3]
+apps/api lint:   8 |   InactiveSupplierError,
+apps/api lint:   9 |   InvoiceLinesFromDifferentSupplierError,
+apps/api lint:     :   ^^^^^^^^^^^^^^^^^^^|^^^^^^^^^^^^^^^^^^
+apps/api lint:     :                      `-- 'InvoiceLinesFromDifferentSupplierError' is imported here
+apps/api lint:  10 |   InvoiceQuantityExceedsOrderServiceError,
+apps/api lint:     `----
+apps/api lint:   help: Consider removing this import.
+apps/api lint: 
+apps/api lint:   ! eslint(no-unused-vars): Identifier 'InvoiceReceiptNotConfirmedError' is imported but never used.
+apps/api lint:     ,-[src/contexts/purchasing/application/purchase-invoice.spec.ts:12:3]
+apps/api lint:  11 |   InvoiceQuantityExceedsReceiptError,
+apps/api lint:  12 |   InvoiceReceiptNotConfirmedError,
+apps/api lint:     :   ^^^^^^^^^^^^^^^|^^^^^^^^^^^^^^^
+apps/api lint:     :                  `-- 'InvoiceReceiptNotConfirmedError' is imported here
+apps/api lint:  13 |   PurchaseInvoiceAlreadyCancelledError,
+apps/api lint:     `----
+apps/api lint:   help: Consider removing this import.
+apps/api lint: 
+apps/api lint:   ! eslint(no-unused-vars): Identifier 'PurchaseInvoiceAlreadyCancelledError' is imported but never used.
+apps/api lint:     ,-[src/contexts/purchasing/application/purchase-invoice.spec.ts:13:3]
+apps/api lint:  12 |   InvoiceReceiptNotConfirmedError,
+apps/api lint:  13 |   PurchaseInvoiceAlreadyCancelledError,
+apps/api lint:     :   ^^^^^^^^^^^^^^^^^^|^^^^^^^^^^^^^^^^^
+apps/api lint:     :                     `-- 'PurchaseInvoiceAlreadyCancelledError' is imported here
+apps/api lint:  14 |   PurchaseInvoiceNotConfirmableError,
+apps/api lint:     `----
+apps/api lint:   help: Consider removing this import.
+apps/api lint: 
+apps/api lint:   ! eslint(no-unused-vars): Identifier 'PurchaseInvoiceNotConfirmableError' is imported but never used.
+apps/api lint:     ,-[src/contexts/purchasing/application/purchase-invoice.spec.ts:14:3]
+apps/api lint:  13 |   PurchaseInvoiceAlreadyCancelledError,
+apps/api lint:  14 |   PurchaseInvoiceNotConfirmableError,
+apps/api lint:     :   ^^^^^^^^^^^^^^^^^|^^^^^^^^^^^^^^^^
+apps/api lint:     :                    `-- 'PurchaseInvoiceNotConfirmableError' is imported here
+apps/api lint:  15 |   PurchaseInvoiceNotEditableError,
+apps/api lint:     `----
+apps/api lint:   help: Consider removing this import.
+apps/api lint: 
+apps/api lint:   ! eslint(no-unused-vars): Identifier 'PurchaseInvoiceNotEditableError' is imported but never used.
+apps/api lint:     ,-[src/contexts/purchasing/application/purchase-invoice.spec.ts:15:3]
+apps/api lint:  14 |   PurchaseInvoiceNotConfirmableError,
+apps/api lint:  15 |   PurchaseInvoiceNotEditableError,
+apps/api lint:     :   ^^^^^^^^^^^^^^^|^^^^^^^^^^^^^^^
+apps/api lint:     :                  `-- 'PurchaseInvoiceNotEditableError' is imported here
+apps/api lint:  16 |   PurchaseInvoiceNotFoundError,
+apps/api lint:     `----
+apps/api lint:   help: Consider removing this import.
+apps/api lint: 
+apps/api lint:   ! eslint(no-unused-vars): Identifier 'PurchaseInvoiceNotFoundError' is imported but never used.
+apps/api lint:     ,-[src/contexts/purchasing/application/purchase-invoice.spec.ts:16:3]
+apps/api lint:  15 |   PurchaseInvoiceNotEditableError,
+apps/api lint:  16 |   PurchaseInvoiceNotFoundError,
+apps/api lint:     :   ^^^^^^^^^^^^^^|^^^^^^^^^^^^^
+apps/api lint:     :                 `-- 'PurchaseInvoiceNotFoundError' is imported here
+apps/api lint:  17 | } from '../domain/errors/purchasing.errors.js';
+apps/api lint:     `----
+apps/api lint:   help: Consider removing this import.
+apps/api lint: 
+apps/api lint:   ! eslint(no-unused-vars): Identifier 'PurchaseInvoiceId' is imported but never used.
+apps/api lint:     ,-[src/contexts/purchasing/application/purchase-invoice.spec.ts:19:10]
+apps/api lint:  18 | import { PurchaseInvoiceReferences } from '../domain/invoice/lines/purchase-invoice-references.js';
+apps/api lint:  19 | import { PurchaseInvoiceId } from '../domain/invoice/purchase-invoice.entity.js';
+apps/api lint:     :          ^^^^^^^^|^^^^^^^^
+apps/api lint:     :                  `-- 'PurchaseInvoiceId' is imported here
+apps/api lint:  20 | import { PurchasingCodePrefix, PurchasingCodeSequence } from '../domain/shared/code-sequence.js';
+apps/api lint:     `----
+apps/api lint:   help: Consider removing this import.
+apps/api lint: 
+apps/api lint:   ! eslint(no-unused-vars): Variable 'updater' is declared but never used. Unused variables should start with a '_'.
+apps/api lint:      ,-[src/contexts/purchasing/application/purchase-invoice.spec.ts:233:9]
+apps/api lint:  232 |   const creator = new PurchaseInvoiceCreator(supplierFinder, references, invoices, codes, ids, clock, calendar, rates);
+apps/api lint:  233 |   const updater = new PurchaseInvoiceUpdater(supplierFinder, references, invoices, clock, calendar, rates);
+apps/api lint:      :         ^^^|^^^
+apps/api lint:      :            `-- 'updater' is declared here
+apps/api lint:  234 |   const confirmer = new PurchaseInvoiceConfirmer(posting, clock);
+apps/api lint:      `----
+apps/api lint:   help: Consider removing this declaration.
+apps/api lint: 
+apps/api lint:   ! eslint(no-unused-vars): Variable 'finder' is declared but never used. Unused variables should start with a '_'.
+apps/api lint:      ,-[src/contexts/purchasing/application/purchase-invoice.spec.ts:236:9]
+apps/api lint:  235 |   const canceller = new PurchaseInvoiceCanceller(posting, clock);
+apps/api lint:  236 |   const finder = new PurchaseInvoiceFinder(invoices);
+apps/api lint:      :         ^^^|^^
+apps/api lint:      :            `-- 'finder' is declared here
+apps/api lint:  237 |   const searcher = new PurchaseInvoiceSearcher(invoices);
+apps/api lint:      `----
+apps/api lint:   help: Consider removing this declaration.
+apps/api lint: 
+apps/api lint:   ! eslint(no-unused-vars): Variable 'searcher' is declared but never used. Unused variables should start with a '_'.
+apps/api lint:      ,-[src/contexts/purchasing/application/purchase-invoice.spec.ts:237:9]
+apps/api lint:  236 |   const finder = new PurchaseInvoiceFinder(invoices);
+apps/api lint:  237 |   const searcher = new PurchaseInvoiceSearcher(invoices);
+apps/api lint:      :         ^^^^|^^^
+apps/api lint:      :             `-- 'searcher' is declared here
+apps/api lint:  238 | 
+apps/api lint:      `----
+apps/api lint:   help: Consider removing this declaration.
+apps/api lint: 
+apps/api lint: Found 37 warnings and 0 errors.
+apps/api lint: Finished in 97ms on 1115 files with 96 rules using 4 threads.
+apps/api lint: Done
+apps/web lint: Done
+==> 3/6 typecheck
+pnpm typecheck
+$ pnpm -r --if-present typecheck
+apps/e2e typecheck$ tsc --noEmit
+apps/web typecheck$ next typegen && tsc --noEmit
+apps/api typecheck$ tsc --noEmit -p tsconfig.json
+apps/web typecheck: Generating route types...
+apps/web typecheck: ✓ Types generated successfully
+apps/e2e typecheck: Done
+apps/web typecheck: Done
+apps/api typecheck: Done
+==> 4/6 unit
+pnpm test:unit
+$ pnpm --filter api test && pnpm --filter web test
+$ vitest run
+
+ RUN  v4.1.11 /home/medine01/dev/erp-portafolio/apps/api
+
+ ✓ src/architecture.spec.ts (985 tests) 326ms
+ ✓ src/contexts/access/infrastructure/security/argon2-password-hasher.spec.ts (8 tests) 688ms
+     ✓ takes as long to reject a missing account as a real one  350ms
+ ✓ src/contexts/reporting/infrastructure/rendering/report-renderer.spec.ts (11 tests) 251ms
+ ✓ src/contexts/purchasing/infrastructure/testing/in-memory-purchasing-ports.contract.spec.ts (42 tests) 147ms
+ ✓ src/contexts/inventory/infrastructure/testing/in-memory-item-ports.contract.spec.ts (28 tests) 98ms
+ ✓ src/contexts/catalog/infrastructure/testing/in-memory-catalog-repositories.contract.spec.ts (44 tests) 87ms
+ ✓ src/contexts/purchasing/application/purchase-cycle.spec.ts (33 tests) 147ms
+ ✓ src/contexts/inventory/infrastructure/testing/in-memory-inventory-ports.contract.spec.ts (34 tests) 89ms
+ ✓ src/contexts/sales/application/services-in-documents.spec.ts (10 tests) 79ms
+ ✓ src/contexts/sales/infrastructure/testing/in-memory-sales-ports.contract.spec.ts (33 tests) 139ms
+ ✓ src/contexts/sales/application/sales-cycle.spec.ts (31 tests) 164ms
+ ✓ src/contexts/access/infrastructure/testing/in-memory-access-repositories.contract.spec.ts (44 tests) 247ms
+ ✓ src/contexts/inventory/application/adjustment-lifecycle.spec.ts (23 tests) 102ms
+ ✓ src/contexts/receivables/infrastructure/testing/in-memory-receivables-ports.contract.spec.ts (34 tests) 106ms
+ ❯ src/contexts/access/infrastructure/http/route-declaration.spec.ts (150 tests | 1 failed) 63ms
+     ✓ finds controllers to check 3ms
+     ✓ contexts/access/infrastructure/http/assign-role-post.controller.ts declares a permission, authentication or public access on every route 1ms
+     ✓ contexts/access/infrastructure/http/change-email-put.controller.ts declares a permission, authentication or public access on every route 0ms
+     ✓ contexts/access/infrastructure/http/change-membership-status-put.controller.ts declares a permission, authentication or public access on every route 0ms
+     ✓ contexts/access/infrastructure/http/change-password-put.controller.ts declares a permission, authentication or public access on every route 0ms
+     ✓ contexts/access/infrastructure/http/create-role-post.controller.ts declares a permission, authentication or public access on every route 0ms
+     ✓ contexts/access/infrastructure/http/create-user-post.controller.ts declares a permission, authentication or public access on every route 0ms
+     ✓ contexts/access/infrastructure/http/login-post.controller.ts declares a permission, authentication or public access on every route 0ms
+     ✓ contexts/access/infrastructure/http/revoke-role-delete.controller.ts declares a permission, authentication or public access on every route 1ms
+     ✓ contexts/access/infrastructure/http/search-permissions-get.controller.ts declares a permission, authentication or public access on every route 0ms
+     ✓ contexts/access/infrastructure/http/search-roles-get.controller.ts declares a permission, authentication or public access on every route 0ms
+     ✓ contexts/access/infrastructure/http/search-users-get.controller.ts declares a permission, authentication or public access on every route 0ms
+     ✓ contexts/access/infrastructure/http/session-get.controller.ts declares a permission, authentication or public access on every route 0ms
+     ✓ contexts/access/infrastructure/http/switch-tenant-post.controller.ts declares a permission, authentication or public access on every route 0ms
+     ✓ contexts/access/infrastructure/http/update-profile-put.controller.ts declares a permission, authentication or public access on every route 0ms
+     ✓ contexts/access/infrastructure/http/update-role-put.controller.ts declares a permission, authentication or public access on every route 0ms
+     ✓ contexts/access/infrastructure/http/update-tenant-user-put.controller.ts declares a permission, authentication or public access on every route 0ms
+     ✓ contexts/catalog/infrastructure/http/change-category-status-put.controller.ts declares a permission, authentication or public access on every route 0ms
+     ✓ contexts/catalog/infrastructure/http/change-measurement-unit-status-put.controller.ts declares a permission, authentication or public access on every route 0ms
+     ✓ contexts/catalog/infrastructure/http/change-price-list-status-put.controller.ts declares a permission, authentication or public access on every route 0ms
+     ✓ contexts/catalog/infrastructure/http/change-tax-status-put.controller.ts declares a permission, authentication or public access on every route 0ms
+     ✓ contexts/catalog/infrastructure/http/change-warehouse-status-put.controller.ts declares a permission, authentication or public access on every route 0ms
+     ✓ contexts/catalog/infrastructure/http/create-category-post.controller.ts declares a permission, authentication or public access on every route 0ms
+     ✓ contexts/catalog/infrastructure/http/create-measurement-unit-post.controller.ts declares a permission, authentication or public access on every route 0ms
+     ✓ contexts/catalog/infrastructure/http/create-price-list-post.controller.ts declares a permission, authentication or public access on every route 3ms
+     ✓ contexts/catalog/infrastructure/http/create-tax-post.controller.ts declares a permission, authentication or public access on every route 0ms
+     ✓ contexts/catalog/infrastructure/http/create-warehouse-post.controller.ts declares a permission, authentication or public access on every route 0ms
+     ✓ contexts/catalog/infrastructure/http/search-categories-get.controller.ts declares a permission, authentication or public access on every route 0ms
+     ✓ contexts/catalog/infrastructure/http/search-measurement-units-get.controller.ts declares a permission, authentication or public access on every route 0ms
+     ✓ contexts/catalog/infrastructure/http/search-price-lists-get.controller.ts declares a permission, authentication or public access on every route 0ms
+     ✓ contexts/catalog/infrastructure/http/search-taxes-get.controller.ts declares a permission, authentication or public access on every route 0ms
+     ✓ contexts/catalog/infrastructure/http/search-warehouses-get.controller.ts declares a permission, authentication or public access on every route 0ms
+     ✓ contexts/catalog/infrastructure/http/set-default-price-list-put.controller.ts declares a permission, authentication or public access on every route 0ms
+     ✓ contexts/catalog/infrastructure/http/set-default-warehouse-put.controller.ts declares a permission, authentication or public access on every route 0ms
+     ✓ contexts/catalog/infrastructure/http/update-category-put.controller.ts declares a permission, authentication or public access on every route 0ms
+     ✓ contexts/catalog/infrastructure/http/update-measurement-unit-put.controller.ts declares a permission, authentication or public access on every route 0ms
+     ✓ contexts/catalog/infrastructure/http/update-price-list-put.controller.ts declares a permission, authentication or public access on every route 0ms
+     ✓ contexts/catalog/infrastructure/http/update-tax-put.controller.ts declares a permission, authentication or public access on every route 0ms
+     ✓ contexts/catalog/infrastructure/http/update-warehouse-put.controller.ts declares a permission, authentication or public access on every route 0ms
+     ✓ contexts/company/infrastructure/http/change-exchange-rate-status-put.controller.ts declares a permission, authentication or public access on every route 0ms
+     ✓ contexts/company/infrastructure/http/record-exchange-rate-put.controller.ts declares a permission, authentication or public access on every route 0ms
+     ✓ contexts/company/infrastructure/http/search-company-profile-get.controller.ts declares a permission, authentication or public access on every route 0ms
+     ✓ contexts/company/infrastructure/http/search-company-settings-get.controller.ts declares a permission, authentication or public access on every route 0ms
+     ✓ contexts/company/infrastructure/http/search-currencies-get.controller.ts declares a permission, authentication or public access on every route 0ms
+     ✓ contexts/company/infrastructure/http/search-exchange-rates-get.controller.ts declares a permission, authentication or public access on every route 0ms
+     ✓ contexts/company/infrastructure/http/update-company-profile-put.controller.ts declares a permission, authentication or public access on every route 0ms
+     ✓ contexts/company/infrastructure/http/update-company-settings-put.controller.ts declares a permission, authentication or public access on every route 0ms
+     ✓ contexts/inventory/infrastructure/http/cancel-adjustment-put.controller.ts declares a permission, authentication or public access on every route 0ms
+     ✓ contexts/inventory/infrastructure/http/change-item-status-put.controller.ts declares a permission, authentication or public access on every route 0ms
+     ✓ contexts/inventory/infrastructure/http/confirm-adjustment-put.controller.ts declares a permission, authentication or public access on every route 0ms
+     ✓ contexts/inventory/infrastructure/http/create-adjustment-post.controller.ts declares a permission, authentication or public access on every route 0ms
+     ✓ contexts/inventory/infrastructure/http/create-item-post.controller.ts declares a permission, authentication or public access on every route 0ms
+     ✓ contexts/inventory/infrastructure/http/search-adjustments-get.controller.ts declares a permission, authentication or public access on every route 0ms
+     ✓ contexts/inventory/infrastructure/http/search-items-get.controller.ts declares a permission, authentication or public access on every route 0ms
+     ✓ contexts/inventory/infrastructure/http/search-low-stock-get.controller.ts declares a permission, authentication or public access on every route 0ms
+     ✓ contexts/inventory/infrastructure/http/search-movements-get.controller.ts declares a permission, authentication or public access on every route 0ms
+     ✓ contexts/inventory/infrastructure/http/search-stock-get.controller.ts declares a permission, authentication or public access on every route 0ms
+     ✓ contexts/inventory/infrastructure/http/update-adjustment-put.controller.ts declares a permission, authentication or public access on every route 0ms
+     ✓ contexts/inventory/infrastructure/http/update-item-put.controller.ts declares a permission, authentication or public access on every route 0ms
+     ✓ contexts/payables/infrastructure/http/cancel-payment-put.controller.ts declares a permission, authentication or public access on every route 0ms
+     ✓ contexts/payables/infrastructure/http/confirm-payment-put.controller.ts declares a permission, authentication or public access on every route 0ms
+     ✓ contexts/payables/infrastructure/http/create-payment-post.controller.ts declares a permission, authentication or public access on every route 0ms
+     ✓ contexts/payables/infrastructure/http/search-payable-invoices-get.controller.ts declares a permission, authentication or public access on every route 0ms
+     ✓ contexts/payables/infrastructure/http/search-payments-get.controller.ts declares a permission, authentication or public access on every route 0ms
+     ✓ contexts/payables/infrastructure/http/search-supplier-balances-get.controller.ts declares a permission, authentication or public access on every route 0ms
+     ✓ contexts/payables/infrastructure/http/search-supplier-statement-get.controller.ts declares a permission, authentication or public access on every route 0ms
+     ✓ contexts/payables/infrastructure/http/update-payment-put.controller.ts declares a permission, authentication or public access on every route 0ms
+     ✓ contexts/purchasing/infrastructure/http/cancel-goods-receipt-put.controller.ts declares a permission, authentication or public access on every route 0ms
+     ✓ contexts/purchasing/infrastructure/http/cancel-purchase-invoice-put.controller.ts declares a permission, authentication or public access on every route 0ms
+     ✓ contexts/purchasing/infrastructure/http/cancel-purchase-order-put.controller.ts declares a permission, authentication or public access on every route 0ms
+     ✓ contexts/purchasing/infrastructure/http/cancel-purchase-return-put.controller.ts declares a permission, authentication or public access on every route 0ms
+     ✓ contexts/purchasing/infrastructure/http/change-supplier-status-put.controller.ts declares a permission, authentication or public access on every route 0ms
+     ✓ contexts/purchasing/infrastructure/http/confirm-goods-receipt-put.controller.ts declares a permission, authentication or public access on every route 0ms
+     ✓ contexts/purchasing/infrastructure/http/confirm-purchase-invoice-put.controller.ts declares a permission, authentication or public access on every route 0ms
+     ✓ contexts/purchasing/infrastructure/http/confirm-purchase-order-put.controller.ts declares a permission, authentication or public access on every route 0ms
+     ✓ contexts/purchasing/infrastructure/http/confirm-purchase-return-put.controller.ts declares a permission, authentication or public access on every route 0ms
+     ✓ contexts/purchasing/infrastructure/http/create-goods-receipt-post.controller.ts declares a permission, authentication or public access on every route 0ms
+     ✓ contexts/purchasing/infrastructure/http/create-purchase-invoice-post.controller.ts declares a permission, authentication or public access on every route 0ms
+     ✓ contexts/purchasing/infrastructure/http/create-purchase-order-post.controller.ts declares a permission, authentication or public access on every route 0ms
+     ✓ contexts/purchasing/infrastructure/http/create-purchase-return-post.controller.ts declares a permission, authentication or public access on every route 0ms
+     ✓ contexts/purchasing/infrastructure/http/create-supplier-post.controller.ts declares a permission, authentication or public access on every route 0ms
+     ✓ contexts/purchasing/infrastructure/http/find-purchase-invoice-get.controller.ts declares a permission, authentication or public access on every route 0ms
+     ✓ contexts/purchasing/infrastructure/http/get-receipt-return-quota-get.controller.ts declares a permission, authentication or public access on every route 0ms
+     ✓ contexts/purchasing/infrastructure/http/search-goods-receipts-get.controller.ts declares a permission, authentication or public access on every route 0ms
+     ✓ contexts/purchasing/infrastructure/http/search-incoming-stock-get.controller.ts declares a permission, authentication or public access on every route 0ms
+     ✓ contexts/purchasing/infrastructure/http/search-purchase-invoices-get.controller.ts declares a permission, authentication or public access on every route 0ms
+     ✓ contexts/purchasing/infrastructure/http/search-purchase-orders-get.controller.ts declares a permission, authentication or public access on every route 0ms
+     ✓ contexts/purchasing/infrastructure/http/search-purchase-returns-get.controller.ts declares a permission, authentication or public access on every route 0ms
+     ✓ contexts/purchasing/infrastructure/http/search-suppliers-get.controller.ts declares a permission, authentication or public access on every route 0ms
+     ✓ contexts/purchasing/infrastructure/http/three-way-match-get.controller.ts declares a permission, authentication or public access on every route 0ms
+     ✓ contexts/purchasing/infrastructure/http/update-goods-receipt-put.controller.ts declares a permission, authentication or public access on every route 0ms
+     ✓ contexts/purchasing/infrastructure/http/update-purchase-invoice-put.controller.ts declares a permission, authentication or public access on every route 0ms
+     ✓ contexts/purchasing/infrastructure/http/update-purchase-order-put.controller.ts declares a permission, authentication or public access on every route 0ms
+     ✓ contexts/purchasing/infrastructure/http/update-purchase-return-put.controller.ts declares a permission, authentication or public access on every route 0ms
+     ✓ contexts/purchasing/infrastructure/http/update-supplier-put.controller.ts declares a permission, authentication or public access on every route 0ms
+     ✓ contexts/receivables/infrastructure/http/cancel-credit-note-put.controller.ts declares a permission, authentication or public access on every route 0ms
+     ✓ contexts/receivables/infrastructure/http/cancel-payment-put.controller.ts declares a permission, authentication or public access on every route 0ms
+     ✓ contexts/receivables/infrastructure/http/confirm-credit-note-put.controller.ts declares a permission, authentication or public access on every route 0ms
+     ✓ contexts/receivables/infrastructure/http/confirm-payment-put.controller.ts declares a permission, authentication or public access on every route 0ms
+     ✓ contexts/receivables/infrastructure/http/create-credit-note-post.controller.ts declares a permission, authentication or public access on every route 0ms
+     ✓ contexts/receivables/infrastructure/http/create-payment-post.controller.ts declares a permission, authentication or public access on every route 0ms
+     ✓ contexts/receivables/infrastructure/http/customer-available-credits-get.controller.ts declares a permission, authentication or public access on every route 0ms
+     ✓ contexts/receivables/infrastructure/http/find-credit-note-get.controller.ts declares a permission, authentication or public access on every route 0ms
+     ✓ contexts/receivables/infrastructure/http/search-credit-notes-get.controller.ts declares a permission, authentication or public access on every route 0ms
+     ✓ contexts/receivables/infrastructure/http/search-customer-balances-get.controller.ts declares a permission, authentication or public access on every route 0ms
+     ✓ contexts/receivables/infrastructure/http/search-customer-statement-get.controller.ts declares a permission, authentication or public access on every route 0ms
+     ✓ contexts/receivables/infrastructure/http/search-payments-get.controller.ts declares a permission, authentication or public access on every route 0ms
+     ✓ contexts/receivables/infrastructure/http/search-receivables-get.controller.ts declares a permission, authentication or public access on every route 0ms
+     ✓ contexts/receivables/infrastructure/http/update-credit-note-put.controller.ts declares a permission, authentication or public access on every route 0ms
+     ✓ contexts/receivables/infrastructure/http/update-payment-put.controller.ts declares a permission, authentication or public access on every route 0ms
+     ✓ contexts/reporting/infrastructure/http/customer-statement-get.controller.ts declares a permission, authentication or public access on every route 0ms
+     ✓ contexts/reporting/infrastructure/http/export-customer-statement-get.controller.ts declares a permission, authentication or public access on every route 0ms
+     ✓ contexts/reporting/infrastructure/http/export-inventory-valuation-get.controller.ts declares a permission, authentication or public access on every route 0ms
+     ✓ contexts/reporting/infrastructure/http/export-receivables-aging-get.controller.ts declares a permission, authentication or public access on every route 1ms
+     ✓ contexts/reporting/infrastructure/http/export-sales-by-customer-get.controller.ts declares a permission, authentication or public access on every route 0ms
+     ✓ contexts/reporting/infrastructure/http/inventory-valuation-get.controller.ts declares a permission, authentication or public access on every route 0ms
+     ✓ contexts/reporting/infrastructure/http/receivables-aging-get.controller.ts declares a permission, authentication or public access on every route 0ms
+     ✓ contexts/reporting/infrastructure/http/sales-by-customer-get.controller.ts declares a permission, authentication or public access on every route 0ms
+     ✓ contexts/reporting/infrastructure/http/search-dashboard-get.controller.ts declares a permission, authentication or public access on every route 0ms
+     ✓ contexts/sales/infrastructure/http/cancel-dispatch-put.controller.ts declares a permission, authentication or public access on every route 0ms
+     ✓ contexts/sales/infrastructure/http/cancel-invoice-put.controller.ts declares a permission, authentication or public access on every route 3ms
+     ✓ contexts/sales/infrastructure/http/cancel-sales-order-put.controller.ts declares a permission, authentication or public access on every route 0ms
+     ✓ contexts/sales/infrastructure/http/cancel-sales-return-put.controller.ts declares a permission, authentication or public access on every route 0ms
+     ✓ contexts/sales/infrastructure/http/change-customer-status-put.controller.ts declares a permission, authentication or public access on every route 0ms
+     ✓ contexts/sales/infrastructure/http/confirm-dispatch-put.controller.ts declares a permission, authentication or public access on every route 0ms
+     ✓ contexts/sales/infrastructure/http/confirm-sales-order-put.controller.ts declares a permission, authentication or public access on every route 0ms
+     ✓ contexts/sales/infrastructure/http/confirm-sales-return-put.controller.ts declares a permission, authentication or public access on every route 1ms
+     ✓ contexts/sales/infrastructure/http/create-customer-post.controller.ts declares a permission, authentication or public access on every route 0ms
+     ✓ contexts/sales/infrastructure/http/create-dispatch-post.controller.ts declares a permission, authentication or public access on every route 0ms
+     ✓ contexts/sales/infrastructure/http/create-sales-order-post.controller.ts declares a permission, authentication or public access on every route 0ms
+     ✓ contexts/sales/infrastructure/http/create-sales-return-post.controller.ts declares a permission, authentication or public access on every route 0ms
+     ✓ contexts/sales/infrastructure/http/get-dispatch-return-quota-get.controller.ts declares a permission, authentication or public access on every route 0ms
+     ✓ contexts/sales/infrastructure/http/issue-invoice-post.controller.ts declares a permission, authentication or public access on every route 0ms
+     ✓ contexts/sales/infrastructure/http/search-availability-get.controller.ts declares a permission, authentication or public access on every route 0ms
+     ✓ contexts/sales/infrastructure/http/search-customers-get.controller.ts declares a permission, authentication or public access on every route 0ms
+     ✓ contexts/sales/infrastructure/http/search-dispatches-get.controller.ts declares a permission, authentication or public access on every route 0ms
+     ✓ contexts/sales/infrastructure/http/search-invoices-get.controller.ts declares a permission, authentication or public access on every route 0ms
+     ✓ contexts/sales/infrastructure/http/search-sales-orders-get.controller.ts declares a permission, authentication or public access on every route 0ms
+     ✓ contexts/sales/infrastructure/http/search-sales-returns-get.controller.ts declares a permission, authentication or public access on every route 0ms
+     ✓ contexts/sales/infrastructure/http/update-customer-put.controller.ts declares a permission, authentication or public access on every route 0ms
+     ✓ contexts/sales/infrastructure/http/update-dispatch-put.controller.ts declares a permission, authentication or public access on every route 0ms
+     ✓ contexts/sales/infrastructure/http/update-sales-order-put.controller.ts declares a permission, authentication or public access on every route 0ms
+     ✓ contexts/sales/infrastructure/http/update-sales-return-put.controller.ts declares a permission, authentication or public access on every route 0ms
+     ✓ health/health.controller.ts declares a permission, authentication or public access on every route 0ms
+     ✓ declares at least one permission somewhere 0ms
+     ✓ every permission a route requires exists in the catalog 1ms
+     × every permission in the catalog is required by some route 15ms
+     ✓ detects a route with no declaration next to a declared one 2ms
+     ✓ keeps the declarations that do belong to a route 0ms
+     ✓ ignores decorators that are not routes 0ms
+ ✓ src/contexts/company/domain/settings/time-zone.vo.spec.ts (10 tests) 34ms
+ ✓ src/contexts/receivables/application/receivables-cycle.spec.ts (12 tests) 66ms
+ ✓ src/contexts/catalog/application/search-warehouses/warehouse-searcher.spec.ts (1 test) 16ms
+ ✓ src/contexts/inventory/domain/item/commitments/item-commitments.spec.ts (12 tests) 17ms
+ ✓ src/contexts/purchasing/domain/order/purchase-order.entity.spec.ts (16 tests) 25ms
+ ✓ src/contexts/reporting/application/reporting.spec.ts (22 tests) 76ms
+ ✓ src/contexts/inventory/domain/adjustment/posting/adjustment-posting.spec.ts (17 tests) 87ms
+ ✓ src/contexts/receivables/application/receivables-currency.spec.ts (8 tests) 47ms
+ ✓ src/contexts/access/domain/errors/error-categories.spec.ts (51 tests) 28ms
+ ✓ src/contexts/receivables/domain/errors/error-categories.spec.ts (75 tests) 35ms
+ ✓ src/contexts/catalog/application/update-measurement-unit/measurement-unit-updater.spec.ts (3 tests) 34ms
+ ✓ src/contexts/reporting/infrastructure/testing/in-memory-reporting-read-model.contract.spec.ts (8 tests) 53ms
+ ✓ src/contexts/catalog/application/create-price-list/price-list-creator.spec.ts (6 tests) 35ms
+ ✓ src/contexts/purchasing/domain/errors/error-categories.spec.ts (139 tests) 40ms
+ ✓ src/contexts/company/infrastructure/testing/in-memory-company-ports.contract.spec.ts (12 tests) 47ms
+ ✓ src/contexts/company/application/exchange-rates.spec.ts (23 tests) 95ms
+ ✓ src/contexts/access/application/authenticate-user/user-authenticator.spec.ts (15 tests) 37ms
+ ✓ src/contexts/inventory/domain/item/item-prices.spec.ts (8 tests) 32ms
+ ✓ src/contexts/receivables/application/receivables-lists.spec.ts (15 tests) 94ms
+ ✓ src/contexts/purchasing/application/purchase-invoice.spec.ts (10 tests) 50ms
+ ✓ src/contexts/catalog/application/set-default-warehouse/default-warehouse-setter.spec.ts (3 tests) 17ms
+ ✓ src/contexts/payables/domain/payment/supplier-payment.entity.spec.ts (12 tests) 38ms
+ ✓ src/contexts/company/application/company.spec.ts (12 tests) 67ms
+ ✓ src/contexts/inventory/application/search-items/item-searcher.spec.ts (4 tests) 31ms
+ ✓ src/contexts/sales/domain/dispatch/dispatch.entity.spec.ts (19 tests) 42ms
+ ✓ src/contexts/sales/application/sales-pricing.spec.ts (12 tests) 47ms
+ ✓ src/contexts/receivables/domain/payment/customer-payment.entity.spec.ts (12 tests) 30ms
+ ✓ src/contexts/inventory/application/create-item/item-creator.spec.ts (10 tests) 18ms
+ ✓ src/contexts/catalog/domain/category/unique/category-uniqueness.spec.ts (5 tests) 11ms
+ ✓ src/contexts/catalog/domain/measurement-unit/find/measurement-unit-finder.spec.ts (4 tests) 37ms
+ ✓ src/contexts/sales/domain/errors/error-categories.spec.ts (151 tests) 35ms
+ ✓ src/contexts/payables/infrastructure/testing/in-memory-payables-ports.contract.spec.ts (8 tests) 45ms
+ ✓ src/contexts/catalog/application/create-measurement-unit/measurement-unit-creator.spec.ts (4 tests) 27ms
+ ✓ src/contexts/receivables/domain/credit-note/customer-credit-note.entity.spec.ts (8 tests) 14ms
+ ✓ src/contexts/access/application/search-tenant-users/user-searcher.spec.ts (6 tests) 19ms
+ ✓ src/contexts/inventory/domain/item/unique/sku-uniqueness.spec.ts (4 tests) 6ms
+ ✓ src/contexts/purchasing/application/purchase-return.spec.ts (12 tests) 33ms
+ ✓ src/shared/config/env.schema.spec.ts (11 tests) 22ms
+ ✓ src/contexts/catalog/domain/measurement-unit/unique/measurement-unit-uniqueness.spec.ts (5 tests) 18ms
+ ✓ src/contexts/access/domain/role/permissions.catalog.spec.ts (245 tests) 63ms
+ ✓ src/contexts/sales/domain/customer/customer.entity.spec.ts (10 tests) 11ms
+ ✓ src/contexts/purchasing/application/supplier-lifecycle.spec.ts (7 tests) 40ms
+ ✓ src/contexts/access/application/update-role/role-updater.spec.ts (11 tests) 23ms
+ ✓ src/contexts/company/domain/settings/company-settings.entity.spec.ts (9 tests) 56ms
+ ✓ src/contexts/sales/application/sales-currency.spec.ts (8 tests) 83ms
+ ✓ src/contexts/purchasing/application/purchase-currency.spec.ts (8 tests) 47ms
+ ✓ src/contexts/inventory/domain/errors/error-categories.spec.ts (97 tests) 46ms
+ ✓ src/contexts/inventory/application/change-item-status/item-status-changer.spec.ts (4 tests) 18ms
+ ✓ src/contexts/access/application/update-tenant-user/tenant-user-updater.spec.ts (10 tests) 21ms
+ ✓ src/contexts/payables/application/payables-cycle.spec.ts (7 tests) 26ms
+ ✓ src/contexts/sales/application/sales-return.spec.ts (10 tests) 17ms
+ ✓ src/contexts/inventory/domain/item/item-reorder-rules.spec.ts (3 tests) 16ms
+ ✓ src/contexts/catalog/application/search-taxes/tax-searcher.spec.ts (1 test) 34ms
+ ✓ src/contexts/inventory/application/update-item/item-updater.spec.ts (13 tests) 106ms
+ ✓ src/contexts/payables/application/payables-balances.spec.ts (7 tests) 48ms
+ ✓ src/contexts/access/domain/authorize/grant-policy.spec.ts (9 tests) 14ms
+ ✓ src/contexts/inventory/domain/stock/posting/stock-movements.spec.ts (8 tests) 16ms
+ ✓ src/contexts/catalog/domain/warehouse/default/default-warehouse.spec.ts (6 tests) 33ms
+ ✓ src/contexts/sales/application/customer-lifecycle.spec.ts (8 tests) 73ms
+ ✓ src/contexts/sales/domain/shared/money.spec.ts (5 tests) 10ms
+ ✓ src/contexts/sales/domain/shared/quantity.vo.spec.ts (4 tests) 5ms
+ ✓ src/contexts/access/infrastructure/security/jose-token-issuer.spec.ts (9 tests) 35ms
+ ✓ src/contexts/catalog/application/update-category/category-updater.spec.ts (4 tests) 17ms
+ ✓ src/contexts/access/domain/tenant/find/tenant-finder.spec.ts (2 tests) 6ms
+ ✓ src/contexts/inventory/domain/adjustment/lines/adjustment-line-factory.spec.ts (15 tests) 23ms
+ ✓ src/contexts/purchasing/domain/invoice/purchase-invoice.entity.spec.ts (7 tests) 14ms
+ ✓ src/contexts/catalog/application/search-categories/category-searcher.spec.ts (2 tests) 33ms
+ ✓ src/contexts/sales/domain/return/sales-return.entity.spec.ts (8 tests) 27ms
+ ✓ src/contexts/payables/domain/ledger/payable-invoice.spec.ts (8 tests) 12ms
+ ✓ src/contexts/catalog/domain/shared/decimal.spec.ts (11 tests) 10ms
+ ✓ src/contexts/catalog/application/create-category/category-creator.spec.ts (5 tests) 24ms
+ ✓ src/contexts/catalog/domain/errors/error-categories.spec.ts (41 tests) 22ms
+ ✓ src/contexts/catalog/application/change-measurement-unit-status/measurement-unit-status-changer.spec.ts (2 tests) 12ms
+ ✓ src/contexts/access/domain/membership/membership.entity.spec.ts (8 tests) 17ms
+ ✓ src/contexts/catalog/domain/tax/tax.entity.spec.ts (13 tests) 13ms
+ ✓ src/contexts/access/application/search-roles/role-searcher.spec.ts (5 tests) 27ms
+ ✓ src/contexts/purchasing/domain/receipt/goods-receipt.entity.spec.ts (11 tests) 29ms
+ ✓ src/contexts/catalog/application/set-default-price-list/default-price-list-setter.spec.ts (2 tests) 28ms
+ ✓ src/contexts/sales/domain/order/sales-order.entity.spec.ts (15 tests) 22ms
+ ✓ src/contexts/access/application/assign-role/role-assigner.spec.ts (9 tests) 24ms
+ ✓ src/contexts/catalog/application/create-warehouse/warehouse-creator.spec.ts (3 tests) 35ms
+ ✓ src/contexts/inventory/application/low-stock.spec.ts (4 tests) 43ms
+ ✓ src/contexts/inventory/domain/stock/item-stock.entity.spec.ts (15 tests) 24ms
+ ✓ src/contexts/catalog/domain/shared/bounded-text.vo.spec.ts (10 tests) 14ms
+ ✓ src/contexts/catalog/domain/usage/catalog-usage.spec.ts (5 tests) 13ms
+ ✓ src/contexts/inventory/domain/item/item.entity.spec.ts (6 tests) 16ms
+ ✓ src/contexts/purchasing/domain/return/purchase-return.entity.spec.ts (6 tests) 21ms
+ ✓ src/contexts/access/domain/user/user.entity.spec.ts (8 tests) 11ms
+ ✓ src/contexts/inventory/domain/adjustment/adjustment.entity.spec.ts (15 tests) 24ms
+ ✓ src/contexts/access/application/create-user/user-creator.spec.ts (12 tests) 30ms
+ ✓ src/contexts/catalog/application/change-price-list-status/price-list-status-changer.spec.ts (3 tests) 18ms
+ ✓ src/contexts/purchasing/domain/order/posting/ordered-items-check.spec.ts (4 tests) 8ms
+ ✓ src/contexts/access/application/create-role/role-creator.spec.ts (6 tests) 13ms
+ ✓ src/contexts/access/domain/user/register/user-registrar.spec.ts (5 tests) 13ms
+ ✓ src/contexts/access/application/update-profile/profile-updater.spec.ts (4 tests) 14ms
+ ✓ src/shared/prisma/unique-violation.spec.ts (4 tests) 7ms
+ ✓ src/contexts/catalog/domain/warehouse/warehouse.entity.spec.ts (6 tests) 11ms
+ ✓ src/contexts/payables/domain/errors/error-categories.spec.ts (51 tests) 20ms
+ ✓ src/contexts/inventory/domain/item/references/item-references.spec.ts (12 tests) 31ms
+ ✓ src/contexts/access/application/revoke-role/role-revoker.spec.ts (9 tests) 33ms
+ ✓ src/contexts/catalog/application/search-measurement-units/measurement-unit-searcher.spec.ts (1 test) 10ms
+ ✓ src/contexts/purchasing/domain/supplier/supplier.entity.spec.ts (9 tests) 14ms
+ ✓ src/contexts/company/domain/rate/exchange-rate.entity.spec.ts (20 tests) 19ms
+ ✓ src/shared/domain/document-currency.spec.ts (6 tests) 9ms
+ ✓ src/contexts/access/domain/authenticate/sign-in-policy.spec.ts (4 tests) 9ms
+ ✓ src/contexts/reporting/domain/errors/error-categories.spec.ts (15 tests) 13ms
+ ✓ src/contexts/catalog/domain/warehouse/unique/warehouse-uniqueness.spec.ts (4 tests) 17ms
+ ✓ src/contexts/access/application/switch-tenant/tenant-switcher.spec.ts (7 tests) 32ms
+ ✓ src/contexts/catalog/domain/category/category.entity.spec.ts (5 tests) 12ms
+ ✓ src/contexts/catalog/application/change-tax-status/tax-status-changer.spec.ts (2 tests) 11ms
+ ✓ src/contexts/access/infrastructure/security/in-memory-login-attempts.spec.ts (7 tests) 9ms
+ ✓ src/contexts/catalog/application/change-warehouse-status/warehouse-status-changer.spec.ts (6 tests) 12ms
+ ✓ src/health/health.controller.spec.ts (2 tests) 9ms
+ ✓ src/contexts/access/application/change-membership-status/membership-status-changer.spec.ts (8 tests) 18ms
+ ✓ src/contexts/catalog/domain/measurement-unit/measurement-unit.entity.spec.ts (7 tests) 15ms
+ ✓ src/contexts/catalog/application/update-tax/tax-updater.spec.ts (2 tests) 8ms
+ ✓ src/contexts/purchasing/application/three-way-match/three-way-matcher.spec.ts (4 tests) 17ms
+ ✓ src/contexts/access/domain/membership/enroll/member-enroller.spec.ts (4 tests) 29ms
+ ✓ src/contexts/catalog/application/create-tax/tax-creator.spec.ts (4 tests) 9ms
+ ✓ src/contexts/inventory/domain/quantity/quantity.vo.spec.ts (23 tests) 20ms
+ ✓ src/contexts/access/domain/authorize/permission-checker.spec.ts (11 tests) 21ms
+ ✓ src/contexts/access/domain/role/find/role-finder.spec.ts (5 tests) 27ms
+ ✓ src/contexts/access/domain/role/role.entity.spec.ts (6 tests) 11ms
+ ✓ src/contexts/company/domain/errors/error-categories.spec.ts (33 tests) 11ms
+ ✓ src/contexts/access/application/change-email/email-changer.spec.ts (7 tests) 13ms
+ ✓ src/contexts/reporting/domain/aging/aging.spec.ts (8 tests) 7ms
+ ✓ src/contexts/payables/domain/shared/payables-date.vo.spec.ts (7 tests) 7ms
+ ✓ src/contexts/access/domain/user/find/user-finder.spec.ts (2 tests) 7ms
+ ✓ src/contexts/access/domain/membership/find/membership-finder.spec.ts (2 tests) 5ms
+ ✓ src/contexts/access/application/change-password/password-changer.spec.ts (4 tests) 13ms
+ ✓ src/contexts/inventory/domain/item/item-units.spec.ts (13 tests) 17ms
+ ✓ src/contexts/inventory/domain/stock/price-variance.spec.ts (8 tests) 13ms
+ ✓ src/contexts/catalog/domain/shared/catalog-code.vo.spec.ts (8 tests) 13ms
+ ✓ src/contexts/inventory/domain/item/sku.vo.spec.ts (9 tests) 10ms
+ ✓ src/contexts/access/domain/user/email.vo.spec.ts (10 tests) 13ms
+ ✓ src/contexts/access/domain/role/permission-code.vo.spec.ts (6 tests) 8ms
+ ✓ src/contexts/sales/domain/order/posting/stock-reservation.spec.ts (4 tests) 11ms
+ ✓ src/shared/domain/concurrent-modification.error.spec.ts (2 tests) 10ms
+ ✓ src/contexts/catalog/application/change-category-status/category-status-changer.spec.ts (4 tests) 12ms
+ ✓ src/contexts/catalog/application/update-warehouse/warehouse-updater.spec.ts (2 tests) 12ms
+ ✓ prisma/disposable-database.spec.ts (7 tests) 9ms
+ ✓ src/contexts/receivables/domain/shared/receivables-date.vo.spec.ts (2 tests) 7ms
+ ✓ src/contexts/reporting/domain/period/report-period.spec.ts (4 tests) 10ms
+ ✓ src/contexts/sales/domain/order/pricing/sales-price.spec.ts (7 tests) 9ms
+ ✓ src/contexts/access/domain/user/plain-password.vo.spec.ts (4 tests) 10ms
+ ✓ src/contexts/company/domain/profile/company-profile.entity.spec.ts (4 tests) 12ms
+ ✓ src/contexts/purchasing/domain/shared/quantity.vo.spec.ts (4 tests) 8ms
+ ✓ src/contexts/access/domain/user/password-hash.vo.spec.ts (3 tests) 17ms
+ ✓ src/contexts/catalog/domain/tax/unique/tax-uniqueness.spec.ts (4 tests) 13ms
+ ✓ src/contexts/payables/domain/aging/aging.spec.ts (9 tests) 13ms
+ ✓ src/shared/domain/ports/document-rates.spec.ts (6 tests) 5ms
+ ✓ src/contexts/purchasing/domain/shared/money.spec.ts (6 tests) 11ms
+ ✓ src/contexts/receivables/domain/aging/aging.spec.ts (9 tests) 13ms
+ ✓ src/contexts/receivables/domain/ledger/receivable-invoice.spec.ts (3 tests) 9ms
+ ✓ src/contexts/access/domain/tenant/tenant-slug.vo.spec.ts (8 tests) 10ms
+ ✓ src/contexts/purchasing/domain/invoice/purchase-price-difference.spec.ts (5 tests) 9ms
+ ✓ src/contexts/inventory/domain/item/item-type.spec.ts (6 tests) 8ms
+ ✓ src/contexts/access/infrastructure/http/access.guard.spec.ts (4 tests) 12ms
+ ✓ src/contexts/access/application/search-permissions/permission-searcher.spec.ts (3 tests) 5ms
+ ✓ src/shared/domain/uuid.vo.spec.ts (6 tests) 8ms
+ ✓ src/contexts/reporting/domain/document/report-document.spec.ts (1 test) 6ms
+ ✓ src/contexts/access/domain/tenant/tenant.entity.spec.ts (3 tests) 9ms
+ ✓ src/contexts/catalog/domain/category/find/category-finder.spec.ts (2 tests) 8ms
+ ✓ src/contexts/payables/domain/shared/code-sequence.spec.ts (3 tests) 7ms
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  src/contexts/access/infrastructure/http/route-declaration.spec.ts > declared permissions match the catalog > every permission in the catalog is required by some route
+AssertionError: expected [ 'payables.creditnotes.search', …(4) ] to deeply equal []
+
+- Expected
++ Received
+
+- []
++ [
++   "payables.creditnotes.search",
++   "payables.creditnotes.create",
++   "payables.creditnotes.update",
++   "payables.creditnotes.confirm",
++   "payables.creditnotes.cancel",
++ ]
+
+ ❯ src/contexts/access/infrastructure/http/route-declaration.spec.ts:108:76
+    106|   // que sirva para nada.
+    107|   it('every permission in the catalog is required by some route', () =…
+    108|     expect([...catalog].filter((permission) => !declared.has(permissio…
+       |                                                                            ^
+    109|   });
+    110| });
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯
+
+
+ Test Files  1 failed | 178 passed (179)
+      Tests  1 failed | 3533 passed (3534)
+   Start at  21:03:11
+   Duration  26.32s (transform 8.44s, setup 0ms, import 25.00s, tests 6.60s, environment 43ms)
+
+[ELIFECYCLE] Test failed. See above for more details.
+Error: ERR_PNPM_RECURSIVE_RUN_FIRST_FAIL
+
+  × "pnpm recursive run" failed in /home/medine01/dev/erp-portafolio/apps/api
+
+[ELIFECYCLE] Command failed with exit code 1.
+make[1]: *** [Makefile:80: test-unit] Error 1
+make: *** [Makefile:100: verify] Error 2

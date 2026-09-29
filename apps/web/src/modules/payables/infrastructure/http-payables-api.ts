@@ -1,13 +1,19 @@
 import { AccessError } from '../../access/domain/access-error';
 import type { AccessErrorBody } from '../../access/domain/access-error';
+import type { PayableInvoice, Statement, SupplierBalance } from '../domain/payables';
 import type {
+  PayableInvoiceFilters,
+  PayableInvoicePage,
   PaymentFilters,
   PaymentInput,
   PaymentPage,
   PayablesApi,
+  SupplierBalanceFilters,
+  SupplierBalancePage,
 } from '../domain/payables-api';
 
 const BASE = '/api/v1/payables';
+const SELECTOR_PAGE = 50;
 
 // NaN no existe en JSON: se manda como texto y la API senala el campo.
 const numeric = (value: number) => (Number.isNaN(value) ? 'NaN' : value);
@@ -48,6 +54,34 @@ export class HttpPayablesApi implements PayablesApi {
     await this.request('PUT', `${BASE}/payments/${id}/cancel`, token);
   }
 
+  async searchPayableInvoices(token: string, filters: PayableInvoiceFilters = {}): Promise<PayableInvoicePage> {
+    return this.request<PayableInvoicePage>('GET', `${BASE}/invoices${queryOf(filters)}`, token);
+  }
+
+  async allInvoices(token: string): Promise<PayableInvoice[]> {
+    return everyPage(async (offset) => {
+      const page = await this.searchPayableInvoices(token, { limit: SELECTOR_PAGE, offset });
+      return { rows: page.invoices, hasMore: page.hasMore };
+    });
+  }
+
+  async searchSupplierBalances(token: string, filters: SupplierBalanceFilters = {}): Promise<SupplierBalancePage> {
+    return this.request<SupplierBalancePage>('GET', `${BASE}/suppliers${queryOf(filters)}`, token);
+  }
+
+  async allSuppliers(token: string): Promise<SupplierBalance['supplier'][]> {
+    const rows = await everyPage(async (offset) => {
+      const page = await this.searchSupplierBalances(token, { onlyWithBalance: 'false', limit: SELECTOR_PAGE, offset });
+      return { rows: page.suppliers, hasMore: page.hasMore };
+    });
+
+    return rows.map((row) => row.supplier);
+  }
+
+  async searchStatement(token: string, supplierId: string): Promise<Statement> {
+    return this.request<Statement>('GET', `${BASE}/suppliers/${encodeURIComponent(supplierId)}/statement`, token);
+  }
+
   private async request<T = void>(method: string, path: string, token: string, body?: unknown): Promise<T> {
     const response = await fetch(`${this.baseUrl}${path}`, {
       method,
@@ -64,6 +98,21 @@ export class HttpPayablesApi implements PayablesApi {
 
     return (text.length > 0 ? JSON.parse(text) : undefined) as T;
   }
+}
+
+async function everyPage<T>(pageAt: (offset: number) => Promise<{ rows: T[]; hasMore: boolean }>): Promise<T[]> {
+  const all: T[] = [];
+  let offset = 0;
+  let hasMore = true;
+
+  while (hasMore) {
+    const page = await pageAt(offset);
+    all.push(...page.rows);
+    offset += page.rows.length;
+    hasMore = page.hasMore && page.rows.length > 0;
+  }
+
+  return all;
 }
 
 async function errorBodyOf(response: Response): Promise<AccessErrorBody> {

@@ -9,7 +9,6 @@ import { SlideOver } from '@/sections/shared/slide-over';
 import { emptyState } from '@/shared/forms/form-state';
 import type { FormState } from '@/shared/forms/form-state';
 import { formatAmount } from '@/modules/purchasing/domain/purchasing';
-import type { Supplier } from '@/modules/purchasing/domain/purchasing';
 import { currencyOptions, formatRate, offersManualRate } from '@/modules/company/domain/company';
 import { DocumentRate } from '@/sections/shared/document-rate';
 import {
@@ -20,6 +19,7 @@ import {
 import type {
   PayableInvoice,
   PaymentMethod,
+  SupplierBalance,
   SupplierPayment,
 } from '@/modules/payables/domain/payables';
 import type { CompanySettings, Currency } from '@/modules/company/domain/company';
@@ -54,7 +54,7 @@ export function PaymentsBoard({
   payments: SupplierPayment[];
   search: PaymentSearch;
   invoices: PayableInvoice[];
-  suppliers: Supplier[];
+  suppliers: SupplierBalance['supplier'][];
   currencies: Currency[];
   settings: CompanySettings;
   canCreate: boolean;
@@ -254,7 +254,7 @@ function PaymentFields({
 }: {
   payment: SupplierPayment | null;
   invoices: PayableInvoice[];
-  suppliers: Supplier[];
+  suppliers: SupplierBalance['supplier'][];
   currencies: Currency[];
   settings: CompanySettings;
 }) {
@@ -427,7 +427,7 @@ function PaymentFilters({
   count,
 }: {
   search: PaymentSearch;
-  suppliers: Supplier[];
+  suppliers: SupplierBalance['supplier'][];
   count: number;
 }) {
   const pageHref = (page: number) =>
