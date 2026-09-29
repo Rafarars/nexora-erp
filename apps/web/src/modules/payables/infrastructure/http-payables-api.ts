@@ -85,7 +85,12 @@ export class HttpPayablesApi implements PayablesApi {
   }
 
   async availableCredits(token: string, supplierId: string): Promise<SupplierAvailableCredit[]> {
-    return this.request<SupplierAvailableCredit[]>('GET', `${BASE}/suppliers/${encodeURIComponent(supplierId)}/available-credits`, token);
+    const result = await this.request<{ credits: SupplierAvailableCredit[] }>(
+      'GET',
+      `${BASE}/suppliers/${encodeURIComponent(supplierId)}/available-credits`,
+      token,
+    );
+    return result.credits;
   }
 
   async searchPayableInvoices(token: string, filters: PayableInvoiceFilters = {}): Promise<PayableInvoicePage> {

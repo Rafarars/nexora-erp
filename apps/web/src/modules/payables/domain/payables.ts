@@ -214,3 +214,34 @@ export function creditNoteActions(
     canCancel: note.status === 'confirmed' && canCancel,
   };
 }
+
+export interface AvailableCredit {
+  id: string;
+  code: string;
+  currency: string;
+  total: number;
+  appliedAmount: number;
+  availableCredit: number;
+}
+
+// Agrupa el credito disponible por moneda sin convertir para no mezclar importes nominales.
+export function summarizeAvailableCredits(
+  credits: AvailableCredit[],
+  baseCurrency: string,
+  format: (amount: number) => string = (n) => n.toFixed(2),
+): string {
+  if (credits.length === 0) return `${baseCurrency} ${format(0)}`;
+
+  const byCurrency = new Map<string, number>();
+  for (const credit of credits) {
+    if (credit.availableCredit <= 0) continue;
+    const current = byCurrency.get(credit.currency) ?? 0;
+    byCurrency.set(credit.currency, current + credit.availableCredit);
+  }
+
+  if (byCurrency.size === 0) return `${baseCurrency} ${format(0)}`;
+
+  return [...byCurrency.entries()]
+    .map(([currency, total]) => `${currency} ${format(total)}`)
+    .join(' · ');
+}

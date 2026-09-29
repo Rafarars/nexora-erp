@@ -1,7 +1,7 @@
 'use client';
 
-import { useActionState, useState } from 'react';
-import { changePayment, savePayment } from '@/app/(app)/cuentas-por-pagar/actions';
+import { useActionState, useEffect, useState } from 'react';
+import { changePayment, getSupplierAvailableCredits, savePayment } from '@/app/(app)/cuentas-por-pagar/actions';
 import { MenuButton } from '@/sections/purchasing/menu-button';
 import { FormError, SubmitButton, TextArea } from '@/sections/shared/field';
 import { RowOptions } from '@/sections/shared/row-options';
@@ -15,8 +15,10 @@ import {
   PAYMENT_METHOD_LABELS,
   PAYMENT_STATUS_LABELS,
   paymentActions,
+  summarizeAvailableCredits,
 } from '@/modules/payables/domain/payables';
 import type {
+  AvailableCredit,
   PayableInvoice,
   PaymentMethod,
   SupplierBalance,
@@ -262,6 +264,19 @@ function PaymentFields({
   const [supplierId, setSupplierId] = useState(payment?.supplier.id ?? '');
   const [method, setMethod] = useState<PaymentMethod>(payment?.method ?? 'transfer');
   const [currency, setCurrency] = useState(payment?.currency ?? baseCurrency);
+  const [creditSourceId, setCreditSourceId] = useState(payment?.creditSourceId ?? '');
+  const [availableCredits, setAvailableCredits] = useState<AvailableCredit[]>([]);
+
+  useEffect(() => {
+    if (!supplierId) return;
+    let active = true;
+    getSupplierAvailableCredits(supplierId).then((credits) => {
+      if (active) setAvailableCredits(credits);
+    });
+    return () => {
+      active = false;
+    };
+  }, [supplierId]);
 
   // Filtrar facturas del proveedor seleccionado
   const eligibleInvoices = invoices.filter((inv) => inv.supplier.id === supplierId);
@@ -269,14 +284,26 @@ function PaymentFields({
   return (
     <>
       <div className="space-y-1.5">
-        <label htmlFor="payment-supplier" className="text-sm font-medium">
-          Proveedor
-        </label>
+        <div className="flex items-center justify-between">
+          <label htmlFor="payment-supplier" className="text-sm font-medium">
+            Proveedor
+          </label>
+          {supplierId ? (
+            <span className="text-muted text-xs" data-testid="payment-supplier-available-credit">
+              Crédito disponible: {summarizeAvailableCredits(availableCredits, baseCurrency, formatAmount)}
+            </span>
+          ) : null}
+        </div>
         <select
           id="payment-supplier"
           name="supplierId"
           value={supplierId}
-          onChange={(event) => setSupplierId(event.target.value)}
+          onChange={(event) => {
+            const nextSupplier = event.target.value;
+            setSupplierId(nextSupplier);
+            setCreditSourceId('');
+            if (!nextSupplier) setAvailableCredits([]);
+          }}
           data-testid="payment-supplier"
           className="border-line bg-background w-full rounded-md border px-3 py-2 text-sm"
           required
@@ -325,6 +352,40 @@ function PaymentFields({
           </select>
         </div>
       </div>
+
+      {method === 'credit_note' ? (
+        <div className="space-y-1.5">
+          <label htmlFor="payment-credit-source" className="text-sm font-medium">
+            Nota de crédito origen
+          </label>
+          <select
+            id="payment-credit-source"
+            name="creditSourceId"
+            value={creditSourceId}
+            onChange={(event) => setCreditSourceId(event.target.value)}
+            data-testid="payment-credit-source"
+            className="border-line bg-background w-full rounded-md border px-3 py-2 text-sm"
+            required
+          >
+            <option value="">Elige una nota de crédito</option>
+            {availableCredits.map((note) => (
+              <option key={note.id} value={note.id}>
+                {note.code} · {note.currency} {formatAmount(note.availableCredit)} disponible
+              </option>
+            ))}
+            {payment?.creditSourceId && !availableCredits.some((c) => c.id === payment.creditSourceId) ? (
+              <option value={payment.creditSourceId}>
+                {payment.creditSourceCode ? `${payment.creditSourceCode} (sin crédito disponible)` : 'Nota de crédito'}
+              </option>
+            ) : null}
+            {availableCredits.length === 0 ? (
+              <option value="" disabled>
+                Este proveedor no tiene notas de crédito con saldo disponible
+              </option>
+            ) : null}
+          </select>
+        </div>
+      ) : null}
 
       <div className="space-y-1.5">
         <label htmlFor="payment-reference" className="text-sm font-medium">
