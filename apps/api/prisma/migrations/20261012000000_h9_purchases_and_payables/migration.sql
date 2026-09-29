@@ -356,3 +356,10 @@ CREATE UNIQUE INDEX "purchase_invoices_one_active_number_per_supplier"
   ON "purchase_invoices" ("tenant_id", "supplier_id", "supplier_invoice_number")
   WHERE "status" <> 'cancelled';
 
+-- Update check constraint for adjustment lines to support revaluation by amount (H9 §4.1)
+ALTER TABLE "adjustment_lines" DROP CONSTRAINT IF EXISTS "adjustment_lines_quantity_positive";
+ALTER TABLE "adjustment_lines" ADD CONSTRAINT "adjustment_lines_quantity_positive" CHECK (
+  ("quantity" > 0 AND "base_quantity" > 0)
+  OR ("quantity" = 0 AND "base_quantity" = 0 AND ("unit_cost" IS NOT NULL OR "amount" IS NOT NULL))
+);
+

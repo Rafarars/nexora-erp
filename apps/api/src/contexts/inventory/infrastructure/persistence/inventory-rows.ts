@@ -19,6 +19,8 @@ export interface AdjustmentRow {
   confirmedBy: string | null;
   cancelledAt: Date | null;
   cancelledBy: string | null;
+  originType?: string | null;
+  originId?: string | null;
   createdAt: Date;
   updatedAt: Date;
   lines: {
@@ -32,6 +34,11 @@ export interface AdjustmentRow {
     quantity: Decimalish;
     baseQuantity: Decimalish;
     unitCost: Decimalish | null;
+    revaluationKind?: 'cost' | 'amount' | null;
+    amount?: Decimalish | null;
+    sourceMovementId?: string | null;
+    stockPart?: Decimalish | null;
+    soldPart?: Decimalish | null;
   }[];
 }
 
@@ -40,11 +47,18 @@ export function adjustmentFromRow(row: AdjustmentRow): Adjustment {
   return Adjustment.fromPrimitives({
     ...row,
     adjustmentDate: row.adjustmentDate.toISOString().slice(0, 10),
+    originType: row.originType ?? null,
+    originId: row.originId ?? null,
     lines: row.lines.map((line) => ({
       ...line,
       quantity: toNumber(line.quantity),
       baseQuantity: toNumber(line.baseQuantity),
       unitCost: line.unitCost === null ? null : toNumber(line.unitCost),
+      revaluationKind: line.revaluationKind ?? null,
+      amount: line.amount === null || line.amount === undefined ? null : toNumber(line.amount),
+      sourceMovementId: line.sourceMovementId ?? null,
+      stockPart: line.stockPart === null || line.stockPart === undefined ? null : toNumber(line.stockPart),
+      soldPart: line.soldPart === null || line.soldPart === undefined ? null : toNumber(line.soldPart),
     })),
   });
 }

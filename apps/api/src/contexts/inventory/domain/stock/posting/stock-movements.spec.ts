@@ -33,6 +33,7 @@ function aLedger(previous: InventoryMovement[] = [], item: LedgerItem = activeIt
       return stock;
     },
     movementsOf: () => previous,
+    movementsSince: () => [],
   };
 }
 
@@ -185,5 +186,5 @@ describe('StockMovements', () => {
 
 // El mismo libro, pero sabiendo que movimientos escribio el documento que se revierte.
 function aLedgerSharing(ledger: ReturnType<typeof aLedger>, previous: InventoryMovement[]): Ledger {
-  return { item: ledger.item, stock: ledger.stock, averageCostOf: ledger.averageCostOf, movementsOf: () => previous };
+  return { item: ledger.item, stock: ledger.stock, averageCostOf: ledger.averageCostOf, movementsOf: () => previous, movementsSince: () => [] };
 }

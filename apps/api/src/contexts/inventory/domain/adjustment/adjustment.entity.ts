@@ -52,6 +52,8 @@ export interface AdjustmentDetails {
   date: AdjustmentDate;
   type: AdjustmentType;
   notes: string | null;
+  originType?: string | null;
+  originId?: string | null;
   lines: AdjustmentLine[];
 }
 
@@ -69,6 +71,8 @@ export interface AdjustmentPrimitives {
   confirmedBy: string | null;
   cancelledAt: Date | null;
   cancelledBy: string | null;
+  originType?: string | null;
+  originId?: string | null;
   createdAt: Date;
   updatedAt: Date;
   lines: AdjustmentLinePrimitives[];
@@ -121,6 +125,8 @@ export class Adjustment {
         date: AdjustmentDate.of(row.adjustmentDate),
         type: row.type,
         notes: row.notes,
+        originType: row.originType ?? null,
+        originId: row.originId ?? null,
         lines: [...row.lines].sort((a, b) => a.lineNumber - b.lineNumber).map((line) => AdjustmentLine.fromPrimitives(line)),
       },
       row.status,
@@ -150,10 +156,20 @@ export class Adjustment {
       confirmedBy: this.confirmedBy,
       cancelledAt: this.cancelledAt,
       cancelledBy: this.cancelledBy,
+      originType: this.details.originType ?? null,
+      originId: this.details.originId ?? null,
       createdAt: this.createdAt,
       updatedAt: this.updatedAt,
       lines: this.details.lines.map((line) => line.toPrimitives()),
     };
+  }
+
+  originType(): string | null {
+    return this.details.originType ?? null;
+  }
+
+  originId(): string | null {
+    return this.details.originId ?? null;
   }
 
   // Guardar el borrador solo pisa esta version: si otra persona lo guardo entretanto, se rechaza.

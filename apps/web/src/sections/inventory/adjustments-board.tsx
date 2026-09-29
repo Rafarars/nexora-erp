@@ -136,7 +136,7 @@ export function AdjustmentsBoard({
                     {ADJUSTMENT_TYPE_LABELS[adjustment.type]}
                   </td>
                   <td className="px-4 py-3">
-                    <p data-testid={`adjustment-lines-${adjustment.code}`}>{summarizeLines(adjustment.lines, baseUnitOf)}</p>
+                    <p data-testid={`adjustment-lines-${adjustment.code}`}>{summarizeLines(adjustment.lines, baseUnitOf, adjustment.originCode)}</p>
                     {adjustment.notes ? <p className="text-muted text-xs">{adjustment.notes}</p> : null}
                   </td>
                   <td className="px-4 py-3">

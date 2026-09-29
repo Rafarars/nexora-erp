@@ -17,6 +17,11 @@ export interface AdjustmentLineResponse {
   quantity: number;
   baseQuantity: number;
   unitCost: number | null;
+  revaluationKind?: 'cost' | 'amount' | null;
+  amount?: number | null;
+  sourceMovementId?: string | null;
+  stockPart?: number | null;
+  soldPart?: number | null;
 }
 
 export interface AdjustmentResponse {
@@ -31,6 +36,9 @@ export interface AdjustmentResponse {
   // ya no pertenece a la empresa.
   createdBy: string | null;
   closedBy: string | null;
+  originType?: string | null;
+  originId?: string | null;
+  originCode?: string | null;
   lines: AdjustmentLineResponse[];
 }
 
@@ -124,6 +132,12 @@ export class AdjustmentSearcher {
         status: adjustment.status,
         createdBy: adjustment.createdBy ? (authors.get(adjustment.createdBy) ?? null) : null,
         closedBy: closerOf(adjustment) ? (authors.get(closerOf(adjustment)!) ?? null) : null,
+        originType: adjustment.originType ?? null,
+        originId: adjustment.originId ?? null,
+        originCode:
+          adjustment.originType === 'purchase_invoice'
+            ? (adjustment.notes?.match(/\b(FCP[A-Z0-9_-]+)\b/i)?.[1] ?? null)
+            : null,
         lines: adjustment.lines.map((line) => {
           const item = items.find((candidate) => candidate.id === line.itemId);
 
@@ -138,6 +152,11 @@ export class AdjustmentSearcher {
             quantity: line.quantity,
             baseQuantity: line.baseQuantity,
             unitCost: line.unitCost,
+            revaluationKind: line.revaluationKind ?? null,
+            amount: line.amount ?? null,
+            sourceMovementId: line.sourceMovementId ?? null,
+            stockPart: line.stockPart ?? null,
+            soldPart: line.soldPart ?? null,
           };
         }),
       })),

@@ -8,10 +8,12 @@ import { InMemoryPurchasingCatalog } from './in-memory-purchasing-catalog.js';
 
 import { InMemoryPurchaseInvoiceRepository } from './in-memory-purchase-invoice.repository.js';
 import { InMemoryPurchaseInvoicePosting } from './in-memory-purchase-invoice-posting.js';
+import { InMemoryInvoiceRevaluationPosting } from './in-memory-invoice-revaluation-posting.js';
 
 class InMemoryPurchasingPortsHarness implements PurchasingPortsHarness {
   private store = new InMemoryPurchasingStore(new InMemoryPurchasingCatalog(purchasableItems(), purchaseWarehouses()));
   private invoiceRepo = new InMemoryPurchaseInvoiceRepository();
+  private revaluationPosting = new InMemoryInvoiceRevaluationPosting();
   private current = this.build();
 
   ports(): PurchasingPorts {
@@ -26,9 +28,22 @@ class InMemoryPurchasingPortsHarness implements PurchasingPortsHarness {
     this.store.withdraw(TENANT_A, itemId, warehouseId, quantity);
   }
 
+  async adjustmentsOf(tenantId: string, invoiceId: string) {
+    return this.revaluationPosting.adjustments
+      .filter((a) => a.tenantId === tenantId && a.originType === 'purchase_invoice' && a.originId === invoiceId)
+      .map((r) => ({
+        id: r.id,
+        code: r.code,
+        status: r.status,
+        type: r.type,
+        lines: r.lines.map((l) => ({ itemId: l.itemId, amount: l.amount, direction: l.direction })),
+      }));
+  }
+
   async reset(): Promise<void> {
     this.store = new InMemoryPurchasingStore(new InMemoryPurchasingCatalog(purchasableItems(), purchaseWarehouses()));
     this.invoiceRepo = new InMemoryPurchaseInvoiceRepository();
+    this.revaluationPosting = new InMemoryInvoiceRevaluationPosting();
     this.current = this.build();
   }
 
@@ -50,7 +65,9 @@ class InMemoryPurchasingPortsHarness implements PurchasingPortsHarness {
         this.store.orders,
         this.store.returns,
         (order) => this.store.updateConfirmedOrder(order),
+        this.revaluationPosting,
       ),
+      revaluations: this.revaluationPosting,
       codes: new InMemoryPurchasingCodeSequence(),
     };
   }

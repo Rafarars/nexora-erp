@@ -75,6 +75,16 @@ export async function lockedLedger(
     stocks.set(keyOf(itemId, warehouseId), stockFromRow(row));
   }
 
+  const allMovementsRows = await tx.inventoryMovement.findMany({
+    where: {
+      tenantId,
+      itemId: { in: itemIds },
+      warehouseId: { in: [...new Set(unique.map(([, w]) => w))] },
+    },
+    orderBy: { sequence: 'asc' },
+  });
+  const allMovements = allMovementsRows.map(movementFromRow);
+
   return {
     item: (itemId: ItemRef) => {
       const item = items.get(itemId.value);
@@ -94,6 +104,13 @@ export async function lockedLedger(
     },
     averageCostOf: (itemId: ItemRef) => averages.get(itemId.value) ?? null,
     movementsOf: () => previous,
+    movementsSince: (itemId: ItemRef, warehouseId: WarehouseRef, sourceMovementId: string) => {
+      const source = allMovements.find((m) => m.id.value === sourceMovementId);
+      if (!source) return [];
+      return allMovements.filter(
+        (m) => m.itemId.equals(itemId) && m.warehouseId.equals(warehouseId) && m.sequence > source.sequence,
+      );
+    },
   };
 }
 

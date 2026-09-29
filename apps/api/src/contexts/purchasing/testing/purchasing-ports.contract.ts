@@ -7,17 +7,12 @@ import {
   GoodsReceiptNotEditableError,
   GoodsReceiptNotFoundError,
   InvoiceQuantityExceedsReceiptError,
-  PurchaseInvoiceAlreadyCancelledError,
-  PurchaseInvoiceNotConfirmableError,
-  PurchaseInvoiceNotFoundError,
   PurchaseItemChangedError,
   PurchaseOrderNotEditableError,
   PurchaseOrderNotFoundError,
   PurchaseOrderWithReceiptsError,
   PurchaseReturnAlreadyCancelledError,
-  PurchaseReturnNotConfirmableError,
   PurchaseReturnNotEditableError,
-  PurchaseReturnNotFoundError,
   PurchaseReturnSupplierMismatchError,
   QuantityExceedsReceiptReturnQuotaError,
   ReceiptExceedsPendingError,
@@ -43,7 +38,7 @@ import { Quantity } from '../domain/shared/quantity.vo.js';
 import { WarehouseRef } from '../domain/shared/references.vo.js';
 import { TenantId } from '../domain/shared/tenant-id.vo.js';
 import { Supplier, SupplierId } from '../domain/supplier/supplier.entity.js';
-import { BOX, MAIN, NOW, PIECE, SUPPLIER, TENANT_A, TENANT_B, TODAY, WATER, aDocumentCurrency, anOrderLine } from '../domain/testing/purchasing.mother.js';
+import { BOX, MAIN, NOW, SUPPLIER, TENANT_A, TENANT_B, TODAY, WATER, aDocumentCurrency, anOrderLine } from '../domain/testing/purchasing.mother.js';
 import { PurchasingPorts, PurchasingPortsHarness } from './purchasing-ports.harness.js';
 
 const tenant = TenantId.of(TENANT_A);
@@ -875,6 +870,47 @@ export function describePurchasingPortsContract(implementation: string, createHa
 
         const stockAfterInvoice = await harness.stockOf(WATER, MAIN);
         expect(stockAfterInvoice).toBe(initialStock);
+      });
+
+      it('creates draft revaluation adjustment when invoiced price differs from receipt (H9 §4.1, Ajuste 3)', async () => {
+        const order = await confirmedOrder([anOrderLine({ quantity: 10, unitCost: 10 })]);
+        const receiptId = await draftReceipt(order, [10]);
+        await confirm(receiptId);
+        const receipt = (await ports.receipts.find(tenant, receiptId))!;
+        const receiptLine = receipt.lines()[0];
+
+        // Factura a 12 (2 mas cara por unidad -> +20 de diferencia)
+        const inv = await draftInvoice({ receiptLineId: receiptLine.id.value, quantity: 10, unitPrice: 12 });
+        const confirmedInv = await ports.invoicePosting.confirm(tenant, inv.id, NOW);
+
+        expect(confirmedInv.priceDifference).toBe(20);
+
+        if (harness.adjustmentsOf) {
+          const adjs = await harness.adjustmentsOf(tenant.value, inv.id.value);
+          expect(adjs.length).toBe(1);
+          expect(adjs[0].type).toBe('revaluation');
+          expect(adjs[0].status).toBe('draft');
+          expect(adjs[0].lines[0].amount).toBe(20);
+        }
+      });
+
+      it('cancels draft revaluation adjustment when invoice is cancelled (H9 §4.1)', async () => {
+        const order = await confirmedOrder([anOrderLine({ quantity: 10, unitCost: 10 })]);
+        const receiptId = await draftReceipt(order, [10]);
+        await confirm(receiptId);
+        const receipt = (await ports.receipts.find(tenant, receiptId))!;
+        const receiptLine = receipt.lines()[0];
+
+        const inv = await draftInvoice({ receiptLineId: receiptLine.id.value, quantity: 10, unitPrice: 12 });
+        await ports.invoicePosting.confirm(tenant, inv.id, NOW);
+
+        await ports.invoicePosting.cancel(tenant, inv.id, NOW);
+
+        if (harness.adjustmentsOf) {
+          const adjs = await harness.adjustmentsOf(tenant.value, inv.id.value);
+          expect(adjs.length).toBe(1);
+          expect(adjs[0].status).toBe('cancelled');
+        }
       });
     });
 

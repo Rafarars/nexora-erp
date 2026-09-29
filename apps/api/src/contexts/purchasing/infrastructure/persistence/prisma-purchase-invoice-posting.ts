@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { Inject, Injectable, Optional } from '@nestjs/common';
 import { PrismaService } from '../../../../shared/prisma/prisma.service.js';
 import {
   DuplicateSupplierInvoiceNumberError,
@@ -13,14 +13,24 @@ import {
   PurchaseInvoiceNotFoundError,
   PurchaseInvoiceWithPaymentsError,
 } from '../../domain/errors/purchasing.errors.js';
+import {
+  INVOICE_REVALUATION_POSTING,
+  type InvoiceRevaluationLineData,
+  type InvoiceRevaluationPosting,
+  type InvoiceWarehouseRevaluationData,
+} from '../../domain/invoice/invoice-revaluation-posting.js';
 import { PurchaseInvoicePosting } from '../../domain/invoice/posting/purchase-invoice-posting.js';
 import { PurchaseInvoice, PurchaseInvoiceId } from '../../domain/invoice/purchase-invoice.entity.js';
+import { calculatePurchasePriceDifference } from '../../domain/invoice/purchase-price-difference.js';
 import { TenantId } from '../../domain/shared/tenant-id.vo.js';
 import { PURCHASE_INVOICE_INCLUDE, purchaseInvoiceFromRow } from './purchasing-rows.js';
 
 @Injectable()
 export class PrismaPurchaseInvoicePosting implements PurchaseInvoicePosting {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    @Optional() @Inject(INVOICE_REVALUATION_POSTING) private readonly revaluationPosting?: InvoiceRevaluationPosting,
+  ) {}
 
   async confirm(tenantId: TenantId, invoiceId: PurchaseInvoiceId, now: Date): Promise<PurchaseInvoice> {
     const tenant = tenantId.value;
@@ -71,13 +81,16 @@ export class PrismaPurchaseInvoicePosting implements PurchaseInvoicePosting {
         .filter((id): id is string => Boolean(id));
 
       // Bloquear entradas citadas en orden de id (H9 §4.1 regla 3)
-      let receiptLinesMap = new Map<string, { id: string; receiptId: string; orderLineId: string; itemId: string; unitId: string; quantity: number }>();
+      let receiptLinesMap = new Map<string, { id: string; receiptId: string; orderLineId: string; itemId: string; unitId: string; quantity: number; unitCost: number }>();
       let receiptToOrderMap = new Map<string, string>();
+      let receiptWarehouseMap = new Map<string, string>();
+      let receiptRateMap = new Map<string, number>();
+      let movementByLineId = new Map<string, string>();
 
       if (receiptLineIds.length > 0) {
         const dbReceiptLines = await tx.goodsReceiptLine.findMany({
           where: { tenantId: tenant, id: { in: receiptLineIds } },
-          select: { id: true, receiptId: true, orderLineId: true, itemId: true, unitId: true, quantity: true },
+          select: { id: true, receiptId: true, orderLineId: true, itemId: true, unitId: true, quantity: true, unitCost: true },
         });
 
         for (const rl of dbReceiptLines) {
@@ -88,13 +101,24 @@ export class PrismaPurchaseInvoicePosting implements PurchaseInvoicePosting {
             itemId: rl.itemId,
             unitId: rl.unitId,
             quantity: Number(rl.quantity),
+            unitCost: Number(rl.unitCost),
           });
         }
 
         const uniqueReceiptIds = [...new Set(dbReceiptLines.map((l) => l.receiptId))].sort();
 
-        const lockedReceipts = await tx.$queryRaw<{ id: string; supplier_id: string; status: string; order_id: string }[]>`
-          SELECT r.id, r.status, r.order_id, o.supplier_id
+        const lockedReceipts = await tx.$queryRaw<{
+          id: string;
+          supplier_id: string;
+          status: string;
+          order_id: string;
+          warehouse_id: string;
+          currency: string;
+          exchange_rate: string | null;
+          base_currency: string;
+          base_exchange_rate: string | null;
+        }[]>`
+          SELECT r.id, r.status, r.order_id, r.warehouse_id, r.currency, r.exchange_rate, r.base_currency, r.base_exchange_rate, o.supplier_id
           FROM goods_receipts r
           JOIN purchase_orders o ON o.id = r.order_id AND o.tenant_id = r.tenant_id
           WHERE r.tenant_id = ${tenant}::uuid AND r.id = ANY(${uniqueReceiptIds}::uuid[])
@@ -109,6 +133,31 @@ export class PrismaPurchaseInvoicePosting implements PurchaseInvoicePosting {
             throw new InvoiceLinesFromDifferentSupplierError(rec.supplier_id, invoice.supplierId.value);
           }
           receiptToOrderMap.set(rec.id, rec.order_id);
+          receiptWarehouseMap.set(rec.id, rec.warehouse_id);
+          receiptRateMap.set(
+            rec.id,
+            effectiveRateToBase(
+              rec.currency,
+              rec.base_currency,
+              rec.exchange_rate ? Number(rec.exchange_rate) : null,
+              rec.base_exchange_rate ? Number(rec.base_exchange_rate) : null,
+            ),
+          );
+        }
+
+        const movements = await tx.inventoryMovement.findMany({
+          where: {
+            tenantId: tenant,
+            originType: 'receipt',
+            originId: { in: uniqueReceiptIds },
+            originLineId: { in: receiptLineIds },
+          },
+          select: { id: true, originLineId: true },
+        });
+        for (const m of movements) {
+          if (m.originLineId) {
+            movementByLineId.set(m.originLineId, m.id);
+          }
         }
       }
 
@@ -206,8 +255,11 @@ export class PrismaPurchaseInvoicePosting implements PurchaseInvoicePosting {
         }
       }
 
-      // Validar cada linea
+      // Validar cada linea y calcular diferencias de precio
       const orderLineDeltas = new Map<string, number>();
+      let totalPriceDifference = 0;
+      let totalExchangeDifference = 0;
+      const revaluationsByWarehouse = new Map<string, InvoiceRevaluationLineData[]>();
 
       for (const line of lines) {
         const lineQty = line.quantity.toNumber();
@@ -240,6 +292,47 @@ export class PrismaPurchaseInvoicePosting implements PurchaseInvoicePosting {
           // Acumular incremento de invoicedQuantity en la orden
           const targetOrderLineId = receiptLine.orderLineId;
           orderLineDeltas.set(targetOrderLineId, (orderLineDeltas.get(targetOrderLineId) ?? 0) + lineQty);
+
+          // Calcular diferencia de precio sobre la entrada
+          const invoicedUnitPrice = line.unitPrice.toNumber();
+          const invoicedRate = effectiveRateToBase(
+            invoice.currency.currency,
+            invoice.currency.baseCurrency,
+            invoice.currency.exchangeRate,
+            invoice.currency.baseExchangeRate,
+          );
+          const receiptCost = receiptLine.unitCost;
+          const receiptRate = receiptRateMap.get(receiptLine.receiptId) ?? 1;
+
+          const diff = calculatePurchasePriceDifference([
+            {
+              quantity: lineQty,
+              invoiceUnitPrice: invoicedUnitPrice,
+              invoiceRate: invoicedRate,
+              receiptUnitCost: receiptCost,
+              receiptRate,
+            },
+          ]);
+          const lineDiff = diff.lineDifferences[0];
+
+          if (Math.abs(lineDiff.totalDifferenceDoc) > 0.0001 || Math.abs(lineDiff.priceDifferenceBase) > 0.0001) {
+            totalPriceDifference += lineDiff.priceDifferenceBase;
+            totalExchangeDifference += lineDiff.exchangeDifferenceBase;
+
+            const warehouseId = receiptWarehouseMap.get(receiptLine.receiptId) ?? '';
+            const whLines = revaluationsByWarehouse.get(warehouseId) ?? [];
+            whLines.push({
+              lineNumber: whLines.length + 1,
+              itemId: receiptLine.itemId,
+              itemSku: line.itemSku ?? '',
+              itemName: line.itemName ?? '',
+              unitId: receiptLine.unitId,
+              amount: lineDiff.priceDifferenceBase,
+              sourceMovementId: movementByLineId.get(line.receiptLineId) ?? '',
+              reason: `Diferencia de precio segun factura ${invoice.code}`,
+            });
+            revaluationsByWarehouse.set(warehouseId, whLines);
+          }
         } else if (line.orderLineId) {
           const orderLine = orderLineMap.get(line.orderLineId);
           if (!orderLine) {
@@ -272,17 +365,33 @@ export class PrismaPurchaseInvoicePosting implements PurchaseInvoicePosting {
       }
 
       // Actualizar estado de la factura a confirmada
-      invoice.confirm(now);
+      invoice.confirm(now, totalPriceDifference, totalExchangeDifference);
       const primitives = invoice.toPrimitives();
 
       await tx.purchaseInvoice.update({
         where: { tenantId_id: { tenantId: tenant, id: primitives.id } },
         data: {
           status: primitives.status,
+          priceDifference: totalPriceDifference,
+          exchangeDifference: totalExchangeDifference,
           confirmedAt: primitives.confirmedAt,
           updatedAt: primitives.updatedAt,
         },
       });
+
+      if (this.revaluationPosting && revaluationsByWarehouse.size > 0) {
+        const revalData: InvoiceWarehouseRevaluationData[] = [...revaluationsByWarehouse.entries()].map(
+          ([warehouseId, revalLines]) => ({ warehouseId, lines: revalLines }),
+        );
+        await this.revaluationPosting.createDraftRevaluations(
+          tenantId,
+          invoice.id.value,
+          invoice.code,
+          revalData,
+          now,
+          tx,
+        );
+      }
 
       return invoice;
     });
@@ -403,7 +512,29 @@ export class PrismaPurchaseInvoicePosting implements PurchaseInvoicePosting {
         },
       });
 
+      if (this.revaluationPosting) {
+        await this.revaluationPosting.cancelOrReverseRevaluations(
+          tenantId,
+          invoice.id.value,
+          invoice.code,
+          now,
+          tx,
+        );
+      }
+
       return invoice;
     });
   }
+}
+
+function effectiveRateToBase(
+  currency: string,
+  baseCurrency: string,
+  exchangeRate: number | null,
+  baseExchangeRate: number | null,
+): number {
+  if (currency === baseCurrency || !exchangeRate || !baseExchangeRate) {
+    return 1;
+  }
+  return exchangeRate / baseExchangeRate;
 }

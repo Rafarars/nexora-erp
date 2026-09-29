@@ -10,6 +10,8 @@ export class AdjustmentLineId extends Uuid {
   }
 }
 
+export type RevaluationKind = 'cost' | 'amount';
+
 export interface AdjustmentLinePrimitives {
   id: string;
   lineNumber: number;
@@ -22,6 +24,11 @@ export interface AdjustmentLinePrimitives {
   quantity: number;
   baseQuantity: number;
   unitCost: number | null;
+  revaluationKind?: RevaluationKind | null;
+  amount?: number | null;
+  sourceMovementId?: string | null;
+  stockPart?: number | null;
+  soldPart?: number | null;
 }
 
 // Una linea ya validada contra el articulo: la unidad es del articulo y la cantidad base
@@ -37,8 +44,33 @@ export class AdjustmentLine {
     readonly direction: StockDirection,
     readonly quantity: Quantity,
     readonly baseQuantity: Quantity,
-    readonly unitCost: UnitCost | null,
+    private _unitCost: UnitCost | null,
+    readonly revaluationKind: RevaluationKind | null = null,
+    readonly amount: number | null = null,
+    readonly sourceMovementId: string | null = null,
+    private _stockPart: number | null = null,
+    private _soldPart: number | null = null,
   ) {}
+
+  get unitCost(): UnitCost | null {
+    return this._unitCost;
+  }
+
+  get stockPart(): number | null {
+    return this._stockPart;
+  }
+
+  get soldPart(): number | null {
+    return this._soldPart;
+  }
+
+  allocateVariance(stockPart: number, soldPart: number, newUnitCost?: UnitCost | null): void {
+    this._stockPart = stockPart;
+    this._soldPart = soldPart;
+    if (newUnitCost !== undefined) {
+      this._unitCost = newUnitCost;
+    }
+  }
 
   static of(fields: {
     id: AdjustmentLineId;
@@ -51,6 +83,11 @@ export class AdjustmentLine {
     quantity: Quantity;
     baseQuantity: Quantity;
     unitCost: UnitCost | null;
+    revaluationKind?: RevaluationKind | null;
+    amount?: number | null;
+    sourceMovementId?: string | null;
+    stockPart?: number | null;
+    soldPart?: number | null;
   }): AdjustmentLine {
     return new AdjustmentLine(
       fields.id,
@@ -63,6 +100,11 @@ export class AdjustmentLine {
       fields.quantity,
       fields.baseQuantity,
       fields.unitCost,
+      fields.revaluationKind ?? null,
+      fields.amount ?? null,
+      fields.sourceMovementId ?? null,
+      fields.stockPart ?? null,
+      fields.soldPart ?? null,
     );
   }
 
@@ -78,6 +120,11 @@ export class AdjustmentLine {
       Quantity.of(row.quantity),
       Quantity.of(row.baseQuantity),
       row.unitCost === null ? null : UnitCost.of(row.unitCost),
+      row.revaluationKind ?? null,
+      row.amount ?? null,
+      row.sourceMovementId ?? null,
+      row.stockPart ?? null,
+      row.soldPart ?? null,
     );
   }
 
@@ -92,7 +139,12 @@ export class AdjustmentLine {
       direction: this.direction,
       quantity: this.quantity.toNumber(),
       baseQuantity: this.baseQuantity.toNumber(),
-      unitCost: this.unitCost?.toNumber() ?? null,
+      unitCost: this._unitCost?.toNumber() ?? null,
+      revaluationKind: this.revaluationKind,
+      amount: this.amount,
+      sourceMovementId: this.sourceMovementId,
+      stockPart: this._stockPart,
+      soldPart: this._soldPart,
     };
   }
 }

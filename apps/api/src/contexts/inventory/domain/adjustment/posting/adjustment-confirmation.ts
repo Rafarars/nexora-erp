@@ -1,6 +1,8 @@
 import { NothingToRevalueError, StockItemChangedError } from '../../errors/inventory.errors.js';
 import { StockEntry, StockMovements } from '../../stock/posting/stock-movements.js';
 import { Ledger } from '../../stock/posting/stock-ledger.js';
+import { UnitCost } from '../../quantity/unit-cost.vo.js';
+import { calculatePriceVariance } from '../../stock/price-variance.js';
 import { Adjustment, isRevaluation } from '../adjustment.entity.js';
 import { Posting } from './adjustment-posting.js';
 
@@ -53,10 +55,43 @@ export class AdjustmentConfirmation {
   // entrar al nuevo. El kardex no sabe escribir un movimiento de cantidad cero, y expresarlo
   // asi deja el rastro de por donde paso el promedio. Cuanto sale es lo que hay AHORA, ya
   // bloqueado; una linea sin existencia no escribe nada.
+  //
+  // Si la linea es por importe (H9 §3.3), reparte con PriceVariance entre bodega y resultado:
+  // si ya salio todo no escribe kardex pero se confirma igual (no lanza NothingToRevalueError).
   private revaluationEntries(adjustment: Adjustment, ledger: Ledger): StockEntry[] {
+    let hasAmountLines = false;
+
     const entries = adjustment.lines().flatMap((line): StockEntry[] => {
       const warehouseId = adjustment.warehouseId();
-      const quantity = ledger.stock(line.itemId, warehouseId).available();
+      const stock = ledger.stock(line.itemId, warehouseId);
+      const quantity = stock.available();
+
+      if (line.revaluationKind === 'amount') {
+        hasAmountLines = true;
+        const amount = line.amount ?? 0;
+        const subsequent = line.sourceMovementId
+          ? ledger.movementsSince(line.itemId, warehouseId, line.sourceMovementId)
+          : [];
+        const { stockPart, soldPart } = calculatePriceVariance(amount, line.sourceMovementId ?? '', subsequent);
+
+        if (quantity.isZero() || stockPart === 0) {
+          line.allocateVariance(stockPart, soldPart, null);
+          return [];
+        }
+
+        const currentValue = quantity.toNumber() * stock.currentAverageCost().toNumber();
+        const newValue = currentValue + stockPart;
+        const newCostNumber = Math.max(0, newValue / quantity.toNumber());
+        const newUnitCost = UnitCost.of(newCostNumber);
+
+        line.allocateVariance(stockPart, soldPart, newUnitCost);
+
+        const common = { lineId: line.id.value, itemId: line.itemId, warehouseId, quantity };
+        return [
+          { ...common, direction: 'out' as const, unitCost: null },
+          { ...common, direction: 'in' as const, unitCost: newUnitCost },
+        ];
+      }
 
       if (quantity.isZero()) return [];
 
@@ -68,7 +103,7 @@ export class AdjustmentConfirmation {
       ];
     });
 
-    if (entries.length === 0) throw new NothingToRevalueError(adjustment.id.value);
+    if (entries.length === 0 && !hasAmountLines) throw new NothingToRevalueError(adjustment.id.value);
 
     return entries;
   }

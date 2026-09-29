@@ -68,8 +68,8 @@ export class PurchaseInvoice {
     readonly code: string,
     private details: PurchaseInvoiceDetails,
     private status: PurchaseInvoiceStatus,
-    private priceDifference: number,
-    private exchangeDifference: number,
+    private _priceDifference: number,
+    private _exchangeDifference: number,
     private confirmedAt: Date | null,
     private cancelledAt: Date | null,
     private readonly createdAt: Date,
@@ -181,11 +181,21 @@ export class PurchaseInvoice {
     this.updatedAt = now;
   }
 
-  confirm(now: Date): void {
+  get priceDifference(): number {
+    return this._priceDifference;
+  }
+
+  get exchangeDifference(): number {
+    return this._exchangeDifference;
+  }
+
+  confirm(now: Date, priceDifference: number = 0, exchangeDifference: number = 0): void {
     if (this.status !== 'draft') {
       throw new PurchaseInvoiceNotConfirmableError(this.id.value, this.status);
     }
     this.status = 'confirmed';
+    this._priceDifference = priceDifference;
+    this._exchangeDifference = exchangeDifference;
     this.confirmedAt = now;
     this.updatedAt = now;
   }
@@ -200,8 +210,8 @@ export class PurchaseInvoice {
   }
 
   setDifferences(priceDiff: number, exchangeDiff: number): void {
-    this.priceDifference = priceDiff;
-    this.exchangeDifference = exchangeDiff;
+    this._priceDifference = priceDiff;
+    this._exchangeDifference = exchangeDiff;
   }
 
   toPrimitives(decimals: number = 2): PurchaseInvoicePrimitives {
@@ -234,8 +244,8 @@ export class PurchaseInvoice {
       subtotalVes: subtotalVesUnits !== null ? unitsToNumber(subtotalVesUnits) : null,
       taxVes: taxVesUnits !== null ? unitsToNumber(taxVesUnits) : null,
       totalVes: totalVesUnits !== null ? unitsToNumber(totalVesUnits) : null,
-      priceDifference: this.priceDifference,
-      exchangeDifference: this.exchangeDifference,
+      priceDifference: this._priceDifference,
+      exchangeDifference: this._exchangeDifference,
       confirmedAt: this.confirmedAt,
       cancelledAt: this.cancelledAt,
       createdAt: this.createdAt,

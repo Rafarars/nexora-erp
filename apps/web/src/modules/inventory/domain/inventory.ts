@@ -54,6 +54,11 @@ export interface AdjustmentLine {
   quantity: number;
   baseQuantity: number;
   unitCost: number | null;
+  revaluationKind?: 'cost' | 'amount' | null;
+  amount?: number | null;
+  sourceMovementId?: string | null;
+  stockPart?: number | null;
+  soldPart?: number | null;
 }
 
 export interface Adjustment {
@@ -67,6 +72,9 @@ export interface Adjustment {
   // Quien lo registro y quien lo cerro; null en los anteriores al rastro.
   createdBy: string | null;
   closedBy: string | null;
+  originType?: string | null;
+  originId?: string | null;
+  originCode?: string | null;
   lines: AdjustmentLine[];
 }
 
@@ -119,9 +127,19 @@ export function availableActions(adjustment: Pick<Adjustment, 'status'>): { edit
 }
 
 // "2 cja (48 un) · 1 un": como se lee un ajuste de un vistazo.
-export function summarizeLines(lines: AdjustmentLine[], baseUnitOf: (itemId: string) => string): string {
+export function summarizeLines(
+  lines: AdjustmentLine[],
+  baseUnitOf: (itemId: string) => string,
+  originCode?: string | null,
+): string {
   return lines
     .map((line) => {
+      if (line.revaluationKind === 'amount' || (line.amount !== null && line.amount !== undefined && line.quantity === 0)) {
+        const sign = (line.amount ?? 0) >= 0 ? '+' : '';
+        const origin = originCode ? ` (${originCode})` : '';
+        return `Revaluación ${sign}${formatMoney(line.amount ?? 0)}${origin} ${line.sku}`;
+      }
+
       const sign = line.direction === 'in' ? '+' : '−';
       const base = line.quantity === line.baseQuantity ? '' : ` (${formatQuantity(line.baseQuantity)} ${baseUnitOf(line.itemId)})`;
 

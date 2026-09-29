@@ -209,6 +209,15 @@ export class InMemoryInventoryStore implements AdjustmentRepository, StockReposi
         this.movements
           .filter((row) => row.tenantId === tenantId.value && row.originId === id)
           .map((row) => InventoryMovement.fromPrimitives(row)),
+      movementsSince: (itemId, warehouseId, sourceMovementId) => {
+        const itemMovements = this.movements
+          .filter((row) => row.tenantId === tenantId.value && row.itemId === itemId.value && row.warehouseId === warehouseId.value);
+        const idx = itemMovements.findIndex((m) => m.id === sourceMovementId);
+        if (idx === -1) {
+          return itemMovements.map((row) => InventoryMovement.fromPrimitives(row));
+        }
+        return itemMovements.slice(idx + 1).map((row) => InventoryMovement.fromPrimitives(row));
+      },
     };
 
     const posting = work(adjustment, ledger);

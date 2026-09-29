@@ -124,6 +124,8 @@ export class PrismaSalesPortsHarness implements SalesPortsHarness {
     await this.prisma.goodsReceipt.deleteMany();
     await this.prisma.purchaseOrder.deleteMany();
     await this.prisma.supplier.deleteMany();
+    await this.prisma.adjustmentLine.deleteMany();
+    await this.prisma.adjustment.deleteMany();
     await this.prisma.inventoryMovement.updateMany({ data: { reversalOfId: null, restoresMovementId: null } });
     await this.prisma.inventoryMovement.deleteMany();
     await this.prisma.itemStock.deleteMany();

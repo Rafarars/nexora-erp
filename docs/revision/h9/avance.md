@@ -361,3 +361,101 @@ Ninguno para esta fase.
 
 ---
 
+## Fase 3 — La diferencia de precio y revaluación por importe
+
+### Qué se construyó
+- **Dominio de Inventario (`apps/api/src/contexts/inventory/domain/`):**
+  - `AdjustmentLine`: ampliado para soportar `revaluationKind: 'cost' | 'amount'`, `amount`, `sourceMovementId`, `stockPart`, `soldPart` y método `allocateVariance(stockPart, soldPart, newUnitCost?)`.
+  - `Adjustment`: soporte de `originType: 'purchase_invoice'`, `originId` y `toPrimitives()`.
+  - `PriceVariance` (`apps/api/src/contexts/inventory/domain/stock/price-variance.ts`): servicio de reparto dinámico del importe de revaluación según el estado del kardex en el momento de la aprobación. Cada salida posterior reduce la proporción en `(qtyAfter / qtyBefore)`, excluyendo las devoluciones a proveedor de esa misma entrada (`purchase_return` citando `sourceMovementId`).
+  - `StockMovements`: puerto en inventario ampliado con `movementsSince(tenantId, sourceMovementId)` para consultar movimientos posteriores desde una entrada dada. Implementado en `InMemoStockMovements` y `PrismaStockMovements`.
+  - `AdjustmentConfirmation`: ampliado para invocar `PriceVariance` cuando el ajuste tiene líneas por importe (`revaluationKind === 'amount'`), actualizando `stockPart` y `soldPart`, y ajustando el kardex solo para la parte de stock.
+- **Dominio de Compras (`apps/api/src/contexts/purchasing/domain/`):**
+  - `PurchasePriceDifference` (`apps/api/src/contexts/purchasing/domain/invoice/purchase-price-difference.ts`): servicio que calcula la diferencia de precio en la moneda del documento y la convierte a la moneda base de la empresa con las tasas de la entrada (`priceDifferenceBase`), y calcula la diferencia en cambio (`exchangeDifferenceBase`) sin tocar inventario.
+  - Puerto `INVOICE_REVALUATION_POSTING` (`apps/api/src/contexts/purchasing/domain/invoice/invoice-revaluation-posting.ts`) para creación de revaluaciones en borrador desde compras sin acoplamiento hexagonal.
+- **Persistencia y Adaptadores:**
+  - `PrismaInvoiceRevaluationPosting` e `InMemoryInvoiceRevaluationPosting`: implementan la creación de revaluaciones en borrador (una por bodega citada) al confirmar la factura y el descarte/reversión al anular la factura.
+  - Integración en `PrismaPurchaseInvoicePosting` e `InMemoryPurchaseInvoicePosting` en la misma transacción atómica de confirmación/anulación de la factura.
+  - Migración SQL ajustada con check constraint `adjustment_lines_quantity_positive` para admitir `(unit_cost IS NOT NULL OR amount IS NOT NULL)` cuando `quantity = 0`.
+- **UI y Pantalla de Ajustes (Ajuste 3 del usuario):**
+  - `AdjustmentSearcher`: expone `originType`, `originId`, `originCode` (`FCP...`) y propiedades de revaluación por importe (`amount`, `revaluationKind`, `stockPart`, `soldPart`).
+  - `apps/web/src/modules/inventory/domain/inventory.ts`: `summarizeLines` actualizado para líneas por importe: muestra `Revaluación +20,00 (FCP000001) SKU`, enseñando su origen por el código de la factura, nunca un id interno.
+  - `adjustments-board.tsx`: visualización del código de origen `FCP...` en la tabla de ajustes.
+
+### Reglas de H9 cubiertas
+- **H9 §3.3:** Diferencia de precio se mide en moneda del documento y se lleva a la empresa a las tasas de la entrada; diferencia en cambio en `exchangeDifference`; revaluación en borrador con líneas por importe citando el movimiento de entrada; reparto dinámico al aprobar (`stockPart` a inventario, `soldPart` a resultado).
+- **H9 §4.1:** Al anular factura: si el ajuste está en borrador se cancela/descarta; si ya estaba confirmado se crea revaluación reversa en borrador con importe opuesto (`-amount`).
+- **Ajuste 3 del usuario:** Puerto `INVOICE_REVALUATION_POSTING` en compras con adaptador y contrato contra PostgreSQL y doble in-memory. En la pantalla de Ajustes, la línea por importe enseña su origen por el código de la factura (`FCP...`), nunca un id.
+- **Ajuste 4 del usuario:** Caso de devoluciones a proveedor de OTRAS entradas analizado y cubierto con prueba unitaria dedicada.
+
+### Pruebas que lo defienden
+- `apps/api/src/contexts/inventory/domain/stock/price-variance.spec.ts:49: describe('calculatePriceVariance (H9 §3.3 & §5.3)')`:
+  - `keeps 100% in stock if there were no subsequent exits`
+  - `allocates 100% to sold/cogs if stock was completely exhausted`
+  - `handles negative price variance (cheaper invoice than receipt)`
+  - `calculates correctly when units sold between invoice and approval (10 at 100, invoice 110, 6 sold => +40 stock, +60 sold)`
+  - `incoming stock after sale does not reduce original ratio (10 at 100, 6 sold, 10 at 90 enter => +40 to stock for 14 units)`
+  - `handles two entries before invoicing (10 at 100, 10 at 150, 15 sold, invoice first lot at 110 => +25 stock, +75 sold)`
+  - `purchase return of the same receipt does not count as exit in variance allocation`
+  - `Ajuste 4 del usuario: return of ANOTHER receipt and variance allocation`
+- `apps/api/src/contexts/purchasing/domain/invoice/purchase-price-difference.spec.ts:10: describe('calculatePurchasePriceDifference (H9 §3.3)')`:
+  - `computes zero price difference and full exchange difference when prices match in USD but rate changed (H9 §7)`
+  - `computes price difference in base currency when invoice is more expensive at same exchange rate`
+  - `computes negative price difference when invoice is cheaper`
+  - `combines price difference and exchange difference simultaneously`
+- `apps/api/src/contexts/purchasing/testing/purchasing-ports.contract.ts`:
+  - `creates draft revaluation adjustment when invoiced price differs from receipt (H9 §4.1, Ajuste 3)`
+  - `cancels draft revaluation adjustment when invoice is cancelled (H9 §4.1)`
+
+### Ajuste 4 del usuario (Devoluciones de OTRAS entradas)
+- **Escenario probado:**
+  - Entrada 1 (origen a revaluar): 10 unidades a 100 (Total = 1.000). Monto a revaluar: +100 (factura a 110).
+  - Entrada 2 (otra entrada): 10 unidades a 150 (Total = 1.500). Existencia = 20, promedio = 125.
+  - Devolución a proveedor de 5 unidades de la Entrada 2: en el kardex sale al costo congelado de la Entrada 2 (150). Existencia antes = 20, existencia después = 15.
+- **Resultado de la fórmula actual de PriceVariance:**
+  - `ratio = 15 / 20 = 0.75`
+  - `stockPart = 75`, `soldPart = 25`
+- **Cifra teórica exacta:**
+  - Dado que la devolución fue de la Entrada 2 (ninguna unidad de la Entrada 1 se devolvió ni se vendió), las 10 unidades de la Entrada 1 permanecen 100% en bodega.
+  - Teóricamente: `stockPart = 100`, `soldPart = 0`.
+- **Diferencia observada:** 25 unidades monetarias. Queda documentada entre las dudas y notas de diseño para H10 sin alterar la fórmula actual según la instrucción explícita del usuario.
+
+### Mutaciones probadas (H9 §7)
+1. **Fila §3.3 (Devolución de la misma entrada no cuenta como salida):**
+   - *Qué se quitó:* Condición `if (mov.origin.type === 'purchase_return' && mov.restoresMovementId?.value === sourceMovementId) continue;` en `PriceVariance`.
+   - *Prueba corrida:* `pnpm --filter api test src/contexts/inventory/domain/stock/price-variance.spec.ts`
+   - *Línea del fallo:* `src/contexts/inventory/domain/stock/price-variance.spec.ts:190:27`
+     `AssertionError: expected 70 to be 100 // Object.is equality`
+2. **Fila §3.3 (Factura en USD al mismo precio pero distinta tasa):**
+   - *Qué se alteró:* Cálculo de `exchangeDiffBase` forzado a `0` en `PurchasePriceDifference`.
+   - *Prueba corrida:* `pnpm --filter api test src/contexts/purchasing/domain/invoice/purchase-price-difference.spec.ts`
+   - *Línea del fallo:* `src/contexts/purchasing/domain/invoice/purchase-price-difference.spec.ts:20:36`
+     `AssertionError: expected +0 to be 500 // Object.is equality`
+
+### Cómo se verificó
+1. **Corridas intermedias rojas:**
+   - Fallo en contrato PostgreSQL (`test-contract`):
+     `AssertionError: expected 730 to be 20` debido a que `rec.exchange_rate` en la BD registraba la tasa contra VES (36.5) y requería aplicar `effectiveRateToBase` respecto a la moneda de la empresa (`baseCurrency`). Corregido calculando `effectiveRateToBase`.
+   - Fallo en build de contenedores (`make up`):
+     Ruta de import de `TenantId` en `invoice-revaluation-posting.ts`, decorador metadata `import type` en `prisma-purchase-invoice-posting.ts` y missing import de `ThreeWayMatcher` en `purchasing.module.ts`. Corregidos y verificados con `pnpm --filter api build` y `pnpm --filter web build`.
+   - Fallo en typecheck (`make verify`):
+     Propiedad privada `priceDifference` en `PurchaseInvoice`. Corregido añadiendo getters públicos `get priceDifference()` y `get exchangeDifference()`.
+2. **Corrida final verde (`make verify` en `docs/revision/h9/logs/verify-fase3-2.log`):**
+   ```
+   Test Files  12 passed (12)
+        Tests  284 passed (284)
+   488 passed (13.2m)
+   Todo en verde.
+   ```
+3. **Pruebas en navegador con `playwright-cli` (headed y persistent, skill `web-qa`):**
+   - Sesión en `http://localhost:3000`. Login con `ana@acme.com`.
+   - Navegación a `/inventario/ajustes`.
+   - Verificada la tabla de ajustes mostrando líneas de revaluación y origen sin identificadores internos.
+   - Captura: `docs/revision/h9/capturas/fase3-revaluacion.png`.
+
+### Lo que no salió como decía el plan
+- Al añadir la columna `sourceMovementId` en `adjustment_lines`, cualquier movimiento citado por un ajuste impedía `inventoryMovement.deleteMany()` en los harnesses de prueba. Se actualizó el orden de borrado eliminando primero `adjustmentLine` y `adjustment` en los 7 harnesses de persistencia (`purchasing`, `reporting`, `inventory-ports`, `item-ports`, `catalog`, `access`, `company`).
+- El cálculo de tasas multimoneda requirió calcular la tasa efectiva respecto a la moneda base de la empresa (`effectiveRateToBase`), evitando multiplicar tasas absolutas de BCV cuando el documento y la empresa comparten la misma moneda.
+
+---
+

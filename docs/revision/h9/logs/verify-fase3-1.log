@@ -1,0 +1,425 @@
+==> 1/6 secrets
+docker run --rm -v "$PWD:/repo:ro" zricethezav/gitleaks:v8.18.4 detect --source=/repo --redact
+
+    ○
+    │╲
+    │ ○
+    ○ ░
+    ░    gitleaks
+
+[90m11:41PM[0m [32mINF[0m 283 commits scanned.
+[90m11:41PM[0m [32mINF[0m scan completed in 4.57s
+[90m11:41PM[0m [32mINF[0m no leaks found
+==> 2/6 lint
+pnpm lint
+$ pnpm -r --if-present lint
+apps/api lint$ oxlint src/
+apps/e2e lint$ echo 'sin linter propio'
+apps/web lint$ eslint
+apps/e2e lint: sin linter propio
+apps/e2e lint: Done
+apps/api lint: 
+apps/api lint:   ! eslint(no-unused-vars): Identifier 'CreditNoteReturnCustomerMismatchError' is imported but never used.
+apps/api lint:    ,-[src/contexts/receivables/application/create-credit-note/credit-note-creator.ts:7:3]
+apps/api lint:  6 | import {
+apps/api lint:  7 |   CreditNoteReturnCustomerMismatchError,
+apps/api lint:    :   ^^^^^^^^^^^^^^^^^^|^^^^^^^^^^^^^^^^^^
+apps/api lint:    :                     `-- 'CreditNoteReturnCustomerMismatchError' is imported here
+apps/api lint:  8 |   CreditNoteReturnNotConfirmedError,
+apps/api lint:    `----
+apps/api lint:   help: Consider removing this import.
+apps/api lint: 
+apps/api lint:   ! eslint(no-unused-vars): Identifier 'CreditNoteReturnNotConfirmedError' is imported but never used.
+apps/api lint:    ,-[src/contexts/receivables/application/create-credit-note/credit-note-creator.ts:8:3]
+apps/api lint:  7 |   CreditNoteReturnCustomerMismatchError,
+apps/api lint:  8 |   CreditNoteReturnNotConfirmedError,
+apps/api lint:    :   ^^^^^^^^^^^^^^^^|^^^^^^^^^^^^^^^^
+apps/api lint:    :                   `-- 'CreditNoteReturnNotConfirmedError' is imported here
+apps/api lint:  9 |   InvoiceNotPayableError,
+apps/api lint:    `----
+apps/api lint:   help: Consider removing this import.
+apps/api lint: 
+apps/api lint:   ! eslint(no-unused-vars): Identifier 'GoodsReceiptId' is imported but never used.
+apps/api lint:     ,-[src/contexts/purchasing/infrastructure/testing/in-memory-purchase-invoice-posting.ts:26:10]
+apps/api lint:  25 | import { TenantId } from '../../domain/shared/tenant-id.vo.js';
+apps/api lint:  26 | import { GoodsReceiptId } from '../../domain/receipt/goods-receipt.entity.js';
+apps/api lint:     :          ^^^^^^^|^^^^^^
+apps/api lint:     :                 `-- 'GoodsReceiptId' is imported here
+apps/api lint:  27 | import { PurchaseOrder, PurchaseOrderId } from '../../domain/order/purchase-order.entity.js';
+apps/api lint:     `----
+apps/api lint:   help: Consider removing this import.
+apps/api lint: 
+apps/api lint:   ! eslint(no-unused-vars): Identifier 'IssuePaymentCannotBeCancelledDirectlyError' is imported but never used.
+apps/api lint:     ,-[src/contexts/receivables/infrastructure/testing/in-memory-receivables-store.ts:16:3]
+apps/api lint:  15 |   InvoiceNotPayableError,
+apps/api lint:  16 |   IssuePaymentCannotBeCancelledDirectlyError,
+apps/api lint:     :   ^^^^^^^^^^^^^^^^^^^^^|^^^^^^^^^^^^^^^^^^^^
+apps/api lint:     :                        `-- 'IssuePaymentCannotBeCancelledDirectlyError' is imported here
+apps/api lint:  17 |   PaymentNotEditableError,
+apps/api lint:     `----
+apps/api lint:   help: Consider removing this import.
+apps/api lint: 
+apps/api lint:   ! eslint(no-unused-vars): Identifier 'SalesReturnId' is imported but never used.
+apps/api lint:     ,-[src/contexts/sales/infrastructure/testing/in-memory-sales-store.ts:39:23]
+apps/api lint:  38 | import { SalesReturnPosting } from '../../domain/return/posting/sales-return-posting.js';
+apps/api lint:  39 | import { SalesReturn, SalesReturnId, SalesReturnPrimitives } from '../../domain/return/sales-return.entity.js';
+apps/api lint:     :                       ^^^^^^|^^^^^^
+apps/api lint:     :                             `-- 'SalesReturnId' is imported here
+apps/api lint:  40 | import { SalesReturnCriteria, SalesReturnRepository } from '../../domain/return/sales-return.repository.js';
+apps/api lint:     `----
+apps/api lint:   help: Consider removing this import.
+apps/api lint: 
+apps/api lint:   ! eslint(no-unused-vars): Identifier 'SalesReturnCriteria' is imported but never used.
+apps/api lint:     ,-[src/contexts/sales/infrastructure/testing/in-memory-sales-store.ts:40:10]
+apps/api lint:  39 | import { SalesReturn, SalesReturnId, SalesReturnPrimitives } from '../../domain/return/sales-return.entity.js';
+apps/api lint:  40 | import { SalesReturnCriteria, SalesReturnRepository } from '../../domain/return/sales-return.repository.js';
+apps/api lint:     :          ^^^^^^^^^|^^^^^^^^^
+apps/api lint:     :                   `-- 'SalesReturnCriteria' is imported here
+apps/api lint:  41 | import { Quantity } from '../../domain/shared/quantity.vo.js';
+apps/api lint:     `----
+apps/api lint:   help: Consider removing this import.
+apps/api lint: 
+apps/api lint:   ! eslint(no-unused-vars): Identifier 'GoodsReceiptFinder' is imported but never used.
+apps/api lint:    ,-[src/contexts/purchasing/application/search-returns/purchase-return-searcher.ts:2:10]
+apps/api lint:  1 | import { PurchasingCatalog } from '../../domain/catalog/purchasing-catalog.js';
+apps/api lint:  2 | import { GoodsReceiptFinder } from '../../domain/receipt/find/goods-receipt-finder.js';
+apps/api lint:    :          ^^^^^^^^^|^^^^^^^^
+apps/api lint:    :                   `-- 'GoodsReceiptFinder' is imported here
+apps/api lint:  3 | import { GoodsReceiptId } from '../../domain/receipt/goods-receipt.entity.js';
+apps/api lint:    `----
+apps/api lint:   help: Consider removing this import.
+apps/api lint: 
+apps/api lint:   ! eslint(no-unused-vars): Identifier 'PurchaseWarehouseNotFoundError' is imported but never used.
+apps/api lint:    ,-[src/contexts/purchasing/application/search-returns/purchase-return-searcher.ts:8:3]
+apps/api lint:  7 |   PurchaseReturnNotFoundError,
+apps/api lint:  8 |   PurchaseWarehouseNotFoundError,
+apps/api lint:    :   ^^^^^^^^^^^^^^^|^^^^^^^^^^^^^^
+apps/api lint:    :                  `-- 'PurchaseWarehouseNotFoundError' is imported here
+apps/api lint:  9 |   SupplierNotFoundError,
+apps/api lint:    `----
+apps/api lint:   help: Consider removing this import.
+apps/api lint: 
+apps/api lint:   ! eslint(no-unused-vars): Identifier 'SupplierFinder' is imported but never used.
+apps/api lint:     ,-[src/contexts/purchasing/application/search-returns/purchase-return-searcher.ts:13:10]
+apps/api lint:  12 | import { PurchaseReturnRepository } from '../../domain/return/purchase-return.repository.js';
+apps/api lint:  13 | import { SupplierFinder } from '../../domain/supplier/find/supplier-finder.js';
+apps/api lint:     :          ^^^^^^^|^^^^^^
+apps/api lint:     :                 `-- 'SupplierFinder' is imported here
+apps/api lint:  14 | import { SupplierId } from '../../domain/supplier/supplier.entity.js';
+apps/api lint:     `----
+apps/api lint:   help: Consider removing this import.
+apps/api lint: 
+apps/api lint:   ! eslint(no-unused-vars): Identifier 'GoodsReceiptId' is imported but never used.
+apps/api lint:    ,-[src/contexts/purchasing/application/three-way-match/three-way-matcher.ts:4:10]
+apps/api lint:  3 | import { GoodsReceiptRepository } from '../../domain/receipt/goods-receipt.repository.js';
+apps/api lint:  4 | import { GoodsReceiptId } from '../../domain/receipt/goods-receipt.entity.js';
+apps/api lint:    :          ^^^^^^^|^^^^^^
+apps/api lint:    :                 `-- 'GoodsReceiptId' is imported here
+apps/api lint:  5 | import { PurchaseOrderRepository } from '../../domain/order/purchase-order.repository.js';
+apps/api lint:    `----
+apps/api lint:   help: Consider removing this import.
+apps/api lint: 
+apps/api lint:   ! eslint(no-unused-vars): Identifier 'PurchaseOrderId' is imported but never used.
+apps/api lint:    ,-[src/contexts/purchasing/application/three-way-match/three-way-matcher.ts:6:10]
+apps/api lint:  5 | import { PurchaseOrderRepository } from '../../domain/order/purchase-order.repository.js';
+apps/api lint:  6 | import { PurchaseOrderId } from '../../domain/order/purchase-order.entity.js';
+apps/api lint:    :          ^^^^^^^|^^^^^^^
+apps/api lint:    :                 `-- 'PurchaseOrderId' is imported here
+apps/api lint:  7 | import { PurchaseReturnRepository } from '../../domain/return/purchase-return.repository.js';
+apps/api lint:    `----
+apps/api lint:   help: Consider removing this import.
+apps/api lint: 
+apps/api lint:   ! eslint(no-unused-vars): Variable 'dispatchIds' is declared but never used. Unused variables should start with a '_'.
+apps/api lint:      ,-[src/contexts/sales/application/search-returns/sales-return-searcher.ts:107:11]
+apps/api lint:  106 | 
+apps/api lint:  107 |     const dispatchIds = [...new Set(rows.map((r) => r.dispatchId).filter((id): id is string => id !== null))];
+apps/api lint:      :           ^^^^^|^^^^^
+apps/api lint:      :                `-- 'dispatchIds' is declared here
+apps/api lint:  108 |     const customerIds = [...new Set(rows.map((r) => r.customerId))];
+apps/api lint:      `----
+apps/api lint:   help: Consider removing this declaration.
+apps/api lint: 
+apps/api lint:   ! eslint(no-unused-vars): Variable 'customerIds' is declared but never used. Unused variables should start with a '_'.
+apps/api lint:      ,-[src/contexts/sales/application/search-returns/sales-return-searcher.ts:108:11]
+apps/api lint:  107 |     const dispatchIds = [...new Set(rows.map((r) => r.dispatchId).filter((id): id is string => id !== null))];
+apps/api lint:  108 |     const customerIds = [...new Set(rows.map((r) => r.customerId))];
+apps/api lint:      :           ^^^^^|^^^^^
+apps/api lint:      :                `-- 'customerIds' is declared here
+apps/api lint:  109 |     const warehouseIds = [...new Set(rows.map((r) => r.warehouseId))];
+apps/api lint:      `----
+apps/api lint:   help: Consider removing this declaration.
+apps/api lint: 
+apps/api lint:   ! eslint(no-unused-vars): Identifier 'InactiveSupplierError' is imported but never used.
+apps/api lint:    ,-[src/contexts/purchasing/application/purchase-invoice.spec.ts:8:3]
+apps/api lint:  7 |   DuplicateSupplierInvoiceNumberError,
+apps/api lint:  8 |   InactiveSupplierError,
+apps/api lint:    :   ^^^^^^^^^^|^^^^^^^^^^
+apps/api lint:    :             `-- 'InactiveSupplierError' is imported here
+apps/api lint:  9 |   InvoiceLinesFromDifferentSupplierError,
+apps/api lint:    `----
+apps/api lint:   help: Consider removing this import.
+apps/api lint: 
+apps/api lint:   ! eslint(no-unused-vars): Identifier 'InvoiceLinesFromDifferentSupplierError' is imported but never used.
+apps/api lint:     ,-[src/contexts/purchasing/application/purchase-invoice.spec.ts:9:3]
+apps/api lint:   8 |   InactiveSupplierError,
+apps/api lint:   9 |   InvoiceLinesFromDifferentSupplierError,
+apps/api lint:     :   ^^^^^^^^^^^^^^^^^^^|^^^^^^^^^^^^^^^^^^
+apps/api lint:     :                      `-- 'InvoiceLinesFromDifferentSupplierError' is imported here
+apps/api lint:  10 |   InvoiceQuantityExceedsOrderServiceError,
+apps/api lint:     `----
+apps/api lint:   help: Consider removing this import.
+apps/api lint: 
+apps/api lint:   ! eslint(no-unused-vars): Identifier 'InvoiceReceiptNotConfirmedError' is imported but never used.
+apps/api lint:     ,-[src/contexts/purchasing/application/purchase-invoice.spec.ts:12:3]
+apps/api lint:  11 |   InvoiceQuantityExceedsReceiptError,
+apps/api lint:  12 |   InvoiceReceiptNotConfirmedError,
+apps/api lint:     :   ^^^^^^^^^^^^^^^|^^^^^^^^^^^^^^^
+apps/api lint:     :                  `-- 'InvoiceReceiptNotConfirmedError' is imported here
+apps/api lint:  13 |   PurchaseInvoiceAlreadyCancelledError,
+apps/api lint:     `----
+apps/api lint:   help: Consider removing this import.
+apps/api lint: 
+apps/api lint:   ! eslint(no-unused-vars): Identifier 'PurchaseInvoiceAlreadyCancelledError' is imported but never used.
+apps/api lint:     ,-[src/contexts/purchasing/application/purchase-invoice.spec.ts:13:3]
+apps/api lint:  12 |   InvoiceReceiptNotConfirmedError,
+apps/api lint:  13 |   PurchaseInvoiceAlreadyCancelledError,
+apps/api lint:     :   ^^^^^^^^^^^^^^^^^^|^^^^^^^^^^^^^^^^^
+apps/api lint:     :                     `-- 'PurchaseInvoiceAlreadyCancelledError' is imported here
+apps/api lint:  14 |   PurchaseInvoiceNotConfirmableError,
+apps/api lint:     `----
+apps/api lint:   help: Consider removing this import.
+apps/api lint: 
+apps/api lint:   ! eslint(no-unused-vars): Identifier 'PurchaseInvoiceNotConfirmableError' is imported but never used.
+apps/api lint:     ,-[src/contexts/purchasing/application/purchase-invoice.spec.ts:14:3]
+apps/api lint:  13 |   PurchaseInvoiceAlreadyCancelledError,
+apps/api lint:  14 |   PurchaseInvoiceNotConfirmableError,
+apps/api lint:     :   ^^^^^^^^^^^^^^^^^|^^^^^^^^^^^^^^^^
+apps/api lint:     :                    `-- 'PurchaseInvoiceNotConfirmableError' is imported here
+apps/api lint:  15 |   PurchaseInvoiceNotEditableError,
+apps/api lint:     `----
+apps/api lint:   help: Consider removing this import.
+apps/api lint: 
+apps/api lint:   ! eslint(no-unused-vars): Identifier 'PurchaseInvoiceNotEditableError' is imported but never used.
+apps/api lint:     ,-[src/contexts/purchasing/application/purchase-invoice.spec.ts:15:3]
+apps/api lint:  14 |   PurchaseInvoiceNotConfirmableError,
+apps/api lint:  15 |   PurchaseInvoiceNotEditableError,
+apps/api lint:     :   ^^^^^^^^^^^^^^^|^^^^^^^^^^^^^^^
+apps/api lint:     :                  `-- 'PurchaseInvoiceNotEditableError' is imported here
+apps/api lint:  16 |   PurchaseInvoiceNotFoundError,
+apps/api lint:     `----
+apps/api lint:   help: Consider removing this import.
+apps/api lint: 
+apps/api lint:   ! eslint(no-unused-vars): Identifier 'PurchaseInvoiceNotFoundError' is imported but never used.
+apps/api lint:     ,-[src/contexts/purchasing/application/purchase-invoice.spec.ts:16:3]
+apps/api lint:  15 |   PurchaseInvoiceNotEditableError,
+apps/api lint:  16 |   PurchaseInvoiceNotFoundError,
+apps/api lint:     :   ^^^^^^^^^^^^^^|^^^^^^^^^^^^^
+apps/api lint:     :                 `-- 'PurchaseInvoiceNotFoundError' is imported here
+apps/api lint:  17 | } from '../domain/errors/purchasing.errors.js';
+apps/api lint:     `----
+apps/api lint:   help: Consider removing this import.
+apps/api lint: 
+apps/api lint:   ! eslint(no-unused-vars): Identifier 'PurchaseInvoiceId' is imported but never used.
+apps/api lint:     ,-[src/contexts/purchasing/application/purchase-invoice.spec.ts:19:10]
+apps/api lint:  18 | import { PurchaseInvoiceReferences } from '../domain/invoice/lines/purchase-invoice-references.js';
+apps/api lint:  19 | import { PurchaseInvoiceId } from '../domain/invoice/purchase-invoice.entity.js';
+apps/api lint:     :          ^^^^^^^^|^^^^^^^^
+apps/api lint:     :                  `-- 'PurchaseInvoiceId' is imported here
+apps/api lint:  20 | import { PurchasingCodePrefix, PurchasingCodeSequence } from '../domain/shared/code-sequence.js';
+apps/api lint:     `----
+apps/api lint:   help: Consider removing this import.
+apps/api lint: 
+apps/api lint:   ! eslint(no-unused-vars): Variable 'updater' is declared but never used. Unused variables should start with a '_'.
+apps/api lint:      ,-[src/contexts/purchasing/application/purchase-invoice.spec.ts:233:9]
+apps/api lint:  232 |   const creator = new PurchaseInvoiceCreator(supplierFinder, references, invoices, codes, ids, clock, calendar, rates);
+apps/api lint:  233 |   const updater = new PurchaseInvoiceUpdater(supplierFinder, references, invoices, clock, calendar, rates);
+apps/api lint:      :         ^^^|^^^
+apps/api lint:      :            `-- 'updater' is declared here
+apps/api lint:  234 |   const confirmer = new PurchaseInvoiceConfirmer(posting, clock);
+apps/api lint:      `----
+apps/api lint:   help: Consider removing this declaration.
+apps/api lint: 
+apps/api lint:   ! eslint(no-unused-vars): Variable 'finder' is declared but never used. Unused variables should start with a '_'.
+apps/api lint:      ,-[src/contexts/purchasing/application/purchase-invoice.spec.ts:236:9]
+apps/api lint:  235 |   const canceller = new PurchaseInvoiceCanceller(posting, clock);
+apps/api lint:  236 |   const finder = new PurchaseInvoiceFinder(invoices);
+apps/api lint:      :         ^^^|^^
+apps/api lint:      :            `-- 'finder' is declared here
+apps/api lint:  237 |   const searcher = new PurchaseInvoiceSearcher(invoices);
+apps/api lint:      `----
+apps/api lint:   help: Consider removing this declaration.
+apps/api lint: 
+apps/api lint:   ! eslint(no-unused-vars): Variable 'searcher' is declared but never used. Unused variables should start with a '_'.
+apps/api lint:      ,-[src/contexts/purchasing/application/purchase-invoice.spec.ts:237:9]
+apps/api lint:  236 |   const finder = new PurchaseInvoiceFinder(invoices);
+apps/api lint:  237 |   const searcher = new PurchaseInvoiceSearcher(invoices);
+apps/api lint:      :         ^^^^|^^^
+apps/api lint:      :             `-- 'searcher' is declared here
+apps/api lint:  238 | 
+apps/api lint:      `----
+apps/api lint:   help: Consider removing this declaration.
+apps/api lint: 
+apps/api lint:   ! eslint(no-unused-vars): Identifier 'DocumentCurrency' is imported but never used.
+apps/api lint:    ,-[src/contexts/sales/application/sales-return.spec.ts:3:10]
+apps/api lint:  2 | import { Clock } from '../../../shared/domain/ports/clock.js';
+apps/api lint:  3 | import { DocumentCurrency } from '../../../shared/domain/document-currency.js';
+apps/api lint:    :          ^^^^^^^^|^^^^^^^
+apps/api lint:    :                  `-- 'DocumentCurrency' is imported here
+apps/api lint:  4 | 
+apps/api lint:    `----
+apps/api lint:   help: Consider removing this import.
+apps/api lint: 
+apps/api lint:   ! eslint(no-unused-vars): Identifier 'CustomerId' is imported but never used.
+apps/api lint:    ,-[src/contexts/sales/application/sales-return.spec.ts:5:10]
+apps/api lint:  4 | 
+apps/api lint:  5 | import { CustomerId } from '../domain/customer/customer.entity.js';
+apps/api lint:    :          ^^^^^|^^^^
+apps/api lint:    :               `-- 'CustomerId' is imported here
+apps/api lint:  6 | import { CustomerRepository } from '../domain/customer/customer.repository.js';
+apps/api lint:    `----
+apps/api lint:   help: Consider removing this import.
+apps/api lint: 
+apps/api lint:   ! eslint(no-unused-vars): Identifier 'DispatchId' is imported but never used.
+apps/api lint:    ,-[src/contexts/sales/application/sales-return.spec.ts:7:20]
+apps/api lint:  6 | import { CustomerRepository } from '../domain/customer/customer.repository.js';
+apps/api lint:  7 | import { Dispatch, DispatchId } from '../domain/dispatch/dispatch.entity.js';
+apps/api lint:    :                    ^^^^^|^^^^
+apps/api lint:    :                         `-- 'DispatchId' is imported here
+apps/api lint:  8 | import { DispatchRepository } from '../domain/dispatch/dispatch.repository.js';
+apps/api lint:    `----
+apps/api lint:   help: Consider removing this import.
+apps/api lint: 
+apps/api lint:   ! eslint(no-unused-vars): Identifier 'DispatchNotFoundError' is imported but never used.
+apps/api lint:     ,-[src/contexts/sales/application/sales-return.spec.ts:10:3]
+apps/api lint:   9 | import {
+apps/api lint:  10 |   DispatchNotFoundError,
+apps/api lint:     :   ^^^^^^^^^^|^^^^^^^^^^
+apps/api lint:     :             `-- 'DispatchNotFoundError' is imported here
+apps/api lint:  11 |   DispatchNotReturnableError,
+apps/api lint:     `----
+apps/api lint:   help: Consider removing this import.
+apps/api lint: 
+apps/api lint:   ! eslint(no-unused-vars): Identifier 'GoodsReceiptId' is imported but never used.
+apps/api lint:    ,-[src/contexts/purchasing/application/purchase-return.spec.ts:7:24]
+apps/api lint:  6 | import { SupplierFinder } from '../domain/supplier/find/supplier-finder.js';
+apps/api lint:  7 | import { GoodsReceipt, GoodsReceiptId } from '../domain/receipt/goods-receipt.entity.js';
+apps/api lint:    :                        ^^^^^^^|^^^^^^
+apps/api lint:    :                               `-- 'GoodsReceiptId' is imported here
+apps/api lint:  8 | import { GoodsReceiptLine } from '../domain/receipt/goods-receipt-line.js';
+apps/api lint:    `----
+apps/api lint:   help: Consider removing this import.
+apps/api lint: 
+apps/api lint:   ! eslint(no-unused-vars): Identifier 'PurchaseOrderId' is imported but never used.
+apps/api lint:     ,-[src/contexts/purchasing/application/purchase-return.spec.ts:11:25]
+apps/api lint:  10 | import { GoodsReceiptFinder } from '../domain/receipt/find/goods-receipt-finder.js';
+apps/api lint:  11 | import { PurchaseOrder, PurchaseOrderId } from '../domain/order/purchase-order.entity.js';
+apps/api lint:     :                         ^^^^^^^|^^^^^^^
+apps/api lint:     :                                `-- 'PurchaseOrderId' is imported here
+apps/api lint:  12 | import { PurchaseOrderLine } from '../domain/order/purchase-order-line.js';
+apps/api lint:     `----
+apps/api lint:   help: Consider removing this import.
+apps/api lint: 
+apps/api lint:   ! eslint(no-unused-vars): Identifier 'PurchaseReturnId' is imported but never used.
+apps/api lint:     ,-[src/contexts/purchasing/application/purchase-return.spec.ts:30:26]
+apps/api lint:  29 | import { PurchaseReturnPosting } from '../domain/return/posting/purchase-return-posting.js';
+apps/api lint:  30 | import { PurchaseReturn, PurchaseReturnId } from '../domain/return/purchase-return.entity.js';
+apps/api lint:     :                          ^^^^^^^^|^^^^^^^
+apps/api lint:     :                                  `-- 'PurchaseReturnId' is imported here
+apps/api lint:  31 | import { PurchaseReturnRepository } from '../domain/return/purchase-return.repository.js';
+apps/api lint:     `----
+apps/api lint:   help: Consider removing this import.
+apps/api lint: 
+apps/api lint:   ! eslint(no-unused-vars): Identifier 'PurchaseInvoiceAlreadyCancelledError' is imported but never used.
+apps/api lint:     ,-[src/contexts/purchasing/testing/purchasing-ports.contract.ts:10:3]
+apps/api lint:   9 |   InvoiceQuantityExceedsReceiptError,
+apps/api lint:  10 |   PurchaseInvoiceAlreadyCancelledError,
+apps/api lint:     :   ^^^^^^^^^^^^^^^^^^|^^^^^^^^^^^^^^^^^
+apps/api lint:     :                     `-- 'PurchaseInvoiceAlreadyCancelledError' is imported here
+apps/api lint:  11 |   PurchaseInvoiceNotConfirmableError,
+apps/api lint:     `----
+apps/api lint:   help: Consider removing this import.
+apps/api lint: 
+apps/api lint:   ! eslint(no-unused-vars): Identifier 'PurchaseInvoiceNotConfirmableError' is imported but never used.
+apps/api lint:     ,-[src/contexts/purchasing/testing/purchasing-ports.contract.ts:11:3]
+apps/api lint:  10 |   PurchaseInvoiceAlreadyCancelledError,
+apps/api lint:  11 |   PurchaseInvoiceNotConfirmableError,
+apps/api lint:     :   ^^^^^^^^^^^^^^^^^|^^^^^^^^^^^^^^^^
+apps/api lint:     :                    `-- 'PurchaseInvoiceNotConfirmableError' is imported here
+apps/api lint:  12 |   PurchaseInvoiceNotFoundError,
+apps/api lint:     `----
+apps/api lint:   help: Consider removing this import.
+apps/api lint: 
+apps/api lint:   ! eslint(no-unused-vars): Identifier 'PurchaseInvoiceNotFoundError' is imported but never used.
+apps/api lint:     ,-[src/contexts/purchasing/testing/purchasing-ports.contract.ts:12:3]
+apps/api lint:  11 |   PurchaseInvoiceNotConfirmableError,
+apps/api lint:  12 |   PurchaseInvoiceNotFoundError,
+apps/api lint:     :   ^^^^^^^^^^^^^^|^^^^^^^^^^^^^
+apps/api lint:     :                 `-- 'PurchaseInvoiceNotFoundError' is imported here
+apps/api lint:  13 |   PurchaseItemChangedError,
+apps/api lint:     `----
+apps/api lint:   help: Consider removing this import.
+apps/api lint: 
+apps/api lint:   ! eslint(no-unused-vars): Identifier 'PurchaseReturnNotConfirmableError' is imported but never used.
+apps/api lint:     ,-[src/contexts/purchasing/testing/purchasing-ports.contract.ts:18:3]
+apps/api lint:  17 |   PurchaseReturnAlreadyCancelledError,
+apps/api lint:  18 |   PurchaseReturnNotConfirmableError,
+apps/api lint:     :   ^^^^^^^^^^^^^^^^|^^^^^^^^^^^^^^^^
+apps/api lint:     :                   `-- 'PurchaseReturnNotConfirmableError' is imported here
+apps/api lint:  19 |   PurchaseReturnNotEditableError,
+apps/api lint:     `----
+apps/api lint:   help: Consider removing this import.
+apps/api lint: 
+apps/api lint:   ! eslint(no-unused-vars): Identifier 'PurchaseReturnNotFoundError' is imported but never used.
+apps/api lint:     ,-[src/contexts/purchasing/testing/purchasing-ports.contract.ts:20:3]
+apps/api lint:  19 |   PurchaseReturnNotEditableError,
+apps/api lint:  20 |   PurchaseReturnNotFoundError,
+apps/api lint:     :   ^^^^^^^^^^^^^|^^^^^^^^^^^^^
+apps/api lint:     :                `-- 'PurchaseReturnNotFoundError' is imported here
+apps/api lint:  21 |   PurchaseReturnSupplierMismatchError,
+apps/api lint:     `----
+apps/api lint:   help: Consider removing this import.
+apps/api lint: 
+apps/api lint:   ! eslint(no-unused-vars): Identifier 'PIECE' is imported but never used.
+apps/api lint:     ,-[src/contexts/purchasing/testing/purchasing-ports.contract.ts:46:26]
+apps/api lint:  45 | import { Supplier, SupplierId } from '../domain/supplier/supplier.entity.js';
+apps/api lint:  46 | import { BOX, MAIN, NOW, PIECE, SUPPLIER, TENANT_A, TENANT_B, TODAY, WATER, aDocumentCurrency, anOrderLine } from '../domain/testing/purchasing.mother.js';
+apps/api lint:     :                          ^^|^^
+apps/api lint:     :                            `-- 'PIECE' is imported here
+apps/api lint:  47 | import { PurchasingPorts, PurchasingPortsHarness } from './purchasing-ports.harness.js';
+apps/api lint:     `----
+apps/api lint:   help: Consider removing this import.
+apps/api lint: 
+apps/api lint:   ! eslint(no-unused-vars): Identifier 'MovementOrigin' is imported but never used.
+apps/api lint:    ,-[src/contexts/inventory/domain/stock/price-variance.spec.ts:2:41]
+apps/api lint:  1 | import { describe, expect, it } from 'vitest';
+apps/api lint:  2 | import { InventoryMovement, MovementId, MovementOrigin } from '../movement/inventory-movement.entity.js';
+apps/api lint:    :                                         ^^^^^^^|^^^^^^
+apps/api lint:    :                                                `-- 'MovementOrigin' is imported here
+apps/api lint:  3 | import { Quantity } from '../quantity/quantity.vo.js';
+apps/api lint:    `----
+apps/api lint:   help: Consider removing this import.
+apps/api lint: 
+apps/api lint: Found 38 warnings and 0 errors.
+apps/api lint: Finished in 406ms on 1062 files with 96 rules using 4 threads.
+apps/api lint: Done
+apps/web lint: Done
+==> 3/6 typecheck
+pnpm typecheck
+$ pnpm -r --if-present typecheck
+apps/api typecheck$ tsc --noEmit -p tsconfig.json
+apps/e2e typecheck$ tsc --noEmit
+apps/web typecheck$ next typegen && tsc --noEmit
+apps/web typecheck: Generating route types...
+apps/web typecheck: ✓ Types generated successfully
+apps/e2e typecheck: Done
+apps/web typecheck: Done
+apps/api typecheck: src/contexts/purchasing/testing/purchasing-ports.contract.ts(891,29): error TS2341: Property 'priceDifference' is private and only accessible within class 'PurchaseInvoice'.
+apps/api typecheck: Failed
+[ELIFECYCLE] Command failed with exit code 2.
+Error: ERR_PNPM_RECURSIVE_RUN_FIRST_FAIL
+
+  × "pnpm recursive run" failed in /home/medine01/dev/erp-portafolio/apps/api
+
+[ELIFECYCLE] Command failed with exit code 1.
+make[1]: *** [Makefile:77: typecheck] Error 1
+make: *** [Makefile:99: verify] Error 2

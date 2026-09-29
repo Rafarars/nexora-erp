@@ -10,6 +10,12 @@ import {
   PurchaseInvoiceNotConfirmableError,
   PurchaseInvoiceNotFoundError,
 } from '../../domain/errors/purchasing.errors.js';
+import {
+  InvoiceRevaluationLineData,
+  InvoiceRevaluationPosting,
+  InvoiceWarehouseRevaluationData,
+} from '../../domain/invoice/invoice-revaluation-posting.js';
+import { calculatePurchasePriceDifference } from '../../domain/invoice/purchase-price-difference.js';
 import { PurchaseInvoicePosting } from '../../domain/invoice/posting/purchase-invoice-posting.js';
 import { PurchaseInvoice, PurchaseInvoiceId } from '../../domain/invoice/purchase-invoice.entity.js';
 import { PurchaseInvoiceRepository } from '../../domain/invoice/purchase-invoice.repository.js';
@@ -30,6 +36,7 @@ export class InMemoryPurchaseInvoicePosting implements PurchaseInvoicePosting {
     private readonly orders: PurchaseOrderRepository,
     private readonly returns?: PurchaseReturnRepository,
     private readonly onSaveOrder?: (order: PurchaseOrder) => Promise<void> | void,
+    private readonly revaluations?: InvoiceRevaluationPosting,
   ) {}
 
   private serial<T>(run: () => Promise<T>): Promise<T> {
@@ -81,6 +88,9 @@ export class InMemoryPurchaseInvoicePosting implements PurchaseInvoicePosting {
     );
 
     const orderDeltas = new Map<string, { orderId: string; delta: number }>();
+    let totalPriceDifference = 0;
+    let totalExchangeDifference = 0;
+    const revaluationsByWarehouse = new Map<string, InvoiceRevaluationLineData[]>();
 
     for (const line of lines) {
       const lineQty = line.quantity.toNumber();
@@ -137,6 +147,53 @@ export class InMemoryPurchaseInvoicePosting implements PurchaseInvoicePosting {
         const orderLineId = foundReceiptLine.orderLineId.value;
         const existingDelta = orderDeltas.get(orderLineId)?.delta ?? 0;
         orderDeltas.set(orderLineId, { orderId: foundReceipt.orderId.value, delta: existingDelta + lineQty });
+
+        // Calcular diferencia de precio sobre la entrada
+        const invoicedUnitPrice = line.unitPrice.toNumber();
+        const invoicedRate = effectiveRateToBase(
+          invoice.currency.currency,
+          invoice.currency.baseCurrency,
+          invoice.currency.exchangeRate,
+          invoice.currency.baseExchangeRate,
+        );
+        const receiptCost = foundReceiptLine.unitCost.toNumber();
+        const receiptCurrency = foundReceipt.currency();
+        const receiptRate = effectiveRateToBase(
+          receiptCurrency.currency,
+          receiptCurrency.baseCurrency,
+          receiptCurrency.exchangeRate,
+          receiptCurrency.baseExchangeRate,
+        );
+
+        const diff = calculatePurchasePriceDifference([
+          {
+            quantity: lineQty,
+            invoiceUnitPrice: invoicedUnitPrice,
+            invoiceRate: invoicedRate,
+            receiptUnitCost: receiptCost,
+            receiptRate,
+          },
+        ]);
+        const lineDiff = diff.lineDifferences[0];
+
+        if (Math.abs(lineDiff.totalDifferenceDoc) > 0.0001 || Math.abs(lineDiff.priceDifferenceBase) > 0.0001) {
+          totalPriceDifference += lineDiff.priceDifferenceBase;
+          totalExchangeDifference += lineDiff.exchangeDifferenceBase;
+
+          const warehouseId = foundReceipt.warehouseId.value;
+          const whLines = revaluationsByWarehouse.get(warehouseId) ?? [];
+          whLines.push({
+            lineNumber: whLines.length + 1,
+            itemId: foundReceiptLine.itemId.value,
+            itemSku: line.itemSku ?? '',
+            itemName: line.itemName ?? '',
+            unitId: foundReceiptLine.unitId.value,
+            amount: lineDiff.priceDifferenceBase,
+            sourceMovementId: `mv-${line.receiptLineId}`,
+            reason: `Diferencia de precio segun factura ${invoice.code}`,
+          });
+          revaluationsByWarehouse.set(warehouseId, whLines);
+        }
       } else if (line.orderLineId) {
         // Encontrar la orden que contiene esta linea
         const allOrders = await this.orders.searchByTenant(tenantId);
@@ -179,8 +236,22 @@ export class InMemoryPurchaseInvoicePosting implements PurchaseInvoicePosting {
       }
     }
 
-    invoice.confirm(now);
+    invoice.confirm(now, totalPriceDifference, totalExchangeDifference);
     await this.invoices.save(invoice);
+
+    if (this.revaluations && revaluationsByWarehouse.size > 0) {
+      const revalData: InvoiceWarehouseRevaluationData[] = [...revaluationsByWarehouse.entries()].map(
+        ([warehouseId, revalLines]) => ({ warehouseId, lines: revalLines }),
+      );
+      await this.revaluations.createDraftRevaluations(
+        tenantId,
+        invoice.id.value,
+        invoice.code,
+        revalData,
+        now,
+      );
+    }
+
     return invoice;
     });
   }
@@ -228,7 +299,29 @@ export class InMemoryPurchaseInvoicePosting implements PurchaseInvoicePosting {
 
       invoice.cancel(now);
       await this.invoices.save(invoice);
+
+      if (this.revaluations) {
+        await this.revaluations.cancelOrReverseRevaluations(
+          tenantId,
+          invoice.id.value,
+          invoice.code,
+          now,
+        );
+      }
+
       return invoice;
     });
   }
+}
+
+function effectiveRateToBase(
+  currency: string,
+  baseCurrency: string,
+  exchangeRate: number | null,
+  baseExchangeRate: number | null,
+): number {
+  if (currency === baseCurrency || !exchangeRate || !baseExchangeRate) {
+    return 1;
+  }
+  return exchangeRate / baseExchangeRate;
 }

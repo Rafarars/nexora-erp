@@ -22,6 +22,7 @@ export interface Ledger {
   // Null si no queda existencia en ninguna. Es el respaldo de una entrada sin costo.
   averageCostOf(itemId: ItemRef): UnitCost | null;
   movementsOf(originId: string): InventoryMovement[];
+  movementsSince(itemId: ItemRef, warehouseId: WarehouseRef, sourceMovementId: string): InventoryMovement[];
 }
 
 export interface StockChanges {
