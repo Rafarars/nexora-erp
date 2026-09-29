@@ -459,3 +459,109 @@ Ninguno para esta fase.
 
 ---
 
+
+## Fase 4: Pago a proveedor (PAG)
+
+### Qué se construyó
+- **Contexto de Dominio (`apps/api/src/contexts/payables`):**
+  - Value Objects y Agregados: `SupplierPayment` (`supplier-payment.entity.ts`), `PayablesDate` (`payables-date.vo.ts`), `PayableInvoice` (`payable-invoice.ts`).
+  - Errores de Dominio: Jerarquía completa en `payables.errors.ts` y suite exhaustiva de categorización de errores (`error-categories.spec.ts`, 51 tests cubriendo `NotFound`, `Validation`, `Conflict` y `Forbidden`).
+  - Puertos de Dominio: `SupplierPaymentRepository`, `PayablesLedger`, `SupplierPaymentPosting`.
+- **Capa de Aplicación:**
+  - Casos de uso: `PaymentCreator`, `PaymentUpdater`, `PaymentConfirmer`, `PaymentCanceller`, `PaymentSearcher`.
+  - Suite de ciclo completo de pagos: `payables-cycle.spec.ts` (7 pruebas unitarias).
+- **Capa de Infraestructura y Persistencia:**
+  - Adaptadores Prisma: `PrismaSupplierPaymentRepository`, `PrismaPayablesLedger`, `PrismaSupplierPaymentPosting` con bloqueo transaccional concurrente (`FOR UPDATE`).
+  - Contrato de puertos: `payables-ports.contract.ts` implementado y ejecutado contra:
+    - Doble en memoria: `in-memory-payables-ports.contract.spec.ts` (8 pruebas).
+    - PostgreSQL real: `prisma-payables-ports.contract.integration.spec.ts` (8 pruebas, cubriendo transaccionalidad, serialización y validaciones).
+- **Capa HTTP y Módulo NestJS:**
+  - DTOs y validaciones Zod: `payment.request.dto.ts`, `payment.query.dto.ts`.
+  - Controladores:
+    - `POST /api/v1/payables/payments` (`CreatePaymentPostController`)
+    - `PUT /api/v1/payables/payments/:paymentId` (`UpdatePaymentPutController`)
+    - `PUT /api/v1/payables/payments/:paymentId/confirm` (`ConfirmPaymentPutController`)
+    - `PUT /api/v1/payables/payments/:paymentId/cancel` (`CancelPaymentPutController`)
+    - `GET /api/v1/payables/payments` (`SearchPaymentsGetController`)
+  - Módulo `payables.module.ts` registrado en `app.module.ts`.
+- **Permisos y Aislamiento (Ajuste 6 del usuario):**
+  - Catálogo de permisos: añadidos 5 permisos en `PAYABLES_PERMISSIONS` (`payables.payments.search`, `create`, `update`, `confirm`, `cancel`). Total: 114 permisos sincronizados.
+  - Matriz de aislamiento (`apps/e2e/support/isolation-matrix.ts`): añadidas las 5 rutas de pagos y verificadas con `isolation-coverage.spec.ts` y `tenant-isolation.api.spec.ts` (pruebas 475 a 479 pasando con 404 para inquilinos ajenos).
+- **Interfaz de Usuario Web (`apps/web`):**
+  - Módulo `payables`: navegación secundaria (`payables-sections.ts`), tipos y helpers (`payables.ts`), traductor de errores en español (`payables-error.ts`), cliente HTTP (`http-payables-api.ts`), helper de sesión (`payables-api.ts`).
+  - Componente visual `PaymentsBoard` (`apps/web/src/sections/payables/payments-board.tsx`): tabla con estados y montos, filtros por proveedor, estado y fechas, slide-over para crear/editar con selector de proveedor y asignación de facturas con saldo, opciones de confirmación y anulación.
+  - Server Actions en `apps/web/src/app/(app)/cuentas-por-pagar/actions.ts`.
+  - Rutas: `/cuentas-por-pagar/layout.tsx`, `/cuentas-por-pagar/page.tsx`, `/cuentas-por-pagar/pagos/page.tsx`.
+  - Integración en navegación global: `Sidebar` y `AppLayout` con enlace directo y activo a `Cuentas por pagar`.
+
+### Reglas de H9 cubiertas
+- **H9 §4.2:** El borrador no toca saldos ni contabilidad. Confirmar el pago reduce el saldo de las facturas asignadas (`balance = total - paid`). Anular el pago devuelve el saldo a las facturas.
+- **H9 §4.2:** Pagar más que el saldo se rechaza (`PaymentExceedsBalanceError`); pagar facturas de otro proveedor se rechaza (`InvoiceOfAnotherSupplierError`).
+- **H9 §4.2:** Control de concurrencia: dos pagos concurrentes que compiten por el mismo saldo de una factura se serializan con bloqueo transaccional, impidiendo sobrepagos.
+- **Ajuste 6 del usuario:** Rutas añadidas a la matriz de aislamiento, permisos en minúsculas y botones de acción protegidos según el rol.
+
+### Pruebas que lo defienden
+- `src/contexts/payables/domain/ledger/payable-invoice.spec.ts` (8 pruebas unitarias).
+- `src/contexts/payables/domain/payment/supplier-payment.entity.spec.ts` (12 pruebas unitarias).
+- `src/contexts/payables/application/payables-cycle.spec.ts` (7 pruebas unitarias).
+- `src/contexts/payables/domain/errors/error-categories.spec.ts` (51 pruebas de categorización).
+- `src/contexts/payables/infrastructure/testing/in-memory-payables-ports.contract.spec.ts` (8 pruebas de contrato en memoria).
+- `src/contexts/payables/infrastructure/persistence/prisma-payables-ports.contract.integration.spec.ts` (8 pruebas de contrato en PostgreSQL real).
+- `tests/isolation/tenant-isolation.api.spec.ts:59:5` (pruebas 475 a 479 de aislamiento para pagos).
+
+### Mutaciones probadas (H9 §7)
+1. **Fila §4.2 (Pagar más que el saldo se rechaza):**
+   - *Qué se quitó:* Validación `if (amount > this.balanceUnits()) throw new PaymentExceedsBalanceError(...)` en `PayableInvoice.ensureAccepts`.
+   - *Prueba corrida:* `pnpm --filter api test payable-invoice.spec.ts`
+   - *Línea del fallo:* `src/contexts/payables/domain/ledger/payable-invoice.spec.ts:71:7`
+     ```
+     FAIL src/contexts/payables/domain/ledger/payable-invoice.spec.ts > PayableInvoice > rejects payments that exceed the remaining balance
+     AssertionError: expected function to throw an error, but it didn't
+      ❯ src/contexts/payables/domain/ledger/payable-invoice.spec.ts:71:7
+          69| expect(() =>
+          70| invoice.ensureAccepts(INVOICE_ROW.supplierId, PayablesDate.of('2…
+          71| ).toThrow(PaymentExceedsBalanceError);
+            | ^
+     ```
+2. **Fila §4.2 (Pagar facturas de otro proveedor se rechaza):**
+   - *Qué se quitó:* Validación `if (this.row.supplierId !== supplierId) throw new InvoiceOfAnotherSupplierError(...)` en `PayableInvoice.ensureAccepts`.
+   - *Prueba corrida:* `pnpm --filter api test payable-invoice.spec.ts`
+   - *Línea del fallo:* `src/contexts/payables/domain/ledger/payable-invoice.spec.ts:56:7`
+     ```
+     FAIL src/contexts/payables/domain/ledger/payable-invoice.spec.ts > PayableInvoice > rejects payments for another supplier
+     AssertionError: expected function to throw an error, but it didn't
+      ❯ src/contexts/payables/domain/ledger/payable-invoice.spec.ts:56:7
+          54| expect(() =>
+          55| invoice.ensureAccepts('e8222222-2222-4222-8222-222222222222', Pa…
+          56| ).toThrow(InvoiceOfAnotherSupplierError);
+            | ^
+     ```
+
+### Cómo se verificó
+1. **Corridas intermedias corregidas:**
+   - Error de compilación en `in-memory-payables-store.ts` (`Type 'unknown' is not assignable to type 'void'`): corregido sustituyendo `return this.queue` por `await this.queue`.
+   - Error de tipos en `http-payables-api.ts` y props de `Pager` en `payments-board.tsx`: corregidos alineándose con `AccessError.fromStatus` y `count`/`href`.
+2. **Corrida final verde (`make verify` en `docs/revision/h9/logs/verify-fase4-1.log`):**
+   ```
+   Test Files 177 passed (177)
+        Tests 3493 passed (3493)
+   Test Files 24 passed (24)
+        Tests 229 passed (229)
+   Test Files 13 passed (13)
+        Tests 292 passed (292)
+   498 passed (11.4m)
+   Todo en verde.
+   ```
+3. **Pruebas en navegador con `playwright-cli` (headed y persistent, skill `web-qa`):**
+   - Sesión abierta con `playwright-cli -s=nexora open http://localhost:3000 --headed --persistent`.
+   - Inicio de sesión anunciado y completado con `ana@acme.com`.
+   - Navegación a `http://localhost:3000/cuentas-por-pagar/pagos`.
+   - Apertura del panel "Nuevo pago" y verificación visual de la interfaz.
+   - Captura guardada en: `docs/revision/h9/capturas/fase4-pagos.png`.
+   - Sesión cerrada con `playwright-cli -s=nexora close`.
+
+### Lo que no salió como decía el plan
+- En `InMemoryPayablesStore`, encapsular el retorno de promesas en `this.queue` requirió `await` explícito para cumplir estrictamente con la firma `Promise<void>` de TypeScript bajo `noImplicitReturns`.
+- Los adaptadores web y clientes HTTP requirieron ajustar el mapeo de `AccessErrorBody` con la función auxiliar `errorBodyOf`, garantizando que las respuestas de error de la API se traduzcan limpiamente sin advertencias de tipos.
+
+---

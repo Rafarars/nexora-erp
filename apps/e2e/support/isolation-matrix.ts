@@ -34,6 +34,8 @@ export const GLOBEX = {
   confirmedPurchaseReturnId: 'f9000000-0000-4000-8000-000000000102',
   draftPurchaseInvoiceId: 'fb000000-0000-4000-8000-000000000101',
   confirmedPurchaseInvoiceId: 'fb000000-0000-4000-8000-000000000102',
+  draftSupplierPaymentId: 'fc000000-0000-4000-8000-000000000101',
+  confirmedSupplierPaymentId: 'fc000000-0000-4000-8000-000000000102',
 };
 
 export const ACME = {
@@ -759,5 +761,37 @@ export const ISOLATION_CASES: IsolationCase[] = [
     title: 'inspect three-way match of a purchase invoice of another tenant',
     method: 'get',
     path: `/api/v1/purchasing/invoices/${GLOBEX.draftPurchaseInvoiceId}/three-way-match`,
+  },
+  {
+    route: 'POST /api/v1/payables/payments',
+    title: 'register a payment for a supplier and an invoice of another tenant',
+    method: 'post',
+    path: '/api/v1/payables/payments',
+    body: { supplierId: GLOBEX.supplierId, method: 'cash', allocations: [{ invoiceId: GLOBEX.confirmedPurchaseInvoiceId, amount: 1 }] },
+  },
+  {
+    route: 'PUT /api/v1/payables/payments/:paymentId',
+    title: 'rewrite a draft supplier payment of another tenant',
+    method: 'put',
+    path: `/api/v1/payables/payments/${GLOBEX.draftSupplierPaymentId}`,
+    body: { supplierId: GLOBEX.supplierId, method: 'cash', allocations: [{ invoiceId: GLOBEX.confirmedPurchaseInvoiceId, amount: 50 }] },
+  },
+  {
+    route: 'PUT /api/v1/payables/payments/:paymentId/confirm',
+    title: 'confirm a supplier payment of another tenant',
+    method: 'put',
+    path: `/api/v1/payables/payments/${GLOBEX.draftSupplierPaymentId}/confirm`,
+  },
+  {
+    route: 'PUT /api/v1/payables/payments/:paymentId/cancel',
+    title: 'cancel a supplier payment of another tenant',
+    method: 'put',
+    path: `/api/v1/payables/payments/${GLOBEX.confirmedSupplierPaymentId}/cancel`,
+  },
+  {
+    route: 'GET /api/v1/payables/payments',
+    title: 'filter payments by a supplier of another tenant',
+    method: 'get',
+    path: `/api/v1/payables/payments?supplierId=${GLOBEX.supplierId}`,
   },
 ];

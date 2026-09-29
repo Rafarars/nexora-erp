@@ -5,9 +5,10 @@ import {
   COMPANY_PERMISSIONS,
   INVENTORY_PERMISSIONS,
   PURCHASING_PERMISSIONS,
-  RECEIVABLES_PERMISSIONS,
-  REPORTS_PERMISSIONS,
   SALES_PERMISSIONS,
+  RECEIVABLES_PERMISSIONS,
+  PAYABLES_PERMISSIONS,
+  REPORTS_PERMISSIONS,
   SYSTEM_PERMISSIONS,
 } from './permissions.catalog.js';
 import { PermissionCode } from './permission-code.vo.js';
@@ -59,11 +60,25 @@ describe('permissions catalog', () => {
     expect(code.startsWith('receivables.')).toBe(true);
   });
 
+  it.each(PAYABLES_PERMISSIONS)('$code belongs to the payables context', ({ code }) => {
+    expect(code.startsWith('payables.')).toBe(true);
+  });
+
   it.each(REPORTS_PERMISSIONS)('$code belongs to the reports context', ({ code }) => {
     expect(code.startsWith('reports.')).toBe(true);
   });
 
   it('is exactly the permissions of every context, nothing more', () => {
-    expect(SYSTEM_PERMISSIONS).toEqual([...ACCESS_PERMISSIONS, ...COMPANY_PERMISSIONS, ...CATALOG_PERMISSIONS, ...INVENTORY_PERMISSIONS, ...PURCHASING_PERMISSIONS, ...SALES_PERMISSIONS, ...RECEIVABLES_PERMISSIONS, ...REPORTS_PERMISSIONS]);
+    expect(SYSTEM_PERMISSIONS).toEqual([
+      ...ACCESS_PERMISSIONS,
+      ...COMPANY_PERMISSIONS,
+      ...CATALOG_PERMISSIONS,
+      ...INVENTORY_PERMISSIONS,
+      ...PURCHASING_PERMISSIONS,
+      ...SALES_PERMISSIONS,
+      ...RECEIVABLES_PERMISSIONS,
+      ...PAYABLES_PERMISSIONS,
+      ...REPORTS_PERMISSIONS,
+    ]);
   });
 });

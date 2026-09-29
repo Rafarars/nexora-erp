@@ -145,6 +145,14 @@ export const RECEIVABLES_PERMISSIONS: PermissionDefinition[] = [
   { code: 'receivables.creditnotes.cancel', description: 'Anular notas de crédito a clientes' },
 ];
 
+export const PAYABLES_PERMISSIONS: PermissionDefinition[] = [
+  { code: 'payables.payments.search', description: 'Consultar los pagos a proveedores' },
+  { code: 'payables.payments.create', description: 'Registrar pagos a proveedores en borrador' },
+  { code: 'payables.payments.update', description: 'Editar pagos a proveedores en borrador' },
+  { code: 'payables.payments.confirm', description: 'Confirmar pagos a proveedores: baja el saldo de las facturas' },
+  { code: 'payables.payments.cancel', description: 'Anular pagos a proveedores, devolviendo el saldo' },
+];
+
 export const REPORTS_PERMISSIONS: PermissionDefinition[] = [
   { code: 'reports.dashboard.search', description: 'Ver el tablero con los indicadores del mes' },
   { code: 'reports.receivables.search', description: 'Ver y exportar la antigüedad de saldos y los estados de cuenta' },
@@ -160,6 +168,7 @@ export const SYSTEM_PERMISSIONS: PermissionDefinition[] = [
   ...PURCHASING_PERMISSIONS,
   ...SALES_PERMISSIONS,
   ...RECEIVABLES_PERMISSIONS,
+  ...PAYABLES_PERMISSIONS,
   ...REPORTS_PERMISSIONS,
 ];
 

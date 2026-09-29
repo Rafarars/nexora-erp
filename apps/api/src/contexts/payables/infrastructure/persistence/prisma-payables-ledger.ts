@@ -1,0 +1,51 @@
+import { Injectable } from '@nestjs/common';
+import { PrismaService } from '../../../../shared/prisma/prisma.service.js';
+import { PayableInvoice } from '../../domain/ledger/payable-invoice.js';
+import { PayableInvoiceFilter, PayableSupplier, PayableSupplierFilter, PayablesLedger } from '../../domain/ledger/payables-ledger.js';
+import { TenantId } from '../../domain/shared/tenant-id.vo.js';
+import { asDate, invoiceFromRow, invoiceSelect, supplierFromRow } from './payables-rows.js';
+
+const SUPPLIER_SELECT = { id: true, code: true, name: true, paymentTermDays: true, isActive: true } as const;
+
+const like = (text: string) => ({ contains: text, mode: 'insensitive' as const });
+
+// Lee proveedores y facturas de compra de las tablas de compras, como el inventario lee las del catalogo.
+@Injectable()
+export class PrismaPayablesLedger implements PayablesLedger {
+  constructor(private readonly prisma: PrismaService) {}
+
+  async suppliers(tenantId: TenantId, filter: PayableSupplierFilter = {}): Promise<PayableSupplier[]> {
+    const text = filter.text ?? null;
+    const rows = await this.prisma.supplier.findMany({
+      where: { tenantId: tenantId.value, ...(text ? { OR: [{ code: like(text) }, { name: like(text) }] } : {}) },
+      select: SUPPLIER_SELECT,
+      orderBy: [{ name: 'asc' }, { code: 'asc' }],
+    });
+
+    return rows.map(supplierFromRow);
+  }
+
+  async supplier(tenantId: TenantId, supplierId: string): Promise<PayableSupplier | null> {
+    const row = await this.prisma.supplier.findFirst({ where: { tenantId: tenantId.value, id: supplierId }, select: SUPPLIER_SELECT });
+
+    return row ? supplierFromRow(row) : null;
+  }
+
+  async invoices(tenantId: TenantId, filter: PayableInvoiceFilter = {}): Promise<PayableInvoice[]> {
+    const text = filter.text ?? null;
+    const rows = await this.prisma.purchaseInvoice.findMany({
+      where: {
+        tenantId: tenantId.value,
+        ...(filter.supplierId ? { supplierId: filter.supplierId } : {}),
+        ...(filter.ids ? { id: { in: filter.ids } } : {}),
+        ...(filter.onlyConfirmed ? { status: 'confirmed' as const } : {}),
+        ...(filter.from || filter.to ? { dueDate: { ...(filter.from ? { gte: asDate(filter.from) } : {}), ...(filter.to ? { lte: asDate(filter.to) } : {}) } } : {}),
+        ...(text ? { OR: [{ code: like(text) }, { supplierInvoiceNumber: like(text) }, { supplier: { name: like(text) } }] } : {}),
+      },
+      select: invoiceSelect(),
+      orderBy: { code: 'desc' },
+    });
+
+    return rows.map(invoiceFromRow);
+  }
+}
