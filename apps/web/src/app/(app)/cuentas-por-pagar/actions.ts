@@ -2,6 +2,7 @@
 
 import { revalidatePath } from 'next/cache';
 import { parseDecimal } from '@/modules/catalog/domain/catalog';
+import type { CreditNoteReason } from '@/modules/payables/domain/payables';
 import { readablePayablesError } from '@/modules/payables/domain/payables-error';
 import { payablesApi } from '@/shared/session/payables-api';
 import { requireSession } from '@/shared/session/current-session';
@@ -56,3 +57,49 @@ export async function changePayment(_state: FormState, form: FormData): Promise<
 
   return attempt('No se pudo anular el pago.', (token) => payablesApi().cancelPayment(token, id));
 }
+
+export async function saveCreditNote(_state: FormState, form: FormData): Promise<FormState> {
+  const lineConcepts = form.getAll('lineConcept').map(String);
+  const lineQuantities = form.getAll('lineQuantity').map(String);
+  const linePrices = form.getAll('linePrice').map(String);
+  const lineTaxes = form.getAll('lineTax').map(String);
+
+  return attempt('No se pudo guardar la nota de crédito.', (token) =>
+    payablesApi().saveCreditNote(token, optional(form, 'id'), {
+      supplierId: text(form, 'supplierId'),
+      invoiceId: optional(form, 'invoiceId'),
+      purchaseReturnId: optional(form, 'purchaseReturnId'),
+      date: optional(form, 'date') ?? optional(form, 'issueDate'),
+      reason: text(form, 'reason') as CreditNoteReason,
+      reasonDetail: optional(form, 'reasonDetail'),
+      notes: optional(form, 'notes'),
+      currency: optional(form, 'currency'),
+      exchangeRate: rate(form),
+      lines: lineConcepts.map((concept, index) => ({
+        concept: concept.trim() || null,
+        quantity: parseDecimal(lineQuantities[index] ?? '1'),
+        unitPrice: parseDecimal(linePrices[index] ?? '0'),
+        taxRate: parseDecimal(lineTaxes[index] ?? '0'),
+      })),
+    }),
+  );
+}
+
+export async function changeCreditNote(_state: FormState, form: FormData): Promise<FormState> {
+  const id = text(form, 'id');
+
+  if (form.get('extra') === 'confirm') return attempt('No se pudo confirmar la nota de crédito.', (token) => payablesApi().confirmCreditNote(token, id));
+
+  return attempt('No se pudo anular la nota de crédito.', (token) => payablesApi().cancelCreditNote(token, id));
+}
+
+export async function getSupplierAvailableCredits(supplierId: string) {
+  if (!supplierId) return [];
+  const { token } = await requireSession();
+  try {
+    return await payablesApi().availableCredits(token, supplierId);
+  } catch {
+    return [];
+  }
+}
+

@@ -1,4 +1,13 @@
-import type { AgingTotals, PayableInvoice, Statement, SupplierBalance, SupplierPayment } from './payables';
+import type {
+  AgingTotals,
+  CreditNoteReason,
+  PayableInvoice,
+  Statement,
+  SupplierAvailableCredit,
+  SupplierBalance,
+  SupplierCreditNote,
+  SupplierPayment,
+} from './payables';
 
 export interface PaymentInput {
   supplierId: string;
@@ -13,6 +22,31 @@ export interface PaymentInput {
   allocations: { invoiceId: string; amount: number }[];
 }
 
+export interface CreditNoteLineInput {
+  id?: string;
+  itemId?: string | null;
+  itemSku?: string | null;
+  itemName?: string | null;
+  concept?: string | null;
+  unitId?: string | null;
+  quantity: number;
+  unitPrice: number;
+  taxRate: number;
+}
+
+export interface CreditNoteInput {
+  supplierId: string;
+  invoiceId?: string | null;
+  purchaseReturnId?: string | null;
+  date: string | null;
+  reason: CreditNoteReason;
+  reasonDetail?: string | null;
+  notes?: string | null;
+  currency?: string | null;
+  exchangeRate?: number | null;
+  lines: CreditNoteLineInput[];
+}
+
 export interface Page {
   total: number;
   limit: number;
@@ -23,6 +57,17 @@ export interface Page {
 export type PaymentFilters = {
   q?: string;
   supplierId?: string;
+  status?: string;
+  from?: string;
+  to?: string;
+  limit?: number;
+  offset?: number;
+};
+
+export type CreditNoteFilters = {
+  q?: string;
+  supplierId?: string;
+  invoiceId?: string;
   status?: string;
   from?: string;
   to?: string;
@@ -52,6 +97,10 @@ export interface PaymentPage extends Page {
   payments: SupplierPayment[];
 }
 
+export interface CreditNotePage extends Page {
+  creditNotes: SupplierCreditNote[];
+}
+
 export interface PayableInvoicePage extends Page {
   invoices: PayableInvoice[];
 }
@@ -66,6 +115,11 @@ export interface PayablesApi {
   savePayment(token: string, id: string | null, input: PaymentInput): Promise<void>;
   confirmPayment(token: string, id: string): Promise<void>;
   cancelPayment(token: string, id: string): Promise<void>;
+  searchCreditNotes(token: string, filters?: CreditNoteFilters): Promise<CreditNotePage>;
+  saveCreditNote(token: string, id: string | null, input: CreditNoteInput): Promise<void>;
+  confirmCreditNote(token: string, id: string): Promise<void>;
+  cancelCreditNote(token: string, id: string): Promise<void>;
+  availableCredits(token: string, supplierId: string): Promise<SupplierAvailableCredit[]>;
   searchPayableInvoices(token: string, filters?: PayableInvoiceFilters): Promise<PayableInvoicePage>;
   allInvoices(token: string): Promise<PayableInvoice[]>;
   searchSupplierBalances(token: string, filters?: SupplierBalanceFilters): Promise<SupplierBalancePage>;

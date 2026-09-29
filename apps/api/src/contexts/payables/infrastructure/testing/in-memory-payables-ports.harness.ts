@@ -14,6 +14,8 @@ export class InMemoryPayablesPortsHarness implements PayablesPortsHarness {
       posting: this.store.posting,
       ledger: this.store.ledger,
       codes: this.codeSequence,
+      creditNotes: this.store.creditNotes,
+      creditNotePosting: this.store.creditNotePosting,
     };
   }
 
@@ -27,6 +29,10 @@ export class InMemoryPayablesPortsHarness implements PayablesPortsHarness {
 
   async cancelInvoice(_tenantId: string, invoiceId: string): Promise<void> {
     this.store.cancelInvoice(invoiceId);
+  }
+
+  async purchaseReturn(tenantId: string, returnId: string, supplierId: string, status?: 'confirmed' | 'draft' | 'cancelled'): Promise<void> {
+    this.store.purchaseReturn(tenantId, returnId, supplierId, status ?? 'confirmed');
   }
 
   async setAmountDecimals(tenantId: string, decimals: number): Promise<void> {

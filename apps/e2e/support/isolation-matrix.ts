@@ -36,6 +36,8 @@ export const GLOBEX = {
   confirmedPurchaseInvoiceId: 'fb000000-0000-4000-8000-000000000102',
   draftSupplierPaymentId: 'fc000000-0000-4000-8000-000000000101',
   confirmedSupplierPaymentId: 'fc000000-0000-4000-8000-000000000102',
+  draftSupplierCreditNoteId: 'fd000000-0000-4000-8000-000000000101',
+  confirmedSupplierCreditNoteId: 'fd000000-0000-4000-8000-000000000102',
 };
 
 export const ACME = {
@@ -805,5 +807,57 @@ export const ISOLATION_CASES: IsolationCase[] = [
     title: 'read the statement of a supplier of another tenant',
     method: 'get',
     path: `/api/v1/payables/suppliers/${GLOBEX.supplierId}/statement`,
+  },
+  {
+    route: 'POST /api/v1/payables/credit-notes',
+    title: 'create a supplier credit note for a supplier of another tenant',
+    method: 'post',
+    path: '/api/v1/payables/credit-notes',
+    body: {
+      supplierId: GLOBEX.supplierId,
+      reason: 'subsequent_discount',
+      lines: [{ concept: 'Descuento', quantity: 1, unitPrice: 10, taxRate: 0 }],
+    },
+  },
+  {
+    route: 'PUT /api/v1/payables/credit-notes/:creditNoteId',
+    title: 'rewrite a draft supplier credit note of another tenant',
+    method: 'put',
+    path: `/api/v1/payables/credit-notes/${GLOBEX.draftSupplierCreditNoteId}`,
+    body: {
+      supplierId: GLOBEX.supplierId,
+      reason: 'subsequent_discount',
+      lines: [{ concept: 'Descuento', quantity: 1, unitPrice: 20, taxRate: 0 }],
+    },
+  },
+  {
+    route: 'PUT /api/v1/payables/credit-notes/:creditNoteId/confirm',
+    title: 'confirm a supplier credit note of another tenant',
+    method: 'put',
+    path: `/api/v1/payables/credit-notes/${GLOBEX.draftSupplierCreditNoteId}/confirm`,
+  },
+  {
+    route: 'PUT /api/v1/payables/credit-notes/:creditNoteId/cancel',
+    title: 'cancel a supplier credit note of another tenant',
+    method: 'put',
+    path: `/api/v1/payables/credit-notes/${GLOBEX.confirmedSupplierCreditNoteId}/cancel`,
+  },
+  {
+    route: 'GET /api/v1/payables/credit-notes/:creditNoteId',
+    title: 'find a supplier credit note of another tenant',
+    method: 'get',
+    path: `/api/v1/payables/credit-notes/${GLOBEX.draftSupplierCreditNoteId}`,
+  },
+  {
+    route: 'GET /api/v1/payables/credit-notes',
+    title: 'filter supplier credit notes by a supplier of another tenant',
+    method: 'get',
+    path: `/api/v1/payables/credit-notes?supplierId=${GLOBEX.supplierId}`,
+  },
+  {
+    route: 'GET /api/v1/payables/suppliers/:supplierId/available-credits',
+    title: 'read available credits of a supplier of another tenant',
+    method: 'get',
+    path: `/api/v1/payables/suppliers/${GLOBEX.supplierId}/available-credits`,
   },
 ];

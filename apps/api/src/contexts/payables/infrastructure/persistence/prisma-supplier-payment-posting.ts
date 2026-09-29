@@ -3,15 +3,19 @@ import { PrismaService } from '../../../../shared/prisma/prisma.service.js';
 import { ConcurrentModificationError } from '../../../../shared/domain/concurrent-modification.error.js';
 import {
   CreditNoteCurrencyMismatchError,
+  CreditNoteExceededError,
   CreditNoteNotConfirmedError,
   CreditNoteNotFoundError,
+  CreditNoteSupplierMismatchError,
   PaymentNotFoundError,
 } from '../../domain/errors/payables.errors.js';
+import { PayableCreditQuota } from '../../domain/credit-note/credit-quota.service.js';
 import { PayableInvoice } from '../../domain/ledger/payable-invoice.js';
 import { SupplierPayment, PaymentId } from '../../domain/payment/supplier-payment.entity.js';
 import { SupplierPaymentPosting } from '../../domain/payment/posting/supplier-payment-posting.js';
 import { TenantId } from '../../domain/shared/tenant-id.vo.js';
-import { PAYMENT_INCLUDE, invoiceFromRow, invoiceSelect, paymentFromRow } from './payables-rows.js';
+import { CREDIT_NOTE_INCLUDE, CreditNoteRow, creditNoteFromRow, PAYMENT_INCLUDE, invoiceFromRow, invoiceSelect, paymentFromRow } from './payables-rows.js';
+import { queryAppliedPaymentsSum } from './credit-note-applied-query.js';
 
 // Bloqueo determinista (nota -> pago -> facturas) para evitar deadlocks
 @Injectable()
@@ -49,16 +53,31 @@ export class PrismaSupplierPaymentPosting implements SupplierPaymentPosting {
 
       if (payment.toPrimitives().creditSourceId) {
         const creditSourceId = payment.toPrimitives().creditSourceId!;
-        const noteRow = await tx.supplierCreditNote.findFirstOrThrow({
+        const noteRow = (await tx.supplierCreditNote.findFirstOrThrow({
           where: { tenantId: tenant, id: creditSourceId },
-        });
+          include: CREDIT_NOTE_INCLUDE,
+        })) as unknown as CreditNoteRow;
 
-        if (noteRow.status !== 'confirmed') {
-          throw new CreditNoteNotConfirmedError(creditSourceId, noteRow.status);
+        const note = creditNoteFromRow(noteRow);
+
+        if (note.currentStatus() !== 'confirmed') {
+          throw new CreditNoteNotConfirmedError(creditSourceId, note.currentStatus());
         }
 
-        if (noteRow.currency !== payment.currency().currency) {
-          throw new CreditNoteCurrencyMismatchError(noteRow.currency, payment.currency().currency);
+        if (note.supplierId() !== payment.supplierId()) {
+          throw new CreditNoteSupplierMismatchError(creditSourceId, payment.supplierId());
+        }
+
+        if (note.currency().currency !== payment.currency().currency) {
+          throw new CreditNoteCurrencyMismatchError(note.currency().currency, payment.currency().currency);
+        }
+
+        // Sumar pagos confirmados aplicados a la nota (excluyendo el actual)
+        const appliedSum = await queryAppliedPaymentsSum(tx, tenant, creditSourceId, paymentId.value);
+        const available = PayableCreditQuota.available(note.total(), appliedSum);
+
+        if (payment.toPrimitives().amount > available) {
+          throw new CreditNoteExceededError(creditSourceId, available, payment.toPrimitives().amount);
         }
       }
 

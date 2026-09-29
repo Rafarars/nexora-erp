@@ -153,6 +153,11 @@ export const PAYABLES_PERMISSIONS: PermissionDefinition[] = [
   { code: 'payables.payments.cancel', description: 'Anular pagos a proveedores, devolviendo el saldo' },
   { code: 'payables.balances.search', description: 'Consultar facturas por pagar y antigüedad de saldos de proveedores' },
   { code: 'payables.statements.search', description: 'Consultar el estado de cuenta de un proveedor' },
+  { code: 'payables.creditnotes.search', description: 'Consultar notas de crédito de proveedores' },
+  { code: 'payables.creditnotes.create', description: 'Crear notas de crédito de proveedores en borrador' },
+  { code: 'payables.creditnotes.update', description: 'Editar notas de crédito de proveedores en borrador' },
+  { code: 'payables.creditnotes.confirm', description: 'Confirmar notas de crédito de proveedores' },
+  { code: 'payables.creditnotes.cancel', description: 'Anular notas de crédito de proveedores' },
 ];
 
 export const REPORTS_PERMISSIONS: PermissionDefinition[] = [

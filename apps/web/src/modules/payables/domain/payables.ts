@@ -133,3 +133,84 @@ export function overdueLabel(days: number): string {
   if (days === 1) return 'Vencida hace 1 día';
   return `Vencida hace ${days} días`;
 }
+
+export type CreditNoteStatus = 'draft' | 'confirmed' | 'cancelled';
+
+export const CREDIT_NOTE_REASONS = [
+  'return',
+  'subsequent_discount',
+  'price_correction',
+  'damaged_goods',
+  'cancellation',
+  'other',
+] as const;
+
+export type CreditNoteReason = (typeof CREDIT_NOTE_REASONS)[number];
+
+export const CREDIT_NOTE_REASON_LABELS: Record<CreditNoteReason, string> = {
+  return: 'Devolución de mercancía',
+  subsequent_discount: 'Descuento posterior',
+  price_correction: 'Corrección de precio',
+  damaged_goods: 'Mercancía dañada',
+  cancellation: 'Anulación de factura',
+  other: 'Otro motivo',
+};
+
+export const CREDIT_NOTE_STATUS_LABELS: Record<CreditNoteStatus, string> = {
+  draft: 'Borrador',
+  confirmed: 'Confirmada',
+  cancelled: 'Anulada',
+};
+
+export interface SupplierCreditNoteLine {
+  id: string;
+  lineNumber: number;
+  itemId: string | null;
+  itemSku: string | null;
+  itemName: string | null;
+  concept: string | null;
+  unitId: string | null;
+  quantity: number;
+  unitPrice: number;
+  taxRate: number;
+  subtotal: number;
+  tax: number;
+  total: number;
+}
+
+export interface SupplierCreditNote extends DocumentCurrency {
+  id: string;
+  code: string;
+  supplier: { id: string; code: string; name: string };
+  invoice: { id: string; code: string } | null;
+  purchaseReturnId: string | null;
+  issuePaymentId: string | null;
+  issuePaymentCode?: string | null;
+  issueDate: string;
+  reason: CreditNoteReason;
+  reasonDetail: string | null;
+  notes: string | null;
+  status: CreditNoteStatus;
+  subtotal: number;
+  tax: number;
+  total: number;
+  subtotalVes: number | null;
+  taxVes: number | null;
+  totalVes: number | null;
+  priceDifference: number;
+  exchangeDifference: number;
+  lines: SupplierCreditNoteLine[];
+}
+
+export function creditNoteActions(
+  note: SupplierCreditNote,
+  canUpdate: boolean,
+  canConfirm: boolean,
+  canCancel: boolean,
+) {
+  return {
+    canEdit: note.status === 'draft' && canUpdate,
+    canConfirm: note.status === 'draft' && canConfirm,
+    canCancel: note.status === 'confirmed' && canCancel,
+  };
+}

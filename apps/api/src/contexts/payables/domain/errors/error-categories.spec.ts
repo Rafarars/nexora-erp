@@ -30,6 +30,18 @@ const cases: Array<[DomainError, typeof DomainError]> = [
   [new errors.CreditNotePaymentWithoutSourceError(), InvalidArgumentError],
   [new errors.MoneyPaymentWithCreditSourceError(), InvalidArgumentError],
   [new errors.IssuePaymentCannotBeCancelledDirectlyError(ID), ConflictError],
+  [new errors.CreditNoteNotEditableError(ID, 'confirmed'), ConflictError],
+  [new errors.CreditNoteNotConfirmableError(ID, 'cancelled'), ConflictError],
+  [new errors.CreditNoteAlreadyCancelledError(ID), ConflictError],
+  [new errors.CreditNoteReasonDetailRequiredError(), InvalidArgumentError],
+  [new errors.EmptyCreditNoteError(), InvalidArgumentError],
+  [new errors.InvalidCreditNoteLineAmountError(), InvalidArgumentError],
+  [new errors.CreditNoteInvoiceTotalExceededError(ID, 100, 150), ConflictError],
+  [new errors.CreditNoteReturnNotFoundError(ID), NotFoundError],
+  [new errors.CreditNoteReturnNotConfirmedError(ID, 'draft'), ConflictError],
+  [new errors.CreditNoteReturnAlreadyCreditedError(ID), ConflictError],
+  [new errors.CreditNoteReturnSupplierMismatchError(ID, ID), ConflictError],
+  [new errors.CreditNoteWithApplicationsError(ID), ConflictError],
 ];
 
 describe('payables domain errors', () => {

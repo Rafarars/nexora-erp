@@ -1,7 +1,10 @@
 import { AccessError } from '../../access/domain/access-error';
 import type { AccessErrorBody } from '../../access/domain/access-error';
-import type { PayableInvoice, Statement, SupplierBalance } from '../domain/payables';
+import type { PayableInvoice, Statement, SupplierAvailableCredit, SupplierBalance } from '../domain/payables';
 import type {
+  CreditNoteFilters,
+  CreditNoteInput,
+  CreditNotePage,
   PayableInvoiceFilters,
   PayableInvoicePage,
   PaymentFilters,
@@ -52,6 +55,37 @@ export class HttpPayablesApi implements PayablesApi {
 
   async cancelPayment(token: string, id: string): Promise<void> {
     await this.request('PUT', `${BASE}/payments/${id}/cancel`, token);
+  }
+
+  async searchCreditNotes(token: string, filters: CreditNoteFilters = {}): Promise<CreditNotePage> {
+    return this.request<CreditNotePage>('GET', `${BASE}/credit-notes${queryOf(filters)}`, token);
+  }
+
+  async saveCreditNote(token: string, id: string | null, input: CreditNoteInput): Promise<void> {
+    const body = {
+      ...input,
+      exchangeRate: input.exchangeRate == null ? null : numeric(input.exchangeRate),
+      lines: input.lines.map((line) => ({
+        ...line,
+        quantity: numeric(line.quantity),
+        unitPrice: numeric(line.unitPrice),
+        taxRate: numeric(line.taxRate),
+      })),
+    };
+
+    await this.request(id ? 'PUT' : 'POST', id ? `${BASE}/credit-notes/${id}` : `${BASE}/credit-notes`, token, body);
+  }
+
+  async confirmCreditNote(token: string, id: string): Promise<void> {
+    await this.request('PUT', `${BASE}/credit-notes/${id}/confirm`, token);
+  }
+
+  async cancelCreditNote(token: string, id: string): Promise<void> {
+    await this.request('PUT', `${BASE}/credit-notes/${id}/cancel`, token);
+  }
+
+  async availableCredits(token: string, supplierId: string): Promise<SupplierAvailableCredit[]> {
+    return this.request<SupplierAvailableCredit[]>('GET', `${BASE}/suppliers/${encodeURIComponent(supplierId)}/available-credits`, token);
   }
 
   async searchPayableInvoices(token: string, filters: PayableInvoiceFilters = {}): Promise<PayableInvoicePage> {

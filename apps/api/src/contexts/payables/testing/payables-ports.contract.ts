@@ -8,6 +8,7 @@ import {
   PaymentNotFoundError,
 } from '../domain/errors/payables.errors.js';
 import { SupplierPayment, PaymentDetails, PaymentId } from '../domain/payment/supplier-payment.entity.js';
+import { SupplierCreditNote, SupplierCreditNoteId } from '../domain/credit-note/supplier-credit-note.entity.js';
 import { PayablesDate } from '../domain/shared/payables-date.vo.js';
 import { TenantId } from '../domain/shared/tenant-id.vo.js';
 import {
@@ -159,6 +160,72 @@ export function describePayablesPortsContract(implementation: string, createHarn
       // Las facturas de TENANT_A no incluyen la de TENANT_B
       const invoicesA = await ports.ledger.invoices(tenant);
       expect(invoicesA.some((inv) => inv.id === FOREIGN_INVOICE)).toBe(false);
+    });
+
+    describe('SupplierCreditNote contract', () => {
+      it('saves and finds a draft credit note with its lines and isolates by tenant', async () => {
+        const id = SupplierCreditNoteId.of(`c0000000-0000-4000-8000-${next()}`);
+        const note = SupplierCreditNote.draft(
+          id,
+          tenant,
+          `NCP${next().slice(-6)}`,
+          {
+            supplierId: SUPPLIER,
+            issueDate: PayablesDate.of(TODAY),
+            reason: 'subsequent_discount',
+            currency: aPaymentRates().currency,
+            lines: [{ id: `e0000000-0000-4000-8000-${next()}`, concept: 'Descuento', quantity: 1, unitPrice: 20, taxRate: 0 }],
+          },
+          NOW,
+          TODAY,
+        );
+
+        await ports.creditNotes.save(note);
+
+        const found = await ports.creditNotes.find(tenant, id);
+        expect(found).not.toBeNull();
+        expect(found?.toPrimitives().total).toBe(20);
+        expect(found?.currentStatus()).toBe('draft');
+
+        // Aislamiento: no se encuentra desde TENANT_B
+        expect(await ports.creditNotes.find(TenantId.of(TENANT_B), id)).toBeNull();
+      });
+
+      it('confirms a credit note linked to an invoice and generates an issue payment', async () => {
+        const id = SupplierCreditNoteId.of(`c0000000-0000-4000-8000-${next()}`);
+        const note = SupplierCreditNote.draft(
+          id,
+          tenant,
+          `NCP${next().slice(-6)}`,
+          {
+            supplierId: SUPPLIER,
+            invoiceId: INVOICE,
+            issueDate: PayablesDate.of(TODAY),
+            reason: 'price_correction',
+            currency: aPaymentRates().currency,
+            lines: [{ id: `e0000000-0000-4000-8000-${next()}`, concept: 'Ajuste', quantity: 1, unitPrice: 35, taxRate: 0 }],
+          },
+          NOW,
+          TODAY,
+        );
+
+        await ports.creditNotes.save(note);
+        await ports.creditNotePosting.confirm(tenant, id, NOW, TODAY);
+
+        const confirmed = await ports.creditNotes.find(tenant, id);
+        expect(confirmed?.currentStatus()).toBe('confirmed');
+        expect(confirmed?.issuePaymentId()).not.toBeNull();
+
+        // La factura se amortizo
+        const inv = await invoice(INVOICE);
+        expect(inv.balance()).toBe(65);
+
+        // Anular la nota de credito restaura el saldo
+        await ports.creditNotePosting.cancel(tenant, id, NOW);
+        const cancelled = await ports.creditNotes.find(tenant, id);
+        expect(cancelled?.currentStatus()).toBe('cancelled');
+        expect((await invoice(INVOICE)).balance()).toBe(100);
+      });
     });
   });
 }

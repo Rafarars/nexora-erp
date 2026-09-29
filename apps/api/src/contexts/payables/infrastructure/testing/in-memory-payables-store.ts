@@ -1,26 +1,51 @@
 import { amountUnits, unitsToNumber } from '../../../../shared/domain/amount.js';
+import { ConcurrentModificationError } from '../../../../shared/domain/concurrent-modification.error.js';
 import {
+  CreditNoteAlreadyCancelledError,
+  CreditNoteCurrencyMismatchError,
+  CreditNoteExceededError,
+  CreditNoteNotConfirmableError,
+  CreditNoteNotConfirmedError,
+  CreditNoteNotEditableError,
+  CreditNoteNotFoundError,
+  CreditNoteReturnAlreadyCreditedError,
+  CreditNoteReturnNotConfirmedError,
+  CreditNoteReturnSupplierMismatchError,
+  CreditNoteSupplierMismatchError,
+  CreditNoteWithApplicationsError,
+  InvoiceNotPayableError,
+  PayableInvoiceNotFoundError,
   PaymentAlreadyCancelledError,
   PaymentNotEditableError,
   PaymentNotFoundError,
-  PayableInvoiceNotFoundError,
 } from '../../domain/errors/payables.errors.js';
 import { PayableInvoice, PayableInvoicePrimitives } from '../../domain/ledger/payable-invoice.js';
 import { PayableInvoiceFilter, PayableSupplier, PayableSupplierFilter, PayablesLedger } from '../../domain/ledger/payables-ledger.js';
 import { PaymentId, PaymentPrimitives, SupplierPayment } from '../../domain/payment/supplier-payment.entity.js';
 import { SupplierPaymentCriteria, SupplierPaymentPage, SupplierPaymentRepository } from '../../domain/payment/payment.repository.js';
 import { SupplierPaymentPosting } from '../../domain/payment/posting/supplier-payment-posting.js';
+import {
+  CreditNoteReason,
+  SupplierCreditNote,
+  SupplierCreditNoteId,
+  SupplierCreditNotePrimitives,
+} from '../../domain/credit-note/supplier-credit-note.entity.js';
+import {
+  SupplierCreditNoteRepository,
+  SupplierCreditNoteSearchFilter,
+} from '../../domain/credit-note/supplier-credit-note.repository.js';
+import { SupplierCreditNotePosting } from '../../domain/credit-note/posting/supplier-credit-note-posting.js';
+import { PayableCreditQuota } from '../../domain/credit-note/credit-quota.service.js';
 import { TenantId } from '../../domain/shared/tenant-id.vo.js';
 
 type InvoiceRow = Omit<PayableInvoicePrimitives, 'paid'> & { tenantId: string };
 
-// Proveedores y facturas de compras mas los pagos, en un solo almacen: lo pagado
-// de una factura sale de los pagos confirmados, como en la base. Las publicaciones van de una en
-// una y una que falla no deja nada escrito.
 export class InMemoryPayablesStore {
   private readonly supplierRows = new Map<string, PayableSupplier & { tenantId: string }>();
   private readonly invoiceRows = new Map<string, InvoiceRow>();
   private readonly paymentRows = new Map<string, PaymentPrimitives>();
+  private readonly creditNoteRows = new Map<string, SupplierCreditNotePrimitives>();
+  private readonly purchaseReturnRows = new Map<string, { id: string; tenantId: string; supplierId: string; status: string }>();
   private readonly amountDecimalsByTenant = new Map<string, number>();
   private queue: Promise<unknown> = Promise.resolve();
 
@@ -43,6 +68,10 @@ export class InMemoryPayablesStore {
   cancelInvoice(invoiceId: string): void {
     const row = this.invoiceRows.get(invoiceId);
     if (row) this.invoiceRows.set(invoiceId, { ...row, status: 'cancelled' });
+  }
+
+  purchaseReturn(tenantId: string, returnId: string, supplierId: string, status: string = 'confirmed'): void {
+    this.purchaseReturnRows.set(returnId, { id: returnId, tenantId, supplierId, status });
   }
 
   get ledger(): PayablesLedger {
@@ -85,6 +114,11 @@ export class InMemoryPayablesStore {
     return {
       save: async (payment: SupplierPayment): Promise<void> => {
         const row = payment.toPrimitives();
+        const stored = this.paymentRows.get(row.id);
+
+        if (stored && stored.status !== 'draft') throw new PaymentNotEditableError(stored.id, stored.status);
+        if (stored && stored.updatedAt.getTime() !== payment.version()?.getTime()) throw new ConcurrentModificationError(stored.id);
+
         this.paymentRows.set(row.id, structuredClone(row));
       },
       find: async (tenantId: TenantId, id: PaymentId): Promise<SupplierPayment | null> => {
@@ -97,6 +131,7 @@ export class InMemoryPayablesStore {
       searchByTenant: async (tenantId: TenantId): Promise<SupplierPayment[]> => {
         return [...this.paymentRows.values()]
           .filter((row) => row.tenantId === tenantId.value)
+          .sort((a, b) => b.code.localeCompare(a.code))
           .map((row) => SupplierPayment.fromPrimitives(row));
       },
       searchPage: async (tenantId: TenantId, criteria: SupplierPaymentCriteria): Promise<SupplierPaymentPage> => {
@@ -121,8 +156,8 @@ export class InMemoryPayablesStore {
 
   get posting(): SupplierPaymentPosting {
     return {
-      post: async (tenantId: TenantId, paymentId: PaymentId, work: (payment: SupplierPayment, invoices: PayableInvoice[]) => void): Promise<void> => {
-        await (this.queue = this.queue.then(async () => {
+      post: (tenantId: TenantId, paymentId: PaymentId, work: (payment: SupplierPayment, invoices: PayableInvoice[]) => void) =>
+        this.serial(async () => {
           const row = this.paymentRows.get(paymentId.value);
 
           if (!row || row.tenantId !== tenantId.value) throw new PaymentNotFoundError(paymentId.value);
@@ -137,9 +172,252 @@ export class InMemoryPayablesStore {
 
           work(payment, invoices);
 
+          const primitives = payment.toPrimitives();
+          if (primitives.method === 'credit_note' && primitives.creditSourceId && payment.currentStatus() === 'confirmed') {
+            const noteRow = this.creditNoteRows.get(primitives.creditSourceId);
+            if (!noteRow || noteRow.tenantId !== tenantId.value) {
+              throw new CreditNoteNotFoundError(primitives.creditSourceId);
+            }
+            if (noteRow.supplierId !== primitives.supplierId) {
+              throw new CreditNoteSupplierMismatchError(noteRow.id, primitives.supplierId);
+            }
+            if (noteRow.status !== 'confirmed') {
+              throw new CreditNoteNotConfirmedError(noteRow.code, noteRow.status);
+            }
+            if (noteRow.currency !== primitives.currency) {
+              throw new CreditNoteCurrencyMismatchError(noteRow.currency, primitives.currency);
+            }
+            const applied = this.appliedSumForNote(noteRow.id, payment.id.value);
+            const remaining = PayableCreditQuota.available(noteRow.total, applied);
+            if (primitives.amount > remaining) {
+              throw new CreditNoteExceededError(noteRow.code, remaining, primitives.amount);
+            }
+          }
+
           this.paymentRows.set(paymentId.value, payment.toPrimitives());
-        }));
+        }),
+    };
+  }
+
+  get creditNotes(): SupplierCreditNoteRepository {
+    return {
+      save: async (note: SupplierCreditNote): Promise<void> => {
+        const row = note.toPrimitives();
+        const stored = this.creditNoteRows.get(row.id);
+
+        if (stored && stored.status !== 'draft') throw new CreditNoteNotEditableError(stored.id, stored.status);
+        if (stored && stored.updatedAt.getTime() !== note.version()?.getTime()) throw new ConcurrentModificationError(stored.id);
+
+        this.creditNoteRows.set(row.id, structuredClone(row));
       },
+      find: async (tenantId: TenantId, id: SupplierCreditNoteId): Promise<SupplierCreditNote | null> => {
+        const row = this.creditNoteRows.get(id.value);
+
+        return row && row.tenantId === tenantId.value ? SupplierCreditNote.fromPrimitives(row) : null;
+      },
+      findByIssuePayment: async (tenantId: TenantId, paymentId: PaymentId): Promise<SupplierCreditNote | null> => {
+        const row = [...this.creditNoteRows.values()].find(
+          (cn) => cn.tenantId === tenantId.value && cn.issuePaymentId === paymentId.value,
+        );
+        return row ? SupplierCreditNote.fromPrimitives(row) : null;
+      },
+      findByIssuePayments: async (tenantId: TenantId, paymentIds: PaymentId[]): Promise<SupplierCreditNote[]> => {
+        const set = new Set(paymentIds.map((p) => p.value));
+        return [...this.creditNoteRows.values()]
+          .filter((row) => row.tenantId === tenantId.value && row.issuePaymentId && set.has(row.issuePaymentId))
+          .map((row) => SupplierCreditNote.fromPrimitives(row));
+      },
+      searchPage: async (tenantId: TenantId, filter: SupplierCreditNoteSearchFilter): Promise<{ notes: SupplierCreditNote[]; total: number }> => {
+        const text = filter.text?.toLowerCase() ?? null;
+        const matches = [...this.creditNoteRows.values()]
+          .filter((row) => row.tenantId === tenantId.value)
+          .filter((row) => !filter.supplierId || row.supplierId === filter.supplierId)
+          .filter((row) => !filter.invoiceId || row.invoiceId === filter.invoiceId)
+          .filter((row) => !filter.purchaseReturnId || row.purchaseReturnId === filter.purchaseReturnId)
+          .filter((row) => !filter.status || row.status === filter.status)
+          .filter((row) => !filter.from || row.issueDate >= filter.from)
+          .filter((row) => !filter.to || row.issueDate <= filter.to)
+          .filter((row) => text === null || row.code.toLowerCase().includes(text) || (row.notes ?? '').toLowerCase().includes(text))
+          .sort((a, b) => b.code.localeCompare(a.code) || a.id.localeCompare(b.id));
+
+        const offset = filter.offset ?? 0;
+        const limit = filter.limit ?? 20;
+
+        return {
+          notes: matches.slice(offset, offset + limit).map((row) => SupplierCreditNote.fromPrimitives(row)),
+          total: matches.length,
+        };
+      },
+      creditedAmountByInvoice: async (tenantId: TenantId, invoiceId: string): Promise<number> => {
+        const units = [...this.creditNoteRows.values()]
+          .filter((n) => n.tenantId === tenantId.value && n.invoiceId === invoiceId && n.status === 'confirmed')
+          .reduce((sum, n) => sum + amountUnits(n.total), 0n);
+
+        return unitsToNumber(units);
+      },
+      findByIds: async (tenantId: TenantId, ids: SupplierCreditNoteId[]): Promise<SupplierCreditNote[]> => {
+        const target = new Set(ids.map((i) => i.value));
+        return [...this.creditNoteRows.values()]
+          .filter((n) => n.tenantId === tenantId.value && target.has(n.id))
+          .map((n) => SupplierCreditNote.fromPrimitives(n));
+      },
+      creditedNotesByReturn: async (tenantId: TenantId, purchaseReturnId: string): Promise<SupplierCreditNote[]> => {
+        return [...this.creditNoteRows.values()]
+          .filter((n) => n.tenantId === tenantId.value && n.purchaseReturnId === purchaseReturnId && n.status === 'confirmed')
+          .map((n) => SupplierCreditNote.fromPrimitives(n));
+      },
+      appliedPaymentsSum: async (tenantId: TenantId, noteId: SupplierCreditNoteId, excludePaymentId?: string | null): Promise<number> => {
+        return this.appliedSumForNote(noteId.value, excludePaymentId ?? undefined);
+      },
+      appliedAmountsByNotes: async (tenantId: TenantId, noteIds: SupplierCreditNoteId[], excludePaymentId?: string | null): Promise<Map<string, number>> => {
+        const map = new Map<string, number>();
+        for (const noteId of noteIds) {
+          map.set(noteId.value, this.appliedSumForNote(noteId.value, excludePaymentId ?? undefined));
+        }
+        return map;
+      },
+      hasConfirmedPaymentsOtherThan: async (tenantId: TenantId, noteId: SupplierCreditNoteId, excludePaymentId: string | null): Promise<boolean> => {
+        return [...this.paymentRows.values()].some(
+          (p) => p.tenantId === tenantId.value && p.status === 'confirmed' && p.creditSourceId === noteId.value && p.id !== excludePaymentId,
+        );
+      },
+      findAvailableCreditsBySupplier: async (tenantId: TenantId, supplierId: string): Promise<SupplierCreditNote[]> => {
+        const confirmedNotes = [...this.creditNoteRows.values()]
+          .filter((n) => n.tenantId === tenantId.value && n.supplierId === supplierId && n.status === 'confirmed')
+          .map((n) => SupplierCreditNote.fromPrimitives(n));
+
+        return confirmedNotes.filter((note) => {
+          const applied = this.appliedSumForNote(note.id.value);
+          return PayableCreditQuota.available(note.total(), applied) > 0;
+        });
+      },
+    };
+  }
+
+  get creditNotePosting(): SupplierCreditNotePosting {
+    return {
+      confirm: (tenantId: TenantId, noteId: SupplierCreditNoteId, now: Date, today: string) =>
+        this.serial(async () => {
+          const row = this.creditNoteRows.get(noteId.value);
+
+          if (!row || row.tenantId !== tenantId.value) throw new CreditNoteNotFoundError(noteId.value);
+
+          const note = SupplierCreditNote.fromPrimitives(row);
+          if (note.currentStatus() !== 'draft') {
+            throw new CreditNoteNotConfirmableError(noteId.value, note.currentStatus());
+          }
+
+          let issuePayment: SupplierPayment | null = null;
+
+          if (note.invoiceId()) {
+            const invoiceId = note.invoiceId()!;
+            const invoiceRow = this.invoiceRows.get(invoiceId);
+            if (!invoiceRow || invoiceRow.tenantId !== tenantId.value) throw new PayableInvoiceNotFoundError(invoiceId);
+            if (invoiceRow.status !== 'confirmed') {
+              throw new InvoiceNotPayableError(invoiceId);
+            }
+
+            const invoice = this.hydrateInvoice(invoiceRow);
+            const credited = await this.creditNotes.creditedAmountByInvoice(tenantId, invoiceId);
+            PayableCreditQuota.ensureWithinQuota(invoice.total(), credited, note.total(), invoiceId);
+
+            const balance = invoice.balance();
+            if (balance > 0) {
+              const applyAmount = Math.min(balance, note.total());
+              const paymentId = PaymentId.of(crypto.randomUUID());
+              const allocId = crypto.randomUUID();
+              const paymentCode = `PAG${String(this.paymentRows.size + 1).padStart(6, '0')}`;
+              const notePrimitives = note.toPrimitives();
+
+              const paymentDetails = {
+                supplierId: note.supplierId(),
+                date: note.issueDate(),
+                method: 'credit_note' as const,
+                creditSourceId: note.id.value,
+                reference: `Nota ${note.code}`,
+                notes: `Pago automatico por emision de nota ${note.code}`,
+                allocations: [{ id: allocId, invoiceId, amount: applyAmount }],
+              };
+
+              const invoiceRates = { [invoice.currency().currency]: notePrimitives.exchangeRate ?? 1 };
+              const paymentRatesObj = {
+                currency: note.currency(),
+                invoiceRates,
+                decimals: this.getAmountDecimals(tenantId.value),
+              };
+
+              issuePayment = SupplierPayment.draft(
+                paymentId,
+                tenantId,
+                paymentCode,
+                paymentDetails,
+                [invoice],
+                paymentRatesObj,
+                now,
+                today,
+              );
+              issuePayment.confirm([invoice], paymentRatesObj, now, today);
+              this.paymentRows.set(paymentId.value, issuePayment.toPrimitives());
+              note.assignIssuePayment(paymentId.value);
+            }
+          }
+
+          if (note.purchaseReturnId()) {
+            const returnId = note.purchaseReturnId()!;
+            const ret = this.purchaseReturnRows.get(returnId);
+
+            if (!ret || ret.tenantId !== tenantId.value || ret.status !== 'confirmed') {
+              throw new CreditNoteReturnNotConfirmedError(returnId, ret?.status ?? 'none');
+            }
+
+            if (ret.supplierId !== note.supplierId()) {
+              throw new CreditNoteReturnSupplierMismatchError(returnId, note.supplierId());
+            }
+
+            const existing = await this.creditNotes.creditedNotesByReturn(tenantId, returnId);
+            if (existing.length > 0) {
+              throw new CreditNoteReturnAlreadyCreditedError(returnId);
+            }
+          }
+
+          note.confirm(now, issuePayment ? issuePayment.id.value : null);
+          this.creditNoteRows.set(note.id.value, note.toPrimitives());
+
+          return { creditNote: note, issuePayment };
+        }),
+
+      cancel: (tenantId: TenantId, noteId: SupplierCreditNoteId, now: Date) =>
+        this.serial(async () => {
+          const row = this.creditNoteRows.get(noteId.value);
+
+          if (!row || row.tenantId !== tenantId.value) throw new CreditNoteNotFoundError(noteId.value);
+
+          const note = SupplierCreditNote.fromPrimitives(row);
+          if (note.currentStatus() === 'cancelled') {
+            throw new CreditNoteAlreadyCancelledError(noteId.value);
+          }
+
+          const hasExternal = await this.creditNotes.hasConfirmedPaymentsOtherThan(
+            tenantId,
+            note.id,
+            note.issuePaymentId(),
+          );
+          if (hasExternal) {
+            throw new CreditNoteWithApplicationsError(note.id.value);
+          }
+
+          if (note.issuePaymentId()) {
+            const issuePaymentRow = this.paymentRows.get(note.issuePaymentId()!);
+            if (issuePaymentRow && issuePaymentRow.status === 'confirmed') {
+              const payment = SupplierPayment.fromPrimitives(issuePaymentRow);
+              payment.cancel(now);
+              this.paymentRows.set(payment.id.value, payment.toPrimitives());
+            }
+          }
+
+          note.cancel(now);
+          this.creditNoteRows.set(note.id.value, note.toPrimitives());
+        }),
     };
   }
 
@@ -163,5 +441,21 @@ export class InMemoryPayablesStore {
       ...primitives,
       paid: unitsToNumber(paid),
     });
+  }
+
+  private appliedSumForNote(noteId: string, excludePaymentId?: string): number {
+    const units = [...this.paymentRows.values()]
+      .filter((p) => p.status === 'confirmed' && p.creditSourceId === noteId && p.id !== excludePaymentId)
+      .reduce((sum, p) => sum + amountUnits(p.amount), 0n);
+
+    return unitsToNumber(units);
+  }
+
+  private serial<T = void>(run: () => Promise<T>): Promise<T> {
+    const next = this.queue.then(run);
+
+    this.queue = next.catch(() => undefined);
+
+    return next;
   }
 }

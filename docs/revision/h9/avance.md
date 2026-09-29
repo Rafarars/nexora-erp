@@ -743,3 +743,89 @@ Ninguno.
 
 ---
 
+## Fase 7: Nota de crédito a proveedor (`NCP`)
+
+### Qué se construyó
+- **Dominio (`apps/api/src/contexts/payables/domain`):**
+  - Entidad `SupplierCreditNote` (`credit-note/supplier-credit-note.entity.ts`), VO `SupplierCreditNoteId`, tipos `CreditNoteReason`, `CreditNoteStatus` y primitivas de líneas y documento.
+  - Soporte de cálculo de impuestos y subtotales en diezmilésimas con redondeo `roundRatio`.
+  - Servicio de dominio `PayableCreditQuota` (`credit-note/credit-quota.service.ts`) para cómputo dinámico de crédito disponible (`available`) y verificación de cupo de facturas (`ensureWithinQuota`).
+  - Puertos de repositorio y posting: `SupplierCreditNoteRepository` y `SupplierCreditNotePosting`.
+- **Casos de uso de aplicación (`apps/api/src/contexts/payables/application`):**
+  - `SupplierCreditNoteCreator`, `SupplierCreditNoteUpdater`, `SupplierCreditNoteConfirmer`, `SupplierCreditNoteCanceller`, `SupplierCreditNoteSearcher` y `SupplierAvailableCreditsFinder`.
+  - Mecánica de emisión automática de pago (`SupplierPayment` método `credit_note`, referencia a nota de crédito) al confirmar nota vinculada a factura con saldo.
+  - Bloqueo de anulación directa de pagos de emisión en `PaymentCanceller` (`IssuePaymentCannotBeCancelledDirectlyError`).
+- **Persistencia e infraestructura HTTP (`apps/api`):**
+  - `PrismaSupplierCreditNoteRepository` y `PrismaSupplierCreditNotePosting` con soporte completo PostgreSQL, transacciones atómicas y serialización segura.
+  - Implementación en memoria `InMemoryPayablesStore` con serialización asíncrona para pruebas de contrato.
+  - 7 controladores HTTP NestJS para notas de crédito bajo `/api/v1/payables/credit-notes` y cupos disponibles en `/api/v1/payables/suppliers/:supplierId/available-credits`.
+  - 5 permisos `payables.creditnotes.*` sincronizados en catálogo y base de datos (121 permisos en total).
+- **Frontend Web (`apps/web`):**
+  - Tipos y cliente HTTP en `HttpPayablesApi`, server actions `saveCreditNote`, `changeCreditNote` y `getSupplierAvailableCredits` en `cuentas-por-pagar/actions.ts`.
+  - Tablero interactivo `CreditNotesBoard` (`apps/web/src/sections/payables/credit-notes-board.tsx`) con tabla de notas, filtros por texto, proveedor, estado y fechas, opciones contextuales (editar, confirmar, anular) y slideover para crear/editar notas de crédito con líneas.
+  - Página `/cuentas-por-pagar/notas-de-credito/page.tsx` integrada con control de roles y permisos.
+- **Aislamiento Multitenant (`apps/e2e`):**
+  - Matriz de aislamiento `isolation-matrix.ts` ampliada con los 7 endpoints de notas de crédito de proveedor.
+
+### Reglas de H9 cubiertas
+- **H9 §3.10:** Nota de crédito a proveedor (`NCP`).
+- Confirmación genera automáticamente pago amortizador hasta saldo vivo (`issuePaymentId`). Remanente queda como cupo disponible no persistido.
+- Anulación de nota revierte el pago de emisión y restaura el saldo de la factura; anulación bloqueada si tiene pagos externos aplicados.
+- Bloqueada la anulación directa de pagos de emisión desde Pagos.
+- Devolución citada: valida pertenencia al proveedor y no duplicación.
+
+### Pruebas que lo defienden
+- `src/contexts/payables/application/payables-credit-note.spec.ts` (11 pruebas unitarias).
+- `src/contexts/payables/infrastructure/testing/in-memory-payables-ports.contract.spec.ts` (10 pruebas de contrato en memoria).
+- `src/contexts/payables/infrastructure/persistence/prisma-payables-ports.contract.integration.spec.ts` (10 pruebas de contrato PostgreSQL).
+- `src/contexts/access/infrastructure/http/route-declaration.spec.ts` (157 pruebas de rutas y permisos).
+- `tests/isolation/isolation-coverage.spec.ts` y `tests/isolation/tenant-isolation.api.spec.ts` (16 pruebas de aislamiento multitenant de NCP).
+
+### Mutaciones probadas (H9 §7)
+1. **Fila §3.10 (Bloqueo de anulación directa de pagos de emisión generados por nota de crédito):**
+   - *Qué se alteró:* En `apps/api/src/contexts/payables/application/cancel-payment/payment-canceller.ts`, se desactivó la comprobación de `issueNote` comentando la validación de `findByIssuePayment`.
+   - *Prueba corrida:* `pnpm --filter api exec vitest run src/contexts/payables/application/payables-credit-note.spec.ts`
+   - *Líneas del fallo:*
+     ```
+     FAIL  src/contexts/payables/application/payables-credit-note.spec.ts > Supplier Credit Notes (NCP) in Payables > impide anular directamente desde Pagos un pago emitido automaticamente por una nota de credito activa
+     AssertionError: promise resolved "undefined" instead of rejecting
+
+     - Expected:
+     Error {
+       "message": "rejected promise",
+     }
+
+     + Received:
+     undefined
+
+      ❯ src/contexts/payables/application/payables-credit-note.spec.ts:379:6
+         377|     await expect(
+         378|       s.cancelPayment.run({ tenantId: TENANT_A, paymentId: issuePaymen…
+         379|     ).rejects.toThrow(IssuePaymentCannotBeCancelledDirectlyError);
+            |      ^
+         380|   });
+     ```
+
+### Cómo se verificó
+1. **Corridas intermedias corregidas:**
+   - En `payables-rows.ts`, conversión explícita de `priceDifference` y `exchangeDifference` de Decimal a number para evitar fallos de clonación profunda (`DataCloneError`).
+   - En `prisma-supplier-credit-note-posting.ts`, pase de instancia de `PayablesDate` en lugar de string en `paymentDetails.date`.
+   - Normalización de motivos a enum `CreditNoteReason` ('damaged_goods', 'subsequent_discount', 'price_correction').
+   - Inclusión de los 7 casos de notas de crédito en `apps/e2e/support/isolation-matrix.ts` para satisfacer el test arquitectónico `isolation-coverage.spec.ts`.
+2. **Corrida final verde (`make verify` en `docs/revision/h9/logs/verify-fase7-1.log`):**
+   ```
+   516 passed (9.1m)
+   Todo en verde.
+   ```
+3. **Pruebas en navegador con `playwright-cli` (headed y persistent, skill `web-qa`):**
+   - Sesión abierta con `playwright-cli -s=fase7 open http://localhost:3000/login --headed --persistent`.
+   - Inicio de sesión anunciado con `ana@acme.com`.
+   - Navegación a `/cuentas-por-pagar/notas-de-credito` y captura de pantalla guardada en: `docs/revision/h9/capturas/fase7-notas-credito.png`.
+   - Apertura del panel de creación de nota de crédito y captura en: `docs/revision/h9/capturas/fase7-nueva-nota-panel.png`.
+   - Sesión cerrada con `playwright-cli -s=fase7 close`.
+
+### Lo que no salió como decía el plan
+Ninguno.
+
+---
+

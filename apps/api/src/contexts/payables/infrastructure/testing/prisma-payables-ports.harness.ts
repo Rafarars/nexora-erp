@@ -8,6 +8,8 @@ import { PrismaPayablesCodeSequence } from '../persistence/prisma-payables-code-
 import { PrismaPayablesLedger } from '../persistence/prisma-payables-ledger.js';
 import { PrismaSupplierPaymentPosting } from '../persistence/prisma-supplier-payment-posting.js';
 import { PrismaSupplierPaymentRepository } from '../persistence/prisma-supplier-payment.repository.js';
+import { PrismaSupplierCreditNoteRepository } from '../persistence/prisma-supplier-credit-note.repository.js';
+import { PrismaSupplierCreditNotePosting } from '../persistence/prisma-supplier-credit-note-posting.js';
 
 function connectionString(): string {
   const url = process.env.DATABASE_URL;
@@ -25,12 +27,15 @@ export class PrismaPayablesPortsHarness implements PayablesPortsHarness {
 
   ports(): PayablesPorts {
     const codes = new PrismaPayablesCodeSequence(this.prisma);
+    const ids = { next: () => crypto.randomUUID() };
 
     return {
       payments: new PrismaSupplierPaymentRepository(this.prisma),
       posting: new PrismaSupplierPaymentPosting(this.prisma),
       ledger: new PrismaPayablesLedger(this.prisma),
       codes,
+      creditNotes: new PrismaSupplierCreditNoteRepository(this.prisma),
+      creditNotePosting: new PrismaSupplierCreditNotePosting(this.prisma, codes, ids),
     };
   }
 
