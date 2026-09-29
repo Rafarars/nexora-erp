@@ -191,25 +191,13 @@ describe('calculatePriceVariance (H9 §3.3 & §5.3)', () => {
     expect(res.soldPart).toBe(0);
   });
 
-  it('Ajuste 4 del usuario: return of ANOTHER receipt and variance allocation', () => {
-    // Ajuste 4 del usuario:
-    // "PriceVariance y las devoluciones de OTRAS entradas. Tu plan excluye bien las devoluciones de la misma entrada.
-    // Una devolucion a proveedor de otra entrada del mismo articulo tambien sale al costo congelado de su entrada,
-    // no al promedio, asi que multiplicar por existencia despues / antes no es exacto en ese caso.
-    // No lo cambies: escribe una prueba con ese caso, anota en el avance la cifra que da y la exacta,
-    // y ponlo entre las tres dudas si la diferencia existe."
-    //
-    // Escenario:
-    // - Entrada 1 (origen a revaluar): 10 unidades a 100 (Total = 1000). Monto a revaluar: +100 (factura a 110).
-    // - Entrada 2 (otra entrada): 10 unidades a 150 (Total = 1500). Existencia = 20, promedio = 125.
-    // - Devolución a proveedor de 5 unidades de la Entrada 2:
-    //   En el kardex sale al costo congelado de Entrada 2 (150).
-    //   Existencia antes de la devolución: 20.
-    //   Existencia después de la devolución: 15.
-    //   Fórmula PriceVariance: ratio = 15 / 20 = 0.75 => stockPart = 75, soldPart = 25.
-    //   Cifra exacta teórica: Como la devolución fue de la Entrada 2 (ninguna unidad de Entrada 1 se devolvió ni se vendió),
-    //   las 10 unidades de Entrada 1 siguen 100% en bodega, por lo que la cifra teórica exacta en bodega sería 100 (y 0 a resultado).
-    //   La diferencia calculada es 75 vs 100 (diferencia de 25).
+  it('Ajuste 4 resuelto: purchase return of ANOTHER receipt does not count as exit in variance allocation', () => {
+    // Escenario de ajuste 4:
+    // - Entrada 1 (origen a revaluar): 10 unidades a 100. Monto a revaluar: +100 (factura a 110).
+    // - Entrada 2 (otra entrada): 10 unidades a 150.
+    // - Devolución a proveedor de 5 unidades de la Entrada 2 (sale a su costo congelado de entrada, no al promedio).
+    // Al no ser una salida ordinaria que se lleve parte del costo promedio, no reduce el saldo de la entrada 1.
+    // Toda la mercancía de la entrada 1 sigue en bodega: 100 a bodega, 0 a resultado.
     const otherEntryId = 'e2222222-2222-4222-8222-222222222222';
     const entry2 = makeMovement({
       id: otherEntryId,
@@ -235,11 +223,80 @@ describe('calculatePriceVariance (H9 §3.3 & §5.3)', () => {
     });
 
     const res = calculatePriceVariance(100, sourceMovId, [entry2, returnOtherReceipt]);
-    // Cifra que da la formula actual:
-    expect(res.stockPart).toBe(75);
-    expect(res.soldPart).toBe(25);
-    // Nota documentada para el avance y las 3 dudas:
-    // Cifra que da: stockPart = 75, soldPart = 25
-    // Cifra exacta teorica: stockPart = 100, soldPart = 0
+    expect(res.stockPart).toBe(100);
+    expect(res.soldPart).toBe(0);
+  });
+
+  it('revaluation between receipt and invoice approval does not send variance to cogs (10 at 100, invoice 110, reval manual => +100 stock)', () => {
+    // Una revaluación entre la entrada y la aprobación escribe una salida de toda la existencia
+    // y una entrada al costo nuevo. Su salida deja temporalmente la existencia en 0, pero la mercancía
+    // sigue íntegra en bodega.
+    const revalAdjId = 'adj-reval-1';
+    const revalOut = makeMovement({
+      sequence: 2,
+      direction: 'out',
+      quantity: 10,
+      unitCost: 100,
+      balanceQuantity: 0,
+      balanceAverageCost: 100,
+      originType: 'adjustment',
+      originId: revalAdjId,
+    });
+    const revalIn = makeMovement({
+      sequence: 3,
+      direction: 'in',
+      quantity: 10,
+      unitCost: 120,
+      balanceQuantity: 10,
+      balanceAverageCost: 120,
+      originType: 'adjustment',
+      originId: revalAdjId,
+    });
+
+    const res = calculatePriceVariance(100, sourceMovId, [revalOut, revalIn]);
+    expect(res.stockPart).toBe(100);
+    expect(res.soldPart).toBe(0);
+  });
+
+  it('reversed exit (e.g. cancelled dispatch) does not reduce variance allocation', () => {
+    // Un despacho que se anula después no se llevó nada: su reverso lo deshace.
+    const dispatchId = 'a0000000-0000-4000-8000-000000000002';
+    const dispatch = makeMovement({
+      id: dispatchId,
+      sequence: 2,
+      direction: 'out',
+      quantity: 4,
+      unitCost: 100,
+      balanceQuantity: 6,
+      balanceAverageCost: 100,
+      originType: 'dispatch',
+      originId: 'disp-1',
+    });
+
+    const reversal = InventoryMovement.record({
+      id: MovementId.of('a0000000-0000-4000-8000-000000000003'),
+      tenantId: TenantId.of(TENANT),
+      itemId: ItemRef.of(ITEM),
+      warehouseId: WarehouseRef.of(WAREHOUSE),
+      sequence: 3,
+      direction: 'in',
+      quantity: Quantity.of(4),
+      unitCost: UnitCost.of(100),
+      balanceQuantity: Quantity.of(10),
+      balanceAverageCost: UnitCost.of(100),
+      origin: {
+        type: 'dispatch',
+        id: 'disp-1',
+        lineId: 'line-1',
+        date: '2026-10-02',
+      },
+      reversalOfId: MovementId.of(dispatchId),
+      restoresMovementId: null,
+      occurredAt: new Date('2026-10-02T10:00:00Z'),
+    });
+
+    const res = calculatePriceVariance(100, sourceMovId, [dispatch, reversal]);
+    expect(res.stockPart).toBe(100);
+    expect(res.soldPart).toBe(0);
   });
 });

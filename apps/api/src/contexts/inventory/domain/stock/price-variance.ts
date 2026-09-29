@@ -22,13 +22,48 @@ export function calculatePriceVariance(
     return { stockPart: 0, soldPart: 0 };
   }
 
+  // 1. Detectar salidas anuladas por reversión (ni la salida revertida ni su reverso se llevaron nada)
+  const reversedMovementIds = new Set<string>();
+  for (const mov of subsequentMovements) {
+    if (mov.reversalOfId) {
+      reversedMovementIds.add(mov.reversalOfId.value);
+    }
+  }
+
+  // 2. Detectar movimientos de una revaluación (escriben salida de toda la existencia y entrada al nuevo costo)
+  const adjustmentOuts = new Set<string>();
+  const adjustmentIns = new Set<string>();
+  for (const mov of subsequentMovements) {
+    if (mov.origin.type === 'adjustment') {
+      if (mov.direction === 'out') adjustmentOuts.add(mov.origin.id);
+      if (mov.direction === 'in') adjustmentIns.add(mov.origin.id);
+    }
+  }
+  const revaluationAdjustmentIds = new Set<string>();
+  for (const id of adjustmentOuts) {
+    if (adjustmentIns.has(id)) {
+      revaluationAdjustmentIds.add(id);
+    }
+  }
+
   let ratio = 1.0;
 
   for (const mov of subsequentMovements) {
+    // Sólo cuentan las salidas ordinarias que no se anularon
     if (mov.direction !== 'out') continue;
 
-    // Una devolucion a proveedor de esa misma entrada no cuenta como salida en el reparto (H9 §3.3)
-    if (mov.origin.type === 'purchase_return' && mov.restoresMovementId?.value === sourceMovementId) {
+    // No cuentan los reversos ni los movimientos que fueron revertidos
+    if (mov.reversalOfId !== null || reversedMovementIds.has(mov.id.value)) {
+      continue;
+    }
+
+    // No cuenta ninguna devolución a proveedor (salen a su costo congelado de entrada, no al promedio)
+    if (mov.origin.type === 'purchase_return') {
+      continue;
+    }
+
+    // No cuentan los movimientos de una revaluación
+    if (mov.origin.type === 'adjustment' && revaluationAdjustmentIds.has(mov.origin.id)) {
       continue;
     }
 
