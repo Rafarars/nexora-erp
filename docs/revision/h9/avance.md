@@ -407,22 +407,17 @@ Ninguno para esta fase.
   - `creates draft revaluation adjustment when invoiced price differs from receipt (H9 §4.1, Ajuste 3)`
   - `cancels draft revaluation adjustment when invoice is cancelled (H9 §4.1)`
 
-### Ajuste 4 del usuario (Devoluciones de OTRAS entradas)
-- **Escenario probado:**
+### Ajuste 4 del usuario (Devoluciones de OTRAS entradas) - Resuelto
+- **Escenario resuelto (Defecto 1.1):**
   - Entrada 1 (origen a revaluar): 10 unidades a 100 (Total = 1.000). Monto a revaluar: +100 (factura a 110).
   - Entrada 2 (otra entrada): 10 unidades a 150 (Total = 1.500). Existencia = 20, promedio = 125.
-  - Devolución a proveedor de 5 unidades de la Entrada 2: en el kardex sale al costo congelado de la Entrada 2 (150). Existencia antes = 20, existencia después = 15.
-- **Resultado de la fórmula actual de PriceVariance:**
-  - `ratio = 15 / 20 = 0.75`
-  - `stockPart = 75`, `soldPart = 25`
-- **Cifra teórica exacta:**
-  - Dado que la devolución fue de la Entrada 2 (ninguna unidad de la Entrada 1 se devolvió ni se vendió), las 10 unidades de la Entrada 1 permanecen 100% en bodega.
-  - Teóricamente: `stockPart = 100`, `soldPart = 0`.
-- **Diferencia observada:** 25 unidades monetarias. Queda documentada entre las dudas y notas de diseño para H10 sin alterar la fórmula actual según la instrucción explícita del usuario.
+  - Devolución a proveedor de 5 unidades de la Entrada 2: en el kardex sale a su costo congelado de entrada (150).
+  - **Resolución:** En `PriceVariance`, **ninguna devolución a proveedor** (`origin.type === 'purchase_return'`) cuenta como salida en el reparto proporcional (salen a costo congelado de entrada, no al promedio ponderado).
+  - **Resultado actual:** `stockPart = 100`, `soldPart = 0`. La discrepancia teórica queda resuelta y defendida por la prueba unitaria `Ajuste 4 resuelto: purchase return of ANOTHER receipt does not count as exit in variance allocation`.
 
 ### Mutaciones probadas (H9 §7)
 1. **Fila §3.3 (Devolución de la misma entrada no cuenta como salida):**
-   - *Qué se quitó:* Condición `if (mov.origin.type === 'purchase_return' && mov.restoresMovementId?.value === sourceMovementId) continue;` en `PriceVariance`.
+   - *Qué se quitó:* Condición `if (mov.origin.type === 'purchase_return') continue;` en `PriceVariance`.
    - *Prueba corrida:* `pnpm --filter api test src/contexts/inventory/domain/stock/price-variance.spec.ts`
    - *Línea del fallo:* `src/contexts/inventory/domain/stock/price-variance.spec.ts:190:27`
      `AssertionError: expected 70 to be 100 // Object.is equality`
@@ -431,6 +426,46 @@ Ninguno para esta fase.
    - *Prueba corrida:* `pnpm --filter api test src/contexts/purchasing/domain/invoice/purchase-price-difference.spec.ts`
    - *Línea del fallo:* `src/contexts/purchasing/domain/invoice/purchase-price-difference.spec.ts:20:36`
      `AssertionError: expected +0 to be 500 // Object.is equality`
+3. **Fila §3.3 (+40 con ventas entre factura y aprobación, 10 a 100, factura 110, se venden 6):**
+   - *Qué se alteró:* En `apps/api/src/contexts/inventory/domain/stock/price-variance.ts`, se forzó `ratio = 1` omitiendo la multiplicación por `qtyAfter / qtyBefore`.
+   - *Prueba corrida:* `pnpm --filter api exec vitest run src/contexts/inventory/domain/stock/price-variance.spec.ts -t "calculates correctly when units sold between invoice and approval"`
+   - *Línea del fallo:* `src/contexts/inventory/domain/stock/price-variance.spec.ts:111:27`
+     `AssertionError: expected 100 to be 40 // Object.is equality`
+4. **Fila §3.3 (+25 con dos entradas antes de facturar, 10 a 100, 10 a 150, se venden 15, factura primer lote 110):**
+   - *Qué se alteró:* En `apps/api/src/contexts/inventory/domain/stock/price-variance.ts`, se forzó `ratio = 1`.
+   - *Prueba corrida:* `pnpm --filter api exec vitest run src/contexts/inventory/domain/stock/price-variance.spec.ts -t "handles two entries before invoicing"`
+   - *Línea del fallo:* `src/contexts/inventory/domain/stock/price-variance.spec.ts:171:27`
+     `AssertionError: expected 100 to be 25 // Object.is equality`
+5. **Fila §3.3 (Todo vendido al aprobar manda todo a resultado y no escribe kardex):**
+   - *Qué se alteró:* En `apps/api/src/contexts/inventory/domain/stock/price-variance.ts`, se forzó `ratio = 1`.
+   - *Prueba corrida:* `pnpm --filter api exec vitest run src/contexts/inventory/domain/stock/price-variance.spec.ts -t "allocates 100% to sold/cogs if stock was completely exhausted"`
+   - *Línea del fallo:* `src/contexts/inventory/domain/stock/price-variance.spec.ts:72:27`
+     `AssertionError: expected 100 to be +0 // Object.is equality`
+6. **Fila §3.3 (Factura más barata que la entrada, parte en bodega y parte vendida):**
+   - *Qué se alteró:* En `apps/api/src/contexts/inventory/domain/stock/price-variance.ts`, se forzó `ratio = 1`.
+   - *Prueba corrida:* `pnpm --filter api exec vitest run src/contexts/inventory/domain/stock/price-variance.spec.ts -t "handles negative price variance"`
+   - *Línea del fallo:* `src/contexts/inventory/domain/stock/price-variance.spec.ts:91:27`
+     `AssertionError: expected -200 to be -100 // Object.is equality`
+7. **Fila §3.3 (Entra mercancía entre factura y aprobación no reduce ratio original):**
+   - *Qué se alteró:* En `apps/api/src/contexts/inventory/domain/stock/price-variance.ts`, se incluyeron las entradas `direction === 'in'` en la dilución acumulada del factor.
+   - *Prueba corrida:* `pnpm --filter api exec vitest run src/contexts/inventory/domain/stock/price-variance.spec.ts -t "incoming stock after sale does not reduce original ratio"`
+   - *Línea del fallo:* `src/contexts/inventory/domain/stock/price-variance.spec.ts:139:27`
+     `AssertionError: expected 28.5714 to be 40 // Object.is equality`
+8. **Fila §3.3 (Una factura que cita entradas de dos bodegas genera dos revaluaciones):**
+   - *Qué se alteró:* En `apps/api/src/contexts/inventory/infrastructure/persistence/prisma-invoice-revaluation-posting.ts`, se limitó el bucle de revaluaciones a `revaluations.slice(0, 1)`.
+   - *Prueba corrida:* `pnpm --filter api exec vitest run src/contexts/inventory/infrastructure/persistence/prisma-invoice-revaluation-posting.spec.ts -t "crea dos ajustes de revaluacion independientes"`
+   - *Línea del fallo:* `src/contexts/inventory/infrastructure/persistence/prisma-invoice-revaluation-posting.spec.ts:231:32`
+     `AssertionError: expected [ { …(13) } ] to have a length of 2 but got 1`
+9. **Fila §3.3 (La revaluación manual por costo nuevo sigue funcionando igual):**
+   - *Qué se alteró:* En `apps/api/src/contexts/inventory/domain/adjustment/posting/adjustment-confirmation.ts`, se omitió la salida de existencias al costo anterior en `revaluationEntries`.
+   - *Prueba corrida:* `pnpm --filter api exec vitest run src/contexts/inventory/domain/adjustment/posting/adjustment-posting.spec.ts -t "takes everything out at the old cost and brings it back at the new one"`
+   - *Línea del fallo:* `src/contexts/inventory/domain/adjustment/posting/adjustment-posting.spec.ts:177:33`
+     `AssertionError: expected 80 to be 40 // Object.is equality`
+10. **Fila §4.1 (Anular factura con revaluación confirmada genera ajuste contrario en borrador):**
+    - *Qué se alteró:* En `apps/api/src/contexts/inventory/infrastructure/persistence/prisma-invoice-revaluation-posting.ts`, se quitó `* -1` en `invertedAmount` al generar el reverso de la revaluación confirmada.
+    - *Prueba corrida:* `pnpm --filter api exec vitest run src/contexts/inventory/infrastructure/persistence/prisma-invoice-revaluation-posting.spec.ts -t "al anular una factura con revaluacion confirmada"`
+    - *Línea del fallo:* `src/contexts/inventory/infrastructure/persistence/prisma-invoice-revaluation-posting.spec.ts:160:36`
+      `AssertionError: expected 50 to be -50 // Object.is equality`
 
 ### Cómo se verificó
 1. **Corridas intermedias rojas:**
@@ -440,7 +475,7 @@ Ninguno para esta fase.
      Ruta de import de `TenantId` en `invoice-revaluation-posting.ts`, decorador metadata `import type` en `prisma-purchase-invoice-posting.ts` y missing import de `ThreeWayMatcher` en `purchasing.module.ts`. Corregidos y verificados con `pnpm --filter api build` y `pnpm --filter web build`.
    - Fallo en typecheck (`make verify`):
      Propiedad privada `priceDifference` en `PurchaseInvoice`. Corregido añadiendo getters públicos `get priceDifference()` y `get exchangeDifference()`.
-2. **Corrida final verde (`make verify` en `docs/revision/h9/logs/verify-fase3-2.log`):**
+2. **Corrida final verde (`make verify` en `scratch/logs/verify-fase3-2.log`):**
    ```
    Test Files  12 passed (12)
         Tests  284 passed (284)
@@ -541,7 +576,7 @@ Ninguno para esta fase.
 1. **Corridas intermedias corregidas:**
    - Error de compilación en `in-memory-payables-store.ts` (`Type 'unknown' is not assignable to type 'void'`): corregido sustituyendo `return this.queue` por `await this.queue`.
    - Error de tipos en `http-payables-api.ts` y props de `Pager` en `payments-board.tsx`: corregidos alineándose con `AccessError.fromStatus` y `count`/`href`.
-2. **Corrida final verde (`make verify` en `docs/revision/h9/logs/verify-fase4-1.log`):**
+2. **Corrida final verde (`make verify` en `scratch/logs/verify-fase4-1.log`):**
    ```
    Test Files 177 passed (177)
         Tests 3493 passed (3493)
@@ -638,20 +673,45 @@ Ninguno para esta fase.
               |                                      ^
        ```
 
+2. **Fila §3.8 (El saldo que dicen el listado, la antigüedad, el estado de cuenta y el tablero es el mismo):**
+   - *Qué se alteró:* En `apps/api/src/contexts/payables/domain/ledger/payable-invoice.ts`, se omitió la resta de lo pagado en `balanceUnits()` dejando `return this.row.status === 'cancelled' ? 0n : amountUnits(this.row.total);`.
+   - *Prueba corrida:* `pnpm --filter api exec vitest run src/contexts/payables/application/payables-balances.spec.ts -t "el saldo que dicen el listado"`
+   - *Línea del fallo:* `src/contexts/payables/application/payables-balances.spec.ts:309:34`
+     ```
+     FAIL src/contexts/payables/application/payables-balances.spec.ts > payables balances and statements > SupplierStatementSearcher > §3.8: el saldo que dicen el listado, la antigüedad, el estado de cuenta y el tablero es el mismo
+     AssertionError: expected 300 to be 260 // Object.is equality
+
+     - Expected
+     + Received
+
+     - 260
+     + 300
+
+      ❯ src/contexts/payables/application/payables-balances.spec.ts:309:34
+         307|
+         308|       // Coincidencia exacta de las 4 fuentes para el proveedor (60 + 200 = 260)
+         309|       expect(invoiceListBalance).toBe(260);
+            |                                  ^
+         310|       expect(supplierAgingBalance).toBe(260);
+         311|       expect(statementBalance).toBe(260);
+     ```
+
 ### Cómo se verificó
 1. **Corridas intermedias corregidas:**
    - La suite `route-declaration.spec.ts` detectó 5 permisos no mapeados de `creditnotes` agregados anticipadamente; se ajustó el catálogo para mantener estrictamente los permisos que cuentan con controladores activos en la fase actual.
-2. **Corrida final verde (`make verify` en `docs/revision/h9/logs/verify-fase5-2.log`):**
+   - En la corrida intermedia (`verify-fase5-1.log`) figuraban 3534 pruebas unitarias. Al retirar del catálogo los 5 permisos de notas de crédito que aún no tenían controlador activo (para cumplir la regla arquitectónica de que cada permiso declarado debe tener un endpoint), dejaron de ejecutarse las 10 pruebas parametrizadas asociadas (2 por permiso: una en `permissions.spec.ts` y una en `route-declaration.spec.ts`).
+2. **Corrida final verde (`make verify` en `scratch/logs/verify-fase5-2.log`):**
    ```
-   Test Files 178 passed (178)
-        Tests 3534 passed (3534)
-   Test Files 24 passed (24)
-        Tests 229 passed (229)
-   Test Files 13 passed (13)
-        Tests 292 passed (292)
-   502 passed (8.5m)
+    Test Files  179 passed (179)
+         Tests  3524 passed (3524)
+    Test Files  24 passed (24)
+         Tests  229 passed (229)
+    Test Files  13 passed (13)
+         Tests  292 passed (292)
+     502 passed (8.5m)
    Todo en verde.
    ```
+   (El total refleja 179 archivos al incorporar `payables-balances.spec.ts` y 3524 pruebas tras la caída de las 10 pruebas de los permisos retirados).
 3. **Pruebas en navegador con `playwright-cli` (headed y persistent, skill `web-qa`):**
    - Sesión abierta con `playwright-cli -s=nexora open http://localhost:3000 --headed --persistent`.
    - Inicio de sesión anunciado con `admin@nexora.com`.
@@ -720,7 +780,7 @@ Ninguno para esta fase.
 ### Cómo se verificó
 1. **Corridas intermedias corregidas:**
    - En `services-and-expenses.spec.ts`, se corrigieron los tipos de import (`PurchasableItem`), la llamada a `PurchaseOrder.draft` con el parámetro de fecha de negocio, y las propiedades requeridas de `SupplierPrimitives`.
-2. **Corrida final verde (`make verify` en `docs/revision/h9/logs/verify-fase6-1.log`):**
+2. **Corrida final verde (`make verify` en `scratch/logs/verify-fase6-1.log`):**
    ```
    Test Files 180 passed (180)
         Tests 3529 passed (3529)
@@ -805,14 +865,81 @@ Ninguno.
             |      ^
          380|   });
      ```
+2. **Fila §3.10 (Una nota de crédito con pagos externos confirmados aplicados no se anula):**
+   - *Qué se alteró:* En `apps/api/src/contexts/payables/infrastructure/testing/in-memory-payables-store.ts`, se desactivó la validación `if (false as boolean && hasExternal)` omitiendo el lanzamiento de `CreditNoteWithApplicationsError`.
+   - *Prueba corrida:* `pnpm --filter api exec vitest run src/contexts/payables/application/payables-credit-note.spec.ts -t "impide anular una nota de credito si ya tiene pagos externos confirmados aplicados"`
+   - *Línea del fallo:* `src/contexts/payables/application/payables-credit-note.spec.ts:363:6`
+     ```
+     FAIL src/contexts/payables/application/payables-credit-note.spec.ts > Supplier Credit Notes (NCP) in Payables > impide anular una nota de credito si ya tiene pagos externos confirmados aplicados
+     AssertionError: promise resolved "undefined" instead of rejecting
+      ❯ src/contexts/payables/application/payables-credit-note.spec.ts:363:6
+         361| await expect(
+         362|   s.cancelCreditNote.run({ tenantId: TENANT_A, creditNoteId: noteCreated.id }),
+         363| ).rejects.toThrow(CreditNoteWithApplicationsError);
+            |  ^
+     ```
+3. **Fila §3.10 (NCP por más de lo que debe abona hasta el saldo, resto se gasta en Pagos, gastar de más se rechaza):**
+   - *Qué se alteró:* En `apps/api/src/contexts/payables/infrastructure/testing/in-memory-payables-store.ts`, se desactivó la validación `if (primitives.amount > remaining)` omitiendo el lanzamiento de `CreditNoteExceededError`.
+   - *Prueba corrida:* `pnpm --filter api exec vitest run src/contexts/payables/application/payables-credit-note.spec.ts -t "permite aplicar el credito disponible de una nota en un pago posterior a proveedor"`
+   - *Línea del fallo:* `src/contexts/payables/application/payables-credit-note.spec.ts:265:6`
+     ```
+     FAIL src/contexts/payables/application/payables-credit-note.spec.ts > Supplier Credit Notes (NCP) in Payables > permite aplicar el credito disponible de una nota en un pago posterior a proveedor
+     AssertionError: promise resolved "undefined" instead of rejecting
+      ❯ src/contexts/payables/application/payables-credit-note.spec.ts:265:6
+         263| await expect(
+         264|   s.confirmPayment.run({ tenantId: TENANT_A, paymentId: overPayment.id }),
+         265| ).rejects.toThrow(CreditNoteExceededError);
+            |  ^
+     ```
+4. **Fila §3.10 (Una NCP de rebaja sobre mercancía en bodega baja su costo por revaluación; una que acredita una devolución no revalúa):**
+   - *Qué se alteró:* En `apps/api/src/contexts/payables/infrastructure/testing/in-memory-payables-store.ts`, se forzó `totalPriceDifference = 0` (el defecto 1.5 original).
+   - *Prueba corrida:* `pnpm --filter api exec vitest run src/contexts/payables/application/payables-credit-note.spec.ts -t "exige invoiceLineId en rebaja de mercancia"`
+   - *Línea del fallo:* `src/contexts/payables/application/payables-credit-note.spec.ts:446:34`
+     ```
+     FAIL src/contexts/payables/application/payables-credit-note.spec.ts > Supplier Credit Notes (NCP) in Payables > exige invoiceLineId en rebaja de mercancia y valida correspondencia y monto maximo (1.5, §2)
+     AssertionError: expected +0 to be -20 // Object.is equality
+
+     - Expected
+     + Received
+
+     - -20
+     + 0
+
+      ❯ src/contexts/payables/application/payables-credit-note.spec.ts:446:34
+         444| const note = await s.searchCreditNotes.findById({ tenantId: TENANT_A, creditNoteId: valid.id });
+         445| expect(note.status).toBe('confirmed');
+         446| expect(note.priceDifference).toBe(-20);
+            |                              ^
+     ```
 
 ### Cómo se verificó
 1. **Corridas intermedias corregidas:**
    - En `payables-rows.ts`, conversión explícita de `priceDifference` y `exchangeDifference` de Decimal a number para evitar fallos de clonación profunda (`DataCloneError`).
    - En `prisma-supplier-credit-note-posting.ts`, pase de instancia de `PayablesDate` en lugar de string en `paymentDetails.date`.
    - Normalización de motivos a enum `CreditNoteReason` ('damaged_goods', 'subsequent_discount', 'price_correction').
-   - Inclusión de los 7 casos de notas de crédito en `apps/e2e/support/isolation-matrix.ts` para satisfacer el test arquitectónico `isolation-coverage.spec.ts`.
-2. **Corrida final verde (`make verify` en `docs/revision/h9/logs/verify-fase7-1.log`):**
+   - Corrida roja de cobertura de aislamiento en `tests/isolation/isolation-coverage.spec.ts`:
+     ```
+     1) [isolation] › tests/isolation/isolation-coverage.spec.ts:56:1 › every route that takes an identifier has an isolation case 
+
+       Error: expect(received).toEqual(expected) // deep equality
+
+       - Expected  - 1
+       + Received  + 3
+
+       - Array []
+       + Array [
+       +   "POST /api/v1/payables/credit-notes",
+       + ]
+
+         60 |   );
+         61 |
+       > 62 |   expect(missing).toEqual([]);
+            |                   ^
+         63 | });
+           at /home/medine01/dev/erp-portafolio/apps/e2e/tests/isolation/isolation-coverage.spec.ts:62:19
+     ```
+     Corregido registrando los 7 endpoints de notas de crédito de proveedor en `apps/e2e/support/isolation-matrix.ts`.
+2. **Corrida final verde (`make verify` en `scratch/logs/verify-fase7-1.log`):**
    ```
    516 passed (9.1m)
    Todo en verde.
@@ -825,7 +952,7 @@ Ninguno.
    - Sesión cerrada con `playwright-cli -s=fase7 close`.
 
 ### Lo que no salió como decía el plan
-Ninguno.
+- **Defecto 1.5 y corrección del plan (§2):** La `NCP` de rebaja de precio (`price_correction`) inicialmente confirmaba con `priceDifference = 0` y no generaba la revaluación de inventario porque las líneas del modelo de notas de crédito no guardaban a qué línea de factura hacían referencia. Se corrigió el plan incorporando el campo opcional `SupplierCreditNoteLine.invoiceLineId` (obligatorio en rebaja de mercancía), las validaciones de que la línea pertenezca a la factura y no supere el importe facturado, y la emisión de revaluaciones de inventario por importe negativas en borrador (una por bodega).
 
 ---
 

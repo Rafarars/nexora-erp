@@ -159,4 +159,78 @@ describe('PrismaInvoiceRevaluationPosting (H9 Defectos 1.3 y 1.4)', () => {
     expect(createdLines).toHaveLength(1);
     expect(createdLines[0].amount).toBe(-50);
   });
+
+  it('crea dos ajustes de revaluacion independientes cuando la factura cita dos bodegas distintas (H9 §3.3 y §7)', async () => {
+    const warehouse2 = '66666666-6666-4666-8666-666666666666';
+    const createdAdjustments: any[] = [];
+    const mockPrismaClient = {
+      adjustment: {
+        create: vi.fn(async ({ data }) => {
+          createdAdjustments.push(data);
+          return data;
+        }),
+      },
+      adjustmentLine: {
+        createMany: vi.fn(async ({ data }) => ({ count: data.length })),
+      },
+    };
+
+    let counter = 10;
+    const mockCodes: InventoryCodeSequence = {
+      next: vi.fn(async () => counter++),
+    };
+
+    const posting = new PrismaInvoiceRevaluationPosting(
+      mockPrismaClient as unknown as PrismaService,
+      mockCodes,
+    );
+
+    await posting.createDraftRevaluations(
+      tenantId,
+      invoiceId,
+      'FCP000001',
+      '2026-10-01',
+      [
+        {
+          warehouseId,
+          lines: [
+            {
+              lineNumber: 1,
+              itemId,
+              itemSku: 'AGUA-500',
+              itemName: 'Agua mineral 500 ml',
+              unitId,
+              amount: 40,
+              sourceMovementId: 'mov-1',
+              reason: 'diferencia bodega 1',
+            },
+          ],
+        },
+        {
+          warehouseId: warehouse2,
+          lines: [
+            {
+              lineNumber: 1,
+              itemId,
+              itemSku: 'AGUA-500',
+              itemName: 'Agua mineral 500 ml',
+              unitId,
+              amount: 60,
+              sourceMovementId: 'mov-2',
+              reason: 'diferencia bodega 2',
+            },
+          ],
+        },
+      ],
+      new Date('2026-10-01T12:00:00.000Z'),
+      '2026-10-01',
+      userId,
+      mockPrismaClient,
+    );
+
+    expect(createdAdjustments).toHaveLength(2);
+    expect(mockCodes.next).toHaveBeenCalledTimes(2);
+    expect(createdAdjustments[0].warehouseId).toBe(warehouseId);
+    expect(createdAdjustments[1].warehouseId).toBe(warehouse2);
+  });
 });
