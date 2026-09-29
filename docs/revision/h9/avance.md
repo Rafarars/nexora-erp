@@ -663,3 +663,83 @@ Ninguno para esta fase.
 - Los permisos de notas de crédito a proveedores debieron posponerse al catálogo de la Fase 7 para mantener la invariante arquitectónica de que cada permiso declarado en el catálogo cuente con una ruta consumidora activa.
 
 ---
+
+## Fase 6: Servicios y gastos
+
+### Qué se construyó
+- **Dominio (`apps/api/src/contexts/purchasing/domain/invoice/`):**
+  - Soporte explícito en `PurchaseInvoiceLine` para facturación de servicios que provienen de una orden de compra (`orderLineId` informado, `receiptLineId: null`) y gastos directos libres (`concept` libre, sin `orderLineId` ni `receiptLineId`).
+  - Validación de que los servicios y gastos directos no exigen entrada física ni mueven inventario, devengan cuenta por pagar y calculan su alícuota de impuesto (`taxRate`) con precisión.
+  - Al anular una factura con líneas de servicio, se reintegra `invoicedQuantity` en la orden de compra original, permitiendo volver a facturar el servicio.
+- **Casos de uso y Pruebas (`apps/api/src/contexts/purchasing/application/services-and-expenses.spec.ts`):**
+  - Nueva suite dedicada con 5 pruebas exhaustivas:
+    - Facturación parcial de servicios de orden: actualiza `invoicedQuantity` en la orden de compra.
+    - Rechazo al superar la cantidad pedida de servicio en la orden (`InvoiceQuantityExceedsOrderServiceError`).
+    - Anulación de factura de servicio: reintegra las cantidades facturadas a la orden de compra.
+    - Facturación de gastos directos sin orden ni entrada: cálculo correcto de subtotales, impuestos y totales.
+    - Facturación combinada en una sola factura con líneas de servicio de orden y conceptos libres.
+- **Frontend Web (`apps/web`):**
+  - En `PurchaseInvoicesBoard` (`apps/web/src/sections/purchasing/purchase-invoices-board.tsx`), soporte interactivo para agregar líneas de gastos directos (`+ Gasto/Concepto`) con `add-expense-line-button`, permitiendo capturar concepto libre, cantidad, costo unitario e IVA.
+  - Verificación visual de modal y formulario en navegador con captura de pantalla.
+
+### Reglas de H9 cubiertas
+- **H9 §3.6:** Se puede facturar sin entrada: facturación directa de servicios de orden y de conceptos o gastos libres sin entrada de bodega.
+- **H9 §4.1:** Una línea de servicio que cita una orden marca lo facturado en la orden y rechaza facturar por encima de lo pedido; al anular se devuelven las cantidades a la orden.
+- **H9 §3.2:** Ni los servicios ni los gastos libres generan movimientos de existencia en bodega ni revaluaciones de inventario.
+
+### Pruebas que lo defienden
+- `src/contexts/purchasing/application/services-and-expenses.spec.ts` (5 pruebas unitarias y de integración).
+- `src/contexts/purchasing/application/purchase-invoice.spec.ts` (10 pruebas unitarias del ciclo de facturas).
+
+### Mutaciones probadas (H9 §7)
+1. **Fila §4.1 (Una línea de servicio que cita una orden marca lo facturado y no supera lo pedido):**
+   - *Qué se alteró:* En `apps/api/src/contexts/purchasing/infrastructure/testing/in-memory-purchase-invoice-posting.ts`, se desactivó la validación de cupo disponible del servicio mutando `if (lineQty > available)` por `if (false as boolean && lineQty > available)`.
+   - *Prueba corrida:* `pnpm --filter api test services-and-expenses.spec.ts purchase-invoice.spec.ts`
+   - *Líneas del fallo:*
+     - `src/contexts/purchasing/application/purchase-invoice.spec.ts:516:6`:
+       ```
+       FAIL src/contexts/purchasing/application/purchase-invoice.spec.ts > PurchaseInvoice application services (H9 Fase 1) > invoicing direct service line marks invoiced and rejects exceeding ordered (H9 §4.1)
+       AssertionError: promise resolved "PurchaseInvoice{ …(11) }" instead of rejecting
+        ❯ src/contexts/purchasing/application/purchase-invoice.spec.ts:516:6
+           514| await expect(
+           515|   confirmer.run({ tenantId: TENANT, invoiceId: invoiceExceedingSrv…
+           516| ).rejects.toThrow(InvoiceQuantityExceedsOrderServiceError);
+              |  ^
+       ```
+     - `src/contexts/purchasing/application/services-and-expenses.spec.ts:378:6`:
+       ```
+       FAIL src/contexts/purchasing/application/services-and-expenses.spec.ts > Services and Free Expenses Invoicing (H9 §3.6, §4.1, §4.4) > rejects invoicing more service quantity than remaining on the purchase order (H9 §4.1)
+       AssertionError: promise resolved "PurchaseInvoice{ …(11) }" instead of rejecting
+        ❯ src/contexts/purchasing/application/services-and-expenses.spec.ts:378:6
+           376| await expect(
+           377|   confirmer.run({ tenantId: TENANT, invoiceId: invoice2.id.value }…
+           378| ).rejects.toThrow(InvoiceQuantityExceedsOrderServiceError);
+              |  ^
+       ```
+
+### Cómo se verificó
+1. **Corridas intermedias corregidas:**
+   - En `services-and-expenses.spec.ts`, se corrigieron los tipos de import (`PurchasableItem`), la llamada a `PurchaseOrder.draft` con el parámetro de fecha de negocio, y las propiedades requeridas de `SupplierPrimitives`.
+2. **Corrida final verde (`make verify` en `docs/revision/h9/logs/verify-fase6-1.log`):**
+   ```
+   Test Files 180 passed (180)
+        Tests 3529 passed (3529)
+   Test Files 24 passed (24)
+        Tests 229 passed (229)
+   Test Files 13 passed (13)
+        Tests 292 passed (292)
+   502 passed (8.4m)
+   Todo en verde.
+   ```
+3. **Pruebas en navegador con `playwright-cli` (headed y persistent, skill `web-qa`):**
+   - Sesión abierta con `playwright-cli -s=nexora open http://localhost:3000/compras/facturas --headed --persistent`.
+   - Inicio de sesión anunciado con `admin@nexora.com`.
+   - Apertura del modal "Nueva factura" e inclusión de línea directa mediante "+ Gasto/Concepto" (`add-expense-line-button`).
+   - Captura guardada en: `docs/revision/h9/capturas/fase6-servicios-gastos.png`.
+   - Sesión cerrada con `playwright-cli -s=nexora close`.
+
+### Lo que no salió como decía el plan
+Ninguno.
+
+---
+
