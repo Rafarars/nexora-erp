@@ -15,6 +15,7 @@ describe('report downloads', () => {
 
   it('turns the Spanish link into the API export route', () => {
     expect(exportPath(query(downloadHref('antiguedad', 'xlsx')))).toBe('/api/v1/reports/receivables-aging/export?format=xlsx');
+    expect(exportPath(query(downloadHref('antiguedad-por-pagar', 'pdf')))).toBe('/api/v1/reports/payables-aging/export?format=pdf');
     expect(exportPath(query(downloadHref('estado-de-cuenta', 'pdf', { cliente: 'c-1' })))).toBe('/api/v1/reports/customers/c-1/statement/export?format=pdf');
     expect(exportPath(query(downloadHref('ventas-por-cliente', 'pdf', { desde: '2026-09-01', hasta: '2026-09-14' })))).toBe(
       '/api/v1/reports/sales-by-customer/export?format=pdf&from=2026-09-01&to=2026-09-14',

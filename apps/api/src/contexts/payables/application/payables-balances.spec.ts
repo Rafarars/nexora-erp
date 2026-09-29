@@ -5,6 +5,7 @@ import { SupplierBalanceSearcher } from './search-supplier-balances/supplier-bal
 import { SupplierStatementSearcher } from './search-supplier-statement/supplier-statement-searcher.js';
 import { SupplierPayment } from '../domain/payment/supplier-payment.entity.js';
 import { PayableSupplierNotFoundError } from '../domain/errors/payables.errors.js';
+import { PrismaPayableBalances } from '../infrastructure/persistence/prisma-payable-balances.js';
 
 const TENANT = '11111111-1111-4111-8111-111111111111';
 const OTHER_TENANT = '22222222-2222-4222-8222-222222222222';
@@ -257,6 +258,68 @@ describe('payables balances and statements', () => {
       // El balance final del estado de cuenta coincide con el saldo de Alpha (100 - 40 + 200 = 260)
       expect(statement.summary.balance).toBe(260);
       expect(statement.movements[statement.movements.length - 1].balance).toBe(statement.summary.balance);
+    });
+
+    it('§3.8: el saldo que dicen el listado, la antigüedad, el estado de cuenta y el tablero es el mismo', async () => {
+      // Registrar abono de 40 a FCP000001 (total 100 -> saldo 60)
+      const payment = SupplierPayment.fromPrimitives({
+        id: 'd3000000-0000-4000-8000-000000000002',
+        tenantId: TENANT,
+        code: 'PAG000002',
+        supplierId: SUPPLIER_A,
+        paymentDate: '2026-08-20',
+        method: 'transfer',
+        reference: 'ABONO-1',
+        notes: null,
+        currency: 'USD',
+        exchangeRate: null,
+        baseCurrency: 'USD',
+        baseExchangeRate: null,
+        manualExchangeRate: false,
+        amount: 40,
+        amountVes: null,
+        status: 'confirmed',
+        confirmedAt: new Date('2026-08-20T12:00:00Z'),
+        cancelledAt: null,
+        createdAt: new Date('2026-08-20T12:00:00Z'),
+        updatedAt: new Date('2026-08-20T12:00:00Z'),
+        allocations: [{ id: 'd4000000-0000-4000-8000-000000000002', invoiceId: INVOICE_1, amount: 40, exchangeRate: null, exchangeDifference: null }],
+      });
+      await store.payments.save(payment);
+
+      const payableBalances = new PrismaPayableBalances(store.ledger, calendar as any, rates as any);
+
+      // 1. Listado de facturas del proveedor
+      const invoiceResult = await invoiceSearcher.run({ tenantId: TENANT, supplierId: SUPPLIER_A });
+      const invoiceListBalance = invoiceResult.invoices.reduce((sum, inv) => sum + inv.balance, 0);
+
+      // 2. Antigüedad de saldos
+      const balanceResult = await balanceSearcher.run({ tenantId: TENANT });
+      const supplierAgingBalance = balanceResult.suppliers.find((s) => s.supplier.id === SUPPLIER_A)!.balance;
+
+      // 3. Estado de cuenta del proveedor
+      const statementResult = await statementSearcher.run({ tenantId: TENANT, supplierId: SUPPLIER_A });
+      const statementBalance = statementResult.summary.balance;
+
+      // 4. Tablero y puerto PAYABLE_BALANCES
+      const supplierExposure = await payableBalances.ofSupplier(TENANT, SUPPLIER_A);
+      const boardSupplierBalance = supplierExposure.openBalance;
+
+      // Coincidencia exacta de las 4 fuentes para el proveedor (60 + 200 = 260)
+      expect(invoiceListBalance).toBe(260);
+      expect(supplierAgingBalance).toBe(260);
+      expect(statementBalance).toBe(260);
+      expect(boardSupplierBalance).toBe(260);
+
+      expect(invoiceListBalance).toBe(supplierAgingBalance);
+      expect(supplierAgingBalance).toBe(statementBalance);
+      expect(statementBalance).toBe(boardSupplierBalance);
+
+      // Y a nivel global de empresa, la antigüedad total coincide con el saldo de tablero
+      const totalBoardBalance = await payableBalances.totalBalance(TENANT, 2);
+      expect(balanceResult.totals.total).toBe(560);
+      expect(totalBoardBalance).toBe(560);
+      expect(balanceResult.totals.total).toBe(totalBoardBalance);
     });
   });
 });

@@ -63,6 +63,8 @@ import { PrismaSupplierPaymentRepository } from './persistence/prisma-supplier-p
 import { PrismaSupplierCreditNoteRepository } from './persistence/prisma-supplier-credit-note.repository.js';
 import { PrismaSupplierCreditNotePosting } from './persistence/prisma-supplier-credit-note-posting.js';
 import { InventoryModule } from '../../inventory/infrastructure/inventory.module.js';
+import { PAYABLE_BALANCES } from '../../../shared/prisma/payable-balances.js';
+import { PrismaPayableBalances } from './persistence/prisma-payable-balances.js';
 
 @Module({
   imports: [PrismaModule, SharedModule, CompanyModule, InventoryModule],
@@ -90,6 +92,7 @@ import { InventoryModule } from '../../inventory/infrastructure/inventory.module
     { provide: PAYABLES_CODE_SEQUENCE, useClass: PrismaPayablesCodeSequence },
     { provide: SUPPLIER_CREDIT_NOTE_REPOSITORY, useClass: PrismaSupplierCreditNoteRepository },
     { provide: SUPPLIER_CREDIT_NOTE_POSTING, useClass: PrismaSupplierCreditNotePosting },
+    { provide: PAYABLE_BALANCES, useClass: PrismaPayableBalances },
 
     {
       provide: PaymentFinder,
@@ -219,6 +222,7 @@ import { InventoryModule } from '../../inventory/infrastructure/inventory.module
     SupplierStatementSearcher,
     SupplierCreditNoteSearcher,
     SupplierAvailableCreditsFinder,
+    PAYABLE_BALANCES,
   ],
 })
 export class PayablesModule {}

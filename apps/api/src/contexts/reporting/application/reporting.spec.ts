@@ -3,7 +3,7 @@ import { InvalidUuidError } from '../../../shared/domain/uuid.vo.js';
 import { InvalidPageError, ReportCustomerNotFoundError, ReportPeriodTooLongError, ReportWarehouseNotFoundError } from '../domain/errors/reporting.errors.js';
 import { DELTA, EMPTY, MAIN, NORTH, OMEGA, TENANT_A, TENANT_B, aCustomer, aStock, anInvoice } from '../domain/testing/reporting.mother.js';
 import { InMemoryInvoice } from '../infrastructure/testing/in-memory-reporting-read-model.js';
-import { companyHeader, customerStatementDocument, inventoryValuationDocument, receivablesAgingDocument, salesByCustomerDocument } from './documents/report-documents.js';
+import { companyHeader, customerStatementDocument, inventoryValuationDocument, payablesAgingDocument, receivablesAgingDocument, salesByCustomerDocument } from './documents/report-documents.js';
 import { stockValueUnits } from '../domain/shared/money.js';
 import { aReportingScenario } from './testing/reporting-scenario.js';
 
@@ -46,6 +46,7 @@ describe('dashboard', () => {
       purchasesThisMonth: 120,
       collectedThisMonth: 40,
       receivableBalance: 110.5,
+      payableBalance: 0,
       overdueBalance: 60,
       inventoryValue: 152.33,
     });
@@ -94,6 +95,31 @@ describe('receivables aging report', () => {
     expect(document.subtitle).toEqual(['Acme Industrial', 'Al 2026-03-15 · Importes en USD']);
     expect(document.rows).toEqual([{ code: 'CLI000001', customer: 'Comercial Delta', current: 50.5, days1To30: 60, days31To60: 0, days61To90: 0, over90: 0, total: 110.5 }]);
     expect(document.totals).toMatchObject({ code: 'Total', total: 110.5 });
+  });
+});
+
+describe('payables aging report', () => {
+  it('lists only who has balance, and turns into a document with the same figures', async () => {
+    const s = world();
+    s.readModel.supplier(TENANT_A, { id: 'sup1', code: 'PRV001', name: 'Distribuidora Andina', fiscalId: null, paymentTermDays: 30 });
+    s.readModel.payableInvoice(TENANT_A, {
+      id: 'pi1',
+      code: 'FCP000001',
+      supplierId: 'sup1',
+      issueDate: '2026-03-01',
+      dueDate: '2026-03-10',
+      total: 100,
+      paid: 40,
+      balance: 60,
+    });
+
+    const report = await s.payablesAging.run({ tenantId: TENANT_A });
+    expect(report.suppliers).toEqual([{ supplier: { id: 'sup1', code: 'PRV001', name: 'Distribuidora Andina' }, aging: { current: 0, days1To30: 60, days31To60: 0, days61To90: 0, over90: 0, total: 60 } }]);
+
+    const document = payablesAgingDocument(report, 'Acme Industrial');
+    expect(document.subtitle).toEqual(['Acme Industrial', 'Al 2026-03-15 · Importes en USD']);
+    expect(document.rows).toEqual([{ code: 'PRV001', supplier: 'Distribuidora Andina', current: 0, days1To30: 60, days31To60: 0, days61To90: 0, over90: 0, total: 60 }]);
+    expect(document.totals).toMatchObject({ code: 'Total', total: 60 });
   });
 });
 

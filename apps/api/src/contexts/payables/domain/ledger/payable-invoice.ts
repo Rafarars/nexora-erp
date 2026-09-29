@@ -44,6 +44,14 @@ export class PayableInvoice {
     return this.row.code;
   }
 
+  get issueDate(): string {
+    return this.row.issueDate;
+  }
+
+  get dueDate(): string {
+    return this.row.dueDate;
+  }
+
   supplierId(): string {
     return this.row.supplierId;
   }
@@ -59,6 +67,18 @@ export class PayableInvoice {
 
   total(): number {
     return this.row.total;
+  }
+
+  paid(): number {
+    return this.row.paid;
+  }
+
+  companyTotal(decimals: number): number {
+    return unitsToNumber(this.currency().baseAmount(amountUnits(this.row.total), decimals));
+  }
+
+  companyPaid(decimals: number): number {
+    return unitsToNumber(this.currency().baseAmount(amountUnits(this.row.paid), decimals));
   }
 
   balance(): number {

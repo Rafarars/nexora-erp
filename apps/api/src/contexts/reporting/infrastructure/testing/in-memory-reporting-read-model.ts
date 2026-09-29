@@ -4,8 +4,10 @@ import {
   ReportCustomerSales,
   ReportInvoice,
   ReportItemSales,
+  ReportPayableInvoice,
   ReportStatementEntry,
   ReportStock,
+  ReportSupplier,
   ReportingReadModel,
 } from '../../domain/read-model/reporting-read-model.js';
 import { DocumentCurrency, DocumentCurrencyPrimitives } from '../../../../shared/domain/document-currency.js';
@@ -32,7 +34,9 @@ const inCompanyCurrency = (row: WithCurrency, value: number, decimals: number) =
 // aplicacion siembran filas y el doble responde como las consultas SQL.
 export class InMemoryReportingReadModel implements ReportingReadModel {
   private readonly customerRows: Tenant<ReportCustomer>[] = [];
+  private readonly supplierRows: Tenant<ReportSupplier>[] = [];
   private readonly invoiceRows: Tenant<InMemoryInvoice>[] = [];
+  private readonly payableInvoiceRows: Tenant<ReportPayableInvoice>[] = [];
   private readonly paymentRows: Tenant<{ code: string; customerId: string; date: string; amount: number; method?: string; creditSourceId?: string | null; allocations?: { invoiceId: string; amount: number }[] } & WithCurrency>[] = [];
   private readonly creditNoteRows: Tenant<{ id: string; code: string; customerId: string; total: number }>[] = [];
   private readonly receiptRows: Tenant<{ date: string; amount: number } & WithCurrency>[] = [];
@@ -45,6 +49,14 @@ export class InMemoryReportingReadModel implements ReportingReadModel {
 
   customer(tenantId: string, row: ReportCustomer): void {
     this.customerRows.push({ ...row, tenantId });
+  }
+
+  supplier(tenantId: string, row: ReportSupplier): void {
+    this.supplierRows.push({ ...row, tenantId });
+  }
+
+  payableInvoice(tenantId: string, row: ReportPayableInvoice): void {
+    this.payableInvoiceRows.push({ ...row, tenantId });
   }
 
   invoice(tenantId: string, row: InMemoryInvoice): void {
@@ -74,6 +86,19 @@ export class InMemoryReportingReadModel implements ReportingReadModel {
 
   async customers(tenantId: { value: string }): Promise<ReportCustomer[]> {
     return this.of(this.customerRows, tenantId.value).sort((a, b) => a.name.localeCompare(b.name));
+  }
+
+  async suppliers(tenantId: { value: string }): Promise<ReportSupplier[]> {
+    return this.of(this.supplierRows, tenantId.value).sort((a, b) => a.name.localeCompare(b.name));
+  }
+
+  async payableInvoices(tenantId: { value: string }, _decimals: number): Promise<ReportPayableInvoice[]> {
+    return this.of(this.payableInvoiceRows, tenantId.value).sort((a, b) => a.code.localeCompare(b.code));
+  }
+
+  async payableBalance(tenantId: { value: string }, decimals: number): Promise<number> {
+    const invoices = await this.payableInvoices(tenantId, decimals);
+    return invoices.reduce((sum, inv) => sum + inv.balance, 0);
   }
 
   // Sin distinguir mayusculas, como la columna uuid de PostgreSQL: el doble no puede ser mas

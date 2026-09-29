@@ -15,6 +15,7 @@ export interface DashboardResponse {
   purchasesThisMonth: number;
   collectedThisMonth: number;
   receivableBalance: number;
+  payableBalance: number;
   overdueBalance: number;
   inventoryValue: number;
   topDebtors: { customer: { id: string; code: string; name: string }; balance: number; overdue: number }[];
@@ -41,7 +42,7 @@ export class DashboardSearcher {
     ]);
     const month = ReportPeriod.monthToDate(today);
 
-    const [sales, purchases, collected, invoices, customers, items, stock] = await Promise.all([
+    const [sales, purchases, collected, invoices, customers, items, stock, payableBalance] = await Promise.all([
       this.readModel.salesTotal(tenantId, month, decimals),
       this.readModel.purchasesTotal(tenantId, month, decimals),
       this.readModel.collectedTotal(tenantId, month, decimals),
@@ -49,6 +50,7 @@ export class DashboardSearcher {
       this.readModel.customers(tenantId),
       this.readModel.salesByItem(tenantId, month, decimals),
       this.readModel.stock(tenantId),
+      this.readModel.payableBalance(tenantId, decimals),
     ]);
 
     const debts = new Map<string, { balance: bigint; overdue: bigint }>();
@@ -74,6 +76,7 @@ export class DashboardSearcher {
       purchasesThisMonth: purchases,
       collectedThisMonth: collected,
       receivableBalance: totalOf((debt) => debt.balance),
+      payableBalance,
       overdueBalance: totalOf((debt) => debt.overdue),
       inventoryValue: unitsToNumber(stock.reduce((sum, row) => sum + stockValueUnits(row.quantity, row.averageCost, decimals), 0n)),
       topDebtors: [...debts.entries()]

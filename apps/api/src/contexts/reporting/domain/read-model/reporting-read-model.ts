@@ -12,6 +12,14 @@ export interface ReportCustomer {
   creditLimit: number | null;
 }
 
+export interface ReportSupplier {
+  id: string;
+  code: string;
+  name: string;
+  fiscalId: string | null;
+  paymentTermDays: number;
+}
+
 // Una factura emitida con lo cobrado por cobros confirmados, todo en la moneda de la empresa.
 export interface ReportInvoice {
   id: string;
@@ -22,6 +30,17 @@ export interface ReportInvoice {
   total: number;
   paid: number;
   // Total menos cobrado, convertido y redondeado de una vez: es lo que suman saldos y antiguedad.
+  balance: number;
+}
+
+export interface ReportPayableInvoice {
+  id: string;
+  code: string;
+  supplierId: string;
+  issueDate: string;
+  dueDate: string;
+  total: number;
+  paid: number;
   balance: number;
 }
 
@@ -72,10 +91,13 @@ export interface ReportCompany {
 export interface ReportingReadModel {
   company(tenantId: TenantId): Promise<ReportCompany>;
   customers(tenantId: TenantId): Promise<ReportCustomer[]>;
+  suppliers(tenantId: TenantId): Promise<ReportSupplier[]>;
   // El nombre, no un si o un no: el PDF lo necesita aunque la bodega este vacia.
   warehouseNamed(tenantId: TenantId, warehouseId: string): Promise<string | null>;
   // Emitidas, con saldo o sin el; filtro opcional por cliente.
   issuedInvoices(tenantId: TenantId, decimals: number, customerId?: string): Promise<ReportInvoice[]>;
+  payableInvoices(tenantId: TenantId, decimals: number): Promise<ReportPayableInvoice[]>;
+  payableBalance(tenantId: TenantId, decimals: number): Promise<number>;
   statementEntries(tenantId: TenantId, customerId: string, decimals: number): Promise<ReportStatementEntry[]>;
   salesTotal(tenantId: TenantId, period: ReportPeriod, decimals: number): Promise<number>;
   // Lo recibido en entradas confirmadas, a su costo y sin impuesto.

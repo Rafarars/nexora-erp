@@ -1,6 +1,8 @@
-import { Injectable } from '@nestjs/common';
+import { Inject, Injectable, Optional } from '@nestjs/common';
 import { raw, sql } from '../../../../generated/prisma/internal/prismaNamespace.js';
 import { PrismaService } from '../../../../shared/prisma/prisma.service.js';
+import { PAYABLE_BALANCES } from '../../../../shared/prisma/payable-balances.js';
+import type { PayableBalances } from '../../../../shared/prisma/payable-balances.js';
 import { ReportPeriod } from '../../domain/period/report-period.js';
 import {
   ReportCompany,
@@ -8,8 +10,10 @@ import {
   ReportCustomerSales,
   ReportInvoice,
   ReportItemSales,
+  ReportPayableInvoice,
   ReportStatementEntry,
   ReportStock,
+  ReportSupplier,
   ReportingReadModel,
 } from '../../domain/read-model/reporting-read-model.js';
 import { TenantId } from '../../domain/shared/tenant-id.vo.js';
@@ -30,7 +34,10 @@ const PAYMENT_IN_COMPANY_CURRENCY = factor('p');
 // se hacen en PostgreSQL con decimales exactos y llegan como texto, para no perder centimos.
 @Injectable()
 export class PrismaReportingReadModel implements ReportingReadModel {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    @Optional() @Inject(PAYABLE_BALANCES) private readonly payableBalances?: PayableBalances,
+  ) {}
 
   async company(tenantId: TenantId): Promise<ReportCompany> {
     const tenant = await this.prisma.tenant.findUniqueOrThrow({
@@ -49,6 +56,26 @@ export class PrismaReportingReadModel implements ReportingReadModel {
     });
 
     return rows.map((row) => ({ ...row, creditLimit: row.creditLimit === null ? null : row.creditLimit.toNumber() }));
+  }
+
+  async suppliers(tenantId: TenantId): Promise<ReportSupplier[]> {
+    const rows = await this.prisma.supplier.findMany({
+      where: { tenantId: tenantId.value },
+      select: { id: true, code: true, name: true, fiscalId: true, paymentTermDays: true },
+      orderBy: { name: 'asc' },
+    });
+
+    return rows;
+  }
+
+  async payableInvoices(tenantId: TenantId, decimals: number): Promise<ReportPayableInvoice[]> {
+    if (!this.payableBalances) return [];
+    return this.payableBalances.allInvoices(tenantId, decimals);
+  }
+
+  async payableBalance(tenantId: TenantId, decimals: number): Promise<number> {
+    if (!this.payableBalances) return 0;
+    return this.payableBalances.totalBalance(tenantId, decimals);
   }
 
   async warehouseNamed(tenantId: TenantId, warehouseId: string): Promise<string | null> {

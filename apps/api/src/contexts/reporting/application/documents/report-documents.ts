@@ -4,6 +4,7 @@ import { ReportDocument } from '../../domain/document/report-document.js';
 import { fileNamePart, formatAmount } from '../../domain/document/report-format.js';
 import { CustomerStatementResponse } from '../customer-statement/customer-statement-report.js';
 import { InventoryValuationResponse } from '../inventory-valuation/inventory-valuation-report.js';
+import { PayablesAgingResponse } from '../payables-aging/payables-aging-report.js';
 import { ReceivablesAgingResponse } from '../receivables-aging/receivables-aging-report.js';
 import { SalesByCustomerResponse } from '../sales-by-customer/sales-by-customer-report.js';
 
@@ -36,6 +37,20 @@ export function receivablesAgingDocument(report: ReceivablesAgingResponse, compa
     columns: [{ key: 'code', label: 'Código', kind: 'text' }, { key: 'customer', label: 'Cliente', kind: 'text' }, ...buckets, { key: 'total', label: 'Saldo', kind: 'amount' }],
     rows: report.customers.map((row) => ({ code: row.customer.code, customer: row.customer.name, ...row.aging })),
     totals: { code: 'Total', customer: null, ...report.totals },
+  };
+}
+
+export function payablesAgingDocument(report: PayablesAgingResponse, company: string): ReportDocument {
+  const buckets = AGING_BUCKETS.map((bucket) => ({ key: bucket, label: BUCKET_LABELS[bucket], kind: 'amount' as const }));
+
+  return {
+    fileName: `antiguedad-de-saldos-por-pagar-${report.asOf}`,
+    title: 'Antigüedad de saldos por pagar',
+    subtitle: [company, `Al ${report.asOf} · ${amountsIn(report.currency)}`],
+    decimals: report.decimals,
+    columns: [{ key: 'code', label: 'Código', kind: 'text' }, { key: 'supplier', label: 'Proveedor', kind: 'text' }, ...buckets, { key: 'total', label: 'Saldo', kind: 'amount' }],
+    rows: report.suppliers.map((row) => ({ code: row.supplier.code, supplier: row.supplier.name, ...row.aging })),
+    totals: { code: 'Total', supplier: null, ...report.totals },
   };
 }
 

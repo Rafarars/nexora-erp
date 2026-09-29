@@ -7,6 +7,7 @@ export interface Dashboard {
   purchasesThisMonth: number;
   collectedThisMonth: number;
   receivableBalance: number;
+  payableBalance: number;
   overdueBalance: number;
   inventoryValue: number;
   topDebtors: { customer: { id: string; code: string; name: string }; balance: number; overdue: number }[];
@@ -79,7 +80,7 @@ export function formatReportAmount(value: number, decimals: number): string {
   return value.toLocaleString('es-VE', { minimumFractionDigits: decimals, maximumFractionDigits: decimals });
 }
 
-export type ReportName = 'antiguedad' | 'estado-de-cuenta' | 'ventas-por-cliente' | 'valuacion-inventario';
+export type ReportName = 'antiguedad' | 'estado-de-cuenta' | 'ventas-por-cliente' | 'valuacion-inventario' | 'antiguedad-por-pagar';
 export type ReportFormat = 'pdf' | 'xlsx';
 
 // Del primer dia del mes hasta hoy: lo que se pregunta casi siempre.
@@ -108,6 +109,8 @@ export function exportPath(query: URLSearchParams): string | null {
   switch (query.get('reporte')) {
     case 'antiguedad':
       return `/api/v1/reports/receivables-aging/export?${params}`;
+    case 'antiguedad-por-pagar':
+      return `/api/v1/reports/payables-aging/export?${params}`;
     case 'estado-de-cuenta': {
       const customer = query.get('cliente');
 

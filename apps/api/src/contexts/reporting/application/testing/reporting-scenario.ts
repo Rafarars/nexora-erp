@@ -5,6 +5,7 @@ import { NOW } from '../../domain/testing/reporting.mother.js';
 import { InMemoryReportingReadModel } from '../../infrastructure/testing/in-memory-reporting-read-model.js';
 import { CustomerStatementReport } from '../customer-statement/customer-statement-report.js';
 import { InventoryValuationReport } from '../inventory-valuation/inventory-valuation-report.js';
+import { PayablesAgingReport } from '../payables-aging/payables-aging-report.js';
 import { ReceivablesAgingReport } from '../receivables-aging/receivables-aging-report.js';
 import { SalesByCustomerReport } from '../sales-by-customer/sales-by-customer-report.js';
 import { DashboardSearcher } from '../search-dashboard/dashboard-searcher.js';
@@ -22,6 +23,7 @@ export function aReportingScenario() {
     rates,
     dashboard: new DashboardSearcher(readModel, calendar, rates),
     receivablesAging: new ReceivablesAgingReport(readModel, calendar, rates),
+    payablesAging: new PayablesAgingReport(readModel, calendar, rates),
     customerStatement: new CustomerStatementReport(readModel, calendar, rates),
     salesByCustomer: new SalesByCustomerReport(readModel, rates),
     inventoryValuation: new InventoryValuationReport(readModel, rates),

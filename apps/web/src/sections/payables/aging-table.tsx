@@ -2,6 +2,7 @@ import Link from 'next/link';
 import { formatAmount } from '@/modules/purchasing/domain/purchasing';
 import { AGING_COLUMNS } from '@/modules/payables/domain/payables';
 import type { AgingTotals, SupplierBalance } from '@/modules/payables/domain/payables';
+import { DownloadLinks } from '@/sections/reports/download-links';
 import { Filter, Pager } from '@/sections/shared/filters';
 
 export interface AgingSearch {
@@ -26,11 +27,14 @@ export function AgingTable({
 }) {
   return (
     <section className="space-y-4">
-      <div>
-        <h2 className="text-base font-semibold">Antigüedad de saldos</h2>
-        <p className="text-muted mt-1 text-sm">
-          Lo que se le debe a cada proveedor repartido por tramos de vencimiento.
-        </p>
+      <div className="flex flex-wrap items-end justify-between gap-4">
+        <div>
+          <h2 className="text-base font-semibold">Antigüedad de saldos</h2>
+          <p className="text-muted mt-1 text-sm">
+            Lo que se le debe a cada proveedor repartido por tramos de vencimiento.
+          </p>
+        </div>
+        <DownloadLinks report="antiguedad-por-pagar" />
       </div>
 
       <AgingFilters search={search} count={suppliers.length} />

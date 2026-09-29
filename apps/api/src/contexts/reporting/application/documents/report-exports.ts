@@ -4,15 +4,17 @@ import { ReportingReadModel } from '../../domain/read-model/reporting-read-model
 import { TenantId } from '../../domain/shared/tenant-id.vo.js';
 import { CustomerStatementReport } from '../customer-statement/customer-statement-report.js';
 import { InventoryValuationReport } from '../inventory-valuation/inventory-valuation-report.js';
+import { PayablesAgingReport } from '../payables-aging/payables-aging-report.js';
 import { ReceivablesAgingReport } from '../receivables-aging/receivables-aging-report.js';
 import { SalesByCustomerReport } from '../sales-by-customer/sales-by-customer-report.js';
-import { customerStatementDocument, inventoryValuationDocument, receivablesAgingDocument, salesByCustomerDocument, companyHeader } from './report-documents.js';
+import { customerStatementDocument, inventoryValuationDocument, payablesAgingDocument, receivablesAgingDocument, salesByCustomerDocument, companyHeader } from './report-documents.js';
 
 // Exportar es correr el mismo reporte de la pantalla, convertirlo en documento y escribirlo. El
 // formato se valida antes de consultar nada.
 export class ReportExports {
   constructor(
     private readonly aging: ReceivablesAgingReport,
+    private readonly payablesAgingReport: PayablesAgingReport,
     private readonly statement: CustomerStatementReport,
     private readonly sales: SalesByCustomerReport,
     private readonly valuation: InventoryValuationReport,
@@ -25,6 +27,12 @@ export class ReportExports {
     const chosen = exportFormat(format);
 
     return this.write(chosen, request.tenantId, async (company) => receivablesAgingDocument(await this.aging.run(request), company));
+  }
+
+  async payablesAging(request: { tenantId: string }, format: string | undefined): Promise<RenderedReport> {
+    const chosen = exportFormat(format);
+
+    return this.write(chosen, request.tenantId, async (company) => payablesAgingDocument(await this.payablesAgingReport.run(request), company));
   }
 
   async customerStatement(request: { tenantId: string; customerId: string }, format: string | undefined): Promise<RenderedReport> {

@@ -8,6 +8,7 @@ export function DashboardView({ dashboard }: { dashboard: Dashboard }) {
     { label: 'Compras recibidas del mes', value: dashboard.purchasesThisMonth, testId: 'dashboard-purchases' },
     { label: 'Cobrado en el mes', value: dashboard.collectedThisMonth, testId: 'dashboard-collected' },
     { label: 'Saldo por cobrar', value: dashboard.receivableBalance, testId: 'dashboard-receivable' },
+    { label: 'Saldo por pagar', value: dashboard.payableBalance, testId: 'dashboard-payable' },
     { label: 'Vencido', value: dashboard.overdueBalance, testId: 'dashboard-overdue' },
     { label: 'Valor del inventario', value: dashboard.inventoryValue, testId: 'dashboard-inventory' },
   ];
