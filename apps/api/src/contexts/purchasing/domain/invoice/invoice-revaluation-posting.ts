@@ -25,9 +25,13 @@ export interface InvoiceRevaluationPosting {
     tenantId: TenantId,
     invoiceId: string,
     invoiceCode: string,
+    invoiceDate: string,
     revaluations: InvoiceWarehouseRevaluationData[],
     now: Date,
+    today: string,
+    userId?: string | null,
     context?: unknown,
+    originType?: 'purchase_invoice' | 'supplier_credit_note',
   ): Promise<void>;
 
   cancelOrReverseRevaluations(
@@ -35,6 +39,9 @@ export interface InvoiceRevaluationPosting {
     invoiceId: string,
     invoiceCode: string,
     now: Date,
+    today: string,
+    userId?: string | null,
     context?: unknown,
+    originType?: 'purchase_invoice' | 'supplier_credit_note',
   ): Promise<void>;
 }

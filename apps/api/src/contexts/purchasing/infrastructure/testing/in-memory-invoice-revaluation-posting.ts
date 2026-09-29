@@ -43,9 +43,13 @@ export class InMemoryInvoiceRevaluationPosting implements InvoiceRevaluationPost
     tenantId: TenantId,
     invoiceId: string,
     invoiceCode: string,
+    invoiceDate: string,
     revaluations: InvoiceWarehouseRevaluationData[],
     now: Date,
+    today: string,
+    userId?: string | null,
     _context?: unknown,
+    originType: 'purchase_invoice' | 'supplier_credit_note' = 'purchase_invoice',
   ): Promise<void> {
     for (const rev of revaluations) {
       if (rev.lines.length === 0) continue;
@@ -57,16 +61,21 @@ export class InMemoryInvoiceRevaluationPosting implements InvoiceRevaluationPost
       const code = `AJU${String(this.seq).padStart(6, '0')}`;
       const adjustmentId = randomUUID();
 
+      const noteText =
+        originType === 'supplier_credit_note'
+          ? `Diferencia de precio segun nota de credito ${invoiceCode}`
+          : `Diferencia de precio segun factura ${invoiceCode}`;
+
       this.adjustments.push({
         id: adjustmentId,
         tenantId: tenantId.value,
         code,
         warehouseId: rev.warehouseId,
-        adjustmentDate: now,
+        adjustmentDate: new Date(`${invoiceDate}T00:00:00.000Z`),
         type: 'revaluation',
-        notes: `Diferencia de precio segun factura ${invoiceCode}`,
+        notes: noteText,
         status: 'draft',
-        originType: 'purchase_invoice',
+        originType,
         originId: invoiceId,
         lines: rev.lines.map((l) => ({
           id: randomUUID(),
@@ -91,10 +100,13 @@ export class InMemoryInvoiceRevaluationPosting implements InvoiceRevaluationPost
     invoiceId: string,
     invoiceCode: string,
     now: Date,
+    today: string,
+    userId?: string | null,
     _context?: unknown,
+    originType: 'purchase_invoice' | 'supplier_credit_note' = 'purchase_invoice',
   ): Promise<void> {
     const existing = this.adjustments.filter(
-      (a) => a.tenantId === tenantId.value && a.originType === 'purchase_invoice' && a.originId === invoiceId,
+      (a) => a.tenantId === tenantId.value && a.originType === originType && a.originId === invoiceId,
     );
 
     for (const adj of existing) {
@@ -106,16 +118,21 @@ export class InMemoryInvoiceRevaluationPosting implements InvoiceRevaluationPost
         const code = `AJU${String(this.seq).padStart(6, '0')}`;
         const reverseId = randomUUID();
 
+        const noteText =
+          originType === 'supplier_credit_note'
+            ? `Ajuste inverso de revaluacion por anulacion de nota de credito ${invoiceCode}`
+            : `Ajuste inverso de revaluacion por anulacion de factura ${invoiceCode}`;
+
         this.adjustments.push({
           id: reverseId,
           tenantId: tenantId.value,
           code,
           warehouseId: adj.warehouseId,
-          adjustmentDate: now,
+          adjustmentDate: new Date(`${today}T00:00:00.000Z`),
           type: 'revaluation',
-          notes: `Ajuste inverso de revaluacion por anulacion de factura ${invoiceCode}`,
+          notes: noteText,
           status: 'draft',
-          originType: 'purchase_invoice',
+          originType,
           originId: invoiceId,
           lines: adj.lines.map((l) => ({
             id: randomUUID(),

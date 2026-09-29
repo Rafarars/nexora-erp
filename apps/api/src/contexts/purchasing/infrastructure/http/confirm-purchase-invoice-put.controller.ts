@@ -15,7 +15,11 @@ export class ConfirmPurchaseInvoicePutController {
     @Session() session: CurrentSession,
     @Param('invoiceId') invoiceId: string,
   ): Promise<{ id: string; status: string }> {
-    const invoice = await this.confirmer.run({ tenantId: session.tenantId, invoiceId });
+    const invoice = await this.confirmer.run({
+      tenantId: session.tenantId,
+      invoiceId,
+      userId: session.userId,
+    });
     return { id: invoice.id.value, status: invoice.currentStatus };
   }
 }

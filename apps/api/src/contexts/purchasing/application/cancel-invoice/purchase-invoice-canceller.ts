@@ -6,6 +6,7 @@ import { TenantId } from '../../domain/shared/tenant-id.vo.js';
 export interface PurchaseInvoiceCancellerRequest {
   tenantId: string;
   invoiceId: string;
+  userId?: string;
 }
 
 export class PurchaseInvoiceCanceller {
@@ -19,6 +20,6 @@ export class PurchaseInvoiceCanceller {
     const invoiceId = PurchaseInvoiceId.of(request.invoiceId);
     const now = this.clock.now();
 
-    return this.posting.cancel(tenantId, invoiceId, now);
+    return this.posting.cancel(tenantId, invoiceId, now, request.userId);
   }
 }

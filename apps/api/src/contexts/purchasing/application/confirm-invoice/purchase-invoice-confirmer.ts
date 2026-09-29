@@ -6,6 +6,7 @@ import { TenantId } from '../../domain/shared/tenant-id.vo.js';
 export interface PurchaseInvoiceConfirmerRequest {
   tenantId: string;
   invoiceId: string;
+  userId?: string;
 }
 
 export class PurchaseInvoiceConfirmer {
@@ -19,6 +20,6 @@ export class PurchaseInvoiceConfirmer {
     const invoiceId = PurchaseInvoiceId.of(request.invoiceId);
     const now = this.clock.now();
 
-    return this.posting.confirm(tenantId, invoiceId, now);
+    return this.posting.confirm(tenantId, invoiceId, now, request.userId);
   }
 }

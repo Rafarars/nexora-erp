@@ -4,6 +4,6 @@ import { PurchaseInvoice, PurchaseInvoiceId } from '../purchase-invoice.entity.j
 export const PURCHASE_INVOICE_POSTING = Symbol('PurchaseInvoicePosting');
 
 export interface PurchaseInvoicePosting {
-  confirm(tenantId: TenantId, invoiceId: PurchaseInvoiceId, now: Date): Promise<PurchaseInvoice>;
-  cancel(tenantId: TenantId, invoiceId: PurchaseInvoiceId, now: Date): Promise<PurchaseInvoice>;
+  confirm(tenantId: TenantId, invoiceId: PurchaseInvoiceId, now: Date, userId?: string): Promise<PurchaseInvoice>;
+  cancel(tenantId: TenantId, invoiceId: PurchaseInvoiceId, now: Date, userId?: string): Promise<PurchaseInvoice>;
 }

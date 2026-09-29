@@ -51,6 +51,8 @@ import { INVENTORY_CATALOG } from '../domain/catalog/inventory-catalog.js';
 import type { InventoryCatalog } from '../domain/catalog/inventory-catalog.js';
 import { INVENTORY_CODE_SEQUENCE } from '../domain/shared/code-sequence.js';
 import type { InventoryCodeSequence } from '../domain/shared/code-sequence.js';
+import { INVOICE_REVALUATION_POSTING } from '../../purchasing/domain/invoice/invoice-revaluation-posting.js';
+import { PrismaInvoiceRevaluationPosting } from './persistence/prisma-invoice-revaluation-posting.js';
 import { STOCK_REPOSITORY } from '../domain/stock/stock.repository.js';
 import type { StockRepository } from '../domain/stock/stock.repository.js';
 import { CancelAdjustmentPutController } from './http/cancel-adjustment-put.controller.js';
@@ -198,7 +200,8 @@ import { PrismaStockRepository } from './persistence/prisma-stock.repository.js'
       useFactory: (s: StockRepository, d: MovementDocuments, c: InventoryCatalog) => new MovementSearcher(s, d, c),
       inject: [STOCK_REPOSITORY, MOVEMENT_DOCUMENTS, INVENTORY_CATALOG],
     },
+    { provide: INVOICE_REVALUATION_POSTING, useClass: PrismaInvoiceRevaluationPosting },
   ],
-  exports: [DOCUMENT_STOCK_POSTING],
+  exports: [DOCUMENT_STOCK_POSTING, INVOICE_REVALUATION_POSTING],
 })
 export class InventoryModule {}

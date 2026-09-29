@@ -53,7 +53,7 @@ export class InMemoryPurchaseInvoicePosting implements PurchaseInvoicePosting {
     }
   }
 
-  async confirm(tenantId: TenantId, invoiceId: PurchaseInvoiceId, now: Date): Promise<PurchaseInvoice> {
+  async confirm(tenantId: TenantId, invoiceId: PurchaseInvoiceId, now: Date, userId?: string): Promise<PurchaseInvoice> {
     return this.serial(async () => {
       const invoice = await this.invoices.findById(tenantId, invoiceId);
     if (!invoice) throw new PurchaseInvoiceNotFoundError(invoiceId.value);
@@ -243,12 +243,16 @@ export class InMemoryPurchaseInvoicePosting implements PurchaseInvoicePosting {
       const revalData: InvoiceWarehouseRevaluationData[] = [...revaluationsByWarehouse.entries()].map(
         ([warehouseId, revalLines]) => ({ warehouseId, lines: revalLines }),
       );
+      const today = invoice.issueDate.value;
       await this.revaluations.createDraftRevaluations(
         tenantId,
         invoice.id.value,
         invoice.code,
+        invoice.issueDate.value,
         revalData,
         now,
+        today,
+        userId,
       );
     }
 
@@ -256,7 +260,7 @@ export class InMemoryPurchaseInvoicePosting implements PurchaseInvoicePosting {
     });
   }
 
-  async cancel(tenantId: TenantId, invoiceId: PurchaseInvoiceId, now: Date): Promise<PurchaseInvoice> {
+  async cancel(tenantId: TenantId, invoiceId: PurchaseInvoiceId, now: Date, userId?: string): Promise<PurchaseInvoice> {
     return this.serial(async () => {
       const invoice = await this.invoices.findById(tenantId, invoiceId);
       if (!invoice) throw new PurchaseInvoiceNotFoundError(invoiceId.value);
@@ -301,11 +305,14 @@ export class InMemoryPurchaseInvoicePosting implements PurchaseInvoicePosting {
       await this.invoices.save(invoice);
 
       if (this.revaluations) {
+        const today = invoice.issueDate.value;
         await this.revaluations.cancelOrReverseRevaluations(
           tenantId,
           invoice.id.value,
           invoice.code,
           now,
+          today,
+          userId,
         );
       }
 

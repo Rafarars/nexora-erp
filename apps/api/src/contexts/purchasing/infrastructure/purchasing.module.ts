@@ -109,7 +109,6 @@ import { PurchaseInvoiceSearcher } from '../application/search-invoices/purchase
 import { PurchaseInvoiceUpdater } from '../application/update-invoice/purchase-invoice-updater.js';
 import { ThreeWayMatcher } from '../application/three-way-match/three-way-matcher.js';
 import { INVOICE_REVALUATION_POSTING } from '../domain/invoice/invoice-revaluation-posting.js';
-import { PrismaInvoiceRevaluationPosting } from './persistence/prisma-invoice-revaluation-posting.js';
 import { PURCHASE_INVOICE_POSTING } from '../domain/invoice/posting/purchase-invoice-posting.js';
 import type { PurchaseInvoicePosting } from '../domain/invoice/posting/purchase-invoice-posting.js';
 import { PURCHASE_INVOICE_REPOSITORY } from '../domain/invoice/purchase-invoice.repository.js';
@@ -161,7 +160,6 @@ import { PurchaseInvoiceReferences } from '../domain/invoice/lines/purchase-invo
     { provide: PURCHASE_ORDER_POSTING, useClass: PrismaPurchaseOrderPosting },
     { provide: RECEIPT_POSTING, useClass: PrismaReceiptPosting },
     { provide: PURCHASE_RETURN_POSTING, useClass: PrismaPurchaseReturnPosting },
-    { provide: INVOICE_REVALUATION_POSTING, useClass: PrismaInvoiceRevaluationPosting },
     { provide: PURCHASE_INVOICE_POSTING, useClass: PrismaPurchaseInvoicePosting },
     { provide: PURCHASING_CATALOG, useClass: PrismaPurchasingCatalog },
     { provide: PURCHASING_CODE_SEQUENCE, useClass: PrismaPurchasingCodeSequence },

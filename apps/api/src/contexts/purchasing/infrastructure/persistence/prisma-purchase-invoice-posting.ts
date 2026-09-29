@@ -24,15 +24,17 @@ import { PurchaseInvoice, PurchaseInvoiceId } from '../../domain/invoice/purchas
 import { calculatePurchasePriceDifference } from '../../domain/invoice/purchase-price-difference.js';
 import { TenantId } from '../../domain/shared/tenant-id.vo.js';
 import { PURCHASE_INVOICE_INCLUDE, purchaseInvoiceFromRow } from './purchasing-rows.js';
+import { BUSINESS_CALENDAR, type BusinessCalendar } from '../../../../shared/domain/ports/business-calendar.js';
 
 @Injectable()
 export class PrismaPurchaseInvoicePosting implements PurchaseInvoicePosting {
   constructor(
     private readonly prisma: PrismaService,
     @Optional() @Inject(INVOICE_REVALUATION_POSTING) private readonly revaluationPosting?: InvoiceRevaluationPosting,
+    @Optional() @Inject(BUSINESS_CALENDAR) private readonly calendar?: BusinessCalendar,
   ) {}
 
-  async confirm(tenantId: TenantId, invoiceId: PurchaseInvoiceId, now: Date): Promise<PurchaseInvoice> {
+  async confirm(tenantId: TenantId, invoiceId: PurchaseInvoiceId, now: Date, userId?: string): Promise<PurchaseInvoice> {
     const tenant = tenantId.value;
 
     return this.prisma.$transaction(async (tx) => {
@@ -383,12 +385,18 @@ export class PrismaPurchaseInvoicePosting implements PurchaseInvoicePosting {
         const revalData: InvoiceWarehouseRevaluationData[] = [...revaluationsByWarehouse.entries()].map(
           ([warehouseId, revalLines]) => ({ warehouseId, lines: revalLines }),
         );
+        const today = this.calendar
+          ? await this.calendar.today(tenant)
+          : invoice.issueDate.value;
         await this.revaluationPosting.createDraftRevaluations(
           tenantId,
           invoice.id.value,
           invoice.code,
+          invoice.issueDate.value,
           revalData,
           now,
+          today,
+          userId,
           tx,
         );
       }
@@ -397,7 +405,7 @@ export class PrismaPurchaseInvoicePosting implements PurchaseInvoicePosting {
     });
   }
 
-  async cancel(tenantId: TenantId, invoiceId: PurchaseInvoiceId, now: Date): Promise<PurchaseInvoice> {
+  async cancel(tenantId: TenantId, invoiceId: PurchaseInvoiceId, now: Date, userId?: string): Promise<PurchaseInvoice> {
     const tenant = tenantId.value;
 
     return this.prisma.$transaction(async (tx) => {
@@ -513,11 +521,16 @@ export class PrismaPurchaseInvoicePosting implements PurchaseInvoicePosting {
       });
 
       if (this.revaluationPosting) {
+        const today = this.calendar
+          ? await this.calendar.today(tenant)
+          : invoice.issueDate.value;
         await this.revaluationPosting.cancelOrReverseRevaluations(
           tenantId,
           invoice.id.value,
           invoice.code,
           now,
+          today,
+          userId,
           tx,
         );
       }
