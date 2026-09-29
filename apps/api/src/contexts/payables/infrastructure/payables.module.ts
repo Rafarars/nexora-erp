@@ -62,9 +62,10 @@ import { PrismaSupplierPaymentPosting } from './persistence/prisma-supplier-paym
 import { PrismaSupplierPaymentRepository } from './persistence/prisma-supplier-payment.repository.js';
 import { PrismaSupplierCreditNoteRepository } from './persistence/prisma-supplier-credit-note.repository.js';
 import { PrismaSupplierCreditNotePosting } from './persistence/prisma-supplier-credit-note-posting.js';
+import { InventoryModule } from '../../inventory/infrastructure/inventory.module.js';
 
 @Module({
-  imports: [PrismaModule, SharedModule, CompanyModule],
+  imports: [PrismaModule, SharedModule, CompanyModule, InventoryModule],
   controllers: [
     SearchPaymentsGetController,
     CreatePaymentPostController,

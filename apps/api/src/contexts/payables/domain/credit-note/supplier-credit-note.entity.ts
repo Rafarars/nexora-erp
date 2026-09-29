@@ -3,6 +3,7 @@ import { DocumentCurrency, DocumentCurrencyPrimitives, rateUnits } from '../../.
 import { Uuid } from '../../../../shared/domain/uuid.vo.js';
 import {
   CreditNoteAlreadyCancelledError,
+  CreditNoteLineInvoiceLineRequiredError,
   CreditNoteNotConfirmableError,
   CreditNoteNotEditableError,
   CreditNoteReasonDetailRequiredError,
@@ -37,6 +38,7 @@ export type CreditNoteStatus = (typeof CREDIT_NOTE_STATUSES)[number];
 export interface SupplierCreditNoteLinePrimitives {
   id: string;
   lineNumber: number;
+  invoiceLineId: string | null;
   itemId: string | null;
   itemSku: string | null;
   itemName: string | null;
@@ -80,6 +82,7 @@ export interface SupplierCreditNotePrimitives extends DocumentCurrencyPrimitives
 
 export interface SupplierCreditNoteLineInput {
   id: string;
+  invoiceLineId?: string | null;
   itemId?: string | null;
   itemSku?: string | null;
   itemName?: string | null;
@@ -292,6 +295,10 @@ function valueDetails(
       throw new InvalidCreditNoteLineAmountError();
     }
 
+    if (details.invoiceId && !details.purchaseReturnId && input.itemId && !input.invoiceLineId) {
+      throw new CreditNoteLineInvoiceLineRequiredError(index + 1);
+    }
+
     const qty = paymentUnits(input.quantity, 4);
     const price = paymentUnits(input.unitPrice, 4);
     const lineSubtotal = roundRatio(qty * price, 10_000n, decimals);
@@ -307,6 +314,7 @@ function valueDetails(
     return {
       id: input.id,
       lineNumber: index + 1,
+      invoiceLineId: details.purchaseReturnId ? null : (input.invoiceLineId ?? null),
       itemId: input.itemId ?? null,
       itemSku: input.itemSku ?? null,
       itemName: input.itemName ?? input.concept ?? null,

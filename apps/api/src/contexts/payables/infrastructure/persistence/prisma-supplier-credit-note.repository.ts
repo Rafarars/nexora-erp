@@ -111,6 +111,7 @@ export class PrismaSupplierCreditNoteRepository implements SupplierCreditNoteRep
           tenantId: p.tenantId,
           creditNoteId: p.id,
           lineNumber: l.lineNumber,
+          invoiceLineId: l.invoiceLineId ?? null,
           itemId: l.itemId,
           itemSku: l.itemSku,
           itemName: l.itemName,

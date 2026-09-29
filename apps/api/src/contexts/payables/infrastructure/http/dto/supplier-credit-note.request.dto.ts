@@ -3,6 +3,7 @@ import { CREDIT_NOTE_REASONS } from '../../../domain/credit-note/supplier-credit
 
 export const supplierCreditNoteLineRequestSchema = z.object({
   id: z.string().uuid().optional(),
+  invoiceLineId: z.string().uuid().nullable().optional(),
   itemId: z.string().uuid().nullable().optional(),
   itemSku: z.string().trim().nullable().optional(),
   itemName: z.string().trim().nullable().optional(),

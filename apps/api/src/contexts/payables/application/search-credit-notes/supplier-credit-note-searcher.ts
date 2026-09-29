@@ -32,6 +32,8 @@ export interface SupplierCreditNoteResponse {
   };
   appliedAmount: number;
   availableCredit: number;
+  priceDifference: number;
+  exchangeDifference: number;
   lines: SupplierCreditNoteLinePrimitives[];
 }
 
@@ -132,6 +134,8 @@ export class SupplierCreditNoteSearcher {
         },
         appliedAmount: applied,
         availableCredit: available,
+        priceDifference: p.priceDifference,
+        exchangeDifference: p.exchangeDifference,
         lines: p.lines,
       });
     }
@@ -183,6 +187,8 @@ export class SupplierCreditNoteSearcher {
       },
       appliedAmount: applied,
       availableCredit: available,
+      priceDifference: p.priceDifference,
+      exchangeDifference: p.exchangeDifference,
       lines: p.lines,
     };
   }

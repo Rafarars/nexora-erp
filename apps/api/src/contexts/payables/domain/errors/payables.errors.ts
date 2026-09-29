@@ -241,3 +241,40 @@ export class CreditNoteWithApplicationsError extends ConflictError {
   }
 }
 
+export class CreditNoteLineInvoiceLineRequiredError extends InvalidArgumentError {
+  constructor(lineNumber: number) {
+    super(
+      `Line <${lineNumber}> discounts merchandise and requires an invoice line reference.`,
+      'Credit note line for merchandise requires an invoice line reference.',
+    );
+  }
+}
+
+export class CreditNoteLineInvoiceMismatchError extends ConflictError {
+  constructor(lineId: string, invoiceId: string) {
+    super(
+      `Invoice line <${lineId}> does not belong to invoice <${invoiceId}>.`,
+      'The referenced invoice line does not belong to the invoice.',
+    );
+  }
+}
+
+export class CreditNoteLineAmountExceedsInvoiceError extends ConflictError {
+  constructor(lineId: string, lineAmount: number, invoiceLineAmount: number) {
+    super(
+      `Credit note line <${lineId}> amount <${lineAmount}> exceeds invoiced amount <${invoiceLineAmount}>.`,
+      'Credit note line amount cannot exceed the invoiced amount for that line.',
+    );
+  }
+}
+
+export class CreditNoteReturnLinesNotFromInvoiceError extends ConflictError {
+  constructor(returnId: string, invoiceId: string) {
+    super(
+      `Purchase return <${returnId}> contains lines not invoiced by invoice <${invoiceId}>.`,
+      'Purchase return lines must correspond to goods receipt lines invoiced by the invoice.',
+    );
+  }
+}
+
+

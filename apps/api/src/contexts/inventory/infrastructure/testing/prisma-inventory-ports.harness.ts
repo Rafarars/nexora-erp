@@ -35,24 +35,34 @@ export class PrismaInventoryPortsHarness implements InventoryPortsHarness {
   }
 
   async reset(): Promise<void> {
-    // Los cobros aplican a facturas: primero ellos, o la clave ajena lo impide.
+    await this.prisma.supplierPaymentAllocation.deleteMany();
     await this.prisma.paymentAllocation.deleteMany();
+    await this.prisma.supplierCreditNote.updateMany({ data: { issuePaymentId: null } });
     await this.prisma.customerCreditNote.updateMany({ data: { issuePaymentId: null } });
+    await this.prisma.supplierPayment.updateMany({ data: { creditSourceId: null } });
     await this.prisma.customerPayment.updateMany({ data: { creditSourceId: null } });
+    await this.prisma.supplierCreditNoteLine.deleteMany();
+    await this.prisma.supplierCreditNote.deleteMany();
     await this.prisma.customerCreditNoteLine.deleteMany();
     await this.prisma.customerCreditNote.deleteMany();
+    await this.prisma.supplierPayment.deleteMany();
+    await this.prisma.customerPayment.deleteMany();
     await this.prisma.salesReturnLine.deleteMany();
     await this.prisma.salesReturn.deleteMany();
     await this.prisma.purchaseReturnLine.deleteMany();
     await this.prisma.purchaseReturn.deleteMany();
     await this.prisma.purchaseInvoiceLine.deleteMany();
     await this.prisma.purchaseInvoice.deleteMany();
-    await this.prisma.customerPayment.deleteMany();
+    await this.prisma.invoiceLine.deleteMany();
     await this.prisma.invoice.deleteMany();
+    await this.prisma.dispatchLine.deleteMany();
     await this.prisma.dispatch.deleteMany();
+    await this.prisma.salesOrderLine.deleteMany();
     await this.prisma.salesOrder.deleteMany();
     await this.prisma.customer.deleteMany();
+    await this.prisma.goodsReceiptLine.deleteMany();
     await this.prisma.goodsReceipt.deleteMany();
+    await this.prisma.purchaseOrderLine.deleteMany();
     await this.prisma.purchaseOrder.deleteMany();
     await this.prisma.supplier.deleteMany();
     await this.prisma.adjustmentLine.deleteMany();

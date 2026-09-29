@@ -9,6 +9,7 @@ import {
   CreditNoteNotEditableError,
   CreditNoteNotFoundError,
   CreditNoteReturnAlreadyCreditedError,
+  CreditNoteReturnLinesNotFromInvoiceError,
   CreditNoteReturnNotConfirmedError,
   CreditNoteReturnSupplierMismatchError,
   CreditNoteSupplierMismatchError,
@@ -46,6 +47,8 @@ export class InMemoryPayablesStore {
   private readonly paymentRows = new Map<string, PaymentPrimitives>();
   private readonly creditNoteRows = new Map<string, SupplierCreditNotePrimitives>();
   private readonly purchaseReturnRows = new Map<string, { id: string; tenantId: string; supplierId: string; status: string }>();
+  private readonly invoiceLineRows = new Map<string, Array<{ id: string; itemId: string | null; subtotal: number; receiptLineId: string | null }>>();
+  private readonly returnReceiptLineRows = new Map<string, string[]>();
   private readonly amountDecimalsByTenant = new Map<string, number>();
   private queue: Promise<unknown> = Promise.resolve();
 
@@ -63,6 +66,14 @@ export class InMemoryPayablesStore {
 
   invoice(tenantId: string, invoice: Omit<PayableInvoicePrimitives, 'paid'>): void {
     this.invoiceRows.set(invoice.id, { ...invoice, tenantId });
+  }
+
+  setInvoiceLines(invoiceId: string, lines: Array<{ id: string; itemId: string | null; subtotal: number; receiptLineId: string | null }>): void {
+    this.invoiceLineRows.set(invoiceId, lines);
+  }
+
+  setReturnReceiptLines(returnId: string, receiptLineIds: string[]): void {
+    this.returnReceiptLineRows.set(returnId, receiptLineIds);
   }
 
   cancelInvoice(invoiceId: string): void {
@@ -106,6 +117,12 @@ export class InMemoryPayablesStore {
           .filter((row) => !text || row.code.toLowerCase().includes(text))
           .sort((a, b) => b.issueDate.localeCompare(a.issueDate))
           .map((row) => this.hydrateInvoice(row));
+      },
+      invoiceLines: async (_tenantId: TenantId, invoiceId: string) => {
+        return this.invoiceLineRows.get(invoiceId) ?? [];
+      },
+      returnReceiptLineIds: async (_tenantId: TenantId, returnId: string) => {
+        return this.returnReceiptLineRows.get(returnId) ?? [];
       },
     };
   }
@@ -378,9 +395,27 @@ export class InMemoryPayablesStore {
             if (existing.length > 0) {
               throw new CreditNoteReturnAlreadyCreditedError(returnId);
             }
+
+            if (note.invoiceId()) {
+              const invoiceLines = this.invoiceLineRows.get(note.invoiceId()!) ?? [];
+              const returnLines = this.returnReceiptLineRows.get(returnId) ?? [];
+              const invoiceReceiptLineIds = new Set(invoiceLines.map((il) => il.receiptLineId).filter(Boolean));
+              if (returnLines.length > 0 && returnLines.some((rId) => !invoiceReceiptLineIds.has(rId))) {
+                throw new CreditNoteReturnLinesNotFromInvoiceError(returnId, note.invoiceId()!);
+              }
+            }
           }
 
-          note.confirm(now, issuePayment ? issuePayment.id.value : null);
+          let totalPriceDifference = 0;
+          if (note.invoiceId() && !note.purchaseReturnId()) {
+            const linesWithInvoice = note.toPrimitives().lines.filter((l) => Boolean(l.invoiceLineId));
+            for (const l of linesWithInvoice) {
+              const amountBase = -1 * Number(l.subtotal);
+              totalPriceDifference += amountBase;
+            }
+          }
+
+          note.confirm(now, issuePayment ? issuePayment.id.value : null, totalPriceDifference, 0);
           this.creditNoteRows.set(note.id.value, note.toPrimitives());
 
           return { creditNote: note, issuePayment };

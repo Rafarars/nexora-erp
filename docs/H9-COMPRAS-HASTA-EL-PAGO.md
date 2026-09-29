@@ -469,6 +469,15 @@ factura facturó.**
 es del mismo proveedor y no la acredita ya otra nota confirmada; si rebaja el precio, genera la
 revaluación por importe con las mismas reglas que la factura, incluida su anulación (§4.1).
 
+> **Añadido el 29-sep-2026 al construir la fase 7:**
+> Para revaluar, una `NCP` que rebaja el precio tiene que saber **qué línea de qué factura** rebaja:
+> de ahí salen la entrada, su movimiento (`sourceMovementId`), la bodega, la moneda y las tasas.
+> - **`SupplierCreditNoteLine.invoiceLineId`** (opcional): la línea de la factura que rebaja. Obligatoria
+>   en una rebaja de mercancía; nula en la que acredita una devolución y en la rebaja de un servicio o
+>   gasto (que va a «Gasto de compras»).
+> - Regla: la línea citada es de la factura que cita la nota, y la rebaja por línea no supera lo que esa
+>   línea facturó.
+
 ---
 
 ## 5. El esqueleto
@@ -545,6 +554,16 @@ Más `SupplierPayment` y `SupplierPaymentAllocation`, calcados de `CustomerPayme
 `SupplierCreditNote` con sus líneas, calcadas de las de la `NCC` de H8 (incluido su pago de
 emisión), con la devolución que acredita (opcional) y las mismas `priceDifference` y
 `exchangeDifference` que la factura.
+
+> **Añadido el 29-sep-2026 al construir la fase 7:**
+> Para revaluar, una `NCP` que rebaja el precio tiene que saber **qué línea de qué factura** rebaja:
+> de ahí salen la entrada, su movimiento (`sourceMovementId`), la bodega, la moneda y las tasas. Las
+> líneas de la `NCP` (`SupplierCreditNoteLine`) no lo guardan, y el plan no lo pide. Añade:
+> - **`SupplierCreditNoteLine.invoiceLineId`** (opcional): la línea de la factura que rebaja. Obligatoria
+>   en una rebaja de mercancía; nula en la que acredita una devolución y en la rebaja de un servicio o
+>   gasto (que va a «Gasto de compras»).
+> - Regla: la línea citada es de la factura que cita la nota, y la rebaja por línea no supera lo que esa
+>   línea facturó.
 
 Y en Inventario, **la línea de revaluación por importe** (§3.3). Una revaluación sigue siendo un
 ajuste de tipo `revaluation`; lo que cambia es la línea, que dice de cuál de las dos clases es:

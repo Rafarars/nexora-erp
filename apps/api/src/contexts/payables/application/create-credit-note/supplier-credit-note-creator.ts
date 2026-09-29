@@ -4,6 +4,9 @@ import { DocumentRates } from '../../../../shared/domain/ports/document-rates.js
 import { IdGenerator } from '../../../../shared/domain/ports/id-generator.js';
 import { DocumentCurrency } from '../../../../shared/domain/document-currency.js';
 import {
+  CreditNoteLineAmountExceedsInvoiceError,
+  CreditNoteLineInvoiceMismatchError,
+  CreditNoteReturnLinesNotFromInvoiceError,
   CreditNoteReturnNotConfirmedError,
   CreditNoteReturnSupplierMismatchError,
   InvoiceNotPayableError,
@@ -38,6 +41,7 @@ export interface CreateSupplierCreditNoteRequest {
   notes?: string | null;
   lines: Array<{
     id?: string;
+    invoiceLineId?: string | null;
     itemId?: string | null;
     itemSku?: string | null;
     itemName?: string | null;
@@ -103,6 +107,7 @@ export class SupplierCreditNoteCreator {
 
     const lines: SupplierCreditNoteLineInput[] = request.lines.map((l) => ({
       id: l.id ?? this.ids.next(),
+      invoiceLineId: l.invoiceLineId,
       itemId: l.itemId,
       itemSku: l.itemSku,
       itemName: l.itemName,
@@ -135,11 +140,35 @@ export class SupplierCreditNoteCreator {
       decimals,
     );
 
-    // Valida cupo de importe
+    // Valida cupo de importe y lineas de factura / devolucion
     if (request.invoiceId) {
       const [invoice] = await this.ledger.invoices(tenantId, { ids: [request.invoiceId] });
       const alreadyCredited = await this.creditNotes.creditedAmountByInvoice(tenantId, request.invoiceId);
       PayableCreditQuota.ensureWithinQuota(invoice.total(), alreadyCredited, candidate.total(), request.invoiceId);
+
+      const invoiceLines = await this.ledger.invoiceLines(tenantId, request.invoiceId);
+      const invoiceLinesMap = new Map(invoiceLines.map((il) => [il.id, il]));
+
+      for (const line of candidate.toPrimitives().lines) {
+        if (line.invoiceLineId) {
+          const invLine = invoiceLinesMap.get(line.invoiceLineId);
+          if (!invLine) {
+            throw new CreditNoteLineInvoiceMismatchError(line.invoiceLineId, request.invoiceId);
+          }
+          if (line.subtotal > invLine.subtotal) {
+            throw new CreditNoteLineAmountExceedsInvoiceError(line.invoiceLineId, line.subtotal, invLine.subtotal);
+          }
+        }
+      }
+
+      if (request.purchaseReturnId) {
+        const returnReceiptLineIds = await this.ledger.returnReceiptLineIds(tenantId, request.purchaseReturnId);
+        const invoiceReceiptLineIds = new Set(invoiceLines.map((il) => il.receiptLineId).filter(Boolean));
+        const hasInvalidLine = returnReceiptLineIds.some((rId) => !invoiceReceiptLineIds.has(rId));
+        if (hasInvalidLine) {
+          throw new CreditNoteReturnLinesNotFromInvoiceError(request.purchaseReturnId, request.invoiceId);
+        }
+      }
     }
 
     const code = payablesCode('NCP', await this.codes.next(tenantId, 'NCP'));

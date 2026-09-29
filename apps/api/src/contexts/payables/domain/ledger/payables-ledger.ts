@@ -28,6 +28,13 @@ export interface PayableInvoiceFilter {
   to?: string | null;
 }
 
+export interface PayableInvoiceLineInfo {
+  id: string;
+  itemId: string | null;
+  subtotal: number;
+  receiptLineId: string | null;
+}
+
 // Lo que cuentas por pagar lee de compras: proveedores y facturas de compra, con lo pagado de cada una.
 // En la base el adaptador lee las tablas de compras; el dominio no sabe que existen.
 export interface PayablesLedger {
@@ -35,4 +42,6 @@ export interface PayablesLedger {
   supplier(tenantId: TenantId, supplierId: string): Promise<PayableSupplier | null>;
   // Confirmadas y anuladas, las mas recientes primero. Sin filtro, todas las de la empresa.
   invoices(tenantId: TenantId, filter?: PayableInvoiceFilter): Promise<PayableInvoice[]>;
+  invoiceLines(tenantId: TenantId, invoiceId: string): Promise<PayableInvoiceLineInfo[]>;
+  returnReceiptLineIds(tenantId: TenantId, returnId: string): Promise<string[]>;
 }

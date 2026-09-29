@@ -2,9 +2,13 @@ import { beforeEach, describe, expect, it } from 'vitest';
 import {
   CreditNoteAlreadyCancelledError,
   CreditNoteExceededError,
+  CreditNoteLineAmountExceedsInvoiceError,
+  CreditNoteLineInvoiceLineRequiredError,
+  CreditNoteLineInvoiceMismatchError,
   CreditNoteNotEditableError,
   CreditNoteNotConfirmedError,
   CreditNoteReturnAlreadyCreditedError,
+  CreditNoteReturnLinesNotFromInvoiceError,
   CreditNoteReturnSupplierMismatchError,
   CreditNoteSupplierMismatchError,
   CreditNoteWithApplicationsError,
@@ -377,5 +381,104 @@ describe('Supplier Credit Notes (NCP) in Payables', () => {
     await expect(
       s.cancelPayment.run({ tenantId: TENANT_A, paymentId: issuePaymentId }),
     ).rejects.toThrow(IssuePaymentCannotBeCancelledDirectlyError);
+  });
+
+  it('exige invoiceLineId en rebaja de mercancia y valida correspondencia y monto maximo (1.5, §2)', async () => {
+    const INVOICE_LINE_1 = 'b1111111-1111-4111-8111-111111111111';
+    const ITEM_1 = 'c1111111-1111-4111-8111-111111111111';
+    s.store.setInvoiceLines(INVOICE, [
+      { id: INVOICE_LINE_1, itemId: ITEM_1, subtotal: 60, receiptLineId: 'r1' },
+    ]);
+
+    // 1. Falta invoiceLineId en mercancia
+    await expect(
+      s.createCreditNote.run({
+        tenantId: TENANT_A,
+        supplierId: SUPPLIER,
+        invoiceId: INVOICE,
+        reason: 'price_correction',
+        lines: [
+          { itemId: ITEM_1, quantity: 1, unitPrice: 10, taxRate: 0 },
+        ],
+      }),
+    ).rejects.toThrow(CreditNoteLineInvoiceLineRequiredError);
+
+    // 2. invoiceLineId no pertenece a la factura
+    await expect(
+      s.createCreditNote.run({
+        tenantId: TENANT_A,
+        supplierId: SUPPLIER,
+        invoiceId: INVOICE,
+        reason: 'price_correction',
+        lines: [
+          { itemId: ITEM_1, invoiceLineId: '99999999-9999-4999-8999-999999999999', quantity: 1, unitPrice: 10, taxRate: 0 },
+        ],
+      }),
+    ).rejects.toThrow(CreditNoteLineInvoiceMismatchError);
+
+    // 3. Importe rebajado excede lo facturado en esa linea (facturado 60, rebaja 70)
+    await expect(
+      s.createCreditNote.run({
+        tenantId: TENANT_A,
+        supplierId: SUPPLIER,
+        invoiceId: INVOICE,
+        reason: 'price_correction',
+        lines: [
+          { itemId: ITEM_1, invoiceLineId: INVOICE_LINE_1, quantity: 1, unitPrice: 70, taxRate: 0 },
+        ],
+      }),
+    ).rejects.toThrow(CreditNoteLineAmountExceedsInvoiceError);
+
+    // 4. Con datos validos se crea y confirma, calculando priceDifference negativa
+    const valid = await s.createCreditNote.run({
+      tenantId: TENANT_A,
+      supplierId: SUPPLIER,
+      invoiceId: INVOICE,
+      reason: 'price_correction',
+      lines: [
+        { itemId: ITEM_1, invoiceLineId: INVOICE_LINE_1, quantity: 1, unitPrice: 20, taxRate: 0 },
+      ],
+    });
+
+    await s.confirmCreditNote.run({ tenantId: TENANT_A, creditNoteId: valid.id });
+    const note = await s.searchCreditNotes.findById({ tenantId: TENANT_A, creditNoteId: valid.id });
+    expect(note.status).toBe('confirmed');
+    expect(note.priceDifference).toBe(-20);
+  });
+
+  it('valida que las lineas de la devolucion correspondan a entradas que esa factura facturo (1.6)', async () => {
+    const RETURN_ID = 'd1111111-1111-4111-8111-111111111111';
+    s.store.purchaseReturn(TENANT_A, RETURN_ID, SUPPLIER, 'confirmed');
+
+    // La factura facturó la entrada r1
+    s.store.setInvoiceLines(INVOICE, [
+      { id: 'inv-line-1', itemId: 'item-1', subtotal: 100, receiptLineId: 'r1' },
+    ]);
+
+    // La devolución devuelve la entrada r2 (de otra entrada no facturada en INVOICE)
+    s.store.setReturnReceiptLines(RETURN_ID, ['r2']);
+
+    await expect(
+      s.createCreditNote.run({
+        tenantId: TENANT_A,
+        supplierId: SUPPLIER,
+        invoiceId: INVOICE,
+        purchaseReturnId: RETURN_ID,
+        reason: 'return',
+        lines: [{ concept: 'Devolucion de otra entrada', quantity: 1, unitPrice: 50, taxRate: 0 }],
+      }),
+    ).rejects.toThrow(CreditNoteReturnLinesNotFromInvoiceError);
+
+    // Si la devolucion coincide con r1, pasa la validacion
+    s.store.setReturnReceiptLines(RETURN_ID, ['r1']);
+    const validNote = await s.createCreditNote.run({
+      tenantId: TENANT_A,
+      supplierId: SUPPLIER,
+      invoiceId: INVOICE,
+      purchaseReturnId: RETURN_ID,
+      reason: 'return',
+      lines: [{ concept: 'Devolucion valida', quantity: 1, unitPrice: 50, taxRate: 0 }],
+    });
+    expect(validNote.id).toBeDefined();
   });
 });

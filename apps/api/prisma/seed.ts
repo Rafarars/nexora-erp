@@ -645,25 +645,41 @@ async function removeCatalogLeftovers(
 // confirman y anulan documentos, y dejar sus existencias haria que el seed no fuera el mismo
 // dos veces. Compras primero: sus documentos apuntan a articulos y bodegas.
 async function removeInventory(prisma: PrismaClient): Promise<void> {
+  await prisma.supplierPaymentAllocation.deleteMany();
+  await prisma.paymentAllocation.deleteMany();
+  await prisma.supplierCreditNote.updateMany({ data: { issuePaymentId: null } });
   await prisma.customerCreditNote.updateMany({ data: { issuePaymentId: null } });
+  await prisma.supplierPayment.updateMany({ data: { creditSourceId: null } });
   await prisma.customerPayment.updateMany({ data: { creditSourceId: null } });
+  await prisma.supplierCreditNoteLine.deleteMany();
+  await prisma.supplierCreditNote.deleteMany();
+  await prisma.customerCreditNoteLine.deleteMany();
   await prisma.customerCreditNote.deleteMany();
+  await prisma.supplierPayment.deleteMany();
+  await prisma.customerPayment.deleteMany();
+  await prisma.salesReturnLine.deleteMany();
   await prisma.salesReturn.deleteMany();
+  await prisma.purchaseReturnLine.deleteMany();
   await prisma.purchaseReturn.deleteMany();
   await prisma.purchaseInvoiceLine.deleteMany();
   await prisma.purchaseInvoice.deleteMany();
-  await prisma.customerPayment.deleteMany();
+  await prisma.invoiceLine.deleteMany();
   await prisma.invoice.deleteMany();
+  await prisma.dispatchLine.deleteMany();
   await prisma.dispatch.deleteMany();
+  await prisma.salesOrderLine.deleteMany();
   await prisma.salesOrder.deleteMany();
   await prisma.customer.deleteMany();
+  await prisma.goodsReceiptLine.deleteMany();
   await prisma.goodsReceipt.deleteMany();
+  await prisma.purchaseOrderLine.deleteMany();
   await prisma.purchaseOrder.deleteMany();
   await prisma.supplier.deleteMany();
+  await prisma.adjustmentLine.deleteMany();
+  await prisma.adjustment.deleteMany();
   await prisma.inventoryMovement.updateMany({ data: { reversalOfId: null, restoresMovementId: null } });
   await prisma.inventoryMovement.deleteMany();
   await prisma.itemStock.deleteMany();
-  await prisma.adjustment.deleteMany();
 }
 
 // Dos ajustes confirmados, con sus movimientos y existencias escritos como los escribiria

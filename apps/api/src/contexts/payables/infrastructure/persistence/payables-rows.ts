@@ -153,6 +153,7 @@ export interface CreditNoteRow {
   lines: {
     id: string;
     lineNumber: number;
+    invoiceLineId?: string | null;
     itemId: string | null;
     itemSku: string | null;
     itemName: string | null;
@@ -184,6 +185,7 @@ export function creditNoteFromRow(row: CreditNoteRow): SupplierCreditNote {
     lines: row.lines.map((l) => ({
       id: l.id,
       lineNumber: l.lineNumber,
+      invoiceLineId: l.invoiceLineId ?? null,
       itemId: l.itemId,
       itemSku: l.itemSku,
       itemName: l.itemName,
