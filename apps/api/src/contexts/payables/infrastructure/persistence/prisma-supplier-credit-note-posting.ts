@@ -1,4 +1,4 @@
-import { Inject, Injectable, Optional } from '@nestjs/common';
+import { Inject, Injectable } from '@nestjs/common';
 import { PrismaService } from '../../../../shared/prisma/prisma.service.js';
 import { ID_GENERATOR, type IdGenerator } from '../../../../shared/domain/ports/id-generator.js';
 import { BUSINESS_CALENDAR, type BusinessCalendar } from '../../../../shared/domain/ports/business-calendar.js';
@@ -7,7 +7,9 @@ import {
   type InvoiceRevaluationPosting,
   type InvoiceWarehouseRevaluationData,
   type InvoiceRevaluationLineData,
-} from '../../../purchasing/domain/invoice/invoice-revaluation-posting.js';
+} from '../../../../shared/prisma/invoice-revaluation-posting.js';
+import { effectiveRateToBase } from '../../../../shared/domain/purchase-price-difference.js';
+import { RevaluationSourceMovementNotFoundError } from '../../../inventory/domain/errors/inventory.errors.js';
 import {
   CreditNoteAlreadyCancelledError,
   CreditNoteNotConfirmableError,
@@ -37,8 +39,8 @@ export class PrismaSupplierCreditNotePosting implements SupplierCreditNotePostin
     private readonly prisma: PrismaService,
     @Inject(PAYABLES_CODE_SEQUENCE) private readonly codes: PayablesCodeSequence,
     @Inject(ID_GENERATOR) private readonly ids: IdGenerator,
-    @Optional() @Inject(INVOICE_REVALUATION_POSTING) private readonly revaluationPosting?: InvoiceRevaluationPosting,
-    @Optional() @Inject(BUSINESS_CALENDAR) private readonly calendar?: BusinessCalendar,
+    @Inject(INVOICE_REVALUATION_POSTING) private readonly revaluationPosting: InvoiceRevaluationPosting,
+    @Inject(BUSINESS_CALENDAR) private readonly calendar: BusinessCalendar,
   ) {}
 
   async confirm(
@@ -313,6 +315,11 @@ export class PrismaSupplierCreditNotePosting implements SupplierCreditNotePostin
             const amountBase = -1 * Number((lineSubtotal * noteRate).toFixed(4));
             totalPriceDifference += amountBase;
 
+            const sourceMovementId = movementByLineId.get(invLine.receiptLineId!);
+            if (!sourceMovementId) {
+              throw new RevaluationSourceMovementNotFoundError(invLine.receiptLineId!);
+            }
+
             const whLines = revaluationsByWarehouse.get(warehouseId) ?? [];
             whLines.push({
               lineNumber: whLines.length + 1,
@@ -321,13 +328,13 @@ export class PrismaSupplierCreditNotePosting implements SupplierCreditNotePostin
               itemName: line.itemName ?? invLine.itemName ?? '',
               unitId: invLine.receiptLine.unitId,
               amount: amountBase,
-              sourceMovementId: movementByLineId.get(invLine.receiptLineId!) ?? '',
+              sourceMovementId,
               reason: `Rebaja de precio segun nota de credito ${note.code}`,
             });
             revaluationsByWarehouse.set(warehouseId, whLines);
           }
 
-          if (this.revaluationPosting && revaluationsByWarehouse.size > 0) {
+          if (revaluationsByWarehouse.size > 0) {
             const revalData: InvoiceWarehouseRevaluationData[] = [...revaluationsByWarehouse.entries()].map(
               ([warehouseId, revalLines]) => ({ warehouseId, lines: revalLines }),
             );
@@ -434,19 +441,17 @@ export class PrismaSupplierCreditNotePosting implements SupplierCreditNotePostin
         }
       }
 
-      if (this.revaluationPosting) {
-        const todayStr = this.calendar ? await this.calendar.today(tenant) : now.toISOString().slice(0, 10);
-        await this.revaluationPosting.cancelOrReverseRevaluations(
-          tenantId,
-          note.id.value,
-          note.code,
-          now,
-          todayStr,
-          null,
-          tx,
-          'supplier_credit_note',
-        );
-      }
+      const todayStr = await this.calendar.today(tenant);
+      await this.revaluationPosting.cancelOrReverseRevaluations(
+        tenantId,
+        note.id.value,
+        note.code,
+        now,
+        todayStr,
+        null,
+        tx,
+        'supplier_credit_note',
+      );
 
       note.cancel(now);
 
@@ -460,17 +465,5 @@ export class PrismaSupplierCreditNotePosting implements SupplierCreditNotePostin
       });
     });
   }
-}
-
-function effectiveRateToBase(
-  currency: string,
-  baseCurrency: string,
-  exchangeRate: number | null,
-  baseExchangeRate: number | null,
-): number {
-  if (currency === baseCurrency || !exchangeRate || !baseExchangeRate) {
-    return 1;
-  }
-  return exchangeRate / baseExchangeRate;
 }
 

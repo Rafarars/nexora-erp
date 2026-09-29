@@ -21,7 +21,20 @@ function round4(val: number): number {
   return Math.round(val * 10000) / 10000;
 }
 
-// Calcula la diferencia de precio y la diferencia en cambio para una factura de compra (H9 §3.3 y §5.3)
+// Devuelve el factor de conversion de la moneda del documento a la moneda base de la empresa.
+export function effectiveRateToBase(
+  currency: string,
+  baseCurrency: string,
+  exchangeRate: number | null,
+  baseExchangeRate: number | null,
+): number {
+  if (currency === baseCurrency || !exchangeRate || !baseExchangeRate) {
+    return 1;
+  }
+  return exchangeRate / baseExchangeRate;
+}
+
+// Calcula la diferencia de precio y la diferencia en cambio para compras y cuentas por pagar (H9 §3.3 y §5.3)
 export function calculatePurchasePriceDifference(
   lines: PriceDifferenceLineInput[],
 ): PurchasePriceDifferenceCalculation {

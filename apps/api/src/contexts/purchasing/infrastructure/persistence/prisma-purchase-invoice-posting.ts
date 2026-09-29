@@ -1,4 +1,4 @@
-import { Inject, Injectable, Optional } from '@nestjs/common';
+import { Inject, Injectable } from '@nestjs/common';
 import { PrismaService } from '../../../../shared/prisma/prisma.service.js';
 import {
   DuplicateSupplierInvoiceNumberError,
@@ -18,10 +18,13 @@ import {
   type InvoiceRevaluationLineData,
   type InvoiceRevaluationPosting,
   type InvoiceWarehouseRevaluationData,
-} from '../../domain/invoice/invoice-revaluation-posting.js';
+} from '../../../../shared/prisma/invoice-revaluation-posting.js';
 import { PurchaseInvoicePosting } from '../../domain/invoice/posting/purchase-invoice-posting.js';
 import { PurchaseInvoice, PurchaseInvoiceId } from '../../domain/invoice/purchase-invoice.entity.js';
-import { calculatePurchasePriceDifference } from '../../domain/invoice/purchase-price-difference.js';
+import {
+  calculatePurchasePriceDifference,
+  effectiveRateToBase,
+} from '../../../../shared/domain/purchase-price-difference.js';
 import { TenantId } from '../../domain/shared/tenant-id.vo.js';
 import { PURCHASE_INVOICE_INCLUDE, purchaseInvoiceFromRow } from './purchasing-rows.js';
 import { BUSINESS_CALENDAR, type BusinessCalendar } from '../../../../shared/domain/ports/business-calendar.js';
@@ -30,8 +33,8 @@ import { BUSINESS_CALENDAR, type BusinessCalendar } from '../../../../shared/dom
 export class PrismaPurchaseInvoicePosting implements PurchaseInvoicePosting {
   constructor(
     private readonly prisma: PrismaService,
-    @Optional() @Inject(INVOICE_REVALUATION_POSTING) private readonly revaluationPosting?: InvoiceRevaluationPosting,
-    @Optional() @Inject(BUSINESS_CALENDAR) private readonly calendar?: BusinessCalendar,
+    @Inject(INVOICE_REVALUATION_POSTING) private readonly revaluationPosting: InvoiceRevaluationPosting,
+    @Inject(BUSINESS_CALENDAR) private readonly calendar: BusinessCalendar,
   ) {}
 
   async confirm(tenantId: TenantId, invoiceId: PurchaseInvoiceId, now: Date, userId?: string): Promise<PurchaseInvoice> {
@@ -381,13 +384,11 @@ export class PrismaPurchaseInvoicePosting implements PurchaseInvoicePosting {
         },
       });
 
-      if (this.revaluationPosting && revaluationsByWarehouse.size > 0) {
+      if (revaluationsByWarehouse.size > 0) {
         const revalData: InvoiceWarehouseRevaluationData[] = [...revaluationsByWarehouse.entries()].map(
           ([warehouseId, revalLines]) => ({ warehouseId, lines: revalLines }),
         );
-        const today = this.calendar
-          ? await this.calendar.today(tenant)
-          : invoice.issueDate.value;
+        const today = await this.calendar.today(tenant);
         await this.revaluationPosting.createDraftRevaluations(
           tenantId,
           invoice.id.value,
@@ -520,34 +521,18 @@ export class PrismaPurchaseInvoicePosting implements PurchaseInvoicePosting {
         },
       });
 
-      if (this.revaluationPosting) {
-        const today = this.calendar
-          ? await this.calendar.today(tenant)
-          : invoice.issueDate.value;
-        await this.revaluationPosting.cancelOrReverseRevaluations(
-          tenantId,
-          invoice.id.value,
-          invoice.code,
-          now,
-          today,
-          userId,
-          tx,
-        );
-      }
+      const today = await this.calendar.today(tenant);
+      await this.revaluationPosting.cancelOrReverseRevaluations(
+        tenantId,
+        invoice.id.value,
+        invoice.code,
+        now,
+        today,
+        userId,
+        tx,
+      );
 
       return invoice;
     });
   }
-}
-
-function effectiveRateToBase(
-  currency: string,
-  baseCurrency: string,
-  exchangeRate: number | null,
-  baseExchangeRate: number | null,
-): number {
-  if (currency === baseCurrency || !exchangeRate || !baseExchangeRate) {
-    return 1;
-  }
-  return exchangeRate / baseExchangeRate;
 }

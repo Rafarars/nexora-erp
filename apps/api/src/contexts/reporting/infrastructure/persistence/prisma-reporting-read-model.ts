@@ -1,4 +1,4 @@
-import { Inject, Injectable, Optional } from '@nestjs/common';
+import { Inject, Injectable } from '@nestjs/common';
 import { raw, sql } from '../../../../generated/prisma/internal/prismaNamespace.js';
 import { PrismaService } from '../../../../shared/prisma/prisma.service.js';
 import { PAYABLE_BALANCES } from '../../../../shared/prisma/payable-balances.js';
@@ -36,7 +36,7 @@ const PAYMENT_IN_COMPANY_CURRENCY = factor('p');
 export class PrismaReportingReadModel implements ReportingReadModel {
   constructor(
     private readonly prisma: PrismaService,
-    @Optional() @Inject(PAYABLE_BALANCES) private readonly payableBalances?: PayableBalances,
+    @Inject(PAYABLE_BALANCES) private readonly payableBalances: PayableBalances,
   ) {}
 
   async company(tenantId: TenantId): Promise<ReportCompany> {
@@ -69,12 +69,10 @@ export class PrismaReportingReadModel implements ReportingReadModel {
   }
 
   async payableInvoices(tenantId: TenantId, decimals: number): Promise<ReportPayableInvoice[]> {
-    if (!this.payableBalances) return [];
     return this.payableBalances.allInvoices(tenantId, decimals);
   }
 
   async payableBalance(tenantId: TenantId, decimals: number): Promise<number> {
-    if (!this.payableBalances) return 0;
     return this.payableBalances.totalBalance(tenantId, decimals);
   }
 

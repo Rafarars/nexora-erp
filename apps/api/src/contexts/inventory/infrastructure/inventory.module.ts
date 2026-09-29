@@ -51,7 +51,7 @@ import { INVENTORY_CATALOG } from '../domain/catalog/inventory-catalog.js';
 import type { InventoryCatalog } from '../domain/catalog/inventory-catalog.js';
 import { INVENTORY_CODE_SEQUENCE } from '../domain/shared/code-sequence.js';
 import type { InventoryCodeSequence } from '../domain/shared/code-sequence.js';
-import { INVOICE_REVALUATION_POSTING } from '../../purchasing/domain/invoice/invoice-revaluation-posting.js';
+import { INVOICE_REVALUATION_POSTING } from '../../../shared/prisma/invoice-revaluation-posting.js';
 import { PrismaInvoiceRevaluationPosting } from './persistence/prisma-invoice-revaluation-posting.js';
 import { STOCK_REPOSITORY } from '../domain/stock/stock.repository.js';
 import type { StockRepository } from '../domain/stock/stock.repository.js';

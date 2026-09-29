@@ -31,6 +31,7 @@ const cases: Array<[DomainError, typeof DomainError]> = [
   [new errors.FutureAdjustmentDateError('2099-01-01'), InvalidArgumentError],
   [new errors.InventoryTextTooLongError('Notes', 500), InvalidArgumentError],
   [new errors.InvalidDirectionError('x'), InvalidArgumentError],
+  [new errors.RevaluationSourceMovementNotFoundError(ID), NotFoundError],
 ];
 
 describe('inventory domain errors', () => {

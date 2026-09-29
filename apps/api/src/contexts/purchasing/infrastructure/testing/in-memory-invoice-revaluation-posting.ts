@@ -2,8 +2,8 @@ import { randomUUID } from 'node:crypto';
 import {
   InvoiceRevaluationPosting,
   InvoiceWarehouseRevaluationData,
-} from '../../domain/invoice/invoice-revaluation-posting.js';
-import { TenantId } from '../../domain/shared/tenant-id.vo.js';
+  type TenantLike,
+} from '../../../../shared/prisma/invoice-revaluation-posting.js';
 
 export interface InMemoryStoredAdjustmentLine {
   id: string;
@@ -40,7 +40,7 @@ export class InMemoryInvoiceRevaluationPosting implements InvoiceRevaluationPost
   readonly adjustments: InMemoryStoredAdjustment[] = [];
 
   async createDraftRevaluations(
-    tenantId: TenantId,
+    tenantId: TenantLike,
     invoiceId: string,
     invoiceCode: string,
     invoiceDate: string,
@@ -51,10 +51,11 @@ export class InMemoryInvoiceRevaluationPosting implements InvoiceRevaluationPost
     _context?: unknown,
     originType: 'purchase_invoice' | 'supplier_credit_note' = 'purchase_invoice',
   ): Promise<void> {
+    const tenant = typeof tenantId === 'string' ? tenantId : tenantId.value;
     for (const rev of revaluations) {
       if (rev.lines.length === 0) continue;
 
-      const netAmount = rev.lines.reduce((sum, l) => sum + l.amount, 0);
+      const netAmount = rev.lines.reduce((sum: number, l) => sum + l.amount, 0);
       if (Math.abs(netAmount) < 0.0001) continue;
 
       this.seq += 1;
@@ -68,7 +69,7 @@ export class InMemoryInvoiceRevaluationPosting implements InvoiceRevaluationPost
 
       this.adjustments.push({
         id: adjustmentId,
-        tenantId: tenantId.value,
+        tenantId: tenant,
         code,
         warehouseId: rev.warehouseId,
         adjustmentDate: new Date(`${invoiceDate}T00:00:00.000Z`),
@@ -96,7 +97,7 @@ export class InMemoryInvoiceRevaluationPosting implements InvoiceRevaluationPost
   }
 
   async cancelOrReverseRevaluations(
-    tenantId: TenantId,
+    tenantId: TenantLike,
     invoiceId: string,
     invoiceCode: string,
     now: Date,
@@ -105,8 +106,9 @@ export class InMemoryInvoiceRevaluationPosting implements InvoiceRevaluationPost
     _context?: unknown,
     originType: 'purchase_invoice' | 'supplier_credit_note' = 'purchase_invoice',
   ): Promise<void> {
+    const tenant = typeof tenantId === 'string' ? tenantId : tenantId.value;
     const existing = this.adjustments.filter(
-      (a) => a.tenantId === tenantId.value && a.originType === originType && a.originId === invoiceId,
+      (a) => a.tenantId === tenant && a.originType === originType && a.originId === invoiceId,
     );
 
     for (const adj of existing) {
@@ -125,7 +127,7 @@ export class InMemoryInvoiceRevaluationPosting implements InvoiceRevaluationPost
 
         this.adjustments.push({
           id: reverseId,
-          tenantId: tenantId.value,
+          tenantId: tenant,
           code,
           warehouseId: adj.warehouseId,
           adjustmentDate: new Date(`${today}T00:00:00.000Z`),

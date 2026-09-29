@@ -1,5 +1,3 @@
-import { TenantId } from '../shared/tenant-id.vo.js';
-
 export const INVOICE_REVALUATION_POSTING = Symbol('InvoiceRevaluationPosting');
 
 export interface InvoiceRevaluationLineData {
@@ -18,11 +16,14 @@ export interface InvoiceWarehouseRevaluationData {
   lines: InvoiceRevaluationLineData[];
 }
 
-// Puerto por el que compras solicita a inventario la creacion de revaluaciones por importe.
-// Vive en el dominio de purchasing; su adaptador escribe en inventario dentro de la misma transaccion.
+export type TenantLike = string | { value: string };
+
+// Puerto compartido para solicitar a inventario la creacion y anulacion de revaluaciones por importe.
+// Vive en shared/prisma junto a document-stock-posting. Lo implementa inventario; purchasing y payables
+// lo consumen sin depender de otros contextos de dominio.
 export interface InvoiceRevaluationPosting {
   createDraftRevaluations(
-    tenantId: TenantId,
+    tenantId: TenantLike,
     invoiceId: string,
     invoiceCode: string,
     invoiceDate: string,
@@ -35,7 +36,7 @@ export interface InvoiceRevaluationPosting {
   ): Promise<void>;
 
   cancelOrReverseRevaluations(
-    tenantId: TenantId,
+    tenantId: TenantLike,
     invoiceId: string,
     invoiceCode: string,
     now: Date,

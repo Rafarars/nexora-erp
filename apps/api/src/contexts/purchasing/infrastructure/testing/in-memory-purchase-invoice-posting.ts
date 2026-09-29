@@ -14,8 +14,11 @@ import {
   InvoiceRevaluationLineData,
   InvoiceRevaluationPosting,
   InvoiceWarehouseRevaluationData,
-} from '../../domain/invoice/invoice-revaluation-posting.js';
-import { calculatePurchasePriceDifference } from '../../domain/invoice/purchase-price-difference.js';
+} from '../../../../shared/prisma/invoice-revaluation-posting.js';
+import {
+  calculatePurchasePriceDifference,
+  effectiveRateToBase,
+} from '../../../../shared/domain/purchase-price-difference.js';
 import { PurchaseInvoicePosting } from '../../domain/invoice/posting/purchase-invoice-posting.js';
 import { PurchaseInvoice, PurchaseInvoiceId } from '../../domain/invoice/purchase-invoice.entity.js';
 import { PurchaseInvoiceRepository } from '../../domain/invoice/purchase-invoice.repository.js';
@@ -23,7 +26,6 @@ import { PurchaseOrderRepository } from '../../domain/order/purchase-order.repos
 import { GoodsReceiptRepository } from '../../domain/receipt/goods-receipt.repository.js';
 import { PurchaseReturnRepository } from '../../domain/return/purchase-return.repository.js';
 import { TenantId } from '../../domain/shared/tenant-id.vo.js';
-import { GoodsReceiptId } from '../../domain/receipt/goods-receipt.entity.js';
 import { PurchaseOrder, PurchaseOrderId } from '../../domain/order/purchase-order.entity.js';
 import { PurchaseOrderLineId } from '../../domain/order/purchase-order-line.js';
 
@@ -319,16 +321,4 @@ export class InMemoryPurchaseInvoicePosting implements PurchaseInvoicePosting {
       return invoice;
     });
   }
-}
-
-function effectiveRateToBase(
-  currency: string,
-  baseCurrency: string,
-  exchangeRate: number | null,
-  baseExchangeRate: number | null,
-): number {
-  if (currency === baseCurrency || !exchangeRate || !baseExchangeRate) {
-    return 1;
-  }
-  return exchangeRate / baseExchangeRate;
 }

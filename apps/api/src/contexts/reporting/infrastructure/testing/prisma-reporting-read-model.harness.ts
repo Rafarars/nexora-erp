@@ -4,6 +4,11 @@ import { PrismaService } from '../../../../shared/prisma/prisma.service.js';
 import { ReportCustomer, ReportingReadModel } from '../../domain/read-model/reporting-read-model.js';
 import { ReportingReadModelHarness, SeedCreditNote, SeedInvoice, SeedPayment, SeedReceipt } from '../../testing/reporting-read-model.harness.js';
 import { PrismaReportingReadModel } from '../persistence/prisma-reporting-read-model.js';
+import { ClockBusinessCalendar } from '../../../../shared/infrastructure/testing/clock-business-calendar.js';
+import { SystemClock } from '../../../../shared/infrastructure/system-clock.js';
+import { PrismaPayablesLedger } from '../../../payables/infrastructure/persistence/prisma-payables-ledger.js';
+import { PrismaPayableBalances } from '../../../payables/infrastructure/persistence/prisma-payable-balances.js';
+import { FixedDocumentRates } from '../../../../shared/infrastructure/testing/fixed-document-rates.js';
 
 function connectionString(): string {
   const url = process.env.DATABASE_URL;
@@ -24,7 +29,11 @@ export class PrismaReportingReadModelHarness implements ReportingReadModelHarnes
   private counter = 0;
 
   readModel(): ReportingReadModel {
-    return new PrismaReportingReadModel(this.prisma);
+    const calendar = new ClockBusinessCalendar(new SystemClock());
+    const ledger = new PrismaPayablesLedger(this.prisma);
+    const rates = new FixedDocumentRates();
+    const payableBalances = new PrismaPayableBalances(ledger, calendar, rates);
+    return new PrismaReportingReadModel(this.prisma, payableBalances);
   }
 
   async company(tenantId: string, name: string, profile?: { legalName: string; fiscalId: string | null }): Promise<void> {

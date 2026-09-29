@@ -3,10 +3,9 @@ import { randomUUID } from 'node:crypto';
 import type { TransactionClient } from '../../../../shared/prisma/document-stock-posting.js';
 import { PrismaService } from '../../../../shared/prisma/prisma.service.js';
 import {
-  INVOICE_REVALUATION_POSTING,
   InvoiceRevaluationPosting,
   InvoiceWarehouseRevaluationData,
-} from '../../../purchasing/domain/invoice/invoice-revaluation-posting.js';
+} from '../../../../shared/prisma/invoice-revaluation-posting.js';
 import { TenantId } from '../../domain/shared/tenant-id.vo.js';
 import { Adjustment, AdjustmentId } from '../../domain/adjustment/adjustment.entity.js';
 import { AdjustmentDate } from '../../domain/adjustment/adjustment-date.vo.js';
@@ -27,7 +26,7 @@ export class PrismaInvoiceRevaluationPosting implements InvoiceRevaluationPostin
   ) {}
 
   async createDraftRevaluations(
-    tenantId: TenantId,
+    tenantIdParam: string | TenantId,
     invoiceId: string,
     invoiceCode: string,
     invoiceDate: string,
@@ -39,7 +38,7 @@ export class PrismaInvoiceRevaluationPosting implements InvoiceRevaluationPostin
     originTypeParam: 'purchase_invoice' | 'supplier_credit_note' = 'purchase_invoice',
   ): Promise<void> {
     const client = (context as TransactionClient) ?? this.prisma;
-    const tenant = tenantId.value;
+    const tenantId = typeof tenantIdParam === 'string' ? TenantId.of(tenantIdParam) : tenantIdParam;
 
     for (const rev of revaluations) {
       if (rev.lines.length === 0) continue;
@@ -136,7 +135,7 @@ export class PrismaInvoiceRevaluationPosting implements InvoiceRevaluationPostin
   }
 
   async cancelOrReverseRevaluations(
-    tenantId: TenantId,
+    tenantIdParam: string | TenantId,
     invoiceId: string,
     invoiceCode: string,
     now: Date,
@@ -146,6 +145,7 @@ export class PrismaInvoiceRevaluationPosting implements InvoiceRevaluationPostin
     originTypeParam: 'purchase_invoice' | 'supplier_credit_note' = 'purchase_invoice',
   ): Promise<void> {
     const client = (context as TransactionClient) ?? this.prisma;
+    const tenantId = typeof tenantIdParam === 'string' ? TenantId.of(tenantIdParam) : tenantIdParam;
     const tenant = tenantId.value;
 
     const existing = await client.adjustment.findMany({

@@ -32,8 +32,8 @@ import { SearchDashboardGetController } from './http/search-dashboard-get.contro
 import { PrismaReportingReadModel } from './persistence/prisma-reporting-read-model.js';
 import { PdfExcelReportRenderer } from './rendering/report-renderer.js';
 
-// El cableado de los reportes. No importa ningun modulo: lee las tablas de los demas por su
-// adaptador y no escribe nada.
+// El cableado de los reportes. Importa PayablesModule para saldos de cuentas por pagar
+// (PAYABLE_BALANCES) y CompanyModule para calendario y tasas. Proyecta agregados de solo lectura.
 @Module({
   imports: [PrismaModule, SharedModule, CompanyModule, PayablesModule],
   controllers: [

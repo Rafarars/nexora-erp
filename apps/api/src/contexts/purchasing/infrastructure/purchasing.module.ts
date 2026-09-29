@@ -108,7 +108,6 @@ import { PurchaseInvoiceFinder } from '../application/find-invoice/purchase-invo
 import { PurchaseInvoiceSearcher } from '../application/search-invoices/purchase-invoice-searcher.js';
 import { PurchaseInvoiceUpdater } from '../application/update-invoice/purchase-invoice-updater.js';
 import { ThreeWayMatcher } from '../application/three-way-match/three-way-matcher.js';
-import { INVOICE_REVALUATION_POSTING } from '../domain/invoice/invoice-revaluation-posting.js';
 import { PURCHASE_INVOICE_POSTING } from '../domain/invoice/posting/purchase-invoice-posting.js';
 import type { PurchaseInvoicePosting } from '../domain/invoice/posting/purchase-invoice-posting.js';
 import { PURCHASE_INVOICE_REPOSITORY } from '../domain/invoice/purchase-invoice.repository.js';

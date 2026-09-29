@@ -1,5 +1,24 @@
 import { describe, expect, it } from 'vitest';
-import { calculatePurchasePriceDifference } from './purchase-price-difference.js';
+import { calculatePurchasePriceDifference, effectiveRateToBase } from './purchase-price-difference.js';
+
+describe('effectiveRateToBase', () => {
+  it('returns 1 when document currency is the company base currency', () => {
+    expect(effectiveRateToBase('USD', 'USD', 36.5, 36.5)).toBe(1);
+    expect(effectiveRateToBase('VES', 'VES', null, null)).toBe(1);
+  });
+
+  it('returns 1 when exchange rate or base exchange rate is missing', () => {
+    expect(effectiveRateToBase('USD', 'VES', null, 36.5)).toBe(1);
+    expect(effectiveRateToBase('USD', 'VES', 36.5, null)).toBe(1);
+  });
+
+  it('computes division of rate by base rate when currencies differ', () => {
+    // Moneda del doc USD a 150 Bs, base USD a 150 Bs -> 1
+    expect(effectiveRateToBase('USD', 'USD', 150, 150)).toBe(1);
+    // Moneda del doc EUR a 160 Bs, base USD a 150 Bs -> 160 / 150
+    expect(effectiveRateToBase('EUR', 'USD', 160, 150)).toBeCloseTo(160 / 150, 6);
+  });
+});
 
 describe('calculatePurchasePriceDifference (H9 §3.3)', () => {
   it('computes zero price difference and full exchange difference when prices match in USD but rate changed (H9 §7)', () => {

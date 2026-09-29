@@ -1029,3 +1029,40 @@ Ninguno.
    Todo en verde.
    ```
 
+---
+
+## Correcciones post-revisión (Ronda 2)
+
+### Fase 1: Arquitectura, puertos e inyección estricta
+- **Puerto de revaluación independiente de contexto:**
+  - Extraído `INVOICE_REVALUATION_POSTING` a `apps/api/src/shared/prisma/invoice-revaluation-posting.ts` con tipos desacoplados de `purchasing`, eliminando el antiguo archivo acoplado en `purchasing/domain/invoice/invoice-revaluation-posting.ts`.
+  - El token Symbol `INVOICE_REVALUATION_POSTING` y sus interfaces de datos son ahora consumidos de forma simétrica por `inventory`, `purchasing` y `payables`.
+- **Cálculo de diferencia de precio y tasa base compartido:**
+  - Creado `apps/api/src/shared/domain/purchase-price-difference.ts` unificando `calculatePurchasePriceDifference` y `effectiveRateToBase`.
+  - Eliminadas las 3 copias duplicadas de `effectiveRateToBase` en `prisma-purchase-invoice-posting.ts`, `in-memory-purchase-invoice-posting.ts` y `prisma-supplier-credit-note-posting.ts`.
+  - Prueba unitaria compartida en `apps/api/src/shared/domain/purchase-price-difference.spec.ts`.
+- **Hacer obligatorias las dependencias críticas (sin `@Optional()`):**
+  - En `PrismaPurchaseInvoicePosting`: `INVOICE_REVALUATION_POSTING` y `BUSINESS_CALENDAR` son inyectados obligatoriamente sin `@Optional()`.
+  - En `PrismaSupplierCreditNotePosting`: `INVOICE_REVALUATION_POSTING` y `BUSINESS_CALENDAR` son obligatorios sin `@Optional()`. Se eliminó el fallback de fecha con `toISOString().slice(0, 10)` al anular notas de crédito, usando siempre `await this.businessCalendar.today(tenant)`.
+  - En `PrismaReportingReadModel`: `PAYABLE_BALANCES` es obligatorio sin `@Optional()`.
+- **Manejo de errores en revaluación por inventario:**
+  - Creado `RevaluationSourceMovementNotFoundError` en `inventory.errors.ts` y registrado en `error-categories.spec.ts`.
+  - En `PrismaStockLedger.recordPriceVariance()`: si no existe el movimiento de origen en kardex, lanza `RevaluationSourceMovementNotFoundError` en lugar de omitir la línea silenciosamente con `continue`.
+  - En `PrismaSupplierCreditNotePosting`: si no se encuentra el movimiento de kardex origen (`receiptLineId`) al registrar revaluación de nota de crédito, se lanza `RevaluationSourceMovementNotFoundError`.
+- **Comentario de módulo:**
+  - En `reporting.module.ts`: actualizado el comentario para indicar que importa `PayablesModule` y `CompanyModule`.
+- **Verificación y corrección de arneses de prueba:**
+  - **Corrida roja 1 (`make verify` en `scratch/logs/verify-correcciones-fase1.log`):**
+    El paso de typecheck falló con `error TS2554` y `error TS2345` debido a constructores de arneses (`PrismaPayablesPortsHarness`, `PrismaPurchasingPortsHarness`, `PrismaReportingReadModelHarness`) que instanciaban clases con dependencias obligatorias sin proveerlas, y un import huérfano en `purchasing-ports.harness.ts`.
+  - **Corrección aplicada:**
+    - `PrismaPayablesPortsHarness`: inyectados `revaluationPosting` y `calendar`.
+    - `PrismaPurchasingPortsHarness`: inyectado `calendar`.
+    - `PrismaReportingReadModelHarness`: inyectado `payableBalances` con `FixedDocumentRates`, `ClockBusinessCalendar` y `PrismaPayablesLedger`.
+    - `in-memory-invoice-revaluation-posting.ts`: tipado con `TenantLike` y tipos explícitos en acumuladores reduce.
+  - **Corrida verde final (`make verify` en `scratch/logs/verify-correcciones-fase1-r2.log`):**
+    ```
+    520 passed (12.8m)
+    Todo en verde.
+    ```
+
+

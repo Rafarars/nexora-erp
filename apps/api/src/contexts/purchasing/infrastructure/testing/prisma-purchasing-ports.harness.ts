@@ -19,6 +19,8 @@ import { PrismaPurchaseReturnRepository } from '../persistence/prisma-purchase-r
 import { PrismaPurchasingCodeSequence } from '../persistence/prisma-purchasing-code-sequence.js';
 import { PrismaReceiptPosting } from '../persistence/prisma-receipt-posting.js';
 import { PrismaSupplierRepository } from '../persistence/prisma-supplier.repository.js';
+import { ClockBusinessCalendar } from '../../../../shared/infrastructure/testing/clock-business-calendar.js';
+import { SystemClock } from '../../../../shared/infrastructure/system-clock.js';
 
 function connectionString(): string {
   const url = process.env.DATABASE_URL;
@@ -40,6 +42,8 @@ export class PrismaPurchasingPortsHarness implements PurchasingPortsHarness {
       new PrismaInventoryCodeSequence(this.prisma),
     );
 
+    const calendar = new ClockBusinessCalendar(new SystemClock());
+
     return {
       suppliers: new PrismaSupplierRepository(this.prisma),
       orders: new PrismaPurchaseOrderRepository(this.prisma),
@@ -49,7 +53,7 @@ export class PrismaPurchasingPortsHarness implements PurchasingPortsHarness {
       orderPosting: new PrismaPurchaseOrderPosting(this.prisma),
       receiptPosting: new PrismaReceiptPosting(this.prisma, stockPosting),
       returnPosting: new PrismaPurchaseReturnPosting(this.prisma, stockPosting),
-      invoicePosting: new PrismaPurchaseInvoicePosting(this.prisma, revaluationPosting),
+      invoicePosting: new PrismaPurchaseInvoicePosting(this.prisma, revaluationPosting, calendar),
       revaluations: revaluationPosting,
       codes: new PrismaPurchasingCodeSequence(this.prisma),
     };

@@ -192,3 +192,10 @@ export class InvalidDirectionError extends InvalidArgumentError {
     super(`A line direction must be in or out, received <${value}>.`, 'Each line must be an entry or an exit.');
   }
 }
+
+export class RevaluationSourceMovementNotFoundError extends NotFoundError {
+  constructor(sourceMovementId: string) {
+    super(`Source movement <${sourceMovementId}> was not found for revaluation.`);
+  }
+}
+

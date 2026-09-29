@@ -7,6 +7,7 @@ import { ItemRef, WarehouseRef } from '../../domain/shared/references.vo.js';
 import { weightedAverageCost } from '../../domain/stock/average-cost.js';
 import { ItemStock } from '../../domain/stock/item-stock.entity.js';
 import { Ledger, StockChanges } from '../../domain/stock/posting/stock-ledger.js';
+import { RevaluationSourceMovementNotFoundError } from '../../domain/errors/inventory.errors.js';
 import { movementFromRow, stockFromRow } from './inventory-rows.js';
 
 const keyOf = (itemId: string, warehouseId: string) => `${itemId}|${warehouseId}`;
@@ -92,7 +93,7 @@ export async function lockedLedger(
       select: { sequence: true },
     });
 
-    if (!source) continue;
+    if (!source) throw new RevaluationSourceMovementNotFoundError(line.sourceMovementId);
 
     const rows = await tx.inventoryMovement.findMany({
       where: {
