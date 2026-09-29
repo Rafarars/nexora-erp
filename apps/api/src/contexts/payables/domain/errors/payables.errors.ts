@@ -277,4 +277,14 @@ export class CreditNoteReturnLinesNotFromInvoiceError extends ConflictError {
   }
 }
 
+export class CreditNoteLineItemMismatchError extends ConflictError {
+  constructor(lineId: string, invoiceItemId: string, noteItemId: string) {
+    super(
+      `Invoice line <${lineId}> item <${invoiceItemId}> does not match credit note item <${noteItemId}>.`,
+      'The credit note line item must match the invoice line item.',
+    );
+  }
+}
+
+
 

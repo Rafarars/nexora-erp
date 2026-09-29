@@ -217,6 +217,36 @@ export class PrismaSupplierCreditNoteRepository implements SupplierCreditNoteRep
     return result._sum.total ? result._sum.total.toNumber() : 0;
   }
 
+  async creditedAmountByInvoiceLines(
+    tenantId: TenantId,
+    invoiceLineIds: string[],
+    excludeNoteId?: SupplierCreditNoteId,
+  ): Promise<Map<string, number>> {
+    const map = new Map<string, number>();
+    if (invoiceLineIds.length === 0) return map;
+
+    const rows = await this.prisma.supplierCreditNoteLine.groupBy({
+      by: ['invoiceLineId'],
+      where: {
+        tenantId: tenantId.value,
+        invoiceLineId: { in: invoiceLineIds },
+        creditNote: {
+          tenantId: tenantId.value,
+          status: 'confirmed',
+          ...(excludeNoteId ? { id: { not: excludeNoteId.value } } : {}),
+        },
+      },
+      _sum: { subtotal: true },
+    });
+
+    for (const r of rows) {
+      if (r.invoiceLineId) {
+        map.set(r.invoiceLineId, r._sum.subtotal ? r._sum.subtotal.toNumber() : 0);
+      }
+    }
+    return map;
+  }
+
   async creditedNotesByReturn(tenantId: TenantId, purchaseReturnId: string): Promise<SupplierCreditNote[]> {
     const rows = await this.prisma.supplierCreditNote.findMany({
       where: {

@@ -4,14 +4,16 @@ import {
   CreditNoteAlreadyCancelledError,
   CreditNoteCurrencyMismatchError,
   CreditNoteExceededError,
+  CreditNoteLineAmountExceedsInvoiceError,
+  CreditNoteLineItemMismatchError,
   CreditNoteNotConfirmableError,
   CreditNoteNotConfirmedError,
   CreditNoteNotEditableError,
   CreditNoteNotFoundError,
   CreditNoteReturnAlreadyCreditedError,
   CreditNoteReturnLinesNotFromInvoiceError,
-  CreditNoteReturnNotConfirmedError,
   CreditNoteReturnSupplierMismatchError,
+  CreditNoteReturnNotConfirmedError,
   CreditNoteSupplierMismatchError,
   CreditNoteWithApplicationsError,
   InvoiceNotPayableError,
@@ -38,19 +40,40 @@ import {
 import { SupplierCreditNotePosting } from '../../domain/credit-note/posting/supplier-credit-note-posting.js';
 import { PayableCreditQuota } from '../../domain/credit-note/credit-quota.service.js';
 import { TenantId } from '../../domain/shared/tenant-id.vo.js';
+import { InMemoryInvoiceRevaluationPosting } from '../../../purchasing/infrastructure/testing/in-memory-invoice-revaluation-posting.js';
+import { effectiveRateToBase } from '../../../../shared/domain/purchase-price-difference.js';
+import type { InvoiceWarehouseRevaluationData, InvoiceRevaluationLineData } from '../../../../shared/prisma/invoice-revaluation-posting.js';
+
+export interface InMemoryInvoiceLineInfo {
+  id: string;
+  itemId: string | null;
+  itemSku?: string | null;
+  itemName?: string | null;
+  unitId?: string | null;
+  subtotal: number;
+  receiptLineId: string | null;
+  warehouseId?: string;
+  receiptRate?: number;
+  sourceMovementId?: string;
+}
 
 type InvoiceRow = Omit<PayableInvoicePrimitives, 'paid'> & { tenantId: string };
 
 export class InMemoryPayablesStore {
+  readonly revaluationPosting: InMemoryInvoiceRevaluationPosting;
   private readonly supplierRows = new Map<string, PayableSupplier & { tenantId: string }>();
   private readonly invoiceRows = new Map<string, InvoiceRow>();
   private readonly paymentRows = new Map<string, PaymentPrimitives>();
   private readonly creditNoteRows = new Map<string, SupplierCreditNotePrimitives>();
   private readonly purchaseReturnRows = new Map<string, { id: string; tenantId: string; supplierId: string; status: string }>();
-  private readonly invoiceLineRows = new Map<string, Array<{ id: string; itemId: string | null; subtotal: number; receiptLineId: string | null }>>();
+  private readonly invoiceLineRows = new Map<string, InMemoryInvoiceLineInfo[]>();
   private readonly returnReceiptLineRows = new Map<string, string[]>();
   private readonly amountDecimalsByTenant = new Map<string, number>();
   private queue: Promise<unknown> = Promise.resolve();
+
+  constructor(revaluationPosting?: InMemoryInvoiceRevaluationPosting) {
+    this.revaluationPosting = revaluationPosting ?? new InMemoryInvoiceRevaluationPosting();
+  }
 
   setAmountDecimals(tenantId: string, decimals: number): void {
     this.amountDecimalsByTenant.set(tenantId, decimals);
@@ -68,7 +91,7 @@ export class InMemoryPayablesStore {
     this.invoiceRows.set(invoice.id, { ...invoice, tenantId });
   }
 
-  setInvoiceLines(invoiceId: string, lines: Array<{ id: string; itemId: string | null; subtotal: number; receiptLineId: string | null }>): void {
+  setInvoiceLines(invoiceId: string, lines: InMemoryInvoiceLineInfo[]): void {
     this.invoiceLineRows.set(invoiceId, lines);
   }
 
@@ -272,6 +295,27 @@ export class InMemoryPayablesStore {
 
         return unitsToNumber(units);
       },
+      creditedAmountByInvoiceLines: async (
+        tenantId: TenantId,
+        invoiceLineIds: string[],
+        excludeNoteId?: SupplierCreditNoteId,
+      ): Promise<Map<string, number>> => {
+        const map = new Map<string, number>();
+        const lineIdSet = new Set(invoiceLineIds);
+
+        for (const note of this.creditNoteRows.values()) {
+          if (note.tenantId !== tenantId.value || note.status !== 'confirmed') continue;
+          if (excludeNoteId && note.id === excludeNoteId.value) continue;
+
+          for (const l of note.lines) {
+            if (l.invoiceLineId && lineIdSet.has(l.invoiceLineId)) {
+              map.set(l.invoiceLineId, Number(((map.get(l.invoiceLineId) ?? 0) + l.subtotal).toFixed(4)));
+            }
+          }
+        }
+
+        return map;
+      },
       findByIds: async (tenantId: TenantId, ids: SupplierCreditNoteId[]): Promise<SupplierCreditNote[]> => {
         const target = new Set(ids.map((i) => i.value));
         return [...this.creditNoteRows.values()]
@@ -313,7 +357,13 @@ export class InMemoryPayablesStore {
 
   get creditNotePosting(): SupplierCreditNotePosting {
     return {
-      confirm: (tenantId: TenantId, noteId: SupplierCreditNoteId, now: Date, today: string) =>
+      confirm: (
+        tenantId: TenantId,
+        noteId: SupplierCreditNoteId,
+        now: Date,
+        today: string,
+        userId?: string | null,
+      ) =>
         this.serial(async () => {
           const row = this.creditNoteRows.get(noteId.value);
 
@@ -335,6 +385,55 @@ export class InMemoryPayablesStore {
             }
 
             const invoice = this.hydrateInvoice(invoiceRow);
+            const invoiceLines = this.invoiceLineRows.get(invoiceId) ?? [];
+            const invLinesMap = new Map(invoiceLines.map((il) => [il.id, il]));
+
+            if (!note.purchaseReturnId()) {
+              const creditedByLineId = await this.creditNotes.creditedAmountByInvoiceLines(
+                tenantId,
+                [...invLinesMap.keys()],
+                note.id,
+              );
+              const consumedInSameNote = new Map<string, number>();
+
+              for (const line of note.toPrimitives().lines) {
+                if (!line.invoiceLineId) continue;
+                const invLine = invLinesMap.get(line.invoiceLineId);
+                if (!invLine) continue;
+
+                if (invLine.itemId && line.itemId && line.itemId !== invLine.itemId) {
+                  throw new CreditNoteLineItemMismatchError(
+                    line.id,
+                    invLine.itemId,
+                    line.itemId,
+                  );
+                }
+                if (invLine.itemId && !line.itemId) {
+                  throw new CreditNoteLineItemMismatchError(
+                    line.id,
+                    invLine.itemId,
+                    'none',
+                  );
+                }
+
+                const lineSubtotal = Number(line.subtotal);
+                const priorConfirmed = creditedByLineId.get(line.invoiceLineId) ?? 0;
+                const sameNoteSoFar = consumedInSameNote.get(line.invoiceLineId) ?? 0;
+                const totalAttempted = priorConfirmed + sameNoteSoFar + lineSubtotal;
+                const invLineSubtotal = Number(invLine.subtotal);
+
+                if (totalAttempted > invLineSubtotal + 1e-4) {
+                  throw new CreditNoteLineAmountExceedsInvoiceError(
+                    line.id,
+                    totalAttempted,
+                    invLineSubtotal,
+                  );
+                }
+
+                consumedInSameNote.set(line.invoiceLineId, sameNoteSoFar + lineSubtotal);
+              }
+            }
+
             const credited = await this.creditNotes.creditedAmountByInvoice(tenantId, invoiceId);
             PayableCreditQuota.ensureWithinQuota(invoice.total(), credited, note.total(), invoiceId);
 
@@ -407,21 +506,74 @@ export class InMemoryPayablesStore {
           }
 
           let totalPriceDifference = 0;
+          let totalExchangeDifference = 0;
+          const revaluationsByWarehouse = new Map<string, InvoiceRevaluationLineData[]>();
+
           if (note.invoiceId() && !note.purchaseReturnId()) {
-            const linesWithInvoice = note.toPrimitives().lines.filter((l) => Boolean(l.invoiceLineId));
+            const invoiceLines = this.invoiceLineRows.get(note.invoiceId()!) ?? [];
+            const invLinesMap = new Map(invoiceLines.map((il) => [il.id, il]));
+            const notePrimitives = note.toPrimitives();
+            const linesWithInvoice = notePrimitives.lines.filter((l) => Boolean(l.invoiceLineId));
+            const noteRate = effectiveRateToBase(
+              notePrimitives.currency,
+              notePrimitives.baseCurrency,
+              notePrimitives.exchangeRate,
+              notePrimitives.baseExchangeRate,
+            );
+
             for (const l of linesWithInvoice) {
-              const amountBase = -1 * Number(l.subtotal);
+              const invLine = invLinesMap.get(l.invoiceLineId!);
+              const warehouseId = invLine?.warehouseId ?? 'wh-001';
+              const receiptRate = invLine?.receiptRate ?? 1;
+              const lineSubtotal = Number(l.subtotal);
+
+              const amountBase = -1 * Number((lineSubtotal * receiptRate).toFixed(4));
+              const lineExchangeDiff = -1 * Number((lineSubtotal * (noteRate - receiptRate)).toFixed(4));
+
               totalPriceDifference += amountBase;
+              totalExchangeDifference += lineExchangeDiff;
+
+              const sourceMovementId = invLine?.sourceMovementId ?? `mov-${invLine?.receiptLineId ?? l.id}`;
+              const whLines = revaluationsByWarehouse.get(warehouseId) ?? [];
+              whLines.push({
+                lineNumber: whLines.length + 1,
+                itemId: l.itemId ?? invLine?.itemId ?? 'item-001',
+                itemSku: l.itemSku ?? invLine?.itemSku ?? 'SKU-001',
+                itemName: l.itemName ?? invLine?.itemName ?? 'Item',
+                unitId: invLine?.unitId ?? 'unit-001',
+                amount: amountBase,
+                sourceMovementId,
+                reason: `Rebaja de precio segun nota de credito ${note.code}`,
+              });
+              revaluationsByWarehouse.set(warehouseId, whLines);
+            }
+
+            if (revaluationsByWarehouse.size > 0) {
+              const revalData: InvoiceWarehouseRevaluationData[] = [...revaluationsByWarehouse.entries()].map(
+                ([warehouseId, revalLines]) => ({ warehouseId, lines: revalLines }),
+              );
+              await this.revaluationPosting.createDraftRevaluations(
+                tenantId,
+                note.id.value,
+                note.code,
+                notePrimitives.issueDate,
+                revalData,
+                now,
+                today,
+                userId ?? null,
+                undefined,
+                'supplier_credit_note',
+              );
             }
           }
 
-          note.confirm(now, issuePayment ? issuePayment.id.value : null, totalPriceDifference, 0);
+          note.confirm(now, issuePayment ? issuePayment.id.value : null, totalPriceDifference, totalExchangeDifference);
           this.creditNoteRows.set(note.id.value, note.toPrimitives());
 
           return { creditNote: note, issuePayment };
         }),
 
-      cancel: (tenantId: TenantId, noteId: SupplierCreditNoteId, now: Date) =>
+      cancel: (tenantId: TenantId, noteId: SupplierCreditNoteId, now: Date, userId?: string | null) =>
         this.serial(async () => {
           const row = this.creditNoteRows.get(noteId.value);
 
@@ -449,6 +601,17 @@ export class InMemoryPayablesStore {
               this.paymentRows.set(payment.id.value, payment.toPrimitives());
             }
           }
+
+          await this.revaluationPosting.cancelOrReverseRevaluations(
+            tenantId,
+            note.id.value,
+            note.code,
+            now,
+            now.toISOString().slice(0, 10),
+            userId ?? null,
+            undefined,
+            'supplier_credit_note',
+          );
 
           note.cancel(now);
           this.creditNoteRows.set(note.id.value, note.toPrimitives());

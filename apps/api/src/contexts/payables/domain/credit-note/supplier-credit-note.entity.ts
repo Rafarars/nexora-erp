@@ -295,7 +295,7 @@ function valueDetails(
       throw new InvalidCreditNoteLineAmountError();
     }
 
-    if (details.invoiceId && !details.purchaseReturnId && input.itemId && !input.invoiceLineId) {
+    if (details.invoiceId && !details.purchaseReturnId && !input.invoiceLineId) {
       throw new CreditNoteLineInvoiceLineRequiredError(index + 1);
     }
 

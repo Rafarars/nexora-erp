@@ -10,7 +10,13 @@ export interface SupplierCreditNotePosting {
     noteId: SupplierCreditNoteId,
     now: Date,
     today: string,
+    userId?: string | null,
   ): Promise<{ creditNote: SupplierCreditNote; issuePayment: SupplierPayment | null }>;
 
-  cancel(tenantId: TenantId, noteId: SupplierCreditNoteId, now: Date): Promise<void>;
+  cancel(
+    tenantId: TenantId,
+    noteId: SupplierCreditNoteId,
+    now: Date,
+    userId?: string | null,
+  ): Promise<void>;
 }

@@ -27,6 +27,11 @@ export interface SupplierCreditNoteRepository {
     filter: SupplierCreditNoteSearchFilter,
   ): Promise<{ notes: SupplierCreditNote[]; total: number }>;
   creditedAmountByInvoice(tenantId: TenantId, invoiceId: string): Promise<number>;
+  creditedAmountByInvoiceLines(
+    tenantId: TenantId,
+    invoiceLineIds: string[],
+    excludeNoteId?: SupplierCreditNoteId,
+  ): Promise<Map<string, number>>;
   creditedNotesByReturn(tenantId: TenantId, purchaseReturnId: string): Promise<SupplierCreditNote[]>;
   appliedPaymentsSum(
     tenantId: TenantId,

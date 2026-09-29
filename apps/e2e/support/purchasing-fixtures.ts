@@ -105,6 +105,12 @@ export async function aConfirmedPurchaseInvoice(
   });
   expect(confirmRes.status(), await confirmRes.text()).toBe(200);
 
-  return { id, code, invoiceNumber, subtotal };
+  const getRes = await request.get(`${baseUrl}/api/v1/purchasing/invoices/${id}`, {
+    headers: auth(token),
+  });
+  const invoiceData = await getRes.json();
+  const lines = invoiceData.invoice?.lines ?? [];
+
+  return { id, code, invoiceNumber, subtotal, lines };
 }
 

@@ -37,8 +37,10 @@ describe('Supplier Credit Notes (NCP) in Payables', () => {
     s.store.supplier(TENANT_A, { id: OTHER_SUPPLIER, code: 'PRV900002', name: 'Suministros Omega', paymentTermDays: 0, isActive: true });
     // Factura de 100 USD
     s.store.invoice(TENANT_A, { id: INVOICE, code: 'FCP900001', supplierId: SUPPLIER, issueDate: '2026-01-05', dueDate: '2026-01-20', status: 'confirmed', total: 100, ...DOLLARS });
+    s.store.setInvoiceLines(INVOICE, [{ id: 'inv-line-1', itemId: 'item-1', subtotal: 100, receiptLineId: null }]);
     // Factura de 50 USD
     s.store.invoice(TENANT_A, { id: OTHER_INVOICE, code: 'FCP900002', supplierId: SUPPLIER, issueDate: '2026-01-08', dueDate: '2026-01-25', status: 'confirmed', total: 50, ...DOLLARS });
+    s.store.setInvoiceLines(OTHER_INVOICE, [{ id: 'inv-line-2', itemId: 'item-2', subtotal: 50, receiptLineId: null }]);
   });
 
   it('crea una nota de credito en borrador y calcula subtotales e impuestos', async () => {
@@ -124,7 +126,7 @@ describe('Supplier Credit Notes (NCP) in Payables', () => {
       supplierId: SUPPLIER,
       invoiceId: INVOICE,
       reason: 'price_correction',
-      lines: [{ concept: 'Rebaja de precio acordada', quantity: 1, unitPrice: 40, taxRate: 0 }],
+      lines: [{ invoiceLineId: 'inv-line-1', concept: 'Rebaja de precio acordada', quantity: 1, unitPrice: 40, taxRate: 0 }],
     });
 
     await s.confirmCreditNote.run({ tenantId: TENANT_A, creditNoteId: created.id });
@@ -151,7 +153,7 @@ describe('Supplier Credit Notes (NCP) in Payables', () => {
       supplierId: SUPPLIER,
       invoiceId: OTHER_INVOICE, // Total 50 USD
       reason: 'damaged_goods',
-      lines: [{ concept: 'Devolucion mayor', quantity: 1, unitPrice: 50, taxRate: 0 }],
+      lines: [{ invoiceLineId: 'inv-line-2', concept: 'Devolucion mayor', quantity: 1, unitPrice: 50, taxRate: 0 }],
     });
 
     await s.confirmCreditNote.run({ tenantId: TENANT_A, creditNoteId: created.id });
@@ -313,7 +315,7 @@ describe('Supplier Credit Notes (NCP) in Payables', () => {
       supplierId: SUPPLIER,
       invoiceId: INVOICE,
       reason: 'price_correction',
-      lines: [{ concept: 'Descuento', quantity: 1, unitPrice: 30, taxRate: 0 }],
+      lines: [{ invoiceLineId: 'inv-line-1', concept: 'Descuento', quantity: 1, unitPrice: 30, taxRate: 0 }],
     });
 
     await s.confirmCreditNote.run({ tenantId: TENANT_A, creditNoteId: created.id });
@@ -369,7 +371,7 @@ describe('Supplier Credit Notes (NCP) in Payables', () => {
       supplierId: SUPPLIER,
       invoiceId: INVOICE,
       reason: 'subsequent_discount',
-      lines: [{ concept: 'Descuento', quantity: 1, unitPrice: 25, taxRate: 0 }],
+      lines: [{ invoiceLineId: 'inv-line-1', concept: 'Descuento', quantity: 1, unitPrice: 25, taxRate: 0 }],
     });
     await s.confirmCreditNote.run({ tenantId: TENANT_A, creditNoteId: noteCreated.id });
 

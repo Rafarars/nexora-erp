@@ -12,6 +12,8 @@ import { effectiveRateToBase } from '../../../../shared/domain/purchase-price-di
 import { RevaluationSourceMovementNotFoundError } from '../../../inventory/domain/errors/inventory.errors.js';
 import {
   CreditNoteAlreadyCancelledError,
+  CreditNoteLineAmountExceedsInvoiceError,
+  CreditNoteLineItemMismatchError,
   CreditNoteNotConfirmableError,
   CreditNoteNotFoundError,
   CreditNoteReturnAlreadyCreditedError,
@@ -48,6 +50,7 @@ export class PrismaSupplierCreditNotePosting implements SupplierCreditNotePostin
     noteId: SupplierCreditNoteId,
     now: Date,
     today: string,
+    userId?: string | null,
   ): Promise<{ creditNote: SupplierCreditNote; issuePayment: SupplierPayment | null }> {
     const tenant = tenantId.value;
 
@@ -97,6 +100,81 @@ export class PrismaSupplierCreditNotePosting implements SupplierCreditNotePostin
         }
 
         const invoice = invoiceFromRow(invoiceRow);
+
+        // Validación de líneas de la nota contra las líneas de la factura bajo FOR UPDATE
+        const invoiceLines = await tx.purchaseInvoiceLine.findMany({
+          where: { tenantId: tenant, invoiceId },
+          include: {
+            receiptLine: {
+              include: {
+                receipt: true,
+              },
+            },
+          },
+        });
+        const invLinesMap = new Map(invoiceLines.map((il) => [il.id, il]));
+
+        if (!note.purchaseReturnId()) {
+          const otherConfirmedNoteLines = await tx.supplierCreditNoteLine.findMany({
+            where: {
+              tenantId: tenant,
+              creditNote: {
+                invoiceId,
+                status: 'confirmed',
+                id: { not: note.id.value },
+              },
+              invoiceLineId: { not: null },
+            },
+            select: {
+              invoiceLineId: true,
+              subtotal: true,
+            },
+          });
+          const creditedByLineId = new Map<string, number>();
+          for (const cl of otherConfirmedNoteLines) {
+            if (!cl.invoiceLineId) continue;
+            const current = creditedByLineId.get(cl.invoiceLineId) ?? 0;
+            creditedByLineId.set(cl.invoiceLineId, current + Number(cl.subtotal));
+          }
+
+          const consumedInSameNote = new Map<string, number>();
+          for (const line of noteRow.lines) {
+            if (!line.invoiceLineId) continue;
+            const invLine = invLinesMap.get(line.invoiceLineId);
+            if (!invLine) continue;
+
+            if (invLine.itemId && line.itemId && line.itemId !== invLine.itemId) {
+              throw new CreditNoteLineItemMismatchError(
+                line.id,
+                invLine.itemId,
+                line.itemId,
+              );
+            }
+            if (invLine.itemId && !line.itemId) {
+              throw new CreditNoteLineItemMismatchError(
+                line.id,
+                invLine.itemId,
+                'none',
+              );
+            }
+
+            const lineSubtotal = Number(line.subtotal);
+            const priorConfirmed = creditedByLineId.get(line.invoiceLineId) ?? 0;
+            const sameNoteSoFar = consumedInSameNote.get(line.invoiceLineId) ?? 0;
+            const totalAttempted = priorConfirmed + sameNoteSoFar + lineSubtotal;
+            const invLineSubtotal = Number(invLine.subtotal);
+
+            if (totalAttempted > invLineSubtotal + 1e-4) {
+              throw new CreditNoteLineAmountExceedsInvoiceError(
+                line.id,
+                totalAttempted,
+                invLineSubtotal,
+              );
+            }
+
+            consumedInSameNote.set(line.invoiceLineId, sameNoteSoFar + lineSubtotal);
+          }
+        }
 
         // Cupo de importe: notas confirmadas anteriores sobre la misma factura
         const otherConfirmedNotes = await tx.supplierCreditNote.aggregate({
@@ -261,6 +339,7 @@ export class PrismaSupplierCreditNotePosting implements SupplierCreditNotePostin
 
       // 3. Si es rebaja de mercancía sobre factura: generar revaluaciones por importe negativas (H9 §3.10, §4.4, Defecto 1.5)
       let totalPriceDifference = 0;
+      let totalExchangeDifference = 0;
       const revaluationsByWarehouse = new Map<string, InvoiceRevaluationLineData[]>();
 
       if (note.invoiceId() && !note.purchaseReturnId()) {
@@ -304,6 +383,8 @@ export class PrismaSupplierCreditNotePosting implements SupplierCreditNotePostin
             notePrimitives.baseExchangeRate,
           );
 
+          totalExchangeDifference = 0;
+
           for (const line of linesWithInvoice) {
             const invLine = invLinesMap.get(line.invoiceLineId!);
             if (!invLine || !invLine.receiptLine) continue;
@@ -311,9 +392,21 @@ export class PrismaSupplierCreditNotePosting implements SupplierCreditNotePostin
             const receipt = invLine.receiptLine.receipt;
             const warehouseId = receipt.warehouseId;
             const lineSubtotal = Number(line.subtotal);
-            // La rebaja disminuye el costo de inventario: importe negativo
-            const amountBase = -1 * Number((lineSubtotal * noteRate).toFixed(4));
+
+            const receiptRate = effectiveRateToBase(
+              receipt.currency,
+              receipt.baseCurrency,
+              receipt.exchangeRate ? Number(receipt.exchangeRate) : null,
+              receipt.baseExchangeRate ? Number(receipt.baseExchangeRate) : null,
+            );
+
+            // La rebaja disminuye el costo de inventario a tasa de recepción
+            const amountBase = -1 * Number((lineSubtotal * receiptRate).toFixed(4));
+            // Diferencia en cambio por variación de tipo de cambio entre recepción y nota
+            const lineExchangeDiff = -1 * Number((lineSubtotal * (noteRate - receiptRate)).toFixed(4));
+
             totalPriceDifference += amountBase;
+            totalExchangeDifference += lineExchangeDiff;
 
             const sourceMovementId = movementByLineId.get(invLine.receiptLineId!);
             if (!sourceMovementId) {
@@ -346,7 +439,7 @@ export class PrismaSupplierCreditNotePosting implements SupplierCreditNotePostin
               revalData,
               now,
               today,
-              null,
+              userId ?? null,
               tx,
               'supplier_credit_note',
             );
@@ -355,7 +448,7 @@ export class PrismaSupplierCreditNotePosting implements SupplierCreditNotePostin
       }
 
       // 4. Confirmar la nota
-      note.confirm(now, issuePayment ? issuePayment.id.value : null, totalPriceDifference, 0);
+      note.confirm(now, issuePayment ? issuePayment.id.value : null, totalPriceDifference, totalExchangeDifference);
       const updated = note.toPrimitives();
 
       await tx.supplierCreditNote.update({
@@ -374,7 +467,7 @@ export class PrismaSupplierCreditNotePosting implements SupplierCreditNotePostin
     });
   }
 
-  async cancel(tenantId: TenantId, noteId: SupplierCreditNoteId, now: Date): Promise<void> {
+  async cancel(tenantId: TenantId, noteId: SupplierCreditNoteId, now: Date, userId?: string | null): Promise<void> {
     const tenant = tenantId.value;
 
     await this.prisma.$transaction(async (tx) => {
@@ -448,7 +541,7 @@ export class PrismaSupplierCreditNotePosting implements SupplierCreditNotePostin
         note.code,
         now,
         todayStr,
-        null,
+        userId ?? null,
         tx,
         'supplier_credit_note',
       );

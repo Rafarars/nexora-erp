@@ -9,10 +9,10 @@ export class SupplierCreditNoteCanceller {
     private readonly clock: Clock,
   ) {}
 
-  async run(request: { tenantId: string; creditNoteId: string }): Promise<void> {
+  async run(request: { tenantId: string; creditNoteId: string; userId?: string | null }): Promise<void> {
     const tenantId = TenantId.of(request.tenantId);
     const now = this.clock.now();
 
-    await this.posting.cancel(tenantId, SupplierCreditNoteId.of(request.creditNoteId), now);
+    await this.posting.cancel(tenantId, SupplierCreditNoteId.of(request.creditNoteId), now, request.userId);
   }
 }

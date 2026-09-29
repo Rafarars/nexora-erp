@@ -11,11 +11,11 @@ export class SupplierCreditNoteConfirmer {
     private readonly calendar: BusinessCalendar,
   ) {}
 
-  async run(request: { tenantId: string; creditNoteId: string }): Promise<void> {
+  async run(request: { tenantId: string; creditNoteId: string; userId?: string | null }): Promise<void> {
     const tenantId = TenantId.of(request.tenantId);
     const now = this.clock.now();
     const today = await this.calendar.today(request.tenantId);
 
-    await this.posting.confirm(tenantId, SupplierCreditNoteId.of(request.creditNoteId), now, today);
+    await this.posting.confirm(tenantId, SupplierCreditNoteId.of(request.creditNoteId), now, today, request.userId);
   }
 }

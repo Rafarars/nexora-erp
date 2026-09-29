@@ -119,6 +119,7 @@ test('spends available credit from a credit note in a payment from the screen', 
       date: '2026-09-08',
       lines: [
         {
+          invoiceLineId: invoice1.lines[0]?.id,
           concept: 'Descuento comercial e2e',
           quantity: 1,
           unitPrice: 30,

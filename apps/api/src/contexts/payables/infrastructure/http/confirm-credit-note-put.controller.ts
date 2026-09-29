@@ -15,6 +15,6 @@ export class ConfirmSupplierCreditNotePutController {
     @Session() session: CurrentSession,
     @Param('creditNoteId') creditNoteId: string,
   ): Promise<void> {
-    await this.useCase.run({ creditNoteId, tenantId: session.tenantId });
+    await this.useCase.run({ creditNoteId, tenantId: session.tenantId, userId: session.userId });
   }
 }

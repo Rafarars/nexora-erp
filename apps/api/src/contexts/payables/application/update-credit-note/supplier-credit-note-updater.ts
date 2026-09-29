@@ -6,6 +6,7 @@ import { DocumentCurrency } from '../../../../shared/domain/document-currency.js
 import {
   CreditNoteLineAmountExceedsInvoiceError,
   CreditNoteLineInvoiceMismatchError,
+  CreditNoteLineItemMismatchError,
   CreditNoteNotFoundError,
   CreditNoteReturnLinesNotFromInvoiceError,
   InvoiceNotPayableError,
@@ -109,18 +110,24 @@ export class SupplierCreditNoteUpdater {
 
     const decimals = await this.rates.amountDecimals(request.tenantId);
 
-    const lines: SupplierCreditNoteLineInput[] = request.lines.map((l) => ({
-      id: l.id ?? this.ids.next(),
-      invoiceLineId: l.invoiceLineId,
-      itemId: l.itemId,
-      itemSku: l.itemSku,
-      itemName: l.itemName,
-      concept: l.concept,
-      unitId: l.unitId,
-      quantity: l.quantity,
-      unitPrice: l.unitPrice,
-      taxRate: l.taxRate ?? 0,
-    }));
+    const invoiceLines = request.invoiceId ? await this.ledger.invoiceLines(tenantId, request.invoiceId) : [];
+    const invoiceLinesMap = new Map(invoiceLines.map((il) => [il.id, il]));
+
+    const lines: SupplierCreditNoteLineInput[] = request.lines.map((l) => {
+      const invLine = l.invoiceLineId ? invoiceLinesMap.get(l.invoiceLineId) : null;
+      return {
+        id: l.id ?? this.ids.next(),
+        invoiceLineId: l.invoiceLineId,
+        itemId: l.itemId ?? invLine?.itemId ?? null,
+        itemSku: l.itemSku,
+        itemName: l.itemName,
+        concept: l.concept,
+        unitId: l.unitId,
+        quantity: l.quantity,
+        unitPrice: l.unitPrice,
+        taxRate: l.taxRate ?? 0,
+      };
+    });
 
     const details = {
       supplierId,
@@ -141,18 +148,37 @@ export class SupplierCreditNoteUpdater {
       const alreadyCredited = await this.creditNotes.creditedAmountByInvoice(tenantId, request.invoiceId);
       PayableCreditQuota.ensureWithinQuota(invoice.total(), alreadyCredited, note.total(), request.invoiceId);
 
-      const invoiceLines = await this.ledger.invoiceLines(tenantId, request.invoiceId);
-      const invoiceLinesMap = new Map(invoiceLines.map((il) => [il.id, il]));
+      const noteLinePrimitives = note.toPrimitives().lines;
+      const invoiceLineIds = noteLinePrimitives
+        .map((l) => l.invoiceLineId)
+        .filter((id): id is string => Boolean(id));
+      const alreadyCreditedByLine = await this.creditNotes.creditedAmountByInvoiceLines(
+        tenantId,
+        invoiceLineIds,
+        note.id,
+      );
 
-      for (const line of note.toPrimitives().lines) {
+      const consumedInSameNote = new Map<string, number>();
+      for (const line of noteLinePrimitives) {
         if (line.invoiceLineId) {
           const invLine = invoiceLinesMap.get(line.invoiceLineId);
           if (!invLine) {
             throw new CreditNoteLineInvoiceMismatchError(line.invoiceLineId, request.invoiceId);
           }
-          if (line.subtotal > invLine.subtotal) {
-            throw new CreditNoteLineAmountExceedsInvoiceError(line.invoiceLineId, line.subtotal, invLine.subtotal);
+          if (invLine.itemId && line.itemId && line.itemId !== invLine.itemId) {
+            throw new CreditNoteLineItemMismatchError(line.invoiceLineId, invLine.itemId, line.itemId);
           }
+          const alreadyDiscounted = alreadyCreditedByLine.get(line.invoiceLineId) ?? 0;
+          const consumedInNote = consumedInSameNote.get(line.invoiceLineId) ?? 0;
+          const availableQuota = Number((invLine.subtotal - alreadyDiscounted - consumedInNote).toFixed(4));
+          if (line.subtotal > availableQuota + 0.0001) {
+            throw new CreditNoteLineAmountExceedsInvoiceError(
+              line.invoiceLineId,
+              line.subtotal,
+              Math.max(0, availableQuota),
+            );
+          }
+          consumedInSameNote.set(line.invoiceLineId, consumedInNote + line.subtotal);
         }
       }
 

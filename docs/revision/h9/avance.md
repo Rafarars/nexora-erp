@@ -1064,5 +1064,46 @@ Ninguno.
     520 passed (12.8m)
     Todo en verde.
     ```
+### Fase 2: Reglas de negocio de la NCP y revaluación completa
+- **Validación de línea y artículo en nota de crédito (§1.1, §1.3):**
+  - En la entidad `SupplierCreditNote`: si la nota cita factura y no devolución, el campo `invoiceLineId` es obligatorio en cada línea (lanza `CreditNoteLineInvoiceLineRequiredError`).
+  - Creado el error de dominio `CreditNoteLineItemMismatchError` en `payables.errors.ts` y registrado en `error-categories.spec.ts`.
+  - En `SupplierCreditNoteCreator` y `SupplierCreditNoteUpdater`: si la línea de nota no incluye `itemId`, se autocompleta con el artículo de la línea de factura citada. Si incluye `itemId`, valida coincidencia con la línea de factura (`CreditNoteLineItemMismatchError`).
+  - Validación de tope acumulado por línea: la suma de notas confirmadas sobre esa línea de factura más el importe de la línea actual no puede superar el subtotal de la línea de factura (`CreditNoteLineAmountExceedsInvoiceError`).
+- **Bloqueo transaccional y revaluación al confirmar NCP (§1.2, §3.10, Defecto 1.5):**
+  - En `PrismaSupplierCreditNotePosting.confirm`:
+    - Adquiere bloqueo `FOR UPDATE` sobre la factura citada antes de evaluar topes de línea y cupo global, serializando confirmaciones concurrentes.
+    - Evalúa el tope acumulado por línea mediante `creditedAmountByInvoiceLines` bajo el bloqueo antes de evaluar el cupo global de la factura.
+    - Genera ajustes de revaluación por importe negativa en borrador (`createDraftRevaluations`) usando la tasa de recepción de la mercancía (`amountBase = -1 * subtotal * receiptRate`) y guardando la diferencia en cambio (`lineExchangeDiff = -1 * subtotal * (noteRate - receiptRate)`).
+    - `confirm` propaga `userId` a `createDraftRevaluations` y actualiza `priceDifference` y `exchangeDifference` en la nota de crédito.
+- **Anulación de nota de crédito con reversión de revaluación (§4.1):**
+  - En `PrismaSupplierCreditNotePosting.cancel` y `InMemoryPayablesStore.cancel`:
+    - Si el ajuste de revaluación asociado está en borrador, lo descarta/cancela.
+    - Si el ajuste de revaluación ya estaba confirmado, genera un nuevo ajuste de revaluación inverso en borrador (`amount = -amount`) con dirección `in` hacia el movimiento de kardex de entrada original.
+    - Se propaga `userId` al caso de uso, repositorio y servicio de revaluaciones.
+- **Arneses y pruebas de contrato:**
+  - `PayablesPortsHarness` extiende la interfaz con `invoiceLines`, `adjustmentsOf`, `approveAdjustment` y `ensureItem`.
+  - `PrismaPayablesPortsHarness` e `InMemoryPayablesPortsHarness` implementan los nuevos métodos del arnés garantizando paridad entre el doble en memoria y PostgreSQL.
+  - 16/16 pruebas de contrato en verde en PostgreSQL (`prisma-payables-ports.contract.integration.spec.ts`).
+  - 16/16 pruebas de contrato en verde en memoria (`in-memory-payables-ports.contract.spec.ts`).
+- **Demostración de pruebas mediante mutaciones de código en PostgreSQL:**
+  - **Mutación §3.10:** Comentar la llamada a `createDraftRevaluations` en `PrismaSupplierCreditNotePosting.confirm`.
+    - Fallo obtenido en PostgreSQL:
+      `src/contexts/payables/testing/payables-ports.contract.ts:433:31: expect(adjs.length).toBe(1) -> Expected: 1, Received: 0`.
+  - **Mutación §4.1:** Comentar la llamada a `cancelOrReverseRevaluations` en `PrismaSupplierCreditNotePosting.cancel`.
+    - Fallos obtenidos en PostgreSQL:
+      1. `src/contexts/payables/testing/payables-ports.contract.ts:487:34: expect(adjs[0].status).toBe('cancelled') -> Expected: "cancelled", Received: "draft"`.
+      2. `src/contexts/payables/testing/payables-ports.contract.ts:537:38: expect(updatedAdjs.length).toBe(2) -> Expected: 2, Received: 1`.
+- **Verificación del sistema completo (`make verify` en `scratch/logs/verify-correcciones-fase2-r3.log`):**
+  - **Corrida roja 1 (`verify-correcciones-fase2.log`):**
+    Typecheck detectó discordancias de tipos en `payables-credit-note.spec.ts` (`invoiceId`), firmas de constructores de error (`CreditNoteLineItemMismatchError`, `CreditNoteLineAmountExceedsInvoiceError`) y nulabilidad de `originType`/`originId` en `PrismaPayablesPortsHarness.adjustmentsOf`. Corregidos todos.
+  - **Corrida roja 2 (`verify-correcciones-fase2-r2.log`):**
+    Fallo en `apps/e2e/tests/ui/payables.spec.ts:130` porque la creación de NCP en el test citaba factura pero no pasaba `invoiceLineId`, disparando la nueva regla de dominio §1.1. Se adaptó `aConfirmedPurchaseInvoice` en `purchasing-fixtures.ts` para consultar las líneas de la factura confirmada por GET y pasar `invoiceLineId: invoice1.lines[0]?.id` en el test.
+  - **Corrida verde final (`verify-correcciones-fase2-r3.log`):**
+    ```
+    520 passed (12.8m)
+    Todo en verde.
+    ```
 
+---
 

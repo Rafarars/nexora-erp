@@ -24,4 +24,36 @@ export interface PayablesPortsHarness {
   setAmountDecimals(tenantId: string, decimals: number): Promise<void>;
   reset(): Promise<void>;
   close(): Promise<void>;
+  invoiceLines?(
+    tenantId: string,
+    invoiceId: string,
+    lines: Array<{
+      id: string;
+      itemId?: string | null;
+      itemSku?: string | null;
+      itemName?: string | null;
+      unitId?: string | null;
+      quantity?: number;
+      unitPrice?: number;
+      subtotal: number;
+      receiptLineId?: string | null;
+      warehouseId?: string;
+      receiptRate?: number;
+      sourceMovementId?: string;
+    }>,
+  ): Promise<void>;
+  adjustmentsOf?(
+    tenantId: string,
+    originId: string,
+  ): Promise<Array<{
+    id: string;
+    code: string;
+    status: string;
+    type: string;
+    originType: string;
+    originId: string;
+    lines: Array<{ itemId: string; amount: number; direction: string; sourceMovementId?: string }>;
+  }>>;
+  approveAdjustment?(tenantId: string, adjustmentId: string): Promise<void>;
+  ensureItem?(tenantId: string, itemId: string): Promise<void>;
 }

@@ -1,5 +1,7 @@
 import { afterAll, afterEach, beforeEach, describe, expect, it } from 'vitest';
 import {
+  CreditNoteLineAmountExceedsInvoiceError,
+  CreditNoteLineItemMismatchError,
   InvoiceNotPayableError,
   InvoiceOfAnotherSupplierError,
   PaymentAlreadyCancelledError,
@@ -23,11 +25,20 @@ import {
   TODAY,
   aPaymentRates,
 } from '../domain/testing/payables.mother.js';
+import { DocumentCurrency } from '../../../shared/domain/document-currency.js';
 import { PayablesPorts, PayablesPortsHarness } from './payables-ports.harness.js';
 
 const tenant = TenantId.of(TENANT_A);
 const FOREIGN_SUPPLIER = 'e8999999-9999-4999-8999-999999999999';
 const FOREIGN_INVOICE = 'f9999999-9999-4999-8999-999999999999';
+
+const USD_VES_RATES = DocumentCurrency.of({
+  currency: 'USD',
+  exchangeRate: 36.5,
+  baseCurrency: 'VES',
+  baseExchangeRate: 1,
+  manualRate: false,
+});
 
 // UNA suite para el doble y para PostgreSQL. Lo que importa: que dos pagos simultaneos no paguen
 // una factura de mas, que lo pagado cuente solo lo confirmado y que nada cruce de empresa.
@@ -192,6 +203,11 @@ export function describePayablesPortsContract(implementation: string, createHarn
       });
 
       it('confirms a credit note linked to an invoice and generates an issue payment', async () => {
+        const invLineId = `f0000000-0000-4000-8000-${next()}`;
+        if (harness.invoiceLines) {
+          await harness.invoiceLines(TENANT_A, INVOICE, [{ id: invLineId, subtotal: 100 }]);
+        }
+
         const id = SupplierCreditNoteId.of(`c0000000-0000-4000-8000-${next()}`);
         const note = SupplierCreditNote.draft(
           id,
@@ -203,7 +219,7 @@ export function describePayablesPortsContract(implementation: string, createHarn
             issueDate: PayablesDate.of(TODAY),
             reason: 'price_correction',
             currency: aPaymentRates().currency,
-            lines: [{ id: `e0000000-0000-4000-8000-${next()}`, concept: 'Ajuste', quantity: 1, unitPrice: 35, taxRate: 0 }],
+            lines: [{ id: `e0000000-0000-4000-8000-${next()}`, invoiceLineId: invLineId, concept: 'Ajuste', quantity: 1, unitPrice: 35, taxRate: 0 }],
           },
           NOW,
           TODAY,
@@ -225,6 +241,305 @@ export function describePayablesPortsContract(implementation: string, createHarn
         const cancelled = await ports.creditNotes.find(tenant, id);
         expect(cancelled?.currentStatus()).toBe('cancelled');
         expect((await invoice(INVOICE)).balance()).toBe(100);
+      });
+
+      it('rejects credit note confirmation if item does not match invoice line', async () => {
+        const invLineId = `f0000000-0000-4000-8000-${next()}`;
+        const itemA = `a0000000-0000-4000-8000-${next()}`;
+        const itemB = `b0000000-0000-4000-8000-${next()}`;
+
+        if (harness.invoiceLines) {
+          await harness.invoiceLines(TENANT_A, INVOICE, [{ id: invLineId, itemId: itemA, subtotal: 100 }]);
+        }
+        if (harness.ensureItem) {
+          await harness.ensureItem(TENANT_A, itemB);
+        }
+
+        const id = SupplierCreditNoteId.of(`c0000000-0000-4000-8000-${next()}`);
+        const note = SupplierCreditNote.draft(
+          id,
+          tenant,
+          `NCP${next().slice(-6)}`,
+          {
+            supplierId: SUPPLIER,
+            invoiceId: INVOICE,
+            issueDate: PayablesDate.of(TODAY),
+            reason: 'price_correction',
+            currency: aPaymentRates().currency,
+            lines: [{ id: `e0000000-0000-4000-8000-${next()}`, invoiceLineId: invLineId, itemId: itemB, quantity: 1, unitPrice: 30, taxRate: 0 }],
+          },
+          NOW,
+          TODAY,
+        );
+
+        await ports.creditNotes.save(note);
+        await expect(ports.creditNotePosting.confirm(tenant, id, NOW, TODAY)).rejects.toThrow(
+          CreditNoteLineItemMismatchError,
+        );
+      });
+
+      it('rejects credit note confirmation if cumulative line amount exceeds invoice line total', async () => {
+        const invLineId = `f0000000-0000-4000-8000-${next()}`;
+        if (harness.invoiceLines) {
+          await harness.invoiceLines(TENANT_A, INVOICE, [{ id: invLineId, subtotal: 100 }]);
+        }
+
+        const note1Id = SupplierCreditNoteId.of(`c0000000-0000-4000-8000-${next()}`);
+        const note1 = SupplierCreditNote.draft(
+          note1Id,
+          tenant,
+          `NCP${next().slice(-6)}`,
+          {
+            supplierId: SUPPLIER,
+            invoiceId: INVOICE,
+            issueDate: PayablesDate.of(TODAY),
+            reason: 'price_correction',
+            currency: aPaymentRates().currency,
+            lines: [{ id: `e0000000-0000-4000-8000-${next()}`, invoiceLineId: invLineId, concept: 'Rebaja 1', quantity: 1, unitPrice: 60, taxRate: 0 }],
+          },
+          NOW,
+          TODAY,
+        );
+        await ports.creditNotes.save(note1);
+        await ports.creditNotePosting.confirm(tenant, note1Id, NOW, TODAY);
+
+        const note2Id = SupplierCreditNoteId.of(`c0000000-0000-4000-8000-${next()}`);
+        const note2 = SupplierCreditNote.draft(
+          note2Id,
+          tenant,
+          `NCP${next().slice(-6)}`,
+          {
+            supplierId: SUPPLIER,
+            invoiceId: INVOICE,
+            issueDate: PayablesDate.of(TODAY),
+            reason: 'price_correction',
+            currency: aPaymentRates().currency,
+            lines: [{ id: `e0000000-0000-4000-8000-${next()}`, invoiceLineId: invLineId, concept: 'Rebaja 2', quantity: 1, unitPrice: 50, taxRate: 0 }],
+          },
+          NOW,
+          TODAY,
+        );
+        await ports.creditNotes.save(note2);
+
+        await expect(ports.creditNotePosting.confirm(tenant, note2Id, NOW, TODAY)).rejects.toThrow(
+          CreditNoteLineAmountExceedsInvoiceError,
+        );
+      });
+
+      it('serializes concurrent credit notes so cumulative line amounts cannot exceed line total', async () => {
+        const invLineId = `f0000000-0000-4000-8000-${next()}`;
+        if (harness.invoiceLines) {
+          await harness.invoiceLines(TENANT_A, INVOICE, [{ id: invLineId, subtotal: 100 }]);
+        }
+
+        const note1Id = SupplierCreditNoteId.of(`c0000000-0000-4000-8000-${next()}`);
+        const note1 = SupplierCreditNote.draft(
+          note1Id,
+          tenant,
+          `NCP${next().slice(-6)}`,
+          {
+            supplierId: SUPPLIER,
+            invoiceId: INVOICE,
+            issueDate: PayablesDate.of(TODAY),
+            reason: 'price_correction',
+            currency: aPaymentRates().currency,
+            lines: [{ id: `e0000000-0000-4000-8000-${next()}`, invoiceLineId: invLineId, concept: 'Simultanea 1', quantity: 1, unitPrice: 60, taxRate: 0 }],
+          },
+          NOW,
+          TODAY,
+        );
+        await ports.creditNotes.save(note1);
+
+        const note2Id = SupplierCreditNoteId.of(`c0000000-0000-4000-8000-${next()}`);
+        const note2 = SupplierCreditNote.draft(
+          note2Id,
+          tenant,
+          `NCP${next().slice(-6)}`,
+          {
+            supplierId: SUPPLIER,
+            invoiceId: INVOICE,
+            issueDate: PayablesDate.of(TODAY),
+            reason: 'price_correction',
+            currency: aPaymentRates().currency,
+            lines: [{ id: `e0000000-0000-4000-8000-${next()}`, invoiceLineId: invLineId, concept: 'Simultanea 2', quantity: 1, unitPrice: 60, taxRate: 0 }],
+          },
+          NOW,
+          TODAY,
+        );
+        await ports.creditNotes.save(note2);
+
+        const results = await Promise.allSettled([
+          ports.creditNotePosting.confirm(tenant, note1Id, NOW, TODAY),
+          ports.creditNotePosting.confirm(tenant, note2Id, NOW, TODAY),
+        ]);
+
+        const fulfilled = results.filter((r) => r.status === 'fulfilled');
+        const rejected = results.filter((r) => r.status === 'rejected');
+
+        expect(fulfilled).toHaveLength(1);
+        expect(rejected).toHaveLength(1);
+        expect((rejected[0] as PromiseRejectedResult).reason).toBeInstanceOf(
+          CreditNoteLineAmountExceedsInvoiceError,
+        );
+
+        const inv = await invoice(INVOICE);
+        expect(inv.balance()).toBe(40);
+      });
+
+      it('creates draft negative revaluation adjustment when confirming credit note for goods price discount (H9 §3.10)', async () => {
+        const invLineId = `f0000000-0000-4000-8000-${next()}`;
+        const itemId = `f1000000-0000-4000-8000-${next()}`;
+        if (harness.invoiceLines) {
+          await harness.invoiceLines(TENANT_A, INVOICE, [
+            { id: invLineId, itemId, subtotal: 100, receiptRate: 36.5 },
+          ]);
+        }
+
+        const id = SupplierCreditNoteId.of(`c0000000-0000-4000-8000-${next()}`);
+        const note = SupplierCreditNote.draft(
+          id,
+          tenant,
+          `NCP${next().slice(-6)}`,
+          {
+            supplierId: SUPPLIER,
+            invoiceId: INVOICE,
+            issueDate: PayablesDate.of(TODAY),
+            reason: 'price_correction',
+            currency: USD_VES_RATES,
+            lines: [
+              {
+                id: `e0000000-0000-4000-8000-${next()}`,
+                invoiceLineId: invLineId,
+                itemId,
+                concept: 'Rebaja mercancia',
+                quantity: 1,
+                unitPrice: 20,
+                taxRate: 0,
+              },
+            ],
+          },
+          NOW,
+          TODAY,
+        );
+        await ports.creditNotes.save(note);
+        await ports.creditNotePosting.confirm(tenant, id, NOW, TODAY);
+
+        const confirmed = await ports.creditNotes.find(tenant, id);
+        expect(confirmed?.currentStatus()).toBe('confirmed');
+        expect(confirmed?.toPrimitives().priceDifference).toBeCloseTo(-20 * 36.5, 2);
+
+        if (harness.adjustmentsOf) {
+          const adjs = await harness.adjustmentsOf(tenant.value, id.value);
+          expect(adjs.length).toBe(1);
+          expect(adjs[0].type).toBe('revaluation');
+          expect(adjs[0].status).toBe('draft');
+          expect(adjs[0].originType).toBe('supplier_credit_note');
+          expect(adjs[0].originId).toBe(id.value);
+          expect(adjs[0].lines[0].direction).toBe('out');
+          expect(adjs[0].lines[0].amount).toBeCloseTo(-20 * 36.5, 2);
+          expect(adjs[0].lines[0].sourceMovementId).toBeDefined();
+        }
+      });
+
+      it('cancels draft revaluation adjustment when credit note is cancelled (H9 §4.1)', async () => {
+        const invLineId = `f0000000-0000-4000-8000-${next()}`;
+        const itemId = `f1000000-0000-4000-8000-${next()}`;
+        if (harness.invoiceLines) {
+          await harness.invoiceLines(TENANT_A, INVOICE, [
+            { id: invLineId, itemId, subtotal: 100, receiptRate: 36.5 },
+          ]);
+        }
+
+        const id = SupplierCreditNoteId.of(`c0000000-0000-4000-8000-${next()}`);
+        const note = SupplierCreditNote.draft(
+          id,
+          tenant,
+          `NCP${next().slice(-6)}`,
+          {
+            supplierId: SUPPLIER,
+            invoiceId: INVOICE,
+            issueDate: PayablesDate.of(TODAY),
+            reason: 'price_correction',
+            currency: USD_VES_RATES,
+            lines: [
+              {
+                id: `e0000000-0000-4000-8000-${next()}`,
+                invoiceLineId: invLineId,
+                itemId,
+                concept: 'Rebaja mercancia',
+                quantity: 1,
+                unitPrice: 20,
+                taxRate: 0,
+              },
+            ],
+          },
+          NOW,
+          TODAY,
+        );
+        await ports.creditNotes.save(note);
+        await ports.creditNotePosting.confirm(tenant, id, NOW, TODAY);
+
+        await ports.creditNotePosting.cancel(tenant, id, NOW);
+
+        if (harness.adjustmentsOf) {
+          const adjs = await harness.adjustmentsOf(tenant.value, id.value);
+          expect(adjs.length).toBe(1);
+          expect(adjs[0].status).toBe('cancelled');
+        }
+      });
+
+      it('creates reverse revaluation adjustment when cancelling credit note whose adjustment was confirmed (H9 §4.1)', async () => {
+        const invLineId = `f0000000-0000-4000-8000-${next()}`;
+        const itemId = `f1000000-0000-4000-8000-${next()}`;
+        if (harness.invoiceLines) {
+          await harness.invoiceLines(TENANT_A, INVOICE, [
+            { id: invLineId, itemId, subtotal: 100, receiptRate: 36.5 },
+          ]);
+        }
+
+        const id = SupplierCreditNoteId.of(`c0000000-0000-4000-8000-${next()}`);
+        const note = SupplierCreditNote.draft(
+          id,
+          tenant,
+          `NCP${next().slice(-6)}`,
+          {
+            supplierId: SUPPLIER,
+            invoiceId: INVOICE,
+            issueDate: PayablesDate.of(TODAY),
+            reason: 'price_correction',
+            currency: USD_VES_RATES,
+            lines: [
+              {
+                id: `e0000000-0000-4000-8000-${next()}`,
+                invoiceLineId: invLineId,
+                itemId,
+                concept: 'Rebaja mercancia',
+                quantity: 1,
+                unitPrice: 20,
+                taxRate: 0,
+              },
+            ],
+          },
+          NOW,
+          TODAY,
+        );
+        await ports.creditNotes.save(note);
+        await ports.creditNotePosting.confirm(tenant, id, NOW, TODAY);
+
+        if (harness.adjustmentsOf && harness.approveAdjustment) {
+          const adjs = await harness.adjustmentsOf(tenant.value, id.value);
+          expect(adjs.length).toBe(1);
+          await harness.approveAdjustment(tenant.value, adjs[0].id);
+
+          await ports.creditNotePosting.cancel(tenant, id, NOW);
+
+          const updatedAdjs = await harness.adjustmentsOf(tenant.value, id.value);
+          expect(updatedAdjs.length).toBe(2);
+          const reverseAdj = updatedAdjs.find((a) => a.id !== adjs[0].id)!;
+          expect(reverseAdj.status).toBe('draft');
+          expect(reverseAdj.lines[0].direction).toBe('in');
+          expect(reverseAdj.lines[0].amount).toBeCloseTo(20 * 36.5, 2);
+        }
       });
     });
   });

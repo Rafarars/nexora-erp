@@ -39,6 +39,80 @@ export class InMemoryPayablesPortsHarness implements PayablesPortsHarness {
     this.store.setAmountDecimals(tenantId, decimals);
   }
 
+  async invoiceLines(
+    tenantId: string,
+    invoiceId: string,
+    lines: Array<{
+      id: string;
+      itemId?: string | null;
+      itemSku?: string | null;
+      itemName?: string | null;
+      unitId?: string | null;
+      quantity?: number;
+      unitPrice?: number;
+      subtotal: number;
+      receiptLineId?: string | null;
+      warehouseId?: string;
+      receiptRate?: number;
+      sourceMovementId?: string;
+    }>,
+  ): Promise<void> {
+    this.store.setInvoiceLines(
+      invoiceId,
+      lines.map((l) => ({
+        id: l.id,
+        itemId: l.itemId ?? null,
+        itemSku: l.itemSku ?? null,
+        itemName: l.itemName ?? null,
+        unitId: l.unitId ?? null,
+        subtotal: l.subtotal,
+        receiptLineId: l.receiptLineId ?? null,
+        warehouseId: l.warehouseId,
+        receiptRate: l.receiptRate,
+        sourceMovementId: l.sourceMovementId,
+      })),
+    );
+  }
+
+  async adjustmentsOf(
+    tenantId: string,
+    originId: string,
+  ): Promise<Array<{
+    id: string;
+    code: string;
+    status: string;
+    type: string;
+    originType: string;
+    originId: string;
+    lines: Array<{ itemId: string; amount: number; direction: string; sourceMovementId?: string }>;
+  }>> {
+    return this.store.revaluationPosting.adjustments
+      .filter((a) => a.tenantId === tenantId && a.originId === originId)
+      .map((a) => ({
+        id: a.id,
+        code: a.code,
+        status: a.status,
+        type: a.type,
+        originType: a.originType,
+        originId: a.originId,
+        lines: a.lines.map((l) => ({
+          itemId: l.itemId,
+          amount: l.amount,
+          direction: l.direction,
+          sourceMovementId: l.sourceMovementId,
+        })),
+      }));
+  }
+
+  async approveAdjustment(tenantId: string, adjustmentId: string): Promise<void> {
+    const adj = this.store.revaluationPosting.adjustments.find(
+      (a) => a.tenantId === tenantId && a.id === adjustmentId,
+    );
+    if (adj) adj.status = 'confirmed';
+  }
+
+  async ensureItem(_tenantId: string, _itemId: string): Promise<void> {}
+
   async reset(): Promise<void> {
     this.store = new InMemoryPayablesStore();
     this.codeSequence = new InMemoryPayablesCodeSequence();
