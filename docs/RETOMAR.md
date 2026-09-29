@@ -3,7 +3,7 @@
 Documento de traspaso: contiene lo necesario para continuar el proyecto **sin depender
 de ninguna conversación anterior**.
 
-**Actualizado:** 28 de septiembre de 2026
+**Actualizado:** 29 de septiembre de 2026
 
 ---
 
@@ -12,6 +12,23 @@ de ninguna conversación anterior**.
 **Construir H9, compras hasta el pago**, con `agy`:
 [`H9-COMPRAS-HASTA-EL-PAGO.md`](H9-COMPRAS-HASTA-EL-PAGO.md). **H8 está cerrado y mergeado a
 `main`** desde el 28-sep-2026. Después de H9 viene [H10](H10-CONTABILIDAD.md), sin construir.
+
+**H9 está en construcción en la rama `h9`, sin mergear** (29-sep-2026). Dónde quedó:
+
+1. `agy` construyó las fases 0 a 5 y 7 (8 commits, `7767bb3..85e5f4b`). Claude las revisó contra el
+   código, sus registros y su conversación, y corrió `make verify` sobre `85e5f4b`: **verde** (3612 +
+   229 unitarias, 294 de contrato, 516 e2e). Aun así encontró **siete defectos**: el reparto de
+   `PriceVariance` contaba revaluaciones, devoluciones a proveedor y salidas anuladas; `lockedLedger`
+   cargaba el kardex entero en cada movimiento; Compras escribía las tablas de Inventario a mano; el
+   ajuste se fechaba en UTC; la nota de proveedor de rebaja no revaluaba ni comprobaba la devolución;
+   y Pagos no dejaba elegir la nota. Además **la fase 6 (Reportes) no se hizo** y el avance traía
+   cifras de una corrida roja como verdes. Y un **hueco del plan**, de Claude: la línea de la nota
+   de proveedor no decía qué línea de factura rebaja (`invoiceLineId`).
+2. El prompt de corrección es `~/.gemini/tmp/erp-portafolio/prompt-h9-correcciones.md`. `agy` hizo
+   otros 8 commits (`766ee29..95c47d7`: las correcciones, la fase 6 y la fase 8). **Pendiente:
+   revisarlos** con el mismo método (código, registros en `scratch/` y en su conversación, y un
+   `make verify` propio), y que Rafael decida el merge.
+3. Después, la fase 9 (revisión con `module-review`) y, antes de H10, validar H10 entero.
 
 **El plan de H9 está listo para construir** desde el 28-sep-2026. Se contrastó con el código que
 dejó H8, Rafael cerró sus cinco decisiones abiertas, pasó una validación multiagente (15
