@@ -36,10 +36,24 @@ export class PrismaAdjustmentPosting implements AdjustmentPosting {
       );
       const previous = await movementsOf(tx, tenant, 'adjustment', adjustmentId.value);
       const warehouseId = adjustment.warehouseId().value;
-      const ledger = await lockedLedger(tx, tenant, [
-        ...adjustment.lines().map((line): [string, string] => [line.itemId.value, warehouseId]),
-        ...previous.map((movement): [string, string] => [movement.itemId.value, movement.warehouseId.value]),
-      ], previous);
+      const amountLines = adjustment
+        .lines()
+        .filter((line) => line.revaluationKind === 'amount' && line.sourceMovementId !== null)
+        .map((line) => ({
+          itemId: line.itemId.value,
+          warehouseId,
+          sourceMovementId: line.sourceMovementId!,
+        }));
+      const ledger = await lockedLedger(
+        tx,
+        tenant,
+        [
+          ...adjustment.lines().map((line): [string, string] => [line.itemId.value, warehouseId]),
+          ...previous.map((movement): [string, string] => [movement.itemId.value, movement.warehouseId.value]),
+        ],
+        previous,
+        amountLines,
+      );
 
       const posting = work(adjustment, ledger);
       const header = posting.adjustment.toPrimitives();

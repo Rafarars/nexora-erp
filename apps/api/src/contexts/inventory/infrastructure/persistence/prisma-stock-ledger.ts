@@ -28,11 +28,18 @@ export async function movementsOf(tx: TransactionClient, tenantId: string, type:
 // Bloquea los articulos en modo compartido y despues crea las existencias que falten y las
 // bloquea, siempre en ese orden. Si el trabajo que sigue lanza, la transaccion revierte tambien
 // las filas creadas.
+export interface AmountRevaluationLine {
+  itemId: string;
+  warehouseId: string;
+  sourceMovementId: string;
+}
+
 export async function lockedLedger(
   tx: TransactionClient,
   tenantId: string,
   keys: [itemId: string, warehouseId: string][],
   previous: InventoryMovement[],
+  amountLines: AmountRevaluationLine[] = [],
 ): Promise<Ledger> {
   const unique = [...new Map(keys.map(([item, warehouse]) => [keyOf(item, warehouse), [item, warehouse] as const])).values()].sort(
     ([a, b], [c, d]) => a.localeCompare(c) || b.localeCompare(d),
@@ -75,15 +82,33 @@ export async function lockedLedger(
     stocks.set(keyOf(itemId, warehouseId), stockFromRow(row));
   }
 
-  const allMovementsRows = await tx.inventoryMovement.findMany({
-    where: {
-      tenantId,
-      itemId: { in: itemIds },
-      warehouseId: { in: [...new Set(unique.map(([, w]) => w))] },
-    },
-    orderBy: { sequence: 'asc' },
-  });
-  const allMovements = allMovementsRows.map(movementFromRow);
+  // Consulta movimientos posteriores solo cuando se confirma una linea por importe,
+  // solo de ese articulo y esa bodega, y desde la secuencia del movimiento origen.
+  const movementsBySource = new Map<string, InventoryMovement[]>();
+
+  for (const line of amountLines) {
+    const source = await tx.inventoryMovement.findFirst({
+      where: { tenantId, id: line.sourceMovementId },
+      select: { sequence: true },
+    });
+
+    if (!source) continue;
+
+    const rows = await tx.inventoryMovement.findMany({
+      where: {
+        tenantId,
+        itemId: line.itemId,
+        warehouseId: line.warehouseId,
+        sequence: { gt: source.sequence },
+      },
+      orderBy: { sequence: 'asc' },
+    });
+
+    movementsBySource.set(
+      `${line.itemId}:${line.warehouseId}:${line.sourceMovementId}`,
+      rows.map(movementFromRow),
+    );
+  }
 
   return {
     item: (itemId: ItemRef) => {
@@ -105,11 +130,8 @@ export async function lockedLedger(
     averageCostOf: (itemId: ItemRef) => averages.get(itemId.value) ?? null,
     movementsOf: () => previous,
     movementsSince: (itemId: ItemRef, warehouseId: WarehouseRef, sourceMovementId: string) => {
-      const source = allMovements.find((m) => m.id.value === sourceMovementId);
-      if (!source) return [];
-      return allMovements.filter(
-        (m) => m.itemId.equals(itemId) && m.warehouseId.equals(warehouseId) && m.sequence > source.sequence,
-      );
+      const key = `${itemId.value}:${warehouseId.value}:${sourceMovementId}`;
+      return movementsBySource.get(key) ?? [];
     },
   };
 }
