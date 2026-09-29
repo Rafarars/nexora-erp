@@ -144,8 +144,8 @@ import { PrismaPayableBalances } from './persistence/prisma-payable-balances.js'
     },
     {
       provide: PaymentSearcher,
-      useFactory: (r: SupplierPaymentRepository, l: PayablesLedger) => new PaymentSearcher(r, l),
-      inject: [SUPPLIER_PAYMENT_REPOSITORY, PAYABLES_LEDGER],
+      useFactory: (r: SupplierPaymentRepository, l: PayablesLedger, cn: SupplierCreditNoteRepository) => new PaymentSearcher(r, l, cn),
+      inject: [SUPPLIER_PAYMENT_REPOSITORY, PAYABLES_LEDGER, SUPPLIER_CREDIT_NOTE_REPOSITORY],
     },
     {
       provide: PayableInvoiceSearcher,

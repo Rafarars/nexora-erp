@@ -107,6 +107,13 @@ const PURCHASING = {
     purchaseReturn: 'f9000000-0000-4000-8000-000000000001',
     purchaseReturnLine: 'fa000000-0000-4000-8000-000000000001',
     purchaseReturnMovement: 'e7000000-0000-4000-8000-000000000007',
+    serviceOrder: 'e9000000-0000-4000-8000-000000000004',
+    serviceOrderLine: 'ea000000-0000-4000-8000-000000000005',
+    northOrder: 'e9000000-0000-4000-8000-000000000005',
+    northOrderLine: 'ea000000-0000-4000-8000-000000000006',
+    northReceipt: 'eb000000-0000-4000-8000-000000000003',
+    northReceiptLine: 'ec000000-0000-4000-8000-000000000003',
+    northReceiptMovement: 'e7000000-0000-4000-8000-000000000014',
   },
   globex: {
     supplier: 'e8000000-0000-4000-8000-000000000101',
@@ -238,6 +245,71 @@ const INVENTORY = {
   },
 };
 
+// Cuentas por pagar de ejemplo (H9): facturas de compra, notas de credito, pagos a proveedor
+// y las revaluaciones de inventario asociadas.
+const PAYABLES = {
+  acme: {
+    // Facturas de compra
+    invoice1: 'fb000000-0000-4000-8000-000000000001',
+    invoice1Line: 'fb100000-0000-4000-8000-000000000001',
+    invoice2: 'fb000000-0000-4000-8000-000000000002',
+    invoice2Line: 'fb100000-0000-4000-8000-000000000002',
+    invoice3: 'fb000000-0000-4000-8000-000000000003',
+    invoice3LineMain: 'fb100000-0000-4000-8000-000000000003',
+    invoice3LineNorth: 'fb100000-0000-4000-8000-000000000004',
+    invoice4: 'fb000000-0000-4000-8000-000000000004',
+    invoice4LineService: 'fb100000-0000-4000-8000-000000000005',
+    invoice4LineExpense: 'fb100000-0000-4000-8000-000000000006',
+    invoice5: 'fb000000-0000-4000-8000-000000000005',
+    invoice5Line: 'fb100000-0000-4000-8000-000000000007',
+
+    // Pagos a proveedor
+    payment1: 'fc000000-0000-4000-8000-000000000001',
+    payment1Alloc1: 'fc100000-0000-4000-8000-000000000001',
+    payment1Alloc2: 'fc100000-0000-4000-8000-000000000002',
+    payment2: 'fc000000-0000-4000-8000-000000000002',
+    payment2Alloc1: 'fc100000-0000-4000-8000-000000000003',
+    payment3: 'fc000000-0000-4000-8000-000000000003',
+    payment3Alloc1: 'fc100000-0000-4000-8000-000000000004',
+
+    // Notas de crédito de proveedor
+    creditNote1: 'fd000000-0000-4000-8000-000000000001',
+    creditNote1Line: 'fd100000-0000-4000-8000-000000000001',
+    creditNote2: 'fd000000-0000-4000-8000-000000000002',
+    creditNote2Line: 'fd100000-0000-4000-8000-000000000002',
+
+    // Revaluaciones de inventario por compras
+    adjFcp1: 'fe000000-0000-4000-8000-000000000001',
+    adjFcp1Line: 'fe100000-0000-4000-8000-000000000001',
+    adjFcp2: 'fe000000-0000-4000-8000-000000000002',
+    adjFcp2Line: 'fe100000-0000-4000-8000-000000000002',
+    adjFcp2OutMovement: 'e7000000-0000-4000-8000-000000000020',
+    adjFcp2InMovement: 'e7000000-0000-4000-8000-000000000021',
+    adjFcp3Main: 'fe000000-0000-4000-8000-000000000003',
+    adjFcp3MainLine: 'fe100000-0000-4000-8000-000000000003',
+    adjFcp3North: 'fe000000-0000-4000-8000-000000000004',
+    adjFcp3NorthLine: 'fe100000-0000-4000-8000-000000000004',
+    adjNcp1: 'fe000000-0000-4000-8000-000000000005',
+    adjNcp1Line: 'fe100000-0000-4000-8000-000000000005',
+  },
+  globex: {
+    confirmedInvoice: 'fb000000-0000-4000-8000-000000000102',
+    confirmedInvoiceLine: 'fb100000-0000-4000-8000-000000000102',
+    draftInvoice: 'fb000000-0000-4000-8000-000000000101',
+    draftInvoiceLine: 'fb100000-0000-4000-8000-000000000101',
+
+    confirmedPayment: 'fc000000-0000-4000-8000-000000000102',
+    confirmedPaymentAlloc: 'fc100000-0000-4000-8000-000000000102',
+    draftPayment: 'fc000000-0000-4000-8000-000000000101',
+    draftPaymentAlloc: 'fc100000-0000-4000-8000-000000000101',
+
+    confirmedCreditNote: 'fd000000-0000-4000-8000-000000000102',
+    confirmedCreditNoteLine: 'fd100000-0000-4000-8000-000000000102',
+    draftCreditNote: 'fd000000-0000-4000-8000-000000000101',
+    draftCreditNoteLine: 'fd100000-0000-4000-8000-000000000101',
+  },
+};
+
 async function main(): Promise<void> {
   if (process.env.NODE_ENV === 'production') {
     throw new Error('The demo seed must never run in production: its passwords are public.');
@@ -271,15 +343,17 @@ async function main(): Promise<void> {
     await seedPurchasing(prisma);
     await seedSales(prisma);
     await seedReceivables(prisma);
+    await seedPayables(prisma);
     await seedVolume(prisma);
 
     console.log(
       '  semillas aplicadas: 4 empresas con sus datos y parametros, 5 roles, 6 personas, 8 membresias; ' +
         'catalogo: 7 unidades, 3 categorias, 3 impuestos, 5 bodegas, 3 listas de precio, 5 articulos con 8 precios; ' +
-        'inventario: 4 ajustes (2 confirmados), 4 existencias; ' +
+        'inventario: 7 ajustes (3 confirmados), 5 existencias; ' +
         'compras: 3 proveedores, 5 ordenes, 3 entradas, 1 devolucion; ' +
         'ventas: 4 clientes, 7 pedidos, 6 despachos, 6 facturas, 2 devoluciones; ' +
         'cuentas por cobrar: 3 notas de credito, 5 cobros (5 confirmados); ' +
+        'cuentas por pagar: 7 facturas (6 confirmadas), 4 notas de credito (3 confirmadas), 5 pagos (4 confirmados); ' +
         'volumen: 50 clientes, 5000 facturas, 3000 cobros',
     );
   } finally {
@@ -412,6 +486,10 @@ async function upsertRoles(prisma: PrismaClient): Promise<void> {
         'receivables.balances.search',
         'receivables.statements.search',
         'receivables.creditnotes.search',
+        'payables.payments.search',
+        'payables.balances.search',
+        'payables.statements.search',
+        'payables.creditnotes.search',
         // Sin la valuacion del inventario: muestra costos.
         'reports.dashboard.search',
         'reports.receivables.search',
@@ -818,6 +896,22 @@ async function seedPurchasing(prisma: PrismaClient): Promise<void> {
       ],
     },
     {
+      id: PURCHASING.acme.serviceOrder, tenantId: ACME, code: 'OC000004', supplierId: PURCHASING.acme.andina,
+      warehouseId: acme.warehouses.main, orderDate: date('2026-09-02'), expectedDate: null, notes: 'Servicio de flete y entrega',
+      paymentTermDays: 30, status: 'confirmed' as const, confirmedAt: at('2026-09-02'),
+      lines: [
+        { id: PURCHASING.acme.serviceOrderLine, itemId: acme.items.delivery, unitId: acme.units.piece, quantity: 1, baseQuantity: 1, unitCost: 20, taxRate: 16, receivedQuantity: 0, invoicedQuantity: 1, movesStock: false },
+      ],
+    },
+    {
+      id: PURCHASING.acme.northOrder, tenantId: ACME, code: 'OC000005', supplierId: PURCHASING.acme.andina,
+      warehouseId: acme.warehouses.north, orderDate: date('2026-09-03'), expectedDate: date('2026-09-04'), notes: 'Compra para sucursal Norte',
+      paymentTermDays: 30, status: 'received' as const, confirmedAt: at('2026-09-03'),
+      lines: [
+        { id: PURCHASING.acme.northOrderLine, itemId: acme.items.detergent, unitId: acme.units.kilo, quantity: 10, baseQuantity: 10, unitCost: 3.0, taxRate: 16, receivedQuantity: 10, invoicedQuantity: 10, movesStock: true },
+      ],
+    },
+    {
       id: PURCHASING.globex.confirmedOrder, tenantId: GLOBEX, code: 'OC000001', supplierId: PURCHASING.globex.supplier,
       warehouseId: globex.warehouses.main, orderDate: date('2026-09-03'), expectedDate: null, notes: 'Filtros para taller',
       paymentTermDays: 15, status: 'confirmed' as const, confirmedAt: at('2026-09-03'),
@@ -850,6 +944,12 @@ async function seedPurchasing(prisma: PrismaClient): Promise<void> {
       warehouseId: acme.warehouses.main, receiptDate: date('2026-09-04'), notes: 'Recepción conforme',
       status: 'confirmed' as const, confirmedAt: at('2026-09-04'),
       lines: [{ id: PURCHASING.acme.soapReceiptLine, orderLineId: PURCHASING.acme.soapOrderLine, itemId: acme.items.soap, unitId: acme.units.piece, quantity: 20, baseQuantity: 20, unitCost: 1.5 }],
+    },
+    {
+      id: PURCHASING.acme.northReceipt, tenantId: ACME, code: 'ENT000003', orderId: PURCHASING.acme.northOrder,
+      warehouseId: acme.warehouses.north, receiptDate: date('2026-09-04'), notes: 'Recepción en Norte conforme',
+      status: 'confirmed' as const, confirmedAt: at('2026-09-04'),
+      lines: [{ id: PURCHASING.acme.northReceiptLine, orderLineId: PURCHASING.acme.northOrderLine, itemId: acme.items.detergent, unitId: acme.units.kilo, quantity: 10, baseQuantity: 10, unitCost: 3.0 }],
     },
     {
       id: PURCHASING.globex.draftReceipt, tenantId: GLOBEX, code: 'ENT000001', orderId: PURCHASING.globex.confirmedOrder,
@@ -949,8 +1049,22 @@ async function seedPurchasing(prisma: PrismaClient): Promise<void> {
     data: { quantity: 116, lastSequence: 3, updatedAt: at('2026-09-05') },
   });
 
+  await prisma.inventoryMovement.create({
+    data: {
+      id: PURCHASING.acme.northReceiptMovement, tenantId: ACME, itemId: acme.items.detergent, warehouseId: acme.warehouses.north, sequence: 1,
+      direction: 'in', quantity: 10, unitCost: 3.0, balanceQuantity: 10, balanceAverageCost: 3.0, originType: 'receipt',
+      originId: PURCHASING.acme.northReceipt, originLineId: PURCHASING.acme.northReceiptLine, originDate: at('2026-09-04'), occurredAt: at('2026-09-04'),
+    },
+  });
+  await prisma.itemStock.create({
+    data: {
+      tenantId: ACME, itemId: acme.items.detergent, warehouseId: acme.warehouses.north,
+      quantity: 10, averageCost: 3.0, lastSequence: 1, updatedAt: at('2026-09-04'),
+    },
+  });
+
   for (const [tenantId, prefix, lastValue] of [
-    [ACME, 'PRV', 2], [ACME, 'OC', 3], [ACME, 'ENT', 2], [ACME, 'DVC', 1],
+    [ACME, 'PRV', 2], [ACME, 'OC', 5], [ACME, 'ENT', 3], [ACME, 'DVC', 1],
     [GLOBEX, 'PRV', 1], [GLOBEX, 'OC', 2], [GLOBEX, 'ENT', 1],
   ] as const) {
     await prisma.$executeRaw`
@@ -1404,6 +1518,961 @@ async function seedReceivables(prisma: PrismaClient): Promise<void> {
     await prisma.$executeRaw`
       INSERT INTO code_sequences (tenant_id, prefix, last_value)
       VALUES (${tenantId}::uuid, 'NCC', ${lastValue})
+      ON CONFLICT (tenant_id, prefix)
+      DO UPDATE SET last_value = GREATEST(code_sequences.last_value, EXCLUDED.last_value)`;
+  }
+}
+
+// Cuentas por pagar de ejemplo (H9):
+// Facturas de compra (FCP), notas de credito (NCP), pagos (PAG) y revaluaciones de inventario (AJU).
+async function seedPayables(prisma: PrismaClient): Promise<void> {
+  const { acme, globex } = CATALOG;
+  const at = (day: string) => new Date(`${day}T12:00:00.000Z`);
+  const date = (day: string) => new Date(`${day}T00:00:00.000Z`);
+
+  // Facturas de compra de Acme y Globex
+  const invoices = [
+    // H9 Caso 1: Factura más cara con revaluación en borrador (FCP000001)
+    {
+      id: PAYABLES.acme.invoice1,
+      tenantId: ACME,
+      code: 'FCP000001',
+      supplierId: PURCHASING.acme.andina,
+      supplierInvoiceNumber: 'INV-AND-001',
+      supplierInvoiceSeries: null,
+      issueDate: date('2026-09-06'),
+      dueDate: date('2026-10-06'),
+      notes: 'Factura con sobreprecio en agua mineral',
+      status: 'confirmed' as const,
+      subtotal: 60.0,
+      tax: 9.6,
+      total: 69.6,
+      priceDifference: 12.0,
+      exchangeDifference: 0,
+      confirmedAt: at('2026-09-06'),
+      ...dollarsAt(150.25),
+      subtotalVes: 9015,
+      taxVes: 1442.4,
+      totalVes: 10457.4,
+      lines: [
+        {
+          id: PAYABLES.acme.invoice1Line,
+          lineNumber: 1,
+          receiptLineId: PURCHASING.acme.receiptWater,
+          orderLineId: PURCHASING.acme.partialWater,
+          itemId: acme.items.water,
+          itemSku: 'AGUA-500',
+          itemName: 'Agua mineral 500 ml',
+          concept: null,
+          unitId: acme.units.box,
+          quantity: 4,
+          unitPrice: 15.0,
+          taxRate: 16,
+          subtotal: 60.0,
+          tax: 9.6,
+          total: 69.6,
+        },
+      ],
+    },
+    // H9 Caso 2: Factura más cara con revaluación aprobada (FCP000002)
+    {
+      id: PAYABLES.acme.invoice2,
+      tenantId: ACME,
+      code: 'FCP000002',
+      supplierId: PURCHASING.acme.andina,
+      supplierInvoiceNumber: 'INV-AND-002',
+      supplierInvoiceSeries: null,
+      issueDate: date('2026-09-04'),
+      dueDate: date('2026-10-04'),
+      notes: 'Factura en Norte con revaluación confirmada',
+      status: 'confirmed' as const,
+      subtotal: 35.0,
+      tax: 5.6,
+      total: 40.6,
+      priceDifference: 5.0,
+      exchangeDifference: 0,
+      confirmedAt: at('2026-09-04'),
+      ...dollarsAt(150.25),
+      subtotalVes: 5258.75,
+      taxVes: 841.4,
+      totalVes: 6100.15,
+      lines: [
+        {
+          id: PAYABLES.acme.invoice2Line,
+          lineNumber: 1,
+          receiptLineId: PURCHASING.acme.northReceiptLine,
+          orderLineId: PURCHASING.acme.northOrderLine,
+          itemId: acme.items.detergent,
+          itemSku: 'DETERGENTE-1KG',
+          itemName: 'Detergente en polvo 1 kg',
+          concept: null,
+          unitId: acme.units.kilo,
+          quantity: 10,
+          unitPrice: 3.5,
+          taxRate: 16,
+          subtotal: 35.0,
+          tax: 5.6,
+          total: 40.6,
+        },
+      ],
+    },
+    // H9 Caso 3: Factura que cita dos bodegas (FCP000003: main y north)
+    {
+      id: PAYABLES.acme.invoice3,
+      tenantId: ACME,
+      code: 'FCP000003',
+      supplierId: PURCHASING.acme.andina,
+      supplierInvoiceNumber: 'INV-AND-003',
+      supplierInvoiceSeries: null,
+      issueDate: date('2026-09-06'),
+      dueDate: date('2026-10-06'),
+      notes: 'Factura inter-bodegas',
+      status: 'confirmed' as const,
+      subtotal: 41.5,
+      tax: 6.64,
+      total: 48.14,
+      priceDifference: 6.5,
+      exchangeDifference: 0,
+      confirmedAt: at('2026-09-06'),
+      ...dollarsAt(150.25),
+      subtotalVes: 6235.38,
+      taxVes: 997.66,
+      totalVes: 7233.04,
+      lines: [
+        {
+          id: PAYABLES.acme.invoice3LineMain,
+          lineNumber: 1,
+          receiptLineId: PURCHASING.acme.receiptWater,
+          orderLineId: PURCHASING.acme.partialWater,
+          itemId: acme.items.water,
+          itemSku: 'AGUA-500',
+          itemName: 'Agua mineral 500 ml',
+          concept: null,
+          unitId: acme.units.box,
+          quantity: 2,
+          unitPrice: 14.0,
+          taxRate: 16,
+          subtotal: 28.0,
+          tax: 4.48,
+          total: 32.48,
+        },
+        {
+          id: PAYABLES.acme.invoice3LineNorth,
+          lineNumber: 2,
+          receiptLineId: PURCHASING.acme.northReceiptLine,
+          orderLineId: PURCHASING.acme.northOrderLine,
+          itemId: acme.items.detergent,
+          itemSku: 'DETERGENTE-1KG',
+          itemName: 'Detergente en polvo 1 kg',
+          concept: null,
+          unitId: acme.units.kilo,
+          quantity: 3,
+          unitPrice: 4.5,
+          taxRate: 16,
+          subtotal: 13.5,
+          tax: 2.16,
+          total: 15.66,
+        },
+      ],
+    },
+    // H9 Caso 4: Servicio de una orden y gasto sin orden (FCP000004)
+    {
+      id: PAYABLES.acme.invoice4,
+      tenantId: ACME,
+      code: 'FCP000004',
+      supplierId: PURCHASING.acme.andina,
+      supplierInvoiceNumber: 'INV-AND-004',
+      supplierInvoiceSeries: null,
+      issueDate: date('2026-09-07'),
+      dueDate: date('2026-10-07'),
+      notes: 'Factura de servicios y transporte',
+      status: 'confirmed' as const,
+      subtotal: 30.0,
+      tax: 4.8,
+      total: 34.8,
+      priceDifference: 0,
+      exchangeDifference: 0,
+      confirmedAt: at('2026-09-07'),
+      ...dollarsAt(150.25),
+      subtotalVes: 4507.5,
+      taxVes: 721.2,
+      totalVes: 5228.7,
+      lines: [
+        {
+          id: PAYABLES.acme.invoice4LineService,
+          lineNumber: 1,
+          receiptLineId: null,
+          orderLineId: PURCHASING.acme.serviceOrderLine,
+          itemId: acme.items.delivery,
+          itemSku: 'SERV-ENTREGA',
+          itemName: 'Servicio de entrega',
+          concept: null,
+          unitId: acme.units.piece,
+          quantity: 1,
+          unitPrice: 20.0,
+          taxRate: 16,
+          subtotal: 20.0,
+          tax: 3.2,
+          total: 23.2,
+        },
+        {
+          id: PAYABLES.acme.invoice4LineExpense,
+          lineNumber: 2,
+          receiptLineId: null,
+          orderLineId: null,
+          itemId: null,
+          itemSku: null,
+          itemName: 'Gastos de embalaje y transporte',
+          concept: 'Gastos de embalaje y transporte',
+          unitId: null,
+          quantity: 1,
+          unitPrice: 10.0,
+          taxRate: 16,
+          subtotal: 10.0,
+          tax: 1.6,
+          total: 11.6,
+        },
+      ],
+    },
+    // H9 Caso 5: Factura al mismo precio que su entrada (FCP000005, sin revaluación)
+    {
+      id: PAYABLES.acme.invoice5,
+      tenantId: ACME,
+      code: 'FCP000005',
+      supplierId: PURCHASING.acme.valle,
+      supplierInvoiceNumber: 'INV-VAL-001',
+      supplierInvoiceSeries: null,
+      issueDate: date('2026-09-04'),
+      dueDate: date('2026-10-04'),
+      notes: 'Factura conforme de jabón líquido',
+      status: 'confirmed' as const,
+      subtotal: 30.0,
+      tax: 4.8,
+      total: 34.8,
+      priceDifference: 0,
+      exchangeDifference: 0,
+      confirmedAt: at('2026-09-04'),
+      ...dollarsAt(150.25),
+      subtotalVes: 4507.5,
+      taxVes: 721.2,
+      totalVes: 5228.7,
+      lines: [
+        {
+          id: PAYABLES.acme.invoice5Line,
+          lineNumber: 1,
+          receiptLineId: PURCHASING.acme.soapReceiptLine,
+          orderLineId: PURCHASING.acme.soapOrderLine,
+          itemId: acme.items.soap,
+          itemSku: 'JABON-500',
+          itemName: 'Jabón líquido 500 ml',
+          concept: null,
+          unitId: acme.units.piece,
+          quantity: 20,
+          unitPrice: 1.5,
+          taxRate: 16,
+          subtotal: 30.0,
+          tax: 4.8,
+          total: 34.8,
+        },
+      ],
+    },
+    // Globex: Facturas para aislamiento
+    {
+      id: PAYABLES.globex.confirmedInvoice,
+      tenantId: GLOBEX,
+      code: 'FCP000001',
+      supplierId: PURCHASING.globex.supplier,
+      supplierInvoiceNumber: 'INV-GLX-001',
+      supplierInvoiceSeries: null,
+      issueDate: date('2026-09-05'),
+      dueDate: date('2026-10-05'),
+      notes: 'Factura taller',
+      status: 'confirmed' as const,
+      subtotal: 100.0,
+      tax: 16.0,
+      total: 116.0,
+      priceDifference: 0,
+      exchangeDifference: 0,
+      confirmedAt: at('2026-09-05'),
+      ...dollarsAt(141),
+      subtotalVes: 14100,
+      taxVes: 2256,
+      totalVes: 16356,
+      lines: [
+        {
+          id: PAYABLES.globex.confirmedInvoiceLine,
+          lineNumber: 1,
+          receiptLineId: null,
+          orderLineId: PURCHASING.globex.confirmedFilter,
+          itemId: globex.items.filter,
+          itemSku: 'FILTRO-ACEITE',
+          itemName: 'Filtro de aceite',
+          concept: null,
+          unitId: globex.units.piece,
+          quantity: 10,
+          unitPrice: 10.0,
+          taxRate: 16,
+          subtotal: 100.0,
+          tax: 16.0,
+          total: 116.0,
+        },
+      ],
+    },
+    {
+      id: PAYABLES.globex.draftInvoice,
+      tenantId: GLOBEX,
+      code: 'FCP000002',
+      supplierId: PURCHASING.globex.supplier,
+      supplierInvoiceNumber: 'INV-GLX-002',
+      supplierInvoiceSeries: null,
+      issueDate: date('2026-09-06'),
+      dueDate: date('2026-10-06'),
+      notes: 'Borrador para aislamiento',
+      status: 'draft' as const,
+      subtotal: 40.0,
+      tax: 6.4,
+      total: 46.4,
+      priceDifference: 0,
+      exchangeDifference: 0,
+      confirmedAt: null,
+      ...dollarsAt(141),
+      subtotalVes: 5640,
+      taxVes: 902.4,
+      totalVes: 6542.4,
+      lines: [
+        {
+          id: PAYABLES.globex.draftInvoiceLine,
+          lineNumber: 1,
+          receiptLineId: null,
+          orderLineId: PURCHASING.globex.draftFilter,
+          itemId: globex.items.filter,
+          itemSku: 'FILTRO-ACEITE',
+          itemName: 'Filtro de aceite',
+          concept: null,
+          unitId: globex.units.piece,
+          quantity: 4,
+          unitPrice: 10.0,
+          taxRate: 16,
+          subtotal: 40.0,
+          tax: 6.4,
+          total: 46.4,
+        },
+      ],
+    },
+  ];
+
+  for (const { lines, ...invoice } of invoices) {
+    await prisma.purchaseInvoice.create({
+      data: {
+        ...invoice,
+        createdAt: invoice.issueDate,
+        updatedAt: invoice.confirmedAt ?? invoice.issueDate,
+      },
+    });
+    await prisma.purchaseInvoiceLine.createMany({
+      data: lines.map((l) => ({
+        ...l,
+        tenantId: invoice.tenantId,
+        invoiceId: invoice.id,
+      })),
+    });
+  }
+
+  // Revaluaciones de inventario de Acme asociadas a las facturas
+  const revaluations = [
+    // AJU000003: Revaluación en borrador por FCP000001 (bodega main)
+    {
+      id: PAYABLES.acme.adjFcp1,
+      tenantId: ACME,
+      code: 'AJU000003',
+      warehouseId: acme.warehouses.main,
+      adjustmentDate: date('2026-09-06'),
+      type: 'revaluation' as const,
+      notes: 'Diferencia de precio segun factura FCP000001',
+      status: 'draft' as const,
+      createdBy: ANA,
+      confirmedBy: null,
+      confirmedAt: null,
+      originType: 'purchase_invoice',
+      originId: PAYABLES.acme.invoice1,
+      lines: [
+        {
+          id: PAYABLES.acme.adjFcp1Line,
+          lineNumber: 1,
+          itemId: acme.items.water,
+          itemSku: 'AGUA-500',
+          itemName: 'Agua mineral 500 ml',
+          unitId: acme.units.box,
+          direction: 'in' as const,
+          quantity: 0,
+          baseQuantity: 0,
+          unitCost: null,
+          revaluationKind: 'amount' as const,
+          amount: 12.0,
+          sourceMovementId: PURCHASING.acme.receiptMovement,
+          stockPart: null,
+          soldPart: null,
+        },
+      ],
+    },
+    // AJU000004: Revaluación confirmada por FCP000002 (bodega north)
+    {
+      id: PAYABLES.acme.adjFcp2,
+      tenantId: ACME,
+      code: 'AJU000004',
+      warehouseId: acme.warehouses.north,
+      adjustmentDate: date('2026-09-04'),
+      type: 'revaluation' as const,
+      notes: 'Diferencia de precio segun factura FCP000002',
+      status: 'confirmed' as const,
+      createdBy: ANA,
+      confirmedBy: ANA,
+      confirmedAt: at('2026-09-04'),
+      originType: 'purchase_invoice',
+      originId: PAYABLES.acme.invoice2,
+      lines: [
+        {
+          id: PAYABLES.acme.adjFcp2Line,
+          lineNumber: 1,
+          itemId: acme.items.detergent,
+          itemSku: 'DETERGENTE-1KG',
+          itemName: 'Detergente en polvo 1 kg',
+          unitId: acme.units.kilo,
+          direction: 'in' as const,
+          quantity: 0,
+          baseQuantity: 0,
+          unitCost: 3.5,
+          revaluationKind: 'amount' as const,
+          amount: 5.0,
+          sourceMovementId: PURCHASING.acme.northReceiptMovement,
+          stockPart: 5.0,
+          soldPart: 0.0,
+        },
+      ],
+    },
+    // AJU000005: Revaluación en borrador por FCP000003 (bodega main)
+    {
+      id: PAYABLES.acme.adjFcp3Main,
+      tenantId: ACME,
+      code: 'AJU000005',
+      warehouseId: acme.warehouses.main,
+      adjustmentDate: date('2026-09-06'),
+      type: 'revaluation' as const,
+      notes: 'Diferencia de precio segun factura FCP000003',
+      status: 'draft' as const,
+      createdBy: ANA,
+      confirmedBy: null,
+      confirmedAt: null,
+      originType: 'purchase_invoice',
+      originId: PAYABLES.acme.invoice3,
+      lines: [
+        {
+          id: PAYABLES.acme.adjFcp3MainLine,
+          lineNumber: 1,
+          itemId: acme.items.water,
+          itemSku: 'AGUA-500',
+          itemName: 'Agua mineral 500 ml',
+          unitId: acme.units.box,
+          direction: 'in' as const,
+          quantity: 0,
+          baseQuantity: 0,
+          unitCost: null,
+          revaluationKind: 'amount' as const,
+          amount: 4.0,
+          sourceMovementId: PURCHASING.acme.receiptMovement,
+          stockPart: null,
+          soldPart: null,
+        },
+      ],
+    },
+    // AJU000006: Revaluación en borrador por FCP000003 (bodega north)
+    {
+      id: PAYABLES.acme.adjFcp3North,
+      tenantId: ACME,
+      code: 'AJU000006',
+      warehouseId: acme.warehouses.north,
+      adjustmentDate: date('2026-09-06'),
+      type: 'revaluation' as const,
+      notes: 'Diferencia de precio segun factura FCP000003',
+      status: 'draft' as const,
+      createdBy: ANA,
+      confirmedBy: null,
+      confirmedAt: null,
+      originType: 'purchase_invoice',
+      originId: PAYABLES.acme.invoice3,
+      lines: [
+        {
+          id: PAYABLES.acme.adjFcp3NorthLine,
+          lineNumber: 1,
+          itemId: acme.items.detergent,
+          itemSku: 'DETERGENTE-1KG',
+          itemName: 'Detergente en polvo 1 kg',
+          unitId: acme.units.kilo,
+          direction: 'in' as const,
+          quantity: 0,
+          baseQuantity: 0,
+          unitCost: null,
+          revaluationKind: 'amount' as const,
+          amount: 2.5,
+          sourceMovementId: PURCHASING.acme.northReceiptMovement,
+          stockPart: null,
+          soldPart: null,
+        },
+      ],
+    },
+    // AJU000007: Revaluación negativa en borrador por NCP000001 (bodega main)
+    {
+      id: PAYABLES.acme.adjNcp1,
+      tenantId: ACME,
+      code: 'AJU000007',
+      warehouseId: acme.warehouses.main,
+      adjustmentDate: date('2026-09-08'),
+      type: 'revaluation' as const,
+      notes: 'Diferencia de precio segun nota de credito NCP000001',
+      status: 'draft' as const,
+      createdBy: ANA,
+      confirmedBy: null,
+      confirmedAt: null,
+      originType: 'supplier_credit_note',
+      originId: PAYABLES.acme.creditNote1,
+      lines: [
+        {
+          id: PAYABLES.acme.adjNcp1Line,
+          lineNumber: 1,
+          itemId: acme.items.water,
+          itemSku: 'AGUA-500',
+          itemName: 'Agua mineral 500 ml',
+          unitId: acme.units.box,
+          direction: 'out' as const,
+          quantity: 0,
+          baseQuantity: 0,
+          unitCost: null,
+          revaluationKind: 'amount' as const,
+          amount: -10.0,
+          sourceMovementId: PURCHASING.acme.receiptMovement,
+          stockPart: null,
+          soldPart: null,
+        },
+      ],
+    },
+  ];
+
+  for (const { lines, ...adj } of revaluations) {
+    await prisma.adjustment.create({
+      data: {
+        ...adj,
+        createdAt: adj.adjustmentDate,
+        updatedAt: adj.confirmedAt ?? adj.adjustmentDate,
+      },
+    });
+    await prisma.adjustmentLine.createMany({
+      data: lines.map((l) => ({
+        ...l,
+        tenantId: adj.tenantId,
+        adjustmentId: adj.id,
+      })),
+    });
+  }
+
+  // Movimientos en kardex y stock de la revaluación aprobada AJU000004 en north
+  await prisma.inventoryMovement.create({
+    data: {
+      id: PAYABLES.acme.adjFcp2OutMovement,
+      tenantId: ACME,
+      itemId: acme.items.detergent,
+      warehouseId: acme.warehouses.north,
+      sequence: 2,
+      direction: 'out',
+      quantity: 10,
+      unitCost: 3.0,
+      balanceQuantity: 0,
+      balanceAverageCost: 3.0,
+      originType: 'adjustment',
+      originId: PAYABLES.acme.adjFcp2,
+      originLineId: PAYABLES.acme.adjFcp2Line,
+      originDate: date('2026-09-04'),
+      occurredAt: at('2026-09-04'),
+    },
+  });
+  await prisma.inventoryMovement.create({
+    data: {
+      id: PAYABLES.acme.adjFcp2InMovement,
+      tenantId: ACME,
+      itemId: acme.items.detergent,
+      warehouseId: acme.warehouses.north,
+      sequence: 3,
+      direction: 'in',
+      quantity: 10,
+      unitCost: 3.5,
+      balanceQuantity: 10,
+      balanceAverageCost: 3.5,
+      originType: 'adjustment',
+      originId: PAYABLES.acme.adjFcp2,
+      originLineId: PAYABLES.acme.adjFcp2Line,
+      originDate: date('2026-09-04'),
+      occurredAt: at('2026-09-04'),
+    },
+  });
+  await prisma.itemStock.update({
+    where: {
+      tenantId_itemId_warehouseId: {
+        tenantId: ACME,
+        itemId: acme.items.detergent,
+        warehouseId: acme.warehouses.north,
+      },
+    },
+    data: {
+      quantity: 10,
+      averageCost: 3.5,
+      lastSequence: 3,
+      updatedAt: at('2026-09-04'),
+    },
+  });
+
+  // Notas de crédito de proveedor
+  const creditNotes = [
+    // NCP000001: Rebaja de precio sobre FCP000001 con sobrante gastado después desde Pagos
+    {
+      id: PAYABLES.acme.creditNote1,
+      tenantId: ACME,
+      code: 'NCP000001',
+      supplierId: PURCHASING.acme.andina,
+      invoiceId: PAYABLES.acme.invoice1,
+      purchaseReturnId: null,
+      issuePaymentId: PAYABLES.acme.payment2,
+      issueDate: date('2026-09-08'),
+      reason: 'price_correction' as const,
+      reasonDetail: null,
+      notes: 'Corrección de precio acordada',
+      status: 'confirmed' as const,
+      subtotal: 10.0,
+      tax: 1.6,
+      total: 11.6,
+      priceDifference: -10.0,
+      exchangeDifference: 0,
+      confirmedAt: at('2026-09-08'),
+      ...dollarsAt(152.4),
+      subtotalVes: 1524.0,
+      taxVes: 243.84,
+      totalVes: 1767.84,
+      lines: [
+        {
+          id: PAYABLES.acme.creditNote1Line,
+          lineNumber: 1,
+          invoiceLineId: PAYABLES.acme.invoice1Line,
+          itemId: acme.items.water,
+          itemSku: 'AGUA-500',
+          itemName: 'Agua mineral 500 ml',
+          concept: null,
+          unitId: acme.units.box,
+          quantity: 2,
+          unitPrice: 5.0,
+          taxRate: 16,
+          subtotal: 10.0,
+          tax: 1.6,
+          total: 11.6,
+        },
+      ],
+    },
+    // NCP000002: Acredita la devolución DVC000001 contra FCP000005
+    {
+      id: PAYABLES.acme.creditNote2,
+      tenantId: ACME,
+      code: 'NCP000002',
+      supplierId: PURCHASING.acme.valle,
+      invoiceId: PAYABLES.acme.invoice5,
+      purchaseReturnId: PURCHASING.acme.purchaseReturn,
+      issuePaymentId: PAYABLES.acme.payment3,
+      issueDate: date('2026-09-06'),
+      reason: 'damaged_goods' as const,
+      reasonDetail: null,
+      notes: 'Devolución de 4 jabones defectuosos',
+      status: 'confirmed' as const,
+      subtotal: 6.0,
+      tax: 0.96,
+      total: 6.96,
+      priceDifference: 0,
+      exchangeDifference: 0,
+      confirmedAt: at('2026-09-06'),
+      ...dollarsAt(152.4),
+      subtotalVes: 914.4,
+      taxVes: 146.3,
+      totalVes: 1060.7,
+      lines: [
+        {
+          id: PAYABLES.acme.creditNote2Line,
+          lineNumber: 1,
+          invoiceLineId: null,
+          itemId: acme.items.soap,
+          itemSku: 'JABON-500',
+          itemName: 'Jabón líquido 500 ml',
+          concept: null,
+          unitId: acme.units.piece,
+          quantity: 4,
+          unitPrice: 1.5,
+          taxRate: 16,
+          subtotal: 6.0,
+          tax: 0.96,
+          total: 6.96,
+        },
+      ],
+    },
+    // Globex: Notas de crédito para aislamiento
+    {
+      id: PAYABLES.globex.confirmedCreditNote,
+      tenantId: GLOBEX,
+      code: 'NCP000001',
+      supplierId: PURCHASING.globex.supplier,
+      invoiceId: PAYABLES.globex.confirmedInvoice,
+      purchaseReturnId: null,
+      issuePaymentId: null,
+      issueDate: date('2026-09-06'),
+      reason: 'subsequent_discount' as const,
+      reasonDetail: null,
+      notes: 'Descuento proveedor',
+      status: 'confirmed' as const,
+      subtotal: 10.0,
+      tax: 1.6,
+      total: 11.6,
+      priceDifference: 0,
+      exchangeDifference: 0,
+      confirmedAt: at('2026-09-06'),
+      ...dollarsAt(141),
+      subtotalVes: 1410,
+      taxVes: 225.6,
+      totalVes: 1635.6,
+      lines: [
+        {
+          id: PAYABLES.globex.confirmedCreditNoteLine,
+          lineNumber: 1,
+          invoiceLineId: null,
+          itemId: globex.items.filter,
+          itemSku: 'FILTRO-ACEITE',
+          itemName: 'Filtro de aceite',
+          concept: null,
+          unitId: globex.units.piece,
+          quantity: 1,
+          unitPrice: 10.0,
+          taxRate: 16,
+          subtotal: 10.0,
+          tax: 1.6,
+          total: 11.6,
+        },
+      ],
+    },
+    {
+      id: PAYABLES.globex.draftCreditNote,
+      tenantId: GLOBEX,
+      code: 'NCP000002',
+      supplierId: PURCHASING.globex.supplier,
+      invoiceId: PAYABLES.globex.confirmedInvoice,
+      purchaseReturnId: null,
+      issuePaymentId: null,
+      issueDate: date('2026-09-07'),
+      reason: 'price_correction' as const,
+      reasonDetail: null,
+      notes: 'Borrador nota aislamiento',
+      status: 'draft' as const,
+      subtotal: 5.0,
+      tax: 0.8,
+      total: 5.8,
+      priceDifference: 0,
+      exchangeDifference: 0,
+      confirmedAt: null,
+      ...dollarsAt(141),
+      subtotalVes: 705,
+      taxVes: 112.8,
+      totalVes: 817.8,
+      lines: [
+        {
+          id: PAYABLES.globex.draftCreditNoteLine,
+          lineNumber: 1,
+          invoiceLineId: null,
+          itemId: globex.items.filter,
+          itemSku: 'FILTRO-ACEITE',
+          itemName: 'Filtro de aceite',
+          concept: null,
+          unitId: globex.units.piece,
+          quantity: 1,
+          unitPrice: 5.0,
+          taxRate: 16,
+          subtotal: 5.0,
+          tax: 0.8,
+          total: 5.8,
+        },
+      ],
+    },
+  ];
+
+  for (const { lines, ...note } of creditNotes) {
+    await prisma.supplierCreditNote.create({
+      data: {
+        ...note,
+        issuePaymentId: null,
+        createdAt: note.issueDate,
+        updatedAt: note.confirmedAt ?? note.issueDate,
+      },
+    });
+    await prisma.supplierCreditNoteLine.createMany({
+      data: lines.map((l) => ({
+        ...l,
+        tenantId: note.tenantId,
+        creditNoteId: note.id,
+      })),
+    });
+  }
+
+  // Pagos a proveedor
+  const payments = [
+    // PAG000001: Abona dos facturas (FCP000001 por 65 USD y FCP000004 por 15 USD)
+    {
+      id: PAYABLES.acme.payment1,
+      tenantId: ACME,
+      code: 'PAG000001',
+      supplierId: PURCHASING.acme.andina,
+      paymentDate: date('2026-09-07'),
+      method: 'transfer' as const,
+      reference: 'TRF-PROV-771',
+      notes: 'Abono a facturas de agua y flete',
+      amount: 80.0,
+      status: 'confirmed' as const,
+      confirmedAt: at('2026-09-07'),
+      ...dollarsAt(150.25),
+      amountVes: 12020.0,
+      creditSourceId: null,
+      allocations: [
+        { id: PAYABLES.acme.payment1Alloc1, invoiceId: PAYABLES.acme.invoice1, amount: 65.0, exchangeDifference: 0 },
+        { id: PAYABLES.acme.payment1Alloc2, invoiceId: PAYABLES.acme.invoice4, amount: 15.0, exchangeDifference: 0 },
+      ],
+    },
+    // PAG000002: Pago de emisión de NCP000001 (amortiza saldo vivo de FCP000001 = 4.60 USD)
+    {
+      id: PAYABLES.acme.payment2,
+      tenantId: ACME,
+      code: 'PAG000002',
+      supplierId: PURCHASING.acme.andina,
+      paymentDate: date('2026-09-08'),
+      method: 'credit_note' as const,
+      reference: null,
+      notes: 'Amortización automática por NCP000001',
+      amount: 4.6,
+      status: 'confirmed' as const,
+      confirmedAt: at('2026-09-08'),
+      ...dollarsAt(152.4),
+      amountVes: 701.04,
+      creditSourceId: PAYABLES.acme.creditNote1,
+      allocations: [
+        { id: PAYABLES.acme.payment2Alloc1, invoiceId: PAYABLES.acme.invoice1, amount: 4.6, exchangeDifference: 9.89 },
+      ],
+    },
+    // PAG000003: Pago de emisión de NCP000002 (amortiza 6.96 USD en FCP000005)
+    {
+      id: PAYABLES.acme.payment3,
+      tenantId: ACME,
+      code: 'PAG000003',
+      supplierId: PURCHASING.acme.valle,
+      paymentDate: date('2026-09-06'),
+      method: 'credit_note' as const,
+      reference: null,
+      notes: 'Amortización automática por devolución NCP000002',
+      amount: 6.96,
+      status: 'confirmed' as const,
+      confirmedAt: at('2026-09-06'),
+      ...dollarsAt(152.4),
+      amountVes: 1060.7,
+      creditSourceId: PAYABLES.acme.creditNote2,
+      allocations: [
+        { id: PAYABLES.acme.payment3Alloc1, invoiceId: PAYABLES.acme.invoice5, amount: 6.96, exchangeDifference: 14.96 },
+      ],
+    },
+    // Globex: Pagos para aislamiento
+    {
+      id: PAYABLES.globex.confirmedPayment,
+      tenantId: GLOBEX,
+      code: 'PAG000001',
+      supplierId: PURCHASING.globex.supplier,
+      paymentDate: date('2026-09-06'),
+      method: 'transfer' as const,
+      reference: 'TRF-GLX-01',
+      notes: 'Pago confirmado',
+      amount: 20.0,
+      status: 'confirmed' as const,
+      confirmedAt: at('2026-09-06'),
+      ...dollarsAt(141),
+      amountVes: 2820.0,
+      creditSourceId: null,
+      allocations: [
+        { id: PAYABLES.globex.confirmedPaymentAlloc, invoiceId: PAYABLES.globex.confirmedInvoice, amount: 20.0, exchangeDifference: 0 },
+      ],
+    },
+    {
+      id: PAYABLES.globex.draftPayment,
+      tenantId: GLOBEX,
+      code: 'PAG000002',
+      supplierId: PURCHASING.globex.supplier,
+      paymentDate: date('2026-09-07'),
+      method: 'cash' as const,
+      reference: null,
+      notes: 'Pago borrador',
+      amount: 10.0,
+      status: 'draft' as const,
+      confirmedAt: null,
+      ...dollarsAt(141),
+      amountVes: 1410.0,
+      creditSourceId: null,
+      allocations: [
+        { id: PAYABLES.globex.draftPaymentAlloc, invoiceId: PAYABLES.globex.confirmedInvoice, amount: 10.0, exchangeDifference: 0 },
+      ],
+    },
+  ];
+
+  for (const { allocations, ...payment } of payments) {
+    await prisma.supplierPayment.create({
+      data: {
+        ...payment,
+        createdAt: payment.paymentDate,
+        updatedAt: payment.confirmedAt ?? payment.paymentDate,
+      },
+    });
+    for (const alloc of allocations) {
+      await prisma.supplierPaymentAllocation.create({
+        data: {
+          id: alloc.id,
+          tenantId: payment.tenantId,
+          paymentId: payment.id,
+          invoiceId: alloc.invoiceId,
+          amount: alloc.amount,
+          exchangeRate: payment.exchangeRate,
+          exchangeDifference: alloc.exchangeDifference,
+        },
+      });
+    }
+  }
+
+  // Enlazar issuePaymentId en notas de crédito
+  for (const note of creditNotes) {
+    if (note.issuePaymentId) {
+      await prisma.supplierCreditNote.update({
+        where: { tenantId_id: { tenantId: note.tenantId, id: note.id } },
+        data: { issuePaymentId: note.issuePaymentId },
+      });
+    }
+  }
+
+  // Secuencias de correlativos para Cuentas por Pagar e Inventario
+  for (const [tenantId, prefix, lastValue] of [
+    [ACME, 'FCP', 5],
+    [ACME, 'PAG', 3],
+    [ACME, 'NCP', 2],
+    [ACME, 'AJU', 7],
+    [GLOBEX, 'FCP', 2],
+    [GLOBEX, 'PAG', 2],
+    [GLOBEX, 'NCP', 2],
+    [GLOBEX, 'AJU', 2],
+  ] as const) {
+    await prisma.$executeRaw`
+      INSERT INTO code_sequences (tenant_id, prefix, last_value)
+      VALUES (${tenantId}::uuid, ${prefix}, ${lastValue})
       ON CONFLICT (tenant_id, prefix)
       DO UPDATE SET last_value = GREATEST(code_sequences.last_value, EXCLUDED.last_value)`;
   }

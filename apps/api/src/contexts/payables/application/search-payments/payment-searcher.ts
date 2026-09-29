@@ -1,8 +1,10 @@
 import { DocumentCurrencyPrimitives } from '../../../../shared/domain/document-currency.js';
 import { PayableSupplierNotFoundError } from '../../domain/errors/payables.errors.js';
 import { PayablesLedger } from '../../domain/ledger/payables-ledger.js';
-import { PaymentMethod, PaymentStatus } from '../../domain/payment/supplier-payment.entity.js';
+import { PaymentId, PaymentMethod, PaymentStatus } from '../../domain/payment/supplier-payment.entity.js';
 import { SupplierPaymentRepository } from '../../domain/payment/payment.repository.js';
+import { SupplierCreditNoteId } from '../../domain/credit-note/supplier-credit-note.entity.js';
+import { SupplierCreditNoteRepository } from '../../domain/credit-note/supplier-credit-note.repository.js';
 import { TenantId } from '../../domain/shared/tenant-id.vo.js';
 
 export interface PaymentResponse extends DocumentCurrencyPrimitives {
@@ -40,6 +42,7 @@ export class PaymentSearcher {
   constructor(
     private readonly payments: SupplierPaymentRepository,
     private readonly ledger: PayablesLedger,
+    private readonly creditNotes: SupplierCreditNoteRepository,
   ) {}
 
   async run(request: {
@@ -71,10 +74,17 @@ export class PaymentSearcher {
       offset,
     });
     const rows = page.payments.map((payment) => payment.toPrimitives());
-    const [suppliers, invoices] = await Promise.all([
+    const creditSourceIds = [...new Set(rows.map((row) => row.creditSourceId).filter((id): id is string => Boolean(id)))];
+    const [suppliers, invoices, creditNotes, issueNotes] = await Promise.all([
       this.ledger.suppliers(tenantId),
       this.ledger.invoices(tenantId, { ids: [...new Set(rows.flatMap((row) => row.allocations.map((allocation) => allocation.invoiceId)))] }),
+      creditSourceIds.length > 0 ? this.creditNotes.findByIds(tenantId, creditSourceIds.map(SupplierCreditNoteId.of)) : Promise.resolve([]),
+      rows.length > 0 ? this.creditNotes.findByIssuePayments(tenantId, rows.map((r) => PaymentId.of(r.id))) : Promise.resolve([]),
     ]);
+    const noteMap = new Map(creditNotes.map((note) => [note.id.value, note.toPrimitives().code]));
+    const issueNoteMap = new Map(
+      issueNotes.filter((note) => note.issuePaymentId() !== null).map((note) => [note.issuePaymentId()!, note.toPrimitives().code]),
+    );
 
     return {
       total: page.total,
@@ -83,6 +93,7 @@ export class PaymentSearcher {
       hasMore: offset + rows.length < page.total,
       payments: rows.map((row) => {
         const supplier = suppliers.find((candidate) => candidate.id === row.supplierId);
+        const issueCreditNoteCode = issueNoteMap.get(row.id) ?? null;
 
         return {
           id: row.id,
@@ -91,9 +102,9 @@ export class PaymentSearcher {
           paymentDate: row.paymentDate,
           method: row.method,
           creditSourceId: row.creditSourceId ?? null,
-          creditSourceCode: null,
-          isIssuePayment: false,
-          issueCreditNoteCode: null,
+          creditSourceCode: row.creditSourceId ? (noteMap.get(row.creditSourceId) ?? null) : null,
+          isIssuePayment: issueCreditNoteCode !== null,
+          issueCreditNoteCode,
           reference: row.reference,
           notes: row.notes,
           amount: row.amount,

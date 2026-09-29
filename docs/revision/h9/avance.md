@@ -956,3 +956,76 @@ Ninguno.
 
 ---
 
+## Fase 8 — Semillas completas y suite extremo a extremo (E2E)
+
+### Qué se construyó y qué cubre
+1. **Semillas completas de Cuentas por Pagar (`apps/api/prisma/seed.ts`):**
+   - Implementación de los casos canónicos del Ajuste 7 con identificadores deterministas en `PAYABLES`:
+     - **Caso 1 (`FCP000001`):** Factura de compra con mercancía a mayor precio que su orden/entrada, generando revaluación positiva en borrador `AJU000003` en bodega `main`.
+     - **Caso 2 (`FCP000002`):** Factura de compra con mercancía a mayor precio que su entrada, con revaluación confirmada `AJU000004` (kardex y stock actualizado en bodega `north`).
+     - **Caso 3 (`FCP000003`):** Factura que referencia dos recepciones en distintas bodegas (`main` y `north`), con dos revaluaciones en borrador `AJU000005` y `AJU000006`.
+     - **Caso 4 (`FCP000004`):** Factura de servicio bajo orden `OC000004` y gasto operativo sin orden previa.
+     - **Caso 5 (`FCP000005`):** Factura con mercancía al mismo costo pactado que su recepción (sin revaluación).
+     - **Caso 6 (`PAG000001`):** Pago parcial por transferencia que abona a dos facturas distintas (`FCP000001` por 65 USD y `FCP000004` por 15 USD).
+     - **Caso 7 (`NCP000001` y `PAG000002`):** Nota de crédito de corrección de precio sobre `FCP000001` que genera revaluación negativa en borrador `AJU000007` y pago de emisión `PAG000002` que amortiza el saldo vivo (4,60 USD), dejando crédito disponible para el proveedor.
+     - **Caso 8 (`NCP000002` y `PAG000003`):** Nota de crédito que acredita la devolución `DVC000001` amortizando 6,96 USD en `FCP000005`.
+     - **Aislamiento multi-empresa:** Entidades espejo de facturas, notas de crédito y pagos para Globex con sus propios identificadores deterministas.
+2. **Page Object de Cuentas por Pagar (`apps/e2e/pages/payables.page.ts`):**
+   - Abstracción de navegación entre secciones (`facturas`, `pagos`, `antiguedad`, `estado-de-cuenta`, `notas-de-credito`), manejo de filtros y búsqueda con paginación, formularios de registro de pago con imputaciones y aplicación de notas de crédito, acciones de menú de fila y consulta de estados de cuenta.
+3. **Fixtures de prueba (`apps/e2e/support/purchasing-fixtures.ts`):**
+   - Agregada función helper `aConfirmedPurchaseInvoice` para crear y confirmar facturas de compra aisladas en las pruebas E2E.
+4. **Suite Extremo a Extremo (`apps/e2e/tests/ui/payables.spec.ts`):**
+   - 4 pruebas E2E ejecutadas sobre la UI completa con Playwright:
+     - Pago parcial de factura por pantalla y reversión íntegra de saldo al anular el pago.
+     - Pago en bolívares de una factura en dólares con cálculo visible del diferencial cambiario.
+     - Uso y gasto del saldo a favor de una nota de crédito como forma de pago para otra factura desde la interfaz.
+     - Control de permisos para rol de sólo lectura (`ACCOUNTANT` / `Carla Mena`): visualización de pagos, facturas, antigüedad y notas de crédito sin acciones mutantes.
+5. **Correcciones aplicadas durante la integración:**
+   - **Permiso en roles de semilla:** Eliminado el permiso inexistente `reports.payables.search` de `ACME_VIEWER_ROLE` en `apps/api/prisma/seed.ts`.
+   - **Renderizado de notas de crédito en frontend:** En `apps/web/src/sections/payables/credit-notes-board.tsx` y `apps/web/src/modules/payables/domain/payables.ts`, la API entrega la moneda como un objeto `{ code, symbol, exchangeRate }`. Se tipó correctamente la interfaz y se corrigió el renderizado a `{note.currency.code}` junto a la exhibición del crédito disponible `{note.availableCredit}`, previniendo el error boundary de React.
+   - **Resolución de nota de crédito origen en pagos:** En `apps/api/src/contexts/payables/application/search-payments/payment-searcher.ts`, se inyectó `SupplierCreditNoteRepository` y se resolvieron `creditSourceCode`, `isIssuePayment` e `issueCreditNoteCode` a partir de `creditSourceId` e `issuePaymentId`, siguiendo el patrón existente en `receivables`.
+
+### Pruebas añadidas
+- `apps/e2e/tests/ui/payables.spec.ts:9:1`:
+  `test('pays part of a purchase invoice from the screen and cancelling the payment gives the balance back')`
+- `apps/e2e/tests/ui/payables.spec.ts:60:1`:
+  `test('pays a dollar purchase invoice in bolivars from the screen and shows the exchange difference')`
+- `apps/e2e/tests/ui/payables.spec.ts:85:1`:
+  `test('spends available credit from a credit note in a payment from the screen')`
+- `apps/e2e/tests/ui/payables.spec.ts:171:1`:
+  `test('a read-only role sees payments, balances and aging but gets no way to pay')`
+
+### Capturas con `playwright-cli` (headed y persistent, skill `web-qa`)
+- Sesión abierta con: `playwright-cli -s=fase8 open http://localhost:3000 --headed --persistent`.
+- Inicio de sesión anunciado con `ana@acme.com`.
+- Capturas generadas y archivadas:
+  1. `docs/revision/h9/capturas/fase8-facturas.png` (Listado de facturas por pagar y saldos vivos).
+  2. `docs/revision/h9/capturas/fase8-pagos.png` (Listado de pagos a proveedores, estados y diferenciales cambiarios).
+  3. `docs/revision/h9/capturas/fase8-notas-credito.png` (Tablero de notas de crédito de proveedor con importes y créditos disponibles).
+  4. `docs/revision/h9/capturas/fase8-antiguedad.png` (Reporte de antigüedad de deuda por proveedor por tramos).
+- Sesión cerrada con: `playwright-cli -s=fase8 close`.
+
+### Cómo se verificó
+1. **Corridas rojas investigadas y corregidas:**
+   - **Corrida roja en `make seed`:** Violación de clave foránea al insertar `'reports.payables.search'` en `role_permissions` porque dicho código no existía en el catálogo de permisos. Corregido manteniendo únicamente los permisos válidos del catálogo.
+   - **Corrida roja 1 en `payables.spec.ts`:**
+     - Test 3 falló con `CreditNoteInvoiceTotalExceededError` al intentar emitir una nota de crédito por un importe superior al total de la factura vinculada. Corregido abonando previamente a la factura para reducir su saldo vivo antes de emitir la nota de crédito, generando legítimamente el sobrante de crédito disponible sin violar el tope total de la factura.
+     - Test 4 falló con `This page couldn't load` al abrir notas de crédito para rol de sólo lectura debido a que `credit-notes-board.tsx` intentaba renderizar `{note.currency}` como hijo directo de React siendo un objeto. Corregido tipando el objeto de moneda y mostrando `note.currency.code`.
+   - **Corrida roja 2 en `payables.spec.ts`:**
+     - Test 3 falló esperando `payment-credit-source` porque `PaymentSearcher` en el backend devolvía `creditSourceCode: null` hardcodeado. Corregido inyectando `SupplierCreditNoteRepository` y mapeando los códigos correspondientes tanto para notas de origen como de emisión.
+2. **Corrida verde de la suite E2E:**
+   ```
+   $ playwright test payables.spec.ts
+   Running 4 tests using 2 workers
+     ✓ 1 pays part of a purchase invoice from the screen and cancelling the payment gives the balance back
+     ✓ 2 pays a dollar purchase invoice in bolivars from the screen and shows the exchange difference
+     ✓ 3 spends available credit from a credit note in a payment from the screen
+     ✓ 4 a read-only role sees payments, balances and aging but gets no way to pay
+   4 passed (1.0m)
+   ```
+3. **Corrida final verde del sistema completo (`make verify` en `scratch/logs/verify-fase8.log`):**
+   ```
+   520 passed (21.6m)
+   Todo en verde.
+   ```
+

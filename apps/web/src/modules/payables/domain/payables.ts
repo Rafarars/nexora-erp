@@ -178,10 +178,10 @@ export interface SupplierCreditNoteLine {
   total: number;
 }
 
-export interface SupplierCreditNote extends DocumentCurrency {
+export interface SupplierCreditNote {
   id: string;
   code: string;
-  supplier: { id: string; code: string; name: string };
+  supplier: { id: string; name: string };
   invoice: { id: string; code: string } | null;
   purchaseReturnId: string | null;
   issuePaymentId: string | null;
@@ -194,9 +194,13 @@ export interface SupplierCreditNote extends DocumentCurrency {
   subtotal: number;
   tax: number;
   total: number;
-  subtotalVes: number | null;
-  taxVes: number | null;
-  totalVes: number | null;
+  currency: {
+    code: string;
+    symbol: string;
+    exchangeRate: number | null;
+  };
+  appliedAmount: number;
+  availableCredit: number;
   priceDifference: number;
   exchangeDifference: number;
   lines: SupplierCreditNoteLine[];

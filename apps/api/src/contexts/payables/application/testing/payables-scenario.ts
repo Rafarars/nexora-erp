@@ -39,7 +39,7 @@ export function aPayablesScenario() {
     updatePayment: new PaymentUpdater(finder, store.ledger, store.payments, ids, clock, calendar, rates),
     confirmPayment: new PaymentConfirmer(finder, store.ledger, store.posting, rates, clock, calendar),
     cancelPayment: new PaymentCanceller(store.posting, store.creditNotes, clock),
-    searchPayments: new PaymentSearcher(store.payments, store.ledger),
+    searchPayments: new PaymentSearcher(store.payments, store.ledger, store.creditNotes),
     createCreditNote: new SupplierCreditNoteCreator(store.creditNotes, store.ledger, codes, ids, clock, calendar, rates),
     updateCreditNote: new SupplierCreditNoteUpdater(store.creditNotes, store.ledger, ids, clock, calendar, rates),
     confirmCreditNote: new SupplierCreditNoteConfirmer(store.creditNotePosting, clock, calendar),

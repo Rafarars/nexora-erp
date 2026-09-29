@@ -69,3 +69,42 @@ export async function aDraftReceipt(
 
   return receipts.find((receipt: { notes: string }) => receipt.notes === notes);
 }
+
+export async function aConfirmedPurchaseInvoice(
+  request: APIRequestContext,
+  token: string,
+  supplierId: string,
+  subtotal: number,
+  date = '2026-09-08',
+  baseUrl = '',
+) {
+  const invoiceNumber = `FAC-E2E-${unique()}`;
+  const response = await request.post(`${baseUrl}/api/v1/purchasing/invoices`, {
+    headers: auth(token),
+    data: {
+      supplierId,
+      supplierInvoiceNumber: invoiceNumber,
+      issueDate: date,
+      dueDate: date,
+      lines: [
+        {
+          concept: 'Gasto operativo e2e',
+          quantity: 1,
+          unitPrice: subtotal,
+          taxRate: 0,
+        },
+      ],
+    },
+  });
+
+  expect(response.status(), await response.text()).toBe(201);
+  const { id, code } = await response.json();
+
+  const confirmRes = await request.put(`${baseUrl}/api/v1/purchasing/invoices/${id}/confirm`, {
+    headers: auth(token),
+  });
+  expect(confirmRes.status(), await confirmRes.text()).toBe(200);
+
+  return { id, code, invoiceNumber, subtotal };
+}
+

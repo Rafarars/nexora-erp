@@ -149,8 +149,13 @@ export function CreditNotesBoard({
                   </td>
                   <td className="px-4 py-3 text-right">
                     <p data-testid={`credit-note-total-${note.code}`}>
-                      {note.currency} {formatAmount(note.total)}
+                      {note.currency.code} {formatAmount(note.total)}
                     </p>
+                    {note.availableCredit > 0 ? (
+                      <p className="text-muted text-xs">
+                        Disponible: {note.currency.code} {formatAmount(note.availableCredit)}
+                      </p>
+                    ) : null}
                   </td>
                   <td className="px-4 py-3" data-testid={`credit-note-status-${note.code}`}>
                     {CREDIT_NOTE_STATUS_LABELS[note.status]}
