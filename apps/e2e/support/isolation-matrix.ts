@@ -860,4 +860,11 @@ export const ISOLATION_CASES: IsolationCase[] = [
     method: 'get',
     path: `/api/v1/payables/suppliers/${GLOBEX.supplierId}/available-credits`,
   },
+  {
+    route: 'GET /api/v1/payables/invoices/:invoiceId/eligible-returns',
+    title: 'read eligible purchase returns for an invoice of another tenant',
+    method: 'get',
+    path: `/api/v1/payables/invoices/${GLOBEX.confirmedPurchaseInvoiceId}/eligible-returns`,
+  },
 ];
+

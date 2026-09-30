@@ -333,4 +333,17 @@ export class PrismaSupplierCreditNoteRepository implements SupplierCreditNoteRep
 
     return result;
   }
+
+  async confirmedCreditedReturnIds(tenantId: TenantId): Promise<Set<string>> {
+    const rows = await this.prisma.supplierCreditNote.findMany({
+      where: {
+        tenantId: tenantId.value,
+        purchaseReturnId: { not: null },
+        status: 'confirmed',
+      },
+      select: { purchaseReturnId: true },
+    });
+
+    return new Set(rows.map((r) => r.purchaseReturnId!).filter(Boolean));
+  }
 }

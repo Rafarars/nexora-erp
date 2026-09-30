@@ -5,6 +5,7 @@ import type {
   CreditNoteFilters,
   CreditNoteInput,
   CreditNotePage,
+  EligiblePurchaseReturn,
   PayableInvoiceFilters,
   PayableInvoicePage,
   PaymentFilters,
@@ -91,6 +92,15 @@ export class HttpPayablesApi implements PayablesApi {
       token,
     );
     return result.credits;
+  }
+
+  async eligiblePurchaseReturns(token: string, invoiceId: string): Promise<EligiblePurchaseReturn[]> {
+    const result = await this.request<{ returns: EligiblePurchaseReturn[] }>(
+      'GET',
+      `${BASE}/invoices/${encodeURIComponent(invoiceId)}/eligible-returns`,
+      token,
+    );
+    return result.returns;
   }
 
   async searchPayableInvoices(token: string, filters: PayableInvoiceFilters = {}): Promise<PayableInvoicePage> {

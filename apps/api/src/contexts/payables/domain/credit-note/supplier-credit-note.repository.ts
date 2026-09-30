@@ -49,4 +49,5 @@ export interface SupplierCreditNoteRepository {
     excludePaymentId: string | null,
   ): Promise<boolean>;
   findAvailableCreditsBySupplier(tenantId: TenantId, supplierId: string): Promise<SupplierCreditNote[]>;
+  confirmedCreditedReturnIds(tenantId: TenantId): Promise<Set<string>>;
 }

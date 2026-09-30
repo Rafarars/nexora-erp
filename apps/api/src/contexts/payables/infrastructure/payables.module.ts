@@ -26,6 +26,7 @@ import { CancelSupplierCreditNotePutController } from './http/cancel-credit-note
 import { FindSupplierCreditNoteGetController } from './http/find-credit-note-get.controller.js';
 import { SearchSupplierCreditNotesGetController } from './http/search-credit-notes-get.controller.js';
 import { SupplierAvailableCreditsGetController } from './http/supplier-available-credits-get.controller.js';
+import { EligiblePurchaseReturnsGetController } from './http/eligible-purchase-returns-get.controller.js';
 
 import { PaymentCanceller } from '../application/cancel-payment/payment-canceller.js';
 import { PaymentConfirmer } from '../application/confirm-payment/payment-confirmer.js';
@@ -41,6 +42,7 @@ import { SupplierCreditNoteConfirmer } from '../application/confirm-credit-note/
 import { SupplierCreditNoteCanceller } from '../application/cancel-credit-note/supplier-credit-note-canceller.js';
 import { SupplierCreditNoteSearcher } from '../application/search-credit-notes/supplier-credit-note-searcher.js';
 import { SupplierAvailableCreditsFinder } from '../application/supplier-available-credits/supplier-available-credits-finder.js';
+import { EligiblePurchaseReturnsSearcher } from '../application/search-eligible-returns/eligible-purchase-returns-searcher.js';
 
 import { PAYABLES_LEDGER } from '../domain/ledger/payables-ledger.js';
 import type { PayablesLedger } from '../domain/ledger/payables-ledger.js';
@@ -84,6 +86,7 @@ import { PrismaPayableBalances } from './persistence/prisma-payable-balances.js'
     FindSupplierCreditNoteGetController,
     SearchSupplierCreditNotesGetController,
     SupplierAvailableCreditsGetController,
+    EligiblePurchaseReturnsGetController,
   ],
   providers: [
     { provide: SUPPLIER_PAYMENT_REPOSITORY, useClass: PrismaSupplierPaymentRepository },
@@ -209,6 +212,11 @@ import { PrismaPayableBalances } from './persistence/prisma-payable-balances.js'
       useFactory: (cn: SupplierCreditNoteRepository, l: PayablesLedger) => new SupplierAvailableCreditsFinder(cn, l),
       inject: [SUPPLIER_CREDIT_NOTE_REPOSITORY, PAYABLES_LEDGER],
     },
+    {
+      provide: EligiblePurchaseReturnsSearcher,
+      useFactory: (cn: SupplierCreditNoteRepository, l: PayablesLedger) => new EligiblePurchaseReturnsSearcher(cn, l),
+      inject: [SUPPLIER_CREDIT_NOTE_REPOSITORY, PAYABLES_LEDGER],
+    },
   ],
   exports: [
     SUPPLIER_PAYMENT_REPOSITORY,
@@ -222,6 +230,7 @@ import { PrismaPayableBalances } from './persistence/prisma-payable-balances.js'
     SupplierStatementSearcher,
     SupplierCreditNoteSearcher,
     SupplierAvailableCreditsFinder,
+    EligiblePurchaseReturnsSearcher,
     PAYABLE_BALANCES,
   ],
 })

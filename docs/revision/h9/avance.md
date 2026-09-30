@@ -1913,3 +1913,47 @@ Para garantizar un aislamiento absoluto e indiscutible, se incorporó en la semi
   - `contract`: 302 pruebas de contrato contra PostgreSQL en verde (13 suites).
   - `e2e`: 524 pruebas de Playwright en verde (9.8m).
   Todo en verde.
+
+## Correcciones Ronda 4 — Sección 3: Endpoint de devoluciones acreditables en Cuentas por Pagar y consumo desde la web
+
+### 1. Caso de uso, puerto/adaptador, endpoint y permiso
+El frontend componía la búsqueda de devoluciones acreditables encadenando tres llamadas a endpoints de Compras y Cuentas por Pagar (`findInvoice`, `searchReturns`, `searchCreditNotes`) y filtrando en memoria. Para respetar la cohesión y los límites del contexto, se diseñó e implementó la consulta directa en `payables`:
+- **Caso de uso:** `EligiblePurchaseReturnsSearcher` en `apps/api/src/contexts/payables/application/search-eligible-returns/eligible-purchase-returns-searcher.ts`.
+  - Verifica la existencia de la factura y obtiene sus líneas con `receiptLineId`.
+  - Obtiene las devoluciones confirmadas del proveedor de la factura a través de `PayablesLedger.confirmedReturnsBySupplier()`.
+  - Excluye devoluciones ya acreditadas por notas de crédito confirmadas mediante `SupplierCreditNoteRepository.confirmedCreditedReturnIds()`.
+  - Excluye devoluciones que contengan líneas de entradas no facturadas por la factura en cuestión.
+  - Retorna las devoluciones acreditables mapeando cada línea con su `invoiceLineId` y su `invoicedUnitPrice`.
+- **Puertos y adaptadores:**
+  - `PayablesLedger`: método `confirmedReturnsBySupplier(tenantId: TenantId, supplierId: string): Promise<PayableConfirmedReturn[]>`, implementado en `PrismaPayablesLedger` y en `InMemoryPayablesStore`.
+  - `SupplierCreditNoteRepository`: método `confirmedCreditedReturnIds(tenantId: TenantId): Promise<Set<string>>`, implementado en `PrismaSupplierCreditNoteRepository` y en `InMemoryPayablesStore`.
+  - `invoiceLines`: ampliado para seleccionar e incluir `unitPrice`.
+- **Endpoint:** `GET /api/v1/payables/invoices/:invoiceId/eligible-returns`.
+- **Controlador:** `EligiblePurchaseReturnsGetController` en `apps/api/src/contexts/payables/infrastructure/http/eligible-purchase-returns-get.controller.ts`.
+- **Permiso requerido:** `payables.creditnotes.create`.
+- **Matriz de aislamiento:** Registrado en `apps/e2e/support/isolation-matrix.ts` para verificar la protección multi-tenant entre empresas.
+
+### 2. Cambios en el cliente y acciones web (`actions.ts`)
+- En `apps/web/src/modules/payables/domain/payables-api.ts`: definida la interfaz `EligiblePurchaseReturn` y el método `eligiblePurchaseReturns(token: string, invoiceId: string)`.
+- En `apps/web/src/modules/payables/infrastructure/http-payables-api.ts`: implementado `eligiblePurchaseReturns` llamando a `GET /api/v1/payables/invoices/:invoiceId/eligible-returns`.
+- En `apps/web/src/app/(app)/cuentas-por-pagar/actions.ts`: `getEligiblePurchaseReturns` simplificado radicalmente para consumir directamente `payablesApi().eligiblePurchaseReturns(token, invoiceId)`, eliminando dependencias cruzadas con el cliente de compras en esta acción.
+
+### 3. Pruebas añadidas
+- **Pruebas unitarias:** `apps/api/src/contexts/payables/application/search-eligible-returns/eligible-purchase-returns-searcher.spec.ts` (5 pruebas en verde):
+  - Factura inexistente lanza `PayableInvoiceNotFoundError`.
+  - Factura sin líneas de mercancía devuelve `[]`.
+  - Devolución confirmada con líneas facturadas devuelta correctamente con sus datos y precio facturado.
+  - Devolución con líneas ajenas a la factura excluida.
+  - Devolución ya acreditada por nota confirmada excluida.
+- **Prueba de contrato:** En `apps/api/src/contexts/payables/testing/payables-ports.contract.ts` agregada suite `eligible purchase returns and credited return tracking`, verificando en memoria y contra PostgreSQL (`prisma-payables-ports.contract.integration.spec.ts`) la consulta de devoluciones confirmadas y el rastreo de devoluciones acreditadas por notas confirmadas.
+
+### 4. Verificación de la Sección 3
+- Ejecutado `make verify > scratch/logs/verify-correcciones4-seccion3.log 2>&1`:
+  - `gitleaks`: 0 leaks detectados (312 commits analizados).
+  - `lint`: 0 errores en todos los paquetes.
+  - `typecheck`: limpio en todos los paquetes.
+  - `unit`: 3854 pruebas unitarias de API (185 suites) + 229 pruebas unitarias de Web (24 suites) en verde (4083 totales).
+  - `contract`: 302 pruebas de contrato contra PostgreSQL en verde (13 suites).
+  - `e2e`: 526 pruebas de Playwright en verde (10.0m).
+  Todo en verde.
+

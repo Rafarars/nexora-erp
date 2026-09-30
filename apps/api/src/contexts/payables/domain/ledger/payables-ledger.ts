@@ -33,11 +33,31 @@ export interface PayableInvoiceLineInfo {
   itemId: string | null;
   subtotal: number;
   receiptLineId: string | null;
+  unitPrice?: number;
 }
 
 export interface PayablePurchaseReturnInfo {
   id: string;
   code: string;
+}
+
+export interface PayableConfirmedReturnLine {
+  id: string;
+  receiptLineId: string;
+  itemId: string;
+  itemSku: string;
+  itemName: string;
+  unitId: string;
+  quantity: number;
+  unitCost: number;
+}
+
+export interface PayableConfirmedReturn {
+  id: string;
+  code: string;
+  date: string;
+  supplierId: string;
+  lines: PayableConfirmedReturnLine[];
 }
 
 // Lo que cuentas por pagar lee de compras: proveedores y facturas de compra, con lo pagado de cada una.
@@ -50,4 +70,5 @@ export interface PayablesLedger {
   invoiceLines(tenantId: TenantId, invoiceId: string): Promise<PayableInvoiceLineInfo[]>;
   returnReceiptLineIds(tenantId: TenantId, returnId: string): Promise<string[]>;
   purchaseReturns(tenantId: TenantId, returnIds: string[]): Promise<PayablePurchaseReturnInfo[]>;
+  confirmedReturnsBySupplier(tenantId: TenantId, supplierId: string): Promise<PayableConfirmedReturn[]>;
 }

@@ -1,7 +1,14 @@
 import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../../../../shared/prisma/prisma.service.js';
 import { PayableInvoice } from '../../domain/ledger/payable-invoice.js';
-import { PayableInvoiceFilter, PayableSupplier, PayableSupplierFilter, PayablesLedger } from '../../domain/ledger/payables-ledger.js';
+import {
+  PayableConfirmedReturn,
+  PayableInvoiceFilter,
+  PayableInvoiceLineInfo,
+  PayableSupplier,
+  PayableSupplierFilter,
+  PayablesLedger,
+} from '../../domain/ledger/payables-ledger.js';
 import { TenantId } from '../../domain/shared/tenant-id.vo.js';
 import { asDate, invoiceFromRow, invoiceSelect, supplierFromRow } from './payables-rows.js';
 
@@ -49,19 +56,17 @@ export class PrismaPayablesLedger implements PayablesLedger {
     return rows.map(invoiceFromRow);
   }
 
-  async invoiceLines(
-    tenantId: TenantId,
-    invoiceId: string,
-  ): Promise<Array<{ id: string; itemId: string | null; subtotal: number; receiptLineId: string | null }>> {
+  async invoiceLines(tenantId: TenantId, invoiceId: string): Promise<PayableInvoiceLineInfo[]> {
     const rows = await this.prisma.purchaseInvoiceLine.findMany({
       where: { tenantId: tenantId.value, invoiceId },
-      select: { id: true, itemId: true, subtotal: true, receiptLineId: true },
+      select: { id: true, itemId: true, subtotal: true, receiptLineId: true, unitPrice: true },
     });
     return rows.map((r) => ({
       id: r.id,
       itemId: r.itemId,
       subtotal: Number(r.subtotal),
       receiptLineId: r.receiptLineId,
+      unitPrice: Number(r.unitPrice),
     }));
   }
 
@@ -80,5 +85,51 @@ export class PrismaPayablesLedger implements PayablesLedger {
       select: { id: true, code: true },
     });
     return rows;
+  }
+
+  async confirmedReturnsBySupplier(tenantId: TenantId, supplierId: string): Promise<PayableConfirmedReturn[]> {
+    const rows = await this.prisma.purchaseReturn.findMany({
+      where: {
+        tenantId: tenantId.value,
+        supplierId,
+        status: 'confirmed',
+      },
+      select: {
+        id: true,
+        code: true,
+        returnDate: true,
+        supplierId: true,
+        lines: {
+          select: {
+            id: true,
+            receiptLineId: true,
+            itemId: true,
+            itemSku: true,
+            itemName: true,
+            unitId: true,
+            quantity: true,
+            unitCost: true,
+          },
+        },
+      },
+      orderBy: { code: 'desc' },
+    });
+
+    return rows.map((r) => ({
+      id: r.id,
+      code: r.code,
+      date: r.returnDate.toISOString().slice(0, 10),
+      supplierId: r.supplierId,
+      lines: r.lines.map((l) => ({
+        id: l.id,
+        receiptLineId: l.receiptLineId,
+        itemId: l.itemId,
+        itemSku: l.itemSku,
+        itemName: l.itemName,
+        unitId: l.unitId,
+        quantity: Number(l.quantity),
+        unitCost: Number(l.unitCost),
+      })),
+    }));
   }
 }

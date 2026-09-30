@@ -65,9 +65,10 @@ export class InMemoryPayablesStore {
   private readonly invoiceRows = new Map<string, InvoiceRow>();
   private readonly paymentRows = new Map<string, PaymentPrimitives>();
   private readonly creditNoteRows = new Map<string, SupplierCreditNotePrimitives>();
-  private readonly purchaseReturnRows = new Map<string, { id: string; tenantId: string; supplierId: string; status: string; code?: string }>();
+  private readonly purchaseReturnRows = new Map<string, { id: string; tenantId: string; supplierId: string; status: string; code?: string; date?: string }>();
   private readonly invoiceLineRows = new Map<string, InMemoryInvoiceLineInfo[]>();
   private readonly returnReceiptLineRows = new Map<string, string[]>();
+  private readonly purchaseReturnLineRows = new Map<string, Array<{ id: string; receiptLineId: string; itemId: string; itemSku: string; itemName: string; unitId: string; quantity: number; unitCost: number }>>();
   private readonly amountDecimalsByTenant = new Map<string, number>();
   private queue: Promise<unknown> = Promise.resolve();
 
@@ -111,10 +112,29 @@ export class InMemoryPayablesStore {
     status: string = 'confirmed',
     code: string = 'DVC000001',
     receiptLineIds?: string[],
+    lines?: Array<{ id: string; receiptLineId: string; itemId: string; itemSku: string; itemName: string; unitId: string; quantity: number; unitCost: number }>,
+    date: string = '2026-09-05',
   ): void {
-    this.purchaseReturnRows.set(returnId, { id: returnId, tenantId, supplierId, status, code });
+    this.purchaseReturnRows.set(returnId, { id: returnId, tenantId, supplierId, status, code, date });
     if (receiptLineIds) {
       this.returnReceiptLineRows.set(returnId, receiptLineIds);
+    }
+    if (lines) {
+      this.purchaseReturnLineRows.set(returnId, lines);
+    } else if (receiptLineIds) {
+      this.purchaseReturnLineRows.set(
+        returnId,
+        receiptLineIds.map((rlId, idx) => ({
+          id: `rtl-${returnId}-${idx}`,
+          receiptLineId: rlId,
+          itemId: 'item-1',
+          itemSku: 'SKU-1',
+          itemName: 'Item 1',
+          unitId: 'unit-1',
+          quantity: 1,
+          unitCost: 10,
+        })),
+      );
     }
   }
 
@@ -162,6 +182,17 @@ export class InMemoryPayablesStore {
           .map((id) => this.purchaseReturnRows.get(id))
           .filter((r): r is NonNullable<typeof r> => Boolean(r && r.tenantId === tenantId.value))
           .map((r) => ({ id: r.id, code: r.code ?? 'DVC000001' }));
+      },
+      confirmedReturnsBySupplier: async (tenantId: TenantId, supplierId: string) => {
+        return [...this.purchaseReturnRows.values()]
+          .filter((r) => r.tenantId === tenantId.value && r.supplierId === supplierId && r.status === 'confirmed')
+          .map((r) => ({
+            id: r.id,
+            code: r.code ?? 'DVC000001',
+            date: r.date ?? '2026-09-05',
+            supplierId: r.supplierId,
+            lines: this.purchaseReturnLineRows.get(r.id) ?? [],
+          }));
       },
     };
   }
@@ -367,6 +398,15 @@ export class InMemoryPayablesStore {
           const applied = this.appliedSumForNote(note.id.value);
           return PayableCreditQuota.available(note.total(), applied) > 0;
         });
+      },
+      confirmedCreditedReturnIds: async (tenantId: TenantId): Promise<Set<string>> => {
+        const set = new Set<string>();
+        for (const cn of this.creditNoteRows.values()) {
+          if (cn.tenantId === tenantId.value && cn.purchaseReturnId && cn.status === 'confirmed') {
+            set.add(cn.purchaseReturnId);
+          }
+        }
+        return set;
       },
     };
   }

@@ -111,6 +111,27 @@ export interface SupplierBalancePage extends Page {
   totals: AgingTotals;
 }
 
+export interface EligiblePurchaseReturnLine {
+  id: string;
+  receiptLineId: string;
+  itemId: string;
+  itemSku: string;
+  itemName: string;
+  unitId: string;
+  concept: string;
+  quantity: number;
+  unitCost: number;
+  invoiceLineId?: string | null;
+  invoicedUnitPrice?: number | null;
+}
+
+export interface EligiblePurchaseReturn {
+  id: string;
+  code: string;
+  date: string;
+  lines: EligiblePurchaseReturnLine[];
+}
+
 export interface PayablesApi {
   searchPayments(token: string, filters?: PaymentFilters): Promise<PaymentPage>;
   savePayment(token: string, id: string | null, input: PaymentInput): Promise<void>;
@@ -121,6 +142,7 @@ export interface PayablesApi {
   confirmCreditNote(token: string, id: string): Promise<void>;
   cancelCreditNote(token: string, id: string): Promise<void>;
   availableCredits(token: string, supplierId: string): Promise<SupplierAvailableCredit[]>;
+  eligiblePurchaseReturns(token: string, invoiceId: string): Promise<EligiblePurchaseReturn[]>;
   searchPayableInvoices(token: string, filters?: PayableInvoiceFilters): Promise<PayableInvoicePage>;
   allInvoices(token: string): Promise<PayableInvoice[]>;
   searchSupplierBalances(token: string, filters?: SupplierBalanceFilters): Promise<SupplierBalancePage>;

@@ -129,73 +129,18 @@ export async function getSupplierAvailableCredits(supplierId: string) {
   }
 }
 
-export interface EligiblePurchaseReturn {
-  id: string;
-  code: string;
-  date: string;
-  lines: Array<{
-    id: string;
-    receiptLineId: string;
-    itemId: string;
-    itemSku: string;
-    itemName: string;
-    unitId: string;
-    concept: string;
-    quantity: number;
-    unitCost: number;
-  }>;
-}
+export type { EligiblePurchaseReturn } from '@/modules/payables/domain/payables-api';
+import type { EligiblePurchaseReturn } from '@/modules/payables/domain/payables-api';
 
-export async function getEligiblePurchaseReturns(invoiceId: string, supplierId: string): Promise<EligiblePurchaseReturn[]> {
-  if (!invoiceId || !supplierId) return [];
+export async function getEligiblePurchaseReturns(invoiceId: string, _supplierId?: string): Promise<EligiblePurchaseReturn[]> {
+  if (!invoiceId) return [];
   const { token } = await requireSession();
   try {
-    const invoice = await purchasingApi().findInvoice(token, invoiceId);
-    if (!invoice || !invoice.lines || invoice.lines.length === 0) return [];
-
-    const invoiceReceiptLineIds = new Set(
-      invoice.lines.map((l) => l.receiptLineId).filter((id): id is string => Boolean(id)),
-    );
-    if (invoiceReceiptLineIds.size === 0) return [];
-
-    const [returnsPage, notesPage] = await Promise.all([
-      purchasingApi().searchReturns(token, { supplierId }),
-      payablesApi().searchCreditNotes(token, { supplierId }),
-    ]);
-
-    const creditedReturnIds = new Set(
-      (notesPage.creditNotes ?? [])
-        .filter((n) => n.status !== 'cancelled' && (n.purchaseReturn?.id || n.purchaseReturnId))
-        .map((n) => n.purchaseReturn?.id ?? n.purchaseReturnId),
-    );
-
-    const confirmedReturns = (returnsPage.returns ?? []).filter((r) => r.status === 'confirmed');
-
-    return confirmedReturns
-      .filter((ret) => {
-        if (creditedReturnIds.has(ret.id)) return false;
-        if (!ret.lines || ret.lines.length === 0) return false;
-        return ret.lines.every((rl) => invoiceReceiptLineIds.has(rl.receiptLineId));
-      })
-      .map((ret) => ({
-        id: ret.id,
-        code: ret.code,
-        date: ret.date,
-        lines: ret.lines.map((rl) => ({
-          id: rl.id,
-          receiptLineId: rl.receiptLineId,
-          itemId: rl.itemId,
-          itemSku: rl.sku,
-          itemName: rl.itemName,
-          unitId: rl.unitId,
-          concept: rl.itemName ? `Devolución ${ret.code} - ${rl.itemName}` : `Devolución ${ret.code}`,
-          quantity: rl.quantity,
-          unitCost: rl.unitCost,
-        })),
-      }));
+    return await payablesApi().eligiblePurchaseReturns(token, invoiceId);
   } catch {
     return [];
   }
 }
+
 
 

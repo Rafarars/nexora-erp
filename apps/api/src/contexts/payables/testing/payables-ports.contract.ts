@@ -634,5 +634,63 @@ export function describePayablesPortsContract(implementation: string, createHarn
         expect(reverseAdj.lines[0].amount).toBeCloseTo(20 * 36.5, 2);
       });
     });
+
+    describe('eligible purchase returns and credited return tracking', () => {
+      it('returns confirmed returns for the supplier and tracks credited returns', async () => {
+        const invLineId = `f0000000-0000-4000-8000-${next()}`;
+        const itemId = `f1000000-0000-4000-8000-${next()}`;
+        await harness.invoiceLines(TENANT_A, INVOICE, [
+          { id: invLineId, itemId, subtotal: 100, receiptRate: 36.5 },
+        ]);
+
+        const invLines = await ports.ledger.invoiceLines(tenant, INVOICE);
+        const receiptLineId = invLines[0]?.receiptLineId!;
+
+        const returnId = `d8000000-0000-4000-8000-${next()}`;
+        await harness.purchaseReturn(TENANT_A, returnId, SUPPLIER, 'confirmed', receiptLineId ? [receiptLineId] : undefined);
+
+        // 1. confirmedReturnsBySupplier lista la devolución confirmada
+        const returns = await ports.ledger.confirmedReturnsBySupplier(tenant, SUPPLIER);
+        expect(returns.some((r) => r.id === returnId)).toBe(true);
+
+        // 2. Antes de acreditarla, confirmedCreditedReturnIds no la contiene
+        const creditedBefore = await ports.creditNotes.confirmedCreditedReturnIds(tenant);
+        expect(creditedBefore.has(returnId)).toBe(false);
+
+        // 3. Confirmar una nota de crédito que acredita la devolución
+        const noteId = SupplierCreditNoteId.of(`c0000000-0000-4000-8000-${next()}`);
+        const note = SupplierCreditNote.draft(
+          noteId,
+          tenant,
+          `NCP${next().slice(-6)}`,
+          {
+            supplierId: SUPPLIER,
+            invoiceId: INVOICE,
+            purchaseReturnId: returnId,
+            issueDate: PayablesDate.of(TODAY),
+            reason: 'return',
+            currency: USD_VES_RATES,
+            lines: [
+              {
+                id: `e0000000-0000-4000-8000-${next()}`,
+                concept: 'Devolución',
+                quantity: 1,
+                unitPrice: 10,
+                taxRate: 0,
+              },
+            ],
+          },
+          NOW,
+          TODAY,
+        );
+        await ports.creditNotes.save(note);
+        await ports.creditNotePosting.confirm(tenant, noteId, NOW, TODAY);
+
+        // 4. Tras confirmar la nota, confirmedCreditedReturnIds incluye returnId
+        const creditedAfter = await ports.creditNotes.confirmedCreditedReturnIds(tenant);
+        expect(creditedAfter.has(returnId)).toBe(true);
+      });
+    });
   });
 }
+
