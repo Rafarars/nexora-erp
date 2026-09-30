@@ -1389,28 +1389,78 @@ Ninguno.
 
 ### Correcciones de la revisión previa (1.2, 1.3, 1.4, 1.6, 1.7)
 1. **1.2 Carga selectiva de movimientos en `lockedLedger`:**
-   - *Qué se cambió:* En `apps/api/src/contexts/inventory/infrastructure/persistence/prisma-stock-ledger.ts:86-115`, `lockedLedger` cargaba el kardex completo de los artículos en cada operación de existencias. Se modificó para que `movementsSince` se consulte únicamente cuando se procesan líneas de revaluación por importe (`amountLines`), acotando la consulta a ese artículo, esa bodega y a partir de la secuencia del movimiento de origen. Las demás operaciones de inventario (entradas, despachos, devoluciones) no consultan movimientos históricos.
-   - *Prueba que lo defiende:* `apps/api/src/contexts/inventory/domain/stock/posting/stock-movements.spec.ts` y contratos de persistencia de inventario.
-   - *Línea de fallo sin la corrección:* `apps/api/src/contexts/inventory/infrastructure/persistence/prisma-stock-ledger.ts:78` (degradación masiva de rendimiento por consulta no acotada sobre `inventory_movements`).
+   - *Qué se cambió:* En `apps/api/src/contexts/inventory/infrastructure/persistence/prisma-stock-ledger.ts:86-115`, `lockedLedger` consultaba movimientos históricos de forma amplia. Se restringió para que la consulta a `inventory_movements` se ejecute exclusivamente si `amountLines` contiene líneas de revaluación por importe (`for (const line of amountLines)`), acotada por artículo, bodega y secuencia posterior al movimiento de origen. Si `amountLines` está vacío (`[]`), no se realiza ninguna llamada a `inventory_movements`.
+   - *Prueba que lo defiende:* `apps/api/src/contexts/inventory/infrastructure/persistence/prisma-stock-ledger.spec.ts:46` (`no consulta inventory_movements si no hay lineas de revaluacion por importe (1.2)`).
+   - *Mutación demostrada y fallo capturado:* Al mutar `prisma-stock-ledger.ts` ejecutando una llamada incondicional `await tx.inventoryMovement.findMany({ where: { tenantId } })`, la prueba falla de inmediato:
+     ```
+     FAIL src/contexts/inventory/infrastructure/persistence/prisma-stock-ledger.spec.ts > lockedLedger (1.2) > no consulta inventory_movements si no hay lineas de revaluacion por importe (1.2)
+     AssertionError: expected "vi.fn()" to not be called at all, but actually been called 1 times
+      ❯ src/contexts/inventory/infrastructure/persistence/prisma-stock-ledger.spec.ts:57:47
+     ```
 2. **1.3 Revaluación de compras en Inventario con entidad `Adjustment` y `AJU`:**
-   - *Qué se cambió:* Compras escribía directamente en las tablas de inventario (`adjustment` y `adjustment_line`) y manipulaba el correlativo `AJU` de forma manual, vulnerando los límites de contexto de `ARCHITECTURE.md`. Se trasladó el adaptador de `INVOICE_REVALUATION_POSTING` a Inventario (`apps/api/src/contexts/inventory/infrastructure/persistence/prisma-invoice-revaluation-posting.ts`), utilizando la entidad de dominio `Adjustment.createRevaluation` y el servicio de correlativos oficial, asignando como autor al usuario que confirmó la factura.
-   - *Prueba que lo defiende:* `apps/api/src/contexts/purchasing/testing/purchasing-ports.contract.ts` (`creates draft revaluation adjustment when invoiced price differs from receipt`).
-   - *Línea de fallo sin la corrección:* `apps/api/src/contexts/purchasing/testing/purchasing-ports.contract.ts:312:7` / transgresión arquitectónica por mutación directa intercontexto.
+   - *Qué se cambió:* Compras y Cuentas por pagar no deben acceder a las tablas de `adjustment` ni manipular directamente los correlativos `AJU` de Inventario. La creación de revaluaciones de compras se delegó al adaptador en Inventario `apps/api/src/contexts/inventory/infrastructure/persistence/prisma-invoice-revaluation-posting.ts`, utilizando la entidad `Adjustment.draft` y el generador oficial de secuencias `codes.next(tenantId, 'AJU')`, registrando al autor que confirmó la factura.
+   - *Prueba que lo defiende:* `apps/api/src/architecture.spec.ts:71` (`does not access inventory adjustment tables directly (1.3)`), que audita los 190 archivos de producción de `purchasing` y `payables`.
+   - *Mutación demostrada y fallo capturado:* Al introducir un acceso indebido `await (tx as any).adjustment.create({});` en `prisma-purchase-invoice-posting.ts`, la prueba arquitectónica falla:
+     ```
+     FAIL src/architecture.spec.ts > architecture of every context > contexts/purchasing/infrastructure/persistence/prisma-purchase-invoice-posting.ts does not access inventory adjustment tables directly (1.3)
+     AssertionError: expected [ Array(1) ] to deeply equal []
+     - Expected
+     + Received
+     - []
+     + [
+     +   [
+     +     ".adjustment",
+     +   ],
+     + ]
+      ❯ src/architecture.spec.ts:77:23
+     ```
 3. **1.4 Fecha controlada del ajuste de revaluación (eliminación de `now` UTC):**
-   - *Qué se cambió:* El ajuste de revaluación asignaba `adjustmentDate: now` en UTC, provocando que a partir de las 20:00 en Caracas (UTC-4) naciera con fecha del día siguiente y fuera rechazado por `AdjustmentDate.ensureNotAfter` como fecha futura. Se corrigió para que el ajuste tome la fecha de emisión de la factura de compra (`invoice.issueDate`), y el ajuste inverso creado al anular la factura tome la fecha del calendario de negocio de la empresa (`businessCalendar.today(tenantId)`).
-   - *Prueba que lo defiende:* `apps/api/src/contexts/purchasing/testing/purchasing-ports.contract.ts:316` y validaciones de `AdjustmentDate.ensureNotAfter`.
-   - *Línea de fallo sin la corrección:* `apps/api/src/contexts/inventory/domain/adjustment/adjustment-date.vo.ts:33` arrojando `FutureAdjustmentDateError`.
+   - *Qué se cambió:* El ajuste de revaluación asignaba `adjustmentDate: now` en UTC, provocando que a partir de las 20:00 en Caracas (UTC-4 / 00:00+ UTC) naciera con la fecha de mañana en UTC y fuera rechazado por `AdjustmentDate.ensureNotAfter` al contrastarlo con el `today` de la empresa. Se corrigió en `prisma-invoice-revaluation-posting.ts:83` asignando la fecha de emisión de la factura (`invoiceDate`), y en la anulación la fecha del calendario de negocio de la empresa (`today`).
+   - *Prueba que lo defiende:* `apps/api/src/contexts/inventory/infrastructure/persistence/prisma-invoice-revaluation-posting.spec.ts:15` (`crea el ajuste con la fecha de la factura y autor, sin fallar a las 20:30 de Caracas (00:30 UTC de manana)`).
+   - *Mutación demostrada y fallo capturado:* Al mutar `prisma-invoice-revaluation-posting.ts:83` para usar `date: AdjustmentDate.fromDate(now)` en vez de `AdjustmentDate.of(invoiceDate)`, la prueba falla a las 20:30 de Caracas al recibir `2026-10-02` contra `today: 2026-10-01`:
+     ```
+     FAIL src/contexts/inventory/infrastructure/persistence/prisma-invoice-revaluation-posting.spec.ts > PrismaInvoiceRevaluationPosting (H9 Defectos 1.3 y 1.4) > crea el ajuste con la fecha de la factura y autor, sin fallar a las 20:30 de Caracas (00:30 UTC de manana)
+     FutureAdjustmentDateError: Adjustment date <2026-10-02> is in the future.
+      ❯ AdjustmentDate.ensureNotAfter src/contexts/inventory/domain/adjustment/adjustment-date.vo.ts:32:35
+      ❯ validated src/contexts/inventory/domain/adjustment/adjustment.entity.ts:237:16
+      ❯ Function.draft src/contexts/inventory/domain/adjustment/adjustment.entity.ts:115:47
+      ❯ PrismaInvoiceRevaluationPosting.createDraftRevaluations src/contexts/inventory/infrastructure/persistence/prisma-invoice-revaluation-posting.ts:77:37
+      ❯ src/contexts/inventory/infrastructure/persistence/prisma-invoice-revaluation-posting.spec.ts:48:5
+     ```
 4. **1.6 Validación de líneas acreditadas por nota de crédito citando devolución:**
-   - *Qué se cambió:* La `NCP` que acredita una devolución no validaba que la devolución correspondiera a líneas efectivamente facturadas en la factura citada ni que perteneciera al mismo proveedor. Se añadieron las validaciones en `PrismaSupplierCreditNotePosting` y en el dominio para verificar coincidencia de proveedor, estado confirmado y que la devolución no haya sido acreditada previamente.
-   - *Prueba que lo defiende:* `apps/api/src/contexts/payables/application/payables-credit-note.spec.ts:182` (`valida devolucion de compra citada: exige que pertenezca al proveedor y no permite acreditarla dos veces`).
-   - *Línea de fallo sin la corrección:* `apps/api/src/contexts/payables/application/payables-credit-note.spec.ts:208:7` (`CreditNoteReturnAlreadyCreditedError`) y `payables-credit-note.spec.ts:224:7` (`CreditNoteReturnSupplierMismatchError`).
+   - *Qué se cambió:* La `NCP` que cita una devolución de compra debe validar que las líneas de la devolución correspondan a recepciones efectivamente facturadas en la factura citada (§4.4). Se implementó la verificación cruzada en `supplier-credit-note-creator.ts:186-193` y en el posting `prisma-supplier-credit-note-posting.ts:335`, lanzando `CreditNoteReturnLinesNotFromInvoiceError` si alguna línea devuelta pertenece a una entrada distinta.
+   - *Prueba que lo defiende:* `apps/api/src/contexts/payables/application/payables-credit-note.spec.ts:451` (`valida que las lineas de la devolucion correspondan a entradas que esa factura facturo (1.6)`).
+   - *Mutación demostrada y fallo capturado:* Al comentar el bloque de validación en `supplier-credit-note-creator.ts:186-193`, la prueba falla:
+     ```
+     FAIL src/contexts/payables/application/payables-credit-note.spec.ts > Supplier Credit Notes (NCP) in Payables > valida que las lineas de la devolucion correspondan a entradas que esa factura facturo (1.6)
+     AssertionError: promise resolved "{ …(2) }" instead of rejecting
+     - Expected
+     + Received
+     - Error {
+     -   "message": "rejected promise",
+     + {
+     +   "code": "NCP000001",
+     +   "id": "00000000-0000-4000-8000-000000000001",
+       }
+      ❯ src/contexts/payables/application/payables-credit-note.spec.ts:472:6
+     ```
 5. **1.7 Selector de notas de crédito y saldo disponible en Pagos:**
-   - *Qué se cambió:* En el formulario de pagos a proveedor (`apps/web/src/sections/payables/payments-board.tsx`), al seleccionar el método «Nota de crédito», faltaba el selector para escoger la nota de crédito y el aviso de saldo a favor por moneda. Se implementó el selector `credit-source-select` y el badge de crédito disponible, enviando `creditSourceId` en la solicitud de creación de pago.
-   - *Prueba que lo defiende:* `apps/api/src/contexts/payables/application/payables-credit-note.spec.ts:227` (`permite aplicar el credito disponible de una nota en un pago posterior a proveedor`) y `apps/e2e/tests/ui/payables.spec.ts:95`.
-   - *Línea de fallo sin la corrección:* `apps/api/src/contexts/payables/application/create-payment/payment-creator.ts:60` rechazando pagos con forma `credit_note` sin `creditSourceId`.
+   - *Qué se cambió:* En el formulario de pagos a proveedor (`apps/web/src/sections/payables/payments-board.tsx`), al seleccionar el método «Nota de crédito», se agregó el selector de notas con crédito disponible (`payment-credit-source`) y el aviso de saldo a favor, enviando obligatoriamente `creditSourceId` en la solicitud de creación de pago.
+   - *Pruebas que lo defienden:*
+     - UI / E2E: `apps/e2e/tests/ui/payables.spec.ts:144-171` (interacción completa del selector `payment-credit-source`, aplicación de 10 USD de crédito y comprobación de saldo en la factura amortizada).
+     - Aplicación / Dominio: `apps/api/src/contexts/payables/application/payables-credit-note.spec.ts:227` (`permite aplicar el credito disponible de una nota en un pago posterior a proveedor`).
+   - *Mutación demostrada y fallo capturado:* Al omitir `creditSourceId` en la llamada a `createPayment` en `payables-credit-note.spec.ts:242`, la entidad `SupplierPayment` rechaza el pago con:
+     ```
+     FAIL src/contexts/payables/application/payables-credit-note.spec.ts > Supplier Credit Notes (NCP) in Payables > permite aplicar el credito disponible de una nota en un pago posterior a proveedor
+     CreditNotePaymentWithoutSourceError: A payment made with credit_note needs a creditSourceId.
+      ❯ valued src/contexts/payables/domain/payment/supplier-payment.entity.ts:220:74
+      ❯ Function.draft src/contexts/payables/domain/payment/supplier-payment.entity.ts:115:10
+      ❯ PaymentCreator.run src/contexts/payables/application/create-payment/payment-creator.ts:68:39
+      ❯ src/contexts/payables/application/payables-credit-note.spec.ts:238:28
+     ```
 
 ### Defectos no detectados inicialmente en Fase 7
-- **Caída de pantalla de notas de crédito por `note.currency`:** En `CreditNotesBoard`, se intentaba renderizar directamente el objeto `note.currency` en la celda de moneda, provocando un error de React en tiempo de ejecución (`Objects are not valid as a React child`). Se corrigió extrayendo la clave string de la moneda (`typeof note.currency === 'object' ? note.currency.currency : note.currency`).
+- **Caída de pantalla de notas de crédito por `note.currency`:** En `CreditNotesBoard` (`apps/web/src/sections/payables/credit-notes-board.tsx:153,157`), se intentaba renderizar directamente el objeto `note.currency` en la celda de moneda, provocando un error de React en tiempo de ejecución (`Objects are not valid as a React child`). Se corrigió accediendo a la propiedad string `note.currency.code`.
 - **`PaymentSearcher` devolvía `creditSourceCode: null` fijo:** En `apps/api/src/contexts/payables/application/search-payments/payment-searcher.ts`, las consultas de pagos no resolvían el código identificador de la nota de crédito aplicada (`creditSourceId`), devolviendo siempre `null`. Se corrigió resolviendo el código `NCP…` a partir de las notas de crédito del proveedor para mostrar correctamente el origen del crédito en el listado de pagos.
 
 ### Aclaraciones sobre corridas rojas anteriores

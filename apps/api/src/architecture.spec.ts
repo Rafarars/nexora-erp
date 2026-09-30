@@ -63,4 +63,18 @@ describe('architecture of every context', () => {
 
     expect(leaking).toEqual([]);
   });
+
+  const crossContextFiles = [
+    ...productionFiles(join(SRC, 'contexts', 'purchasing')),
+    ...productionFiles(join(SRC, 'contexts', 'payables')),
+  ];
+
+  it.each(named(crossContextFiles))(
+    '%s does not access inventory adjustment tables directly (1.3)',
+    (_name, path) => {
+      const content = readFileSync(path, 'utf8');
+      const matches = [...content.matchAll(/\.(?:adjustment|adjustmentLine)\b/g)];
+      expect(matches).toEqual([]);
+    },
+  );
 });
