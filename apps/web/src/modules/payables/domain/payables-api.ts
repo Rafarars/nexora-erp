@@ -24,6 +24,7 @@ export interface PaymentInput {
 
 export interface CreditNoteLineInput {
   id?: string;
+  invoiceLineId?: string | null;
   itemId?: string | null;
   itemSku?: string | null;
   itemName?: string | null;

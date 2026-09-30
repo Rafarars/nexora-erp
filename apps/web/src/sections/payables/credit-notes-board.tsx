@@ -1,7 +1,8 @@
 'use client';
 
-import { useActionState, useState } from 'react';
-import { changeCreditNote, saveCreditNote } from '@/app/(app)/cuentas-por-pagar/actions';
+import { useActionState, useEffect, useState } from 'react';
+import { changeCreditNote, getPurchaseInvoice, saveCreditNote } from '@/app/(app)/cuentas-por-pagar/actions';
+import type { PurchaseInvoiceLine } from '@/modules/purchasing/domain/purchasing';
 import { MenuButton } from '@/sections/purchasing/menu-button';
 import { FormError, SubmitButton, TextArea } from '@/sections/shared/field';
 import { RowOptions } from '@/sections/shared/row-options';
@@ -243,6 +244,19 @@ export function CreditNotesBoard({
   );
 }
 
+interface FormCreditNoteLine {
+  id?: string;
+  invoiceLineId?: string;
+  itemId?: string;
+  itemSku?: string;
+  itemName?: string;
+  unitId?: string;
+  concept: string;
+  quantity: string;
+  unitPrice: string;
+  taxRate: string;
+}
+
 function CreditNoteFields({
   note,
   suppliers,
@@ -255,13 +269,18 @@ function CreditNoteFields({
   today: string;
 }) {
   const [selectedSupplier, setSelectedSupplier] = useState(note?.supplier.id ?? suppliers[0]?.id ?? '');
+  const [selectedInvoiceId, setSelectedInvoiceId] = useState(note?.invoice?.id ?? '');
   const [reason, setReason] = useState<CreditNoteReason>(note?.reason ?? 'subsequent_discount');
-  const [lines, setLines] = useState<
-    { id?: string; concept: string; quantity: string; unitPrice: string; taxRate: string }[]
-  >(
+  const [invoiceLines, setInvoiceLines] = useState<PurchaseInvoiceLine[]>([]);
+  const [lines, setLines] = useState<FormCreditNoteLine[]>(
     note?.lines?.length
       ? note.lines.map((l) => ({
           id: l.id,
+          invoiceLineId: l.invoiceLineId ?? undefined,
+          itemId: l.itemId ?? undefined,
+          itemSku: l.itemSku ?? undefined,
+          itemName: l.itemName ?? undefined,
+          unitId: l.unitId ?? undefined,
           concept: l.concept ?? '',
           quantity: String(l.quantity),
           unitPrice: String(l.unitPrice),
@@ -272,8 +291,47 @@ function CreditNoteFields({
 
   const availableInvoices = invoices.filter((inv) => inv.supplier.id === selectedSupplier);
 
+  useEffect(() => {
+    if (!selectedInvoiceId) return;
+    let active = true;
+
+    getPurchaseInvoice(selectedInvoiceId).then((inv) => {
+      if (active && inv) {
+        setInvoiceLines(inv.lines ?? []);
+      }
+    });
+
+    return () => {
+      active = false;
+    };
+  }, [selectedInvoiceId]);
+
+  const onSupplierChange = (newSupplier: string) => {
+    setSelectedSupplier(newSupplier);
+    const validInvoices = invoices.filter((inv) => inv.supplier.id === newSupplier);
+    if (!validInvoices.some((inv) => inv.id === selectedInvoiceId)) {
+      setSelectedInvoiceId('');
+      setInvoiceLines([]);
+      setLines((prev) => prev.map((l) => ({ ...l, invoiceLineId: undefined })));
+    }
+  };
+
+  const onInvoiceChange = (newInvoiceId: string) => {
+    setSelectedInvoiceId(newInvoiceId);
+    if (!newInvoiceId) setInvoiceLines([]);
+    setLines((prev) => prev.map((l) => ({ ...l, invoiceLineId: undefined })));
+  };
+
   const addLine = () => {
-    setLines([...lines, { concept: '', quantity: '1', unitPrice: '0', taxRate: '0' }]);
+    setLines([
+      ...lines,
+      {
+        concept: selectedInvoiceId ? '' : 'Descuento posterior',
+        quantity: '1',
+        unitPrice: '0',
+        taxRate: '0',
+      },
+    ]);
   };
 
   const removeLine = (index: number) => {
@@ -289,7 +347,7 @@ function CreditNoteFields({
         <select
           name="supplierId"
           value={selectedSupplier}
-          onChange={(e) => setSelectedSupplier(e.target.value)}
+          onChange={(e) => onSupplierChange(e.target.value)}
           data-testid="credit-note-supplier"
           className="border-line bg-surface mt-1 w-full rounded-md border px-3 py-2 text-sm"
           required
@@ -307,7 +365,8 @@ function CreditNoteFields({
         <label className="text-muted block text-xs font-medium">Factura afectada (opcional)</label>
         <select
           name="invoiceId"
-          defaultValue={note?.invoice?.id ?? ''}
+          value={selectedInvoiceId}
+          onChange={(e) => onInvoiceChange(e.target.value)}
           data-testid="credit-note-invoice"
           className="border-line bg-surface mt-1 w-full rounded-md border px-3 py-2 text-sm"
         >
@@ -390,15 +449,75 @@ function CreditNoteFields({
         <div className="space-y-3" data-testid="credit-note-lines">
           {lines.map((line, index) => (
             <div key={index} className="border-line flex items-start gap-2 rounded-md border p-2 text-sm">
-              <div className="flex-1 space-y-1">
-                <input
-                  type="text"
-                  name="lineConcept"
-                  defaultValue={line.concept}
-                  placeholder="Concepto o descripción"
-                  className="border-line bg-surface w-full rounded border px-2 py-1 text-xs"
-                  required
-                />
+              <div className="flex-1 space-y-2">
+                {selectedInvoiceId ? (
+                  <div>
+                    <label className="text-muted block text-[10px] font-medium">Línea de factura</label>
+                    <select
+                      name="lineInvoiceLineId"
+                      value={line.invoiceLineId ?? ''}
+                      onChange={(e) => {
+                        const chosenId = e.target.value;
+                        const chosenLine = invoiceLines.find((il) => il.id === chosenId);
+                        setLines((prev) =>
+                          prev.map((item, i) => {
+                            if (i !== index) return item;
+                            if (!chosenLine) return { ...item, invoiceLineId: undefined };
+                            return {
+                              ...item,
+                              invoiceLineId: chosenLine.id,
+                              itemId: chosenLine.itemId ?? undefined,
+                              itemSku: chosenLine.itemSku ?? undefined,
+                              itemName: chosenLine.itemName ?? undefined,
+                              unitId: chosenLine.unitId ?? undefined,
+                              concept: chosenLine.itemName || chosenLine.concept || item.concept,
+                              quantity: item.quantity === '0' || !item.quantity ? String(chosenLine.quantity) : item.quantity,
+                              unitPrice: item.unitPrice === '0' || !item.unitPrice ? String(chosenLine.unitPrice) : item.unitPrice,
+                              taxRate: String(chosenLine.taxRate),
+                            };
+                          }),
+                        );
+                      }}
+                      data-testid={`credit-note-line-invoice-line-${index}`}
+                      className="border-line bg-surface w-full rounded border px-2 py-1 text-xs"
+                      required
+                    >
+                      <option value="">Selecciona línea de factura...</option>
+                      {invoiceLines.map((il) => (
+                        <option key={il.id} value={il.id}>
+                          {il.itemSku ? `${il.itemSku} - ` : ''}
+                          {il.itemName || il.concept || 'Línea'} (Cant: {il.quantity}, P.U: {formatAmount(il.unitPrice)})
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                ) : (
+                  <input type="hidden" name="lineInvoiceLineId" value="" />
+                )}
+
+                <input type="hidden" name="lineItemId" value={line.itemId ?? ''} />
+                <input type="hidden" name="lineItemSku" value={line.itemSku ?? ''} />
+                <input type="hidden" name="lineItemName" value={line.itemName ?? ''} />
+                <input type="hidden" name="lineUnitId" value={line.unitId ?? ''} />
+
+                <div>
+                  <label className="text-muted block text-[10px]">Concepto o descripción</label>
+                  <input
+                    type="text"
+                    name="lineConcept"
+                    value={line.concept}
+                    onChange={(e) =>
+                      setLines((prev) =>
+                        prev.map((item, i) => (i === index ? { ...item, concept: e.target.value } : item)),
+                      )
+                    }
+                    placeholder="Concepto o descripción"
+                    data-testid={`credit-note-line-concept-${index}`}
+                    className="border-line bg-surface w-full rounded border px-2 py-1 text-xs"
+                    required
+                  />
+                </div>
+
                 <div className="grid grid-cols-3 gap-2">
                   <div>
                     <label className="text-muted block text-[10px]">Cantidad</label>
@@ -406,7 +525,13 @@ function CreditNoteFields({
                       type="number"
                       step="any"
                       name="lineQuantity"
-                      defaultValue={line.quantity}
+                      value={line.quantity}
+                      onChange={(e) =>
+                        setLines((prev) =>
+                          prev.map((item, i) => (i === index ? { ...item, quantity: e.target.value } : item)),
+                        )
+                      }
+                      data-testid={`credit-note-line-quantity-${index}`}
                       className="border-line bg-surface w-full rounded border px-2 py-1 text-xs"
                       required
                     />
@@ -417,7 +542,13 @@ function CreditNoteFields({
                       type="number"
                       step="any"
                       name="linePrice"
-                      defaultValue={line.unitPrice}
+                      value={line.unitPrice}
+                      onChange={(e) =>
+                        setLines((prev) =>
+                          prev.map((item, i) => (i === index ? { ...item, unitPrice: e.target.value } : item)),
+                        )
+                      }
+                      data-testid={`credit-note-line-price-${index}`}
                       className="border-line bg-surface w-full rounded border px-2 py-1 text-xs"
                       required
                     />
@@ -426,7 +557,13 @@ function CreditNoteFields({
                     <label className="text-muted block text-[10px]">IVA (%)</label>
                     <select
                       name="lineTax"
-                      defaultValue={line.taxRate}
+                      value={line.taxRate}
+                      onChange={(e) =>
+                        setLines((prev) =>
+                          prev.map((item, i) => (i === index ? { ...item, taxRate: e.target.value } : item)),
+                        )
+                      }
+                      data-testid={`credit-note-line-tax-${index}`}
                       className="border-line bg-surface w-full rounded border px-2 py-1 text-xs"
                     >
                       <option value="0">0% (Exento)</option>

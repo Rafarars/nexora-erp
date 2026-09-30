@@ -182,8 +182,8 @@ import { PrismaStockRepository } from './persistence/prisma-stock.repository.js'
     },
     {
       provide: AdjustmentSearcher,
-      useFactory: (r: AdjustmentRepository, c: InventoryCatalog, a: DocumentAuthors) => new AdjustmentSearcher(r, c, a),
-      inject: [ADJUSTMENT_REPOSITORY, INVENTORY_CATALOG, DOCUMENT_AUTHORS],
+      useFactory: (r: AdjustmentRepository, c: InventoryCatalog, a: DocumentAuthors, d: MovementDocuments) => new AdjustmentSearcher(r, c, a, d),
+      inject: [ADJUSTMENT_REPOSITORY, INVENTORY_CATALOG, DOCUMENT_AUTHORS, MOVEMENT_DOCUMENTS],
     },
     {
       provide: StockSearcher,

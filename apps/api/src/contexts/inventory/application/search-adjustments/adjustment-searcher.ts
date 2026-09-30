@@ -2,6 +2,7 @@ import { AdjustmentStatus, AdjustmentType, adjustmentTypeOf } from '../../domain
 import { AdjustmentRepository } from '../../domain/adjustment/adjustment.repository.js';
 import { InventoryCatalog } from '../../domain/catalog/inventory-catalog.js';
 import { DocumentAuthors } from '../../domain/documents/document-authors.js';
+import { DocumentOriginType, MovementDocuments } from '../../domain/documents/movement-documents.js';
 import { StockWarehouseNotFoundError } from '../../domain/errors/inventory.errors.js';
 import { ItemRef, WarehouseRef } from '../../domain/shared/references.vo.js';
 import { TenantId } from '../../domain/shared/tenant-id.vo.js';
@@ -74,6 +75,7 @@ export class AdjustmentSearcher {
     private readonly adjustments: AdjustmentRepository,
     private readonly catalog: InventoryCatalog,
     private readonly authors: DocumentAuthors,
+    private readonly documents?: MovementDocuments,
   ) {}
 
   async run(request: AdjustmentSearcherRequest): Promise<AdjustmentSearcherResponse> {
@@ -111,10 +113,17 @@ export class AdjustmentSearcher {
       ...new Set(adjustments.flatMap((a) => [a.createdBy, closerOf(a)]).filter((id): id is string => id !== null)),
     ];
 
-    const [items, warehouses, authors] = await Promise.all([
+    const originDocs = adjustments
+      .filter((a): a is typeof a & { originType: DocumentOriginType; originId: string } => Boolean(a.originType && a.originId))
+      .map((a) => ({ type: a.originType as DocumentOriginType, id: a.originId }));
+
+    const [items, warehouses, authors, originCodes] = await Promise.all([
       this.catalog.findItems(tenantId, itemIds),
       this.catalog.findWarehouses(tenantId, warehouseIds),
       this.authors.namesOf(tenantId, authorIds),
+      this.documents && originDocs.length > 0
+        ? this.documents.codesOf(tenantId, originDocs)
+        : Promise.resolve(new Map<string, string>()),
     ]);
 
     return {
@@ -134,10 +143,7 @@ export class AdjustmentSearcher {
         closedBy: closerOf(adjustment) ? (authors.get(closerOf(adjustment)!) ?? null) : null,
         originType: adjustment.originType ?? null,
         originId: adjustment.originId ?? null,
-        originCode:
-          adjustment.originType === 'purchase_invoice'
-            ? (adjustment.notes?.match(/\b(FCP[A-Z0-9_-]+)\b/i)?.[1] ?? null)
-            : null,
+        originCode: adjustment.originId ? (originCodes.get(adjustment.originId) ?? null) : null,
         lines: adjustment.lines.map((line) => {
           const item = items.find((candidate) => candidate.id === line.itemId);
 

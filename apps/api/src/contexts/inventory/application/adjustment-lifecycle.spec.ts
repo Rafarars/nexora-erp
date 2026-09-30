@@ -10,6 +10,7 @@ import {
   StockWarehouseNotFoundError,
 } from '../domain/errors/inventory.errors.js';
 import { TenantId } from '../domain/shared/tenant-id.vo.js';
+import { Adjustment } from '../domain/adjustment/adjustment.entity.js';
 import { BOX, FOREIGN_WAREHOUSE, MAIN, NORTH, PIECE, TENANT_A, TENANT_B, WATER } from '../domain/testing/inventory.mother.js';
 import { AdjustmentCanceller } from './cancel-adjustment/adjustment-canceller.js';
 import { AdjustmentConfirmer } from './confirm-adjustment/adjustment-confirmer.js';
@@ -30,7 +31,7 @@ function useCases(s: InventoryScenario) {
     update: new AdjustmentUpdater(s.finder, s.factory, s.store, s.clock, s.calendar),
     confirm: new AdjustmentConfirmer(s.finder, s.factory, s.store, s.store, s.confirmation, s.clock, s.calendar),
     cancel: new AdjustmentCanceller(s.store, s.cancellation, s.clock),
-    adjustments: new AdjustmentSearcher(s.store, s.catalog, s.authors),
+    adjustments: new AdjustmentSearcher(s.store, s.catalog, s.authors, s.documents),
     stock: new StockSearcher(s.store, s.catalog, s.expected, s.rates),
     kardex: new MovementSearcher(s.store, s.documents, s.catalog),
   };
@@ -327,4 +328,112 @@ describe('queries', () => {
 
     await expect(useCases(s).create.run(request({ warehouseId: FOREIGN_WAREHOUSE }))).rejects.toThrow(StockWarehouseNotFoundError);
   });
+
+  it('resolves originCode for purchase invoices and supplier credit notes via MOVEMENT_DOCUMENTS (H9 Correcciones 2 Ajuste 4)', async () => {
+    const s = anInventoryScenario();
+    const invoiceAdjId = '11111111-1111-4111-8111-111111111111';
+    const noteAdjId = '22222222-2222-4222-8222-222222222222';
+    const invoiceId = '33333333-3333-4333-8333-333333333333';
+    const creditNoteId = '44444444-4444-4444-8444-444444444444';
+
+    s.documents.seed(TENANT_A, invoiceId, 'FCP000042');
+    s.documents.seed(TENANT_A, creditNoteId, 'NCP000007');
+
+    const invoiceAdjustment = Adjustment.fromPrimitives({
+      id: invoiceAdjId,
+      tenantId: TENANT_A,
+      code: 'AJU000010',
+      warehouseId: MAIN,
+      adjustmentDate: '2026-01-15',
+      type: 'revaluation',
+      notes: 'Revaluacion de factura',
+      status: 'draft',
+      createdBy: ANA,
+      confirmedAt: null,
+      confirmedBy: null,
+      cancelledAt: null,
+      cancelledBy: null,
+      originType: 'purchase_invoice',
+      originId: invoiceId,
+      createdAt: new Date('2026-01-15T10:00:00Z'),
+      updatedAt: new Date('2026-01-15T10:00:00Z'),
+      lines: [
+        {
+          id: '55555555-5555-4555-8555-555555555555',
+          lineNumber: 1,
+          itemId: WATER,
+          itemSku: 'AGUA-1L',
+          itemName: 'Agua Mineral 1L',
+          unitId: PIECE,
+          direction: 'in',
+          quantity: 1,
+          baseQuantity: 1,
+          unitCost: 10,
+          revaluationKind: 'cost',
+          amount: 10,
+          sourceMovementId: null,
+          stockPart: 10,
+          soldPart: 0,
+        },
+      ],
+    });
+
+    const noteAdjustment = Adjustment.fromPrimitives({
+      id: noteAdjId,
+      tenantId: TENANT_A,
+      code: 'AJU000011',
+      warehouseId: MAIN,
+      adjustmentDate: '2026-01-15',
+      type: 'revaluation',
+      notes: 'Revaluacion por nota de credito',
+      status: 'draft',
+      createdBy: ANA,
+      confirmedAt: null,
+      confirmedBy: null,
+      cancelledAt: null,
+      cancelledBy: null,
+      originType: 'supplier_credit_note',
+      originId: creditNoteId,
+      createdAt: new Date('2026-01-15T10:00:00Z'),
+      updatedAt: new Date('2026-01-15T10:00:00Z'),
+      lines: [
+        {
+          id: '66666666-6666-4666-8666-666666666666',
+          lineNumber: 1,
+          itemId: WATER,
+          itemSku: 'AGUA-1L',
+          itemName: 'Agua Mineral 1L',
+          unitId: PIECE,
+          direction: 'out',
+          quantity: 1,
+          baseQuantity: 1,
+          unitCost: 5,
+          revaluationKind: 'cost',
+          amount: 5,
+          sourceMovementId: null,
+          stockPart: 5,
+          soldPart: 0,
+        },
+      ],
+    });
+
+    await s.store.save(invoiceAdjustment);
+    await s.store.save(noteAdjustment);
+
+    const { adjustments } = await useCases(s).adjustments.run({ tenantId: TENANT_A });
+
+    const foundInvoiceAdj = adjustments.find((a) => a.id === invoiceAdjId);
+    const foundNoteAdj = adjustments.find((a) => a.id === noteAdjId);
+
+    expect(foundInvoiceAdj).toBeDefined();
+    expect(foundInvoiceAdj?.originType).toBe('purchase_invoice');
+    expect(foundInvoiceAdj?.originId).toBe(invoiceId);
+    expect(foundInvoiceAdj?.originCode).toBe('FCP000042');
+
+    expect(foundNoteAdj).toBeDefined();
+    expect(foundNoteAdj?.originType).toBe('supplier_credit_note');
+    expect(foundNoteAdj?.originId).toBe(creditNoteId);
+    expect(foundNoteAdj?.originCode).toBe('NCP000007');
+  });
 });
+

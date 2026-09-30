@@ -1,6 +1,6 @@
 import { expect } from '@playwright/test';
 import type { APIRequestContext } from '@playwright/test';
-import { auth } from './inventory-fixtures.js';
+import { ACME_INVENTORY, aFreshItem, auth } from './inventory-fixtures.js';
 
 export const SUPPLIERS = '/api/v1/purchasing/suppliers';
 export const ORDERS = '/api/v1/purchasing/orders';
@@ -113,4 +113,79 @@ export async function aConfirmedPurchaseInvoice(
 
   return { id, code, invoiceNumber, subtotal, lines };
 }
+
+export async function aConfirmedMerchandiseInvoice(
+  request: APIRequestContext,
+  token: string,
+  supplierId: string,
+  unitCost = 10,
+  quantity = 10,
+  baseUrl = '',
+) {
+  const item = await aFreshItem(request, token, baseUrl);
+  const order = await aDraftOrder(
+    request,
+    token,
+    {
+      supplierId,
+      warehouseId: ACME_INVENTORY.mainWarehouse,
+      lines: [{ itemId: item.id, unitId: ACME_INVENTORY.piece, quantity, unitCost }],
+    },
+    baseUrl,
+  );
+  await request.put(`${baseUrl}/api/v1/purchasing/orders/${order.id}/confirm`, {
+    headers: auth(token),
+  });
+
+  const receipt = await aDraftReceipt(
+    request,
+    token,
+    order.id,
+    [{ orderLineId: order.lines[0].id, quantity }],
+    baseUrl,
+  );
+  await request.put(`${baseUrl}/api/v1/purchasing/receipts/${receipt.id}/confirm`, {
+    headers: auth(token),
+  });
+
+  const invoiceNumber = `FAC-MERC-${unique()}`;
+  const invRes = await request.post(`${baseUrl}/api/v1/purchasing/invoices`, {
+    headers: auth(token),
+    data: {
+      supplierId,
+      supplierInvoiceNumber: invoiceNumber,
+      issueDate: '2026-09-08',
+      dueDate: '2026-09-08',
+      lines: [
+        {
+          receiptLineId: receipt.lines[0].id,
+          orderLineId: order.lines[0].id,
+          itemId: item.id,
+          itemSku: item.sku,
+          itemName: item.name,
+          unitId: ACME_INVENTORY.piece,
+          quantity,
+          unitPrice: unitCost,
+          taxRate: 0,
+        },
+      ],
+    },
+  });
+  expect(invRes.status(), await invRes.text()).toBe(201);
+  const { id, code } = await invRes.json();
+
+  const confirmRes = await request.put(`${baseUrl}/api/v1/purchasing/invoices/${id}/confirm`, {
+    headers: auth(token),
+  });
+  expect(confirmRes.status(), await confirmRes.text()).toBe(200);
+
+  const getRes = await request.get(`${baseUrl}/api/v1/purchasing/invoices/${id}`, {
+    headers: auth(token),
+  });
+  const invoiceData = await getRes.json();
+  const lines = invoiceData.invoice?.lines ?? [];
+
+  return { id, code, invoiceNumber, subtotal: unitCost * quantity, lines, item };
+}
+
 

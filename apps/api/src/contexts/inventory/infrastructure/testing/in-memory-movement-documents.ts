@@ -27,4 +27,8 @@ export class InMemoryMovementDocuments implements MovementDocuments {
 
     return codes;
   }
+
+  seed(tenantId: string, id: string, code: string): void {
+    this.others.push({ tenantId, id, code });
+  }
 }

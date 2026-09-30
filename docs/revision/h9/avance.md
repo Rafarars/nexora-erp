@@ -1101,9 +1101,70 @@ Ninguno.
     Fallo en `apps/e2e/tests/ui/payables.spec.ts:130` porque la creación de NCP en el test citaba factura pero no pasaba `invoiceLineId`, disparando la nueva regla de dominio §1.1. Se adaptó `aConfirmedPurchaseInvoice` en `purchasing-fixtures.ts` para consultar las líneas de la factura confirmada por GET y pasar `invoiceLineId: invoice1.lines[0]?.id` en el test.
   - **Corrida verde final (`verify-correcciones-fase2-r3.log`):**
     ```
-    520 passed (12.8m)
-    Todo en verde.
+### Fase 3: Selector de líneas de factura en NCP y origen en ajustes (Prompt §1.1 y Ajuste 4)
+- **Resolución de código de origen en ajustes vía `MOVEMENT_DOCUMENTS` (Ajuste 4):**
+  - `apps/api/src/contexts/inventory/domain/documents/movement-documents.ts`: ampliado `DocumentOriginType` con `'purchase_invoice' | 'supplier_credit_note'`.
+  - `apps/api/src/contexts/inventory/infrastructure/persistence/prisma-movement-documents.ts`: implementada la resolución de códigos para compras (`purchaseInvoice`) y notas de crédito de proveedor (`supplierCreditNote`).
+  - `apps/api/src/contexts/inventory/infrastructure/testing/in-memory-movement-documents.ts`: añadido método `seed(tenantId, id, code)` para pruebas de aplicación.
+  - `apps/api/src/contexts/inventory/application/search-adjustments/adjustment-searcher.ts`: inyectado `MovementDocuments` como dependencia opcional; eliminada la regex sobre `notes` (`/\b(FCP[A-Z0-9_-]+)\b/i`) y resuelto `originCode` formalmente mediante `codesOf`.
+  - `apps/api/src/contexts/inventory/infrastructure/inventory.module.ts`: inyectado `MOVEMENT_DOCUMENTS` en el proveedor de `AdjustmentSearcher`.
+  - `apps/api/src/contexts/inventory/application/adjustment-lifecycle.spec.ts`: prueba unitaria `resolves originCode for purchase invoices and supplier credit notes via MOVEMENT_DOCUMENTS (H9 Correcciones 2 Ajuste 4)`.
+  - **Demostración de prueba mediante mutación de código:**
+    En `adjustment-searcher.ts:146`, mutando `originCode: null`:
+    Salida roja obtenida:
     ```
+    FAIL src/contexts/inventory/application/adjustment-lifecycle.spec.ts > queries > resolves originCode for purchase invoices and supplier credit notes via MOVEMENT_DOCUMENTS (H9 Correcciones 2 Ajuste 4)
+    AssertionError: expected null to be 'FCP000042'
+     ❯ src/contexts/inventory/application/adjustment-lifecycle.spec.ts:431:41
+    ```
+    Restaurado y verificado en verde (24/24 pruebas pasadas).
 
----
+- **Selector de líneas de factura en la interfaz web (§1.1):**
+  - `apps/web/src/sections/payables/credit-notes-board.tsx`:
+    - En `CreditNoteFields`: soporte dinámico de facturas afectadas (`selectedInvoiceId`). Al seleccionar una factura, consulta sus líneas mediante `getPurchaseInvoice`.
+    - Selector de línea de factura por cada fila (`lineInvoiceLineId`, testId `credit-note-line-invoice-line-${index}`).
+    - Autocompletado automático de concepto, precio unitario de la factura, cantidad sugerida y tasa de impuesto al seleccionar la línea de la factura.
+    - Envío de campos ocultos `lineItemId`, `lineItemSku`, `lineItemName` y `lineUnitId`.
+  - `apps/web/src/app/(app)/cuentas-por-pagar/actions.ts`:
+    - En `saveCreditNote`: captura de `lineInvoiceLineId` e información del ítem, pasándolos al cliente HTTP.
+    - Server action `getPurchaseInvoice`: consulta la factura mediante `purchasingApi().findInvoice(token, invoiceId)`.
+  - `apps/web/src/modules/purchasing/infrastructure/http-purchasing-api.ts`:
+    - En `findInvoice`: desenvuelve `{ invoice: ... }` retornado por el endpoint REST de la API.
+  - `apps/web/src/modules/payables/domain/payables-api.ts` y `payables.ts`:
+    - Tipos `CreditNoteLineInput` y `SupplierCreditNoteLine` ampliados con `invoiceLineId?: string | null`.
+
+- **Pruebas E2E y sesión con `playwright-cli` visible (skill `web-qa`):**
+  - `apps/e2e/support/purchasing-fixtures.ts`: añadido helper `aConfirmedMerchandiseInvoice` que encadena orden de compra inventariable, recepción en bodega confirmada y factura de mercancía confirmada con `receiptLineId`.
+  - `apps/e2e/tests/ui/payables.spec.ts`: test E2E `creates a supplier credit note selecting invoice line and shows origin NCP in inventory adjustments (H9 Correcciones 2 Ajuste 4)`. Verifica la creación de la NCP desde la UI seleccionando la línea de factura, su confirmación, y comprueba en Inventario -> Ajustes que el ajuste de revaluación generado en borrador expone `(NCP...)` en sus líneas.
+  - Ejecución con `playwright-cli -s=fase3` en modo `--headed` y `--persistent` con grabación de traza, vídeo y capturas en `docs/revision/h9/evidencia/fase3/`:
+    - `01-notas-de-credito-listado.png`: listado de notas de crédito con estados y totales.
+    - `02-nota-credito-selector-linea-factura.png`: formulario de nueva nota de crédito con la factura y la línea de factura seleccionadas y autocompletadas.
+    - `03-inventario-ajustes-origen-ncp.png`: tabla de ajustes de inventario mostrando el ajuste `AJU000007` con `Revaluación -10,00 (NCP000001) AGUA-500`.
+    - `recorrido.webm`: grabación en vídeo de la sesión.
+
+- **Verificación completa de la Fase 3 (`make verify`):**
+  - **Corrida roja 1 (`scratch/logs/verify-fase3-run.log`):**
+    En `test-unit`, la prueba de timing contra ataque de canal lateral en contraseñas falló por jitter de CPU bajo alta concurrencia de vitest en la API:
+    ```
+    FAIL src/contexts/access/infrastructure/security/argon2-password-hasher.spec.ts > Argon2PasswordHasher > takes as long to reject a missing account as a real one
+    AssertionError: expected 37.12982000000011 to be greater than 41.649126000000024
+     ❯ src/contexts/access/infrastructure/security/argon2-password-hasher.spec.ts:58:28
+    ```
+    Al aislar la prueba, pasa consistentemente en verde (870ms).
+  - **Corrida roja 2 (`scratch/logs/verify-fase3-run-2.log`):**
+    En `test-contract`, la suite `prisma-company-ports.contract.integration.spec.ts` falló en su `reset()`:
+    ```
+    Invalid `this.prisma.warehouse.deleteMany()` invocation in
+    src/contexts/company/infrastructure/testing/prisma-company-ports.harness.ts:57:33
+    Foreign key constraint violated on the constraint: sales_orders_tenant_id_warehouse_id_fkey
+    ```
+    *Causa identificada:* La suite `prisma-sales-returns-of-invoice.integration.spec.ts` (añadida para §3.6) creaba órdenes de venta en `TENANT_A` asociadas a la bodega principal pero no llamaba a `harness.reset()` en su gancho `afterAll()`, dejando órdenes de venta activas que bloqueaban la eliminación de bodegas en suites posteriores.
+    *Corrección aplicada:* En `prisma-sales-returns-of-invoice.integration.spec.ts:33-37`, se añadió la llamada a `await harness.reset()` dentro de `afterAll()`.
+  - **Corrida verde final (`scratch/logs/verify-fase3-run-3.log`):**
+    - `apps/api lint`: 41 avisos (imports no utilizados de errores), 0 errores en 1148 archivos.
+    - `apps/web lint`: 0 avisos y 0 errores en 44 archivos.
+    - `apps/e2e lint`: 0 avisos y 0 errores en 30 archivos.
+    - `test-unit`: 183 suites pasadas (183), 3649 pruebas pasadas (3649) en API; 229 pruebas pasadas (229) en Web.
+    - `test-contract`: 13 suites pasadas (13), 300 pruebas pasadas (300) en PostgreSQL.
+    - `test-e2e`: 521 pruebas pasadas (521) en Playwright (9.4m).
 

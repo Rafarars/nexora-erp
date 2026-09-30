@@ -159,7 +159,8 @@ export class HttpPurchasingApi implements PurchasingApi {
   }
 
   async findInvoice(token: string, id: string): Promise<PurchaseInvoice> {
-    return this.request<PurchaseInvoice>('GET', `${BASE}/invoices/${id}`, token);
+    const result = await this.request<{ invoice: PurchaseInvoice }>('GET', `${BASE}/invoices/${id}`, token);
+    return result.invoice;
   }
 
   async createInvoice(token: string, input: PurchaseInvoiceInput): Promise<{ id: string }> {

@@ -32,6 +32,7 @@ describe('PrismaSalesReturnsOfInvoice integration', () => {
   });
 
   afterAll(async () => {
+    await harness.reset();
     await harness.close();
     await prisma.$disconnect();
   });

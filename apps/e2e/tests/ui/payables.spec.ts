@@ -1,8 +1,9 @@
 import { expect, test } from '@playwright/test';
 import { ACCOUNTANT, ACME_ADMIN, LoginPage } from '../../pages/login.page.js';
+import { InventoryPage } from '../../pages/inventory.page.js';
 import { PayablesPage } from '../../pages/payables.page.js';
 import { tokenFor } from '../../support/inventory-fixtures.js';
-import { aConfirmedPurchaseInvoice, aFreshSupplier } from '../../support/purchasing-fixtures.js';
+import { aConfirmedMerchandiseInvoice, aConfirmedPurchaseInvoice, aFreshSupplier } from '../../support/purchasing-fixtures.js';
 
 const API = process.env.API_URL ?? 'http://localhost:3001';
 
@@ -189,3 +190,52 @@ test('a read-only role sees payments, balances and aging but gets no way to pay'
   await expect(page.getByTestId('credit-note-status-NCP000001')).toHaveText('Confirmada');
   await expect(page.getByTestId('new-credit-note')).toHaveCount(0);
 });
+
+test('creates a supplier credit note selecting invoice line and shows origin NCP in inventory adjustments (H9 Correcciones 2 Ajuste 4)', async ({ page, request }) => {
+  test.slow();
+  const token = await tokenFor(request, ACME_ADMIN.email, API);
+  const supplier = await aFreshSupplier(request, token, API);
+  const invoice = await aConfirmedMerchandiseInvoice(request, token, supplier.id, 10, 10, API);
+  const payables = new PayablesPage(page);
+  const inventory = new InventoryPage(page);
+
+  await new LoginPage(page).signIn(ACME_ADMIN);
+
+  // 1. Abrir notas de crédito y abrir formulario de creación
+  await payables.open('notas-de-credito');
+  await page.getByTestId('new-credit-note').click();
+  await expect(page.getByTestId('credit-note-panel')).toBeVisible();
+
+  // 2. Seleccionar proveedor y factura afectada
+  await page.getByTestId('credit-note-supplier').selectOption({ label: supplier.name });
+  await page.getByTestId('credit-note-invoice').selectOption(invoice.id);
+
+  // 3. Seleccionar la línea de la factura en la línea 0
+  const lineSelect = page.getByTestId('credit-note-line-invoice-line-0');
+  await expect(lineSelect).toBeVisible();
+  await expect(lineSelect.locator('option')).toHaveCount(2);
+  await lineSelect.selectOption({ index: 1 });
+
+  // 4. Modificar el precio unitario a 25 para un descuento parcial y guardar
+  await page.getByTestId('credit-note-line-price-0').fill('25');
+  await page.getByTestId('credit-note-submit').click();
+  await expect(page.getByTestId('credit-note-panel')).toBeHidden();
+
+  // 5. Verificar que la fila de la nota de crédito aparece en estado Borrador
+  const noteRow = payables.creditNoteOf(supplier.name);
+  await expect(noteRow.getByTestId(/credit-note-status-/)).toHaveText('Borrador');
+  const codeText = (await noteRow.locator('td').first().locator('p.font-mono').innerText()).trim();
+  expect(codeText).toMatch(/^NCP\d+$/);
+
+  // 6. Confirmar la nota de crédito desde las opciones de la fila
+  await payables.act(noteRow, 'Confirmar');
+  await expect(noteRow.getByTestId(/credit-note-status-/)).toHaveText('Confirmada');
+
+  // 7. Navegar a Inventario -> Ajustes y comprobar el código de origen de la revaluación
+  await inventory.open('ajustes');
+  const adjRow = inventory.adjustmentWith(codeText);
+  await expect(adjRow).toBeVisible();
+  await expect(adjRow.getByTestId(/adjustment-status-/)).toHaveText('Borrador');
+  await expect(adjRow.getByTestId(/adjustment-lines-/)).toContainText(`(${codeText})`);
+});
+

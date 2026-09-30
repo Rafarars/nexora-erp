@@ -165,6 +165,7 @@ export const CREDIT_NOTE_STATUS_LABELS: Record<CreditNoteStatus, string> = {
 export interface SupplierCreditNoteLine {
   id: string;
   lineNumber: number;
+  invoiceLineId?: string | null;
   itemId: string | null;
   itemSku: string | null;
   itemName: string | null;

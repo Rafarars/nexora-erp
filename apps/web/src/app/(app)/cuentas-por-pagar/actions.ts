@@ -5,6 +5,7 @@ import { parseDecimal } from '@/modules/catalog/domain/catalog';
 import type { CreditNoteReason } from '@/modules/payables/domain/payables';
 import { readablePayablesError } from '@/modules/payables/domain/payables-error';
 import { payablesApi } from '@/shared/session/payables-api';
+import { purchasingApi } from '@/shared/session/purchasing-api';
 import { requireSession } from '@/shared/session/current-session';
 import type { FormState } from '@/shared/forms/form-state';
 
@@ -63,6 +64,11 @@ export async function saveCreditNote(_state: FormState, form: FormData): Promise
   const lineQuantities = form.getAll('lineQuantity').map(String);
   const linePrices = form.getAll('linePrice').map(String);
   const lineTaxes = form.getAll('lineTax').map(String);
+  const lineInvoiceLineIds = form.getAll('lineInvoiceLineId').map(String);
+  const lineItemIds = form.getAll('lineItemId').map(String);
+  const lineItemSkus = form.getAll('lineItemSku').map(String);
+  const lineItemNames = form.getAll('lineItemName').map(String);
+  const lineUnitIds = form.getAll('lineUnitId').map(String);
 
   return attempt('No se pudo guardar la nota de crédito.', (token) =>
     payablesApi().saveCreditNote(token, optional(form, 'id'), {
@@ -76,6 +82,11 @@ export async function saveCreditNote(_state: FormState, form: FormData): Promise
       currency: optional(form, 'currency'),
       exchangeRate: rate(form),
       lines: lineConcepts.map((concept, index) => ({
+        invoiceLineId: lineInvoiceLineIds[index]?.trim() || null,
+        itemId: lineItemIds[index]?.trim() || null,
+        itemSku: lineItemSkus[index]?.trim() || null,
+        itemName: lineItemNames[index]?.trim() || null,
+        unitId: lineUnitIds[index]?.trim() || null,
         concept: concept.trim() || null,
         quantity: parseDecimal(lineQuantities[index] ?? '1'),
         unitPrice: parseDecimal(linePrices[index] ?? '0'),
@@ -91,6 +102,21 @@ export async function changeCreditNote(_state: FormState, form: FormData): Promi
   if (form.get('extra') === 'confirm') return attempt('No se pudo confirmar la nota de crédito.', (token) => payablesApi().confirmCreditNote(token, id));
 
   return attempt('No se pudo anular la nota de crédito.', (token) => payablesApi().cancelCreditNote(token, id));
+}
+
+export async function getPurchaseInvoice(invoiceId: string) {
+  if (!invoiceId) return null;
+  const { token } = await requireSession();
+  try {
+    const invoice = await purchasingApi().findInvoice(token, invoiceId);
+    return {
+      id: invoice.id,
+      code: invoice.code,
+      lines: invoice.lines,
+    };
+  } catch {
+    return null;
+  }
 }
 
 export async function getSupplierAvailableCredits(supplierId: string) {
