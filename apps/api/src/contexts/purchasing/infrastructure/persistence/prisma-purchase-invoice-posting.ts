@@ -447,6 +447,18 @@ export class PrismaPurchaseInvoicePosting implements PurchaseInvoicePosting {
         throw new PurchaseInvoiceWithPaymentsError(invoice.id.value);
       }
 
+      // Verificar que no tenga notas de credito confirmadas asociadas
+      const creditNotesApplied = await tx.supplierCreditNote.findFirst({
+        where: {
+          tenantId: tenant,
+          invoiceId: invoice.id.value,
+          status: 'confirmed',
+        },
+      });
+      if (creditNotesApplied) {
+        throw new PurchaseInvoiceWithPaymentsError(invoice.id.value);
+      }
+
       // Revertir cantidades en ordenes de compra
       const lines = invoice.lines();
       const receiptLineIds = lines

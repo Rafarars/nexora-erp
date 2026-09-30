@@ -15,6 +15,7 @@ import {
   PurchaseInvoiceNotConfirmableError,
   PurchaseInvoiceNotEditableError,
   PurchaseInvoiceNotFoundError,
+  PurchaseInvoiceWithPaymentsError,
 } from '../domain/errors/purchasing.errors.js';
 import { PurchaseInvoiceReferences } from '../domain/invoice/lines/purchase-invoice-references.js';
 import { PurchaseInvoiceId } from '../domain/invoice/purchase-invoice.entity.js';
@@ -865,5 +866,23 @@ describe('PurchaseInvoice application services (H9 Fase 1)', () => {
     await expect(
       receiptCanceller.run({ tenantId: TENANT, receiptId: rId.value }),
     ).rejects.toThrow(GoodsReceiptHasConfirmedInvoicesError);
+  });
+
+  it('rejects cancelling a purchase invoice that has payments applied', async () => {
+    const inv = await creator.run({
+      tenantId: TENANT,
+      supplierId: SUPPLIER_A,
+      supplierInvoiceNumber: 'FAC-WITH-PAYMENTS',
+      lines: [
+        { concept: 'Gasto operativo', quantity: 1, unitPrice: 100, taxRate: 0 },
+      ],
+    });
+    await confirmer.run({ tenantId: TENANT, invoiceId: inv.id.value });
+
+    posting.registerPayment(inv.id.value);
+
+    await expect(
+      canceller.run({ tenantId: TENANT, invoiceId: inv.id.value }),
+    ).rejects.toThrow(PurchaseInvoiceWithPaymentsError);
   });
 });

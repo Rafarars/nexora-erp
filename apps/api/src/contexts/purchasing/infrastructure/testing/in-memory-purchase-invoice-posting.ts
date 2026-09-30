@@ -9,6 +9,7 @@ import {
   PurchaseInvoiceNotCancellableError,
   PurchaseInvoiceNotConfirmableError,
   PurchaseInvoiceNotFoundError,
+  PurchaseInvoiceWithPaymentsError,
 } from '../../domain/errors/purchasing.errors.js';
 import {
   InvoiceRevaluationLineData,
@@ -31,6 +32,7 @@ import { PurchaseOrderLineId } from '../../domain/order/purchase-order-line.js';
 
 export class InMemoryPurchaseInvoicePosting implements PurchaseInvoicePosting {
   private queue: Promise<unknown> = Promise.resolve();
+  private readonly paidInvoices = new Set<string>();
 
   constructor(
     private readonly invoices: PurchaseInvoiceRepository,
@@ -40,6 +42,10 @@ export class InMemoryPurchaseInvoicePosting implements PurchaseInvoicePosting {
     private readonly onSaveOrder?: (order: PurchaseOrder) => Promise<void> | void,
     private readonly revaluations?: InvoiceRevaluationPosting,
   ) {}
+
+  registerPayment(invoiceId: string): void {
+    this.paidInvoices.add(invoiceId);
+  }
 
   private serial<T>(run: () => Promise<T>): Promise<T> {
     const next = this.queue.then(run);
@@ -272,6 +278,9 @@ export class InMemoryPurchaseInvoicePosting implements PurchaseInvoicePosting {
       }
       if (invoice.currentStatus !== 'confirmed') {
         throw new PurchaseInvoiceNotCancellableError(invoice.id.value, invoice.currentStatus);
+      }
+      if (this.paidInvoices.has(invoice.id.value)) {
+        throw new PurchaseInvoiceWithPaymentsError(invoice.id.value);
       }
 
       // Revertir cantidades en ordenes
