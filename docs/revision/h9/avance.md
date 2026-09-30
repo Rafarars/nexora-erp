@@ -1234,7 +1234,7 @@ Ninguno.
     - `01-notas-de-credito-listado.png`: listado de notas de crédito con estados y totales.
     - `02-nota-credito-selector-linea-factura.png`: formulario de nueva nota de crédito con la factura y la línea de factura seleccionadas y autocompletadas.
     - `03-inventario-ajustes-origen-ncp.png`: tabla de ajustes de inventario mostrando el ajuste `AJU000007` con `Revaluación -10,00 (NCP000001) AGUA-500`.
-    - `recorrido.webm`: grabación en vídeo de la sesión.
+    - `recorrido.webm`: grabación en vídeo de la sesión (trasladado a `qa-evidence/h9/fase3/recorrido.webm`).
 
 - **Verificación completa de la Fase 3 (`make verify`):**
   - **Corrida roja 1 (`scratch/logs/verify-fase3-run.log`):**
@@ -1372,8 +1372,8 @@ Ninguno.
   - **Evidencias generadas:**
     - `docs/revision/h9/evidencia/fase5/01-tablero-saldo-por-pagar.png`: Tablero mostrando tarjeta «Saldo por pagar · USD: 96,00».
     - `docs/revision/h9/evidencia/fase5/02-antiguedad-saldos-por-pagar.png`: Pantalla de Antigüedad mostrando proveedor «Repuestos Industriales» con saldo 96,00 USD y fila «Total del filtro: 96,00 USD».
-    - `docs/revision/h9/evidencia/fase5/antiguedad-por-pagar.pdf`: Archivo descargado con total «96,00».
-    - `docs/revision/h9/evidencia/fase5/antiguedad-por-pagar.xlsx`: Archivo descargado con fila Total `[ 'Total', <empty>, 96, 0, 0, 0, 0, 96 ]`.
+    - `qa-evidence/h9/fase5/antiguedad-por-pagar.pdf`: Archivo descargado con total «96,00» (trasladado fuera del repositorio a `qa-evidence/`).
+    - `qa-evidence/h9/fase5/antiguedad-por-pagar.xlsx`: Archivo descargado con fila Total `[ 'Total', <empty>, 96, 0, 0, 0, 0, 96 ]` (trasladado fuera del repositorio a `qa-evidence/`).
     - Se constató la coincidencia exacta de 96,00 USD entre la pantalla, el tablero y los dos archivos descargados.
 - **Verificación completa de la suite (`make verify` en `scratch/logs/verify-fase5-run.log`):**
   - `apps/api lint`: 41 avisos (imports no utilizados de errores), 0 errores en 1148 archivos.
@@ -1780,5 +1780,42 @@ Todo en verde.
   - `unit`: 3849 pruebas unitarias de API (184 suites) + 229 pruebas unitarias de Web (24 suites) en verde (4078 totales).
   - `contract`: 302 pruebas de contrato contra PostgreSQL en verde (13 suites).
   - `e2e`: 524 pruebas de Playwright en verde (9.2m).
+  Todo en verde.
+
+## Correcciones Sección 7: Evidencia pesada fuera del repositorio
+
+### Qué se reubicó y dónde
+De acuerdo con las directrices de la skill `web-qa` y para evitar almacenar binarios pesados en el historial git del repositorio público, se eliminaron del control de versiones los archivos pesados de `docs/revision/h9/evidencia/` y se trasladaron al directorio local `qa-evidence/` (ignorado en `.gitignore`, línea 8):
+
+1. **`qa-evidence/h9/fase3/recorrido.webm` (2,3 MB):**
+   - *Ruta previa:* `docs/revision/h9/evidencia/fase3/recorrido.webm`
+   - *Nueva ruta:* `qa-evidence/h9/fase3/recorrido.webm`
+   - *Lo que se comprobó:* Grabación de la sesión interactiva con `playwright-cli -s=fase3` en modo `--headed` y `--persistent`. Muestra el recorrido completo del usuario: acceso a la pantalla de notas de crédito, selección interactiva de la factura `FCP000001` y de la línea de mercancía `AGUA-500`, carga de datos, confirmación y posterior navegación a la pantalla de Ajustes de Inventario donde se constata la generación del ajuste de revaluación `(NCP000001)`.
+2. **`qa-evidence/h9/fase5/antiguedad-por-pagar.pdf` (1,9 KB):**
+   - *Ruta previa:* `docs/revision/h9/evidencia/fase5/antiguedad-por-pagar.pdf`
+   - *Nueva ruta:* `qa-evidence/h9/fase5/antiguedad-por-pagar.pdf`
+   - *Lo que se comprobó:* Documento PDF descargado mediante `download-antiguedad-por-pagar-pdf`. Se validó su generación en formato apaisado con tipografía tabular, cabeceras de columnas por tramos de vencimiento, proveedor «Repuestos Industriales» y total de 96,00 USD.
+3. **`qa-evidence/h9/fase5/antiguedad-por-pagar.xlsx` (7,0 KB):**
+   - *Ruta previa:* `docs/revision/h9/evidencia/fase5/antiguedad-por-pagar.xlsx`
+   - *Nueva ruta:* `qa-evidence/h9/fase5/antiguedad-por-pagar.xlsx`
+   - *Lo que se comprobó:* Libro Excel descargado mediante `download-antiguedad-por-pagar-xlsx`. Comprobado programáticamente con `exceljs` que la estructura contiene la hoja de saldos y que la fila de totales es `[ 'Total', <empty>, 96, 0, 0, 0, 0, 96 ]`, coincidiendo al céntimo con el tablero global y el reporte web.
+
+### Evidencias livianas conservadas en el repositorio
+Se mantuvieron en el repositorio bajo `docs/revision/h9/evidencia/` exclusivamente las capturas PNG livianas:
+- `docs/revision/h9/evidencia/fase3/01-notas-de-credito-listado.png`
+- `docs/revision/h9/evidencia/fase3/02-nota-credito-selector-linea-factura.png`
+- `docs/revision/h9/evidencia/fase3/03-inventario-ajustes-origen-ncp.png`
+- `docs/revision/h9/evidencia/fase5/01-tablero-saldo-por-pagar.png`
+- `docs/revision/h9/evidencia/fase5/02-antiguedad-saldos-por-pagar.png`
+- `docs/revision/h9/evidencia/nota-credito-devolucion.png`
+
+### Verificación de la Sección 7
+- Ejecutado `make verify > scratch/logs/verify-seccion7.log 2>&1`:
+  - `gitleaks`: 0 leaks detectados (309 commits analizados).
+  - `lint`: 0 errores en todos los paquetes.
+  - `typecheck`: limpio en todos los paquetes.
+  - `unit`: 3849 pruebas unitarias de API (184 suites) + 229 pruebas unitarias de Web (24 suites) en verde (4078 totales).
+  - `contract`: 302 pruebas de contrato contra PostgreSQL en verde (13 suites).
+  - `e2e`: 524 pruebas de Playwright en verde (9.0m).
   Todo en verde.
 
