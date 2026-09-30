@@ -36,20 +36,19 @@ interface StockLine {
   itemId: string;
   warehouseId: string;
   quantity: number;
+  unitCost: number;
   reversed: boolean;
 }
 
 // Ordenes, entradas y un inventario de juguete en un solo almacen, porque en la base
 // comparten transaccion. Imita lo que garantiza PostgreSQL: las publicaciones van de una en
 // una, una que falla no deja nada escrito y la existencia nunca queda negativa.
-//
-// El inventario de juguete solo cuenta unidades por articulo y bodega: el costo promedio lo
-// prueba el propio inventario. `withdraw` simula que la mercancia salio por otro documento.
 export class InMemoryPurchasingStore {
   private readonly orderRows = new Map<string, PurchaseOrderPrimitives>();
   private readonly receiptRows = new Map<string, GoodsReceiptPrimitives>();
   private readonly returnRows = new Map<string, PurchaseReturnPrimitives>();
   private readonly stockLines: StockLine[] = [];
+  private readonly stocks = new Map<string, { quantity: number; averageCost: number }>();
   private readonly withdrawn = new Map<string, number>();
   private queue: Promise<unknown> = Promise.resolve();
 
@@ -64,10 +63,18 @@ export class InMemoryPurchasingStore {
     return received - (this.withdrawn.get(key(tenantId, itemId, warehouseId)) ?? 0);
   }
 
+  averageCostOf(tenantId: string, itemId: string, warehouseId: string): number {
+    return this.stocks.get(key(tenantId, itemId, warehouseId))?.averageCost ?? 0;
+  }
+
   withdraw(tenantId: string, itemId: string, warehouseId: string, quantity: number): void {
     const k = key(tenantId, itemId, warehouseId);
 
     this.withdrawn.set(k, (this.withdrawn.get(k) ?? 0) + quantity);
+    const current = this.stocks.get(k);
+    if (current) {
+      this.stocks.set(k, { quantity: current.quantity - quantity, averageCost: current.averageCost });
+    }
   }
 
   // Borradores: no pisan una orden o una entrada que entretanto cambio de estado.
@@ -291,14 +298,25 @@ export class InMemoryPurchasingStore {
           const restoreMap = new Map<string, string>();
           for (const line of returnDoc.lines()) {
             restoreMap.set(line.id.value, `mv-${line.id.value}`);
+            const baseQty = line.baseQuantity.toNumber();
+            const returnedValue = line.quantity.toNumber() * line.unitCost.toNumber();
+            const unitCostBase = baseQty > 0 ? returnedValue / baseQty : 0;
             this.stockLines.push({
               returnId: returnDoc.id.value,
               tenantId: tenantId.value,
               itemId: line.itemId.value,
               warehouseId: returnDoc.warehouseId.value,
-              quantity: -line.baseQuantity.toNumber(),
+              quantity: -baseQty,
+              unitCost: unitCostBase,
               reversed: false,
             });
+
+            const k = key(tenantId.value, line.itemId.value, returnDoc.warehouseId.value);
+            const current = this.stocks.get(k) ?? { quantity: 0, averageCost: 0 };
+            const remainingQty = current.quantity - baseQty;
+            const remainingVal = current.quantity * current.averageCost - returnedValue;
+            const avg = remainingQty > 0 ? (remainingVal <= 0 ? 0 : remainingVal / remainingQty) : current.averageCost;
+            this.stocks.set(k, { quantity: remainingQty, averageCost: avg });
           }
 
           returnDoc.confirm(now, restoreMap);
@@ -319,6 +337,14 @@ export class InMemoryPurchasingStore {
             for (const line of this.stockLines) {
               if (line.returnId === returnDoc.id.value && !line.reversed) {
                 line.reversed = true;
+                const k = key(line.tenantId, line.itemId, line.warehouseId);
+                const current = this.stocks.get(k) ?? { quantity: 0, averageCost: 0 };
+                const q = Math.abs(line.quantity);
+                const val = q * line.unitCost;
+                const totalQty = current.quantity + q;
+                const totalVal = current.quantity * current.averageCost + val;
+                const avg = totalQty > 0 ? totalVal / totalQty : current.averageCost;
+                this.stocks.set(k, { quantity: totalQty, averageCost: avg });
               }
             }
           }
@@ -369,16 +395,26 @@ export class InMemoryPurchasingStore {
           const newLines: StockLine[] = [];
 
           if (result.stock.kind === 'receive') {
-            newLines.push(
-              ...result.stock.entries.map((entry) => ({
+            for (const entry of result.stock.entries) {
+              const q = entry.quantity.toNumber();
+              const c = entry.unitCost.toNumber();
+              newLines.push({
                 receiptId: receipt.id.value,
                 tenantId: tenantId.value,
                 itemId: entry.itemId.value,
                 warehouseId: entry.warehouseId.value,
-                quantity: entry.quantity.toNumber(),
+                quantity: q,
+                unitCost: c,
                 reversed: false,
-              })),
-            );
+              });
+
+              const k = key(tenantId.value, entry.itemId.value, entry.warehouseId.value);
+              const current = this.stocks.get(k) ?? { quantity: 0, averageCost: 0 };
+              const totalQty = current.quantity + q;
+              const totalVal = current.quantity * current.averageCost + q * c;
+              const avg = totalQty > 0 ? totalVal / totalQty : current.averageCost;
+              this.stocks.set(k, { quantity: totalQty, averageCost: avg });
+            }
           }
 
           const reversing = result.stock.kind === 'reverse' ? this.stockLines.filter((line) => line.receiptId === receipt.id.value && !line.reversed) : [];
@@ -391,7 +427,17 @@ export class InMemoryPurchasingStore {
           }
 
           // Nada se escribe hasta que todo lo anterior paso: es la transaccion.
-          reversing.forEach((line) => (line.reversed = true));
+          for (const line of reversing) {
+            line.reversed = true;
+            const k = key(line.tenantId, line.itemId, line.warehouseId);
+            const current = this.stocks.get(k) ?? { quantity: 0, averageCost: 0 };
+            const q = line.quantity;
+            const c = line.unitCost;
+            const remainingQty = current.quantity - q;
+            const remainingVal = current.quantity * current.averageCost - q * c;
+            const avg = remainingQty > 0 ? (remainingVal <= 0 ? 0 : remainingVal / remainingQty) : current.averageCost;
+            this.stocks.set(k, { quantity: remainingQty, averageCost: avg });
+          }
           this.stockLines.push(...newLines);
           this.receiptRows.set(receipt.id.value, structuredClone(result.receipt.toPrimitives()));
           this.orderRows.set(order.id.value, structuredClone(result.order.toPrimitives()));

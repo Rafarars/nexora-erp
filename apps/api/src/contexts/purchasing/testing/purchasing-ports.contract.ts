@@ -730,9 +730,7 @@ export function describePurchasingPortsContract(implementation: string, createHa
         await confirm(receipt2Id);
 
         expect(await harness.stockOf(WATER, MAIN)).toBe(480);
-        if (harness.averageCostOf) {
-          expect(await harness.averageCostOf(WATER, MAIN)).toBeCloseTo(0.75, 4);
-        }
+        expect(await harness.averageCostOf(WATER, MAIN)).toBeCloseTo(0.75, 4);
 
         // Devolucion de 5 cajas de la Entrada 1 (120 botellas al costo congelado de 0.50 = $60)
         // Valor restante = $360 - $60 = $300 para 360 botellas
@@ -741,9 +739,7 @@ export function describePurchasingPortsContract(implementation: string, createHa
         await confirmReturn(returnId);
 
         expect(await harness.stockOf(WATER, MAIN)).toBe(360);
-        if (harness.averageCostOf) {
-          expect(await harness.averageCostOf(WATER, MAIN)).toBeCloseTo(0.833333, 4);
-        }
+        expect(await harness.averageCostOf(WATER, MAIN)).toBeCloseTo(0.833333, 4);
       });
     });
 

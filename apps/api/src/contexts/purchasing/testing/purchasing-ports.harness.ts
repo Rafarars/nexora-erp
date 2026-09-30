@@ -29,7 +29,7 @@ export interface PurchasingPorts {
 export interface PurchasingPortsHarness {
   ports(): PurchasingPorts;
   stockOf(itemId: string, warehouseId: string): Promise<number>;
-  averageCostOf?(itemId: string, warehouseId: string): Promise<number>;
+  averageCostOf(itemId: string, warehouseId: string): Promise<number>;
   adjustmentsOf(tenantId: string, invoiceId: string): Promise<Array<{ id: string; code: string; status: string; type: string; lines: Array<{ itemId: string; amount: number; direction: string }> }>>;
   // Simula que parte de la mercancia salio por otro documento.
   withdraw(itemId: string, warehouseId: string, quantity: number): Promise<void>;

@@ -2103,4 +2103,54 @@ Al analizar por qué `tsc` no arrojó error de tipos:
 - Se inspeccionó todo `apps/api/src` para descartar otras consultas con propiedades incorrectas.
 - La consulta ahora está cubierta contra PostgreSQL tanto en el contrato de integración (`prisma-payables-ports.contract.integration.spec.ts`) como en la prueba de UI de Playwright (`payables.spec.ts:247`).
 
+## Correcciones Ronda 4 — Sección 6: Costo promedio obligatorio en arnés de Compras y soporte en memoria
+
+### 1. Contexto y eliminación de la última guarda opcional
+En la suite de contrato de Compras (`PurchasingPortsHarness`), el método `averageCostOf?` permanecía marcado como opcional. En consecuencia, en `apps/api/src/contexts/purchasing/testing/purchasing-ports.contract.ts:730-745`:
+```ts
+if (harness.averageCostOf) {
+  expect(await harness.averageCostOf(WATER, MAIN)).toBeCloseTo(0.75, 4);
+}
+...
+if (harness.averageCostOf) {
+  expect(await harness.averageCostOf(WATER, MAIN)).toBeCloseTo(0.833333, 4);
+}
+```
+El doble en memoria (`InMemoryPurchasingPortsHarness`) no implementaba dicho método, lo que hacía que los casos de prueba de recálculo de costo promedio ponderado tras devolución (H8 §3.8 y §7) no se ejecutaran contra el arnés en memoria.
+
+### 2. Cambios realizados
+- **Arnés de puertos (`apps/api/src/contexts/purchasing/testing/purchasing-ports.harness.ts`):**
+  - `averageCostOf(itemId: string, warehouseId: string): Promise<number>` pasó de opcional (`averageCostOf?`) a obligatorio.
+- **Contrato de compras (`apps/api/src/contexts/purchasing/testing/purchasing-ports.contract.ts`):**
+  - Se eliminaron las dos cláusulas de guarda condicionales `if (harness.averageCostOf)`, ejecutando las aserciones de forma incondicional para cualquier implementación del contrato.
+- **Implementación en el arnés en memoria (`apps/api/src/contexts/purchasing/infrastructure/testing/in-memory-purchasing-ports.contract.spec.ts`):**
+  - Implementado `averageCostOf(itemId: string, warehouseId: string): Promise<number>` delegando en `this.store.averageCostOf(TENANT_A, itemId, warehouseId)`.
+- **Soporte de costo promedio ponderado en `InMemoryPurchasingStore` (`apps/api/src/contexts/purchasing/infrastructure/testing/in-memory-purchasing-store.ts`):**
+  - Se añadió `unitCost: number` a la interfaz `StockLine`.
+  - Se añadió el mapa `stocks` para registrar `{ quantity: number, averageCost: number }` por clave `tenantId:itemId:warehouseId`.
+  - En `receiptPosting`: al confirmar una entrada de tipo `receive`, se actualiza el costo promedio ponderado:
+    `totalVal = current.quantity * current.averageCost + q * c`
+    `averageCost = totalVal / totalQty`.
+    Al revertir una entrada, se descuenta la cantidad y el valor monetario correspondiente.
+  - En `returnPosting`: al confirmar una devolución, se descuenta la cantidad base `baseQty` y el valor devuelto calculado como `line.quantity * line.unitCost` (respetando la relación entre unidad de compra y unidades base). El costo promedio ponderado resultante se recalcula sobre la cantidad restante. Al cancelar una devolución, se reincorpora la mercancía y su costo.
+  - En `withdraw`: se deduce la cantidad del inventario manteniendo el costo promedio ponderado.
+
+### 3. Verificación de pruebas del contrato
+- **Contrato en memoria (`in-memory-purchasing-ports.contract.spec.ts`):**
+  - 42 de 42 pruebas pasadas en verde, incluyendo `recalculates weighted average cost at frozen cost on return, matching valuation (H8 §3.8 and §7)` que valida el costo promedio a 0.75 tras dos recepciones y a 0.833333 tras la devolución.
+- **Contrato Prisma en PostgreSQL (`prisma-purchasing-ports.contract.integration.spec.ts`):**
+  - 42 de 42 pruebas pasadas en verde.
+
+### 4. Verificación de la Sección 6
+- Ejecutado `make verify > scratch/logs/verify-correcciones4-seccion6.log 2>&1`:
+  - `gitleaks`: 0 leaks detectados.
+  - `lint`: 0 errores en 1152 archivos de API, Web y E2E.
+  - `typecheck`: limpio en todos los paquetes.
+  - `unit`: 3860 pruebas unitarias de API (185 suites) + 229 pruebas unitarias de Web (24 suites) en verde (4089 totales).
+  - `contract`: 303 pruebas de contrato contra PostgreSQL en verde (13 suites).
+  - `e2e`: 526 pruebas de Playwright en verde (9.7m).
+  Todo en verde.
+
+
+
 

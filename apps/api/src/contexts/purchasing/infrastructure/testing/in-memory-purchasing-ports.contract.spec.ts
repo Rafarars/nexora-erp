@@ -24,6 +24,10 @@ class InMemoryPurchasingPortsHarness implements PurchasingPortsHarness {
     return this.store.stockOf(TENANT_A, itemId, warehouseId);
   }
 
+  async averageCostOf(itemId: string, warehouseId: string): Promise<number> {
+    return this.store.averageCostOf(TENANT_A, itemId, warehouseId);
+  }
+
   async withdraw(itemId: string, warehouseId: string, quantity: number): Promise<void> {
     this.store.withdraw(TENANT_A, itemId, warehouseId, quantity);
   }
