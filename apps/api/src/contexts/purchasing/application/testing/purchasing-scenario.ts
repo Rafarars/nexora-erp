@@ -15,6 +15,7 @@ import { InMemoryPurchasingCatalog } from '../../infrastructure/testing/in-memor
 import { InMemoryPurchasingCodeSequence } from '../../infrastructure/testing/in-memory-purchasing-code-sequence.js';
 import { InMemoryPurchasingStore } from '../../infrastructure/testing/in-memory-purchasing-store.js';
 import { InMemorySupplierRepository } from '../../infrastructure/testing/in-memory-supplier.repository.js';
+import { InMemoryPurchaseInvoiceRepository } from '../../infrastructure/testing/in-memory-purchase-invoice.repository.js';
 import { GoodsReceiptCanceller } from '../cancel-receipt/goods-receipt-canceller.js';
 import { PurchaseOrderCanceller } from '../cancel-order/purchase-order-canceller.js';
 import { SupplierStatusChanger } from '../change-supplier-status/supplier-status-changer.js';
@@ -49,6 +50,7 @@ export function aPurchasingScenario() {
   const orderFinder = new PurchaseOrderFinder(store.orders);
   const receiptFinder = new GoodsReceiptFinder(store.receipts);
   const receiptLines = new GoodsReceiptLineFactory(catalog, ids);
+  const invoices = new InMemoryPurchaseInvoiceRepository();
 
   return {
     clock,
@@ -57,6 +59,7 @@ export function aPurchasingScenario() {
     suppliers,
     store,
     catalog,
+    invoices,
     createSupplier: new SupplierCreator(uniqueness, suppliers, codes, ids, clock),
     updateSupplier: new SupplierUpdater(supplierFinder, uniqueness, suppliers, clock),
     changeSupplierStatus: new SupplierStatusChanger(supplierFinder, new InMemorySupplierUsage(store.orders), suppliers, clock),
@@ -69,7 +72,7 @@ export function aPurchasingScenario() {
     createReceipt: new GoodsReceiptCreator(orderFinder, receiptLines, store.receipts, codes, ids, clock, calendar, rates),
     updateReceipt: new GoodsReceiptUpdater(receiptFinder, orderFinder, receiptLines, store.receipts, clock, calendar, rates),
     confirmReceipt: new GoodsReceiptConfirmer(receiptFinder, orderFinder, receiptLines, store.receipts, store.receiptPosting, new ReceiptConfirmation(), clock, calendar, rates),
-    cancelReceipt: new GoodsReceiptCanceller(store.receiptPosting, new ReceiptCancellation(), clock),
+    cancelReceipt: new GoodsReceiptCanceller(store.receiptPosting, new ReceiptCancellation(), invoices, store.receipts, clock),
     searchReceipts: new GoodsReceiptSearcher(store.receipts, store.orders, suppliers, catalog),
     searchIncoming: new IncomingStockSearcher(store.orders, catalog, calendar),
   };

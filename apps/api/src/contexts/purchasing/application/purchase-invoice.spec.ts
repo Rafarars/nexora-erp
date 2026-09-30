@@ -5,6 +5,7 @@ import { DocumentRates } from '../../../shared/domain/ports/document-rates.js';
 import { BusinessCalendar } from '../../../shared/domain/ports/business-calendar.js';
 import {
   DuplicateSupplierInvoiceNumberError,
+  GoodsReceiptHasConfirmedInvoicesError,
   InactiveSupplierError,
   InvoiceLinesFromDifferentSupplierError,
   InvoiceQuantityExceedsOrderServiceError,
@@ -39,6 +40,8 @@ import { PurchaseInvoiceConfirmer } from './confirm-invoice/purchase-invoice-con
 import { PurchaseInvoiceCanceller } from './cancel-invoice/purchase-invoice-canceller.js';
 import { PurchaseInvoiceFinder } from './find-invoice/purchase-invoice-finder.js';
 import { PurchaseInvoiceSearcher } from './search-invoices/purchase-invoice-searcher.js';
+import { GoodsReceiptCanceller } from './cancel-receipt/goods-receipt-canceller.js';
+import { ReceiptCancellation } from '../domain/receipt/posting/receipt-cancellation.js';
 import { PurchasingCatalog } from '../domain/catalog/purchasing-catalog.js';
 import { DocumentCurrency } from '../../../shared/domain/document-currency.js';
 import { PurchaseDate } from '../domain/shared/purchase-date.vo.js';
@@ -800,5 +803,67 @@ describe('PurchaseInvoice application services (H9 Fase 1)', () => {
 
     const confirmedSecondHalf = await confirmer.run({ tenantId: TENANT, invoiceId: invoiceSecondHalf.id.value });
     expect(confirmedSecondHalf.currentStatus).toBe('confirmed');
+  });
+
+  it('rejects cancelling a goods receipt that has confirmed purchase invoices', async () => {
+    const rId = GoodsReceiptId.of('d8888888-0000-4000-8000-000000000001');
+    const rLineId = GoodsReceiptLineId.of('d8888888-0000-4000-8000-000000000002');
+    const rLine = GoodsReceiptLine.of({
+      id: rLineId,
+      lineNumber: 1,
+      orderLineId: orderLineProduct.id,
+      itemId: ItemRef.of(ITEM_PRODUCT),
+      itemSku: 'PRD-01',
+      itemName: 'Producto General',
+      unitId: UnitRef.of(UNIT_BOX),
+      quantity: Quantity.of(5),
+      baseQuantity: Quantity.of(5),
+      unitCost: UnitCost.of(10),
+    });
+    const receipt = GoodsReceipt.draft(
+      rId,
+      TenantId.of(TENANT),
+      'ENT-000099',
+      { id: orderId, warehouseId: WarehouseRef.of(WAREHOUSE_ID), date: PurchaseDate.of('2026-10-01') },
+      {
+        date: PurchaseDate.of('2026-10-02'),
+        notes: null,
+        lines: [rLine],
+        currency: DocumentCurrency.fromPrimitives({
+          currency: 'USD',
+          exchangeRate: null,
+          baseCurrency: 'USD',
+          baseExchangeRate: null,
+          manualExchangeRate: false,
+        }),
+      },
+      clock.now(),
+      '2026-10-10',
+    );
+    receipt.confirm(clock.now());
+    receipts.receipts.set(rId.value, receipt);
+
+    const invoice = await creator.run({
+      tenantId: TENANT,
+      supplierId: SUPPLIER_A,
+      supplierInvoiceNumber: 'FAC-BLOCK-RECEIPT-CANCEL',
+      lines: [{ receiptLineId: rLineId.value, itemId: ITEM_PRODUCT, unitId: UNIT_BOX, quantity: 5, unitPrice: 10 }],
+    });
+    await confirmer.run({ tenantId: TENANT, invoiceId: invoice.id.value });
+
+    const receiptPostingMock = {
+      post: async () => {},
+    } as any;
+    const receiptCanceller = new GoodsReceiptCanceller(
+      receiptPostingMock,
+      new ReceiptCancellation(),
+      invoices,
+      receipts,
+      clock,
+    );
+
+    await expect(
+      receiptCanceller.run({ tenantId: TENANT, receiptId: rId.value }),
+    ).rejects.toThrow(GoodsReceiptHasConfirmedInvoicesError);
   });
 });

@@ -507,4 +507,14 @@ export class InvoiceItemMismatchError extends InvalidArgumentError {
   }
 }
 
+export class GoodsReceiptHasConfirmedInvoicesError extends ConflictError {
+  constructor(receiptId: string) {
+    super(
+      `Goods receipt <${receiptId}> has confirmed purchase invoices and cannot be cancelled.`,
+      'La recepción tiene facturas de compra confirmadas y no puede anularse: anule las facturas primero.',
+    );
+  }
+}
+
+
 

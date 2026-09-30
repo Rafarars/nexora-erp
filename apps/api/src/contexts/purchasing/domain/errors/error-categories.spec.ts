@@ -74,6 +74,7 @@ const cases: Array<[DomainError, typeof DomainError]> = [
   [new errors.InvoiceLinesFromDifferentSupplierError(ID, ID), InvalidArgumentError],
   [new errors.InvoiceReceiptNotConfirmedError(ID, 'draft'), ConflictError],
   [new errors.InvoiceItemMismatchError(ID, ID, ID), InvalidArgumentError],
+  [new errors.GoodsReceiptHasConfirmedInvoicesError(ID), ConflictError],
 ];
 
 describe('purchasing domain errors', () => {

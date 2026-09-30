@@ -257,8 +257,9 @@ import { PurchaseInvoiceReferences } from '../domain/invoice/lines/purchase-invo
     },
     {
       provide: GoodsReceiptCanceller,
-      useFactory: (p: ReceiptPosting, c: ReceiptCancellation, k: Clock) => new GoodsReceiptCanceller(p, c, k),
-      inject: [RECEIPT_POSTING, ReceiptCancellation, CLOCK],
+      useFactory: (p: ReceiptPosting, c: ReceiptCancellation, i: PurchaseInvoiceRepository, r: GoodsReceiptRepository, k: Clock) =>
+        new GoodsReceiptCanceller(p, c, i, r, k),
+      inject: [RECEIPT_POSTING, ReceiptCancellation, PURCHASE_INVOICE_REPOSITORY, GOODS_RECEIPT_REPOSITORY, CLOCK],
     },
     {
       provide: GoodsReceiptSearcher,
