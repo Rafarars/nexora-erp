@@ -3,7 +3,12 @@ import { ACCOUNTANT, ACME_ADMIN, LoginPage } from '../../pages/login.page.js';
 import { InventoryPage } from '../../pages/inventory.page.js';
 import { PayablesPage } from '../../pages/payables.page.js';
 import { tokenFor } from '../../support/inventory-fixtures.js';
-import { aConfirmedMerchandiseInvoice, aConfirmedPurchaseInvoice, aFreshSupplier } from '../../support/purchasing-fixtures.js';
+import {
+  aConfirmedMerchandiseInvoice,
+  aConfirmedPurchaseInvoice,
+  aConfirmedPurchaseReturnForReceipt,
+  aFreshSupplier,
+} from '../../support/purchasing-fixtures.js';
 
 const API = process.env.API_URL ?? 'http://localhost:3001';
 
@@ -238,4 +243,68 @@ test('creates a supplier credit note selecting invoice line and shows origin NCP
   await expect(adjRow.getByTestId(/adjustment-status-/)).toHaveText('Borrador');
   await expect(adjRow.getByTestId(/adjustment-lines-/)).toContainText(`(${codeText})`);
 });
+
+test('creates and confirms a credit note crediting a purchase return from the screen showing DVC code without revaluation in inventory', async ({ page, request }) => {
+  test.slow();
+  const token = await tokenFor(request, ACME_ADMIN.email, API);
+  const supplier = await aFreshSupplier(request, token, API);
+  const invoice = await aConfirmedMerchandiseInvoice(request, token, supplier.id, 10, 5, API);
+  const purchaseReturn = await aConfirmedPurchaseReturnForReceipt(
+    request,
+    token,
+    supplier.id,
+    invoice.receiptId,
+    invoice.receiptLineId,
+    2,
+    API,
+  );
+  expect(purchaseReturn).toBeDefined();
+
+  const payables = new PayablesPage(page);
+  const inventory = new InventoryPage(page);
+
+  await new LoginPage(page).signIn(ACME_ADMIN);
+
+  // 1. Abrir notas de crédito y abrir formulario de creación
+  await payables.open('notas-de-credito');
+  await page.getByTestId('new-credit-note').click();
+  await expect(page.getByTestId('credit-note-panel')).toBeVisible();
+
+  // 2. Seleccionar proveedor y factura afectada
+  await page.getByTestId('credit-note-supplier').selectOption({ label: supplier.name });
+  await page.getByTestId('credit-note-invoice').selectOption(invoice.id);
+
+  // 3. Seleccionar la devolución de compra confirmada
+  const returnSelect = page.getByTestId('purchase-return-select');
+  await expect(returnSelect).toBeVisible();
+  await returnSelect.selectOption(purchaseReturn.id);
+
+  // 4. Comprobar que con devolución elegida NO se muestra selector de línea de factura
+  await expect(page.getByTestId('credit-note-line-invoice-line-0')).toBeHidden();
+
+  // 5. Guardar la nota de crédito
+  await page.getByTestId('credit-note-submit').click();
+  await expect(page.getByTestId('credit-note-panel')).toBeHidden();
+
+  // 6. Verificar que en el listado muestra el código DVC... en vez de un UUID o id truncado
+  const noteRow = payables.creditNoteOf(supplier.name);
+  await expect(noteRow.getByTestId(/credit-note-status-/)).toHaveText('Borrador');
+  const codeText = (await noteRow.locator('td').first().locator('p.font-mono').innerText()).trim();
+  expect(codeText).toMatch(/^NCP\d+$/);
+
+  const returnLabel = page.getByTestId(`credit-note-return-${codeText}`);
+  await expect(returnLabel).toBeVisible();
+  await expect(returnLabel).toContainText(`Devolución: ${purchaseReturn.code}`);
+  expect(await returnLabel.innerText()).not.toContain(purchaseReturn.id);
+
+  // 7. Confirmar la nota de crédito desde la UI
+  await payables.act(noteRow, 'Confirmar');
+  await expect(noteRow.getByTestId(/credit-note-status-/)).toHaveText('Confirmada');
+
+  // 8. Navegar a Inventario -> Ajustes y comprobar que NO nace ninguna revaluación por esa nota
+  await inventory.open('ajustes');
+  const adjRow = inventory.adjustmentWith(codeText);
+  await expect(adjRow).toHaveCount(0);
+});
+
 

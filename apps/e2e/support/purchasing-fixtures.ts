@@ -185,7 +185,50 @@ export async function aConfirmedMerchandiseInvoice(
   const invoiceData = await getRes.json();
   const lines = invoiceData.invoice?.lines ?? [];
 
-  return { id, code, invoiceNumber, subtotal: unitCost * quantity, lines, item };
+  return {
+    id,
+    code,
+    invoiceNumber,
+    subtotal: unitCost * quantity,
+    lines,
+    item,
+    receiptId: receipt.id,
+    receiptLineId: receipt.lines[0].id,
+  };
+}
+
+export async function aConfirmedPurchaseReturnForReceipt(
+  request: APIRequestContext,
+  token: string,
+  supplierId: string,
+  receiptId: string,
+  receiptLineId: string,
+  quantity = 1,
+  baseUrl = '',
+) {
+  const returnRes = await request.post(`${baseUrl}/api/v1/purchasing/returns`, {
+    headers: auth(token),
+    data: {
+      supplierId,
+      receiptId,
+      reason: 'Devolución e2e para nota de crédito',
+      lines: [{ receiptLineId, quantity }],
+    },
+  });
+  expect(returnRes.status(), await returnRes.text()).toBe(201);
+  const { id } = await returnRes.json();
+
+  const confirmRes = await request.put(`${baseUrl}/api/v1/purchasing/returns/${id}/confirm`, {
+    headers: auth(token),
+  });
+  expect(confirmRes.status(), await confirmRes.text()).toBe(200);
+
+  const getRes = await request.get(`${baseUrl}/api/v1/purchasing/returns?receiptId=${receiptId}`, {
+    headers: auth(token),
+  });
+  const data = await getRes.json();
+  const ret = data.returns.find((r: { id: string }) => r.id === id);
+  return ret;
 }
 
 

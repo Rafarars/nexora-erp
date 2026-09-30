@@ -1513,6 +1513,66 @@ Ninguno.
          301|   });
      ```
 
+---
 
+## Correcciones Sección 2: Creación de nota de crédito por devolución desde pantalla y visualización de código DVC
 
+### Qué se construyó y corrigió
+1. **Selector interactivo de devoluciones elegibles:**
+   - En `apps/web/src/app/(app)/cuentas-por-pagar/actions.ts`: función `getEligiblePurchaseReturns(invoiceId, supplierId)`. Obtiene las devoluciones confirmadas del proveedor cuyas líneas provienen de las recepciones (`receiptLineId`) facturadas en la factura seleccionada, descartando devoluciones que ya hayan sido acreditadas por otra nota de crédito activa.
+   - En `apps/web/src/sections/payables/credit-notes-board.tsx`: `purchase-return-select` disponible en el formulario al asociar una factura.
+2. **Ocultamiento de selector de líneas de factura y autocompletado:**
+   - Al seleccionar una devolución en `purchase-return-select`, el motivo se fija automáticamente en devolución de mercancía (`return`), se autocompletan las líneas del formulario con las líneas de la devolución y se ocultan tanto el selector de línea de factura como el botón de agregar líneas manuales, enviando `invoiceLineId: null` según exige la regla de negocio de §3.10 / §4.4.
+3. **Resolución de código `DVC…` en servidor:**
+   - `PayablesLedger` ampliado con el método `purchaseReturns(tenantId, returnIds)` en `payables-ledger.ts`, `prisma-payables-ledger.ts` e `in-memory-payables-store.ts`.
+   - `SupplierCreditNoteSearcher` (`supplier-credit-note-searcher.ts`) resuelve la información de la devolución (`purchaseReturn: { id, code }` y `purchaseReturnCode`), evitando presentar identificadores UUID truncados.
+   - En `credit-notes-board.tsx`: la columna "Factura / Devolución" muestra `Devolución: DVC…` resuelto en el servidor.
+4. **Corrección en persistencia de Payables:**
+   - En `PrismaPayablesLedger.returnReceiptLineIds` y en `PrismaSupplierCreditNotePosting.confirm`, se corrigió la consulta Prisma contra `PurchaseReturnLine`, utilizando la propiedad `purchaseReturnId` del modelo en lugar de `returnId`.
+
+### Pruebas que lo defienden
+- **E2E automatizada:** `apps/e2e/tests/ui/payables.spec.ts`:
+  `creates and confirms a credit note crediting a purchase return from the screen showing DVC code without revaluation in inventory`
+  Crea la nota de crédito desde la UI asociando la devolución, comprueba el código `DVC…` en el listado, la confirma y valida en Inventario -> Ajustes que no se genera ninguna revaluación.
+  Salida real de ejecución:
+  ```
+  Running 1 test using 1 worker
+       1 …return from the screen showing DVC code without revaluation in inventory
+    ✓  1 …from the screen showing DVC code without revaluation in inventory (6.1s)
+    1 passed (19.8s)
+  ```
+
+### Prueba interactiva con `playwright-cli`
+Sesión ejecutada en modo encabezado (`--headed --persistent`):
+```bash
+playwright-cli -s=fase2-dvc open http://localhost:3000 --headed --persistent
+playwright-cli -s=fase2-dvc video-start qa-evidence/fase2-dvc.webm
+playwright-cli -s=fase2-dvc video-show-actions
+# Inicio de sesión con credenciales de prueba ana@acme.com
+playwright-cli -s=fase2-dvc goto http://localhost:3000/cuentas-por-pagar/notas-de-credito
+playwright-cli -s=fase2-dvc click [data-testid="new-credit-note"]
+# Selección de proveedor "Proveedor 1790750774215-8jj9u", factura FCP000019 y devolución DVC000008
+playwright-cli -s=fase2-dvc select [data-testid="credit-note-supplier"] "740ce3de-de47-4603-b76c-bd408e5e0e14"
+playwright-cli -s=fase2-dvc select [data-testid="credit-note-invoice"] "ff64825a-a2a6-40eb-875a-393f3836b876"
+playwright-cli -s=fase2-dvc select [data-testid="purchase-return-select"] "e2a877de-d377-4284-acfe-389c3af71fbd"
+playwright-cli -s=fase2-dvc click [data-testid="credit-note-submit"]
+# Verificación de nota NCP000007 en borrador con "Devolución: DVC000008" y confirmación
+playwright-cli -s=fase2-dvc click [data-testid="credit-note-options-NCP000007"]
+playwright-cli -s=fase2-dvc click [data-testid="credit-note-confirm-NCP000007"]
+playwright-cli -s=fase2-dvc screenshot --filename docs/revision/h9/evidencia/nota-credito-devolucion.png
+playwright-cli -s=fase2-dvc video-stop
+playwright-cli -s=fase2-dvc close
+```
+- **Captura generada:** `docs/revision/h9/evidencia/nota-credito-devolucion.png` (muestra `NCP000007`, `Devolución: DVC000008`, `USD 20,00` y estado `Confirmada`).
+- **Vídeo de evidencia:** `qa-evidence/fase2-dvc.webm`.
+
+### Cómo se verificó
+Ejecución de `make verify` completo (registro en `scratch/logs/verify-seccion2.log`):
+- `gitleaks`: no leaks found (304 commits analizados).
+- `lint`: 0 errores en todos los paquetes.
+- `typecheck`: limpio en todos los paquetes.
+- `unit`: 3841 unitarias API + 229 unitarias Web en verde (4070 totales).
+- `contract`: 300 pruebas de contrato contra PostgreSQL en verde.
+- `e2e`: 524 pruebas de Playwright en verde.
+Todo en verde.
 

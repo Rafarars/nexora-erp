@@ -67,9 +67,18 @@ export class PrismaPayablesLedger implements PayablesLedger {
 
   async returnReceiptLineIds(tenantId: TenantId, returnId: string): Promise<string[]> {
     const rows = await this.prisma.purchaseReturnLine.findMany({
-      where: { tenantId: tenantId.value, returnId },
+      where: { tenantId: tenantId.value, purchaseReturnId: returnId },
       select: { receiptLineId: true },
     });
     return rows.map((r) => r.receiptLineId);
+  }
+
+  async purchaseReturns(tenantId: TenantId, returnIds: string[]): Promise<Array<{ id: string; code: string }>> {
+    if (returnIds.length === 0) return [];
+    const rows = await this.prisma.purchaseReturn.findMany({
+      where: { tenantId: tenantId.value, id: { in: returnIds } },
+      select: { id: true, code: true },
+    });
+    return rows;
   }
 }

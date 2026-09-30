@@ -1,7 +1,8 @@
 'use client';
 
 import { useActionState, useEffect, useState } from 'react';
-import { changeCreditNote, getPurchaseInvoice, saveCreditNote } from '@/app/(app)/cuentas-por-pagar/actions';
+import { changeCreditNote, getEligiblePurchaseReturns, getPurchaseInvoice, saveCreditNote } from '@/app/(app)/cuentas-por-pagar/actions';
+import type { EligiblePurchaseReturn } from '@/app/(app)/cuentas-por-pagar/actions';
 import type { PurchaseInvoiceLine } from '@/modules/purchasing/domain/purchasing';
 import { MenuButton } from '@/sections/purchasing/menu-button';
 import { FormError, SubmitButton, TextArea } from '@/sections/shared/field';
@@ -141,12 +142,12 @@ export function CreditNotesBoard({
                         Factura: <span className="font-mono">{note.invoice.code}</span>
                       </p>
                     ) : null}
-                    {note.purchaseReturnId ? (
+                    {note.purchaseReturn?.code || note.purchaseReturnCode ? (
                       <p className="text-muted" data-testid={`credit-note-return-${note.code}`}>
-                        Devolución: <span className="font-mono">{note.purchaseReturnId.slice(0, 8)}</span>
+                        Devolución: <span className="font-mono">{note.purchaseReturn?.code ?? note.purchaseReturnCode}</span>
                       </p>
                     ) : null}
-                    {!note.invoice && !note.purchaseReturnId ? <span className="text-muted">—</span> : null}
+                    {!note.invoice && !note.purchaseReturn?.code && !note.purchaseReturnCode ? <span className="text-muted">—</span> : null}
                   </td>
                   <td className="px-4 py-3 text-right">
                     <p data-testid={`credit-note-total-${note.code}`}>
@@ -270,6 +271,8 @@ function CreditNoteFields({
 }) {
   const [selectedSupplier, setSelectedSupplier] = useState(note?.supplier.id ?? suppliers[0]?.id ?? '');
   const [selectedInvoiceId, setSelectedInvoiceId] = useState(note?.invoice?.id ?? '');
+  const [selectedReturnId, setSelectedReturnId] = useState(note?.purchaseReturnId ?? '');
+  const [eligibleReturns, setEligibleReturns] = useState<EligiblePurchaseReturn[]>([]);
   const [reason, setReason] = useState<CreditNoteReason>(note?.reason ?? 'subsequent_discount');
   const [invoiceLines, setInvoiceLines] = useState<PurchaseInvoiceLine[]>([]);
   const [lines, setLines] = useState<FormCreditNoteLine[]>(
@@ -306,8 +309,27 @@ function CreditNoteFields({
     };
   }, [selectedInvoiceId]);
 
+  useEffect(() => {
+    if (!selectedInvoiceId || !selectedSupplier) {
+      return;
+    }
+    let active = true;
+
+    getEligiblePurchaseReturns(selectedInvoiceId, selectedSupplier).then((returns) => {
+      if (active) {
+        setEligibleReturns(returns);
+      }
+    });
+
+    return () => {
+      active = false;
+    };
+  }, [selectedInvoiceId, selectedSupplier]);
+
   const onSupplierChange = (newSupplier: string) => {
     setSelectedSupplier(newSupplier);
+    setSelectedReturnId('');
+    setEligibleReturns([]);
     const validInvoices = invoices.filter((inv) => inv.supplier.id === newSupplier);
     if (!validInvoices.some((inv) => inv.id === selectedInvoiceId)) {
       setSelectedInvoiceId('');
@@ -318,8 +340,45 @@ function CreditNoteFields({
 
   const onInvoiceChange = (newInvoiceId: string) => {
     setSelectedInvoiceId(newInvoiceId);
-    if (!newInvoiceId) setInvoiceLines([]);
+    setSelectedReturnId('');
+    if (!newInvoiceId) {
+      setInvoiceLines([]);
+      setEligibleReturns([]);
+    }
     setLines((prev) => prev.map((l) => ({ ...l, invoiceLineId: undefined })));
+  };
+
+  const onReturnChange = (newReturnId: string) => {
+    setSelectedReturnId(newReturnId);
+    if (!newReturnId) {
+      setLines([
+        {
+          concept: selectedInvoiceId ? '' : 'Descuento posterior',
+          quantity: '1',
+          unitPrice: '0',
+          taxRate: '0',
+        },
+      ]);
+      return;
+    }
+
+    const ret = eligibleReturns.find((r) => r.id === newReturnId);
+    if (ret && ret.lines.length > 0) {
+      setReason('return');
+      setLines(
+        ret.lines.map((rl) => ({
+          concept: rl.concept,
+          quantity: String(rl.quantity),
+          unitPrice: String(rl.unitCost),
+          taxRate: '0',
+          itemId: rl.itemId,
+          itemSku: rl.itemSku,
+          itemName: rl.itemName,
+          unitId: rl.unitId,
+          invoiceLineId: undefined,
+        })),
+      );
+    }
   };
 
   const addLine = () => {
@@ -379,6 +438,28 @@ function CreditNoteFields({
         </select>
       </div>
 
+      {selectedInvoiceId ? (
+        <div>
+          <label className="text-muted block text-xs font-medium">Devolución de compra (opcional)</label>
+          <select
+            name="purchaseReturnId"
+            value={selectedReturnId}
+            onChange={(e) => onReturnChange(e.target.value)}
+            data-testid="purchase-return-select"
+            className="border-line bg-surface mt-1 w-full rounded-md border px-3 py-2 text-sm"
+          >
+            <option value="">Sin devolución (rebaja de precio directa)</option>
+            {eligibleReturns.map((ret) => (
+              <option key={ret.id} value={ret.id}>
+                {ret.code} ({ret.date}) - {ret.lines.length} {ret.lines.length === 1 ? 'línea' : 'líneas'}
+              </option>
+            ))}
+          </select>
+        </div>
+      ) : (
+        <input type="hidden" name="purchaseReturnId" value="" />
+      )}
+
       <div className="grid grid-cols-2 gap-4">
         <div>
           <label className="text-muted block text-xs font-medium">Fecha de emisión</label>
@@ -436,21 +517,23 @@ function CreditNoteFields({
       <div className="space-y-2 border-t pt-4">
         <div className="flex items-center justify-between">
           <label className="text-xs font-semibold uppercase tracking-wider text-neutral-500">Líneas</label>
-          <button
-            type="button"
-            onClick={addLine}
-            data-testid="credit-note-add-line"
-            className="text-xs font-medium text-emerald-600 hover:underline dark:text-emerald-400"
-          >
-            + Agregar línea
-          </button>
+          {!selectedReturnId ? (
+            <button
+              type="button"
+              onClick={addLine}
+              data-testid="credit-note-add-line"
+              className="text-xs font-medium text-emerald-600 hover:underline dark:text-emerald-400"
+            >
+              + Agregar línea
+            </button>
+          ) : null}
         </div>
 
         <div className="space-y-3" data-testid="credit-note-lines">
           {lines.map((line, index) => (
             <div key={index} className="border-line flex items-start gap-2 rounded-md border p-2 text-sm">
               <div className="flex-1 space-y-2">
-                {selectedInvoiceId ? (
+                {selectedInvoiceId && !selectedReturnId ? (
                   <div>
                     <label className="text-muted block text-[10px] font-medium">Línea de factura</label>
                     <select
@@ -574,7 +657,7 @@ function CreditNoteFields({
                 </div>
               </div>
 
-              {lines.length > 1 ? (
+              {lines.length > 1 && !selectedReturnId ? (
                 <button
                   type="button"
                   onClick={() => removeLine(index)}

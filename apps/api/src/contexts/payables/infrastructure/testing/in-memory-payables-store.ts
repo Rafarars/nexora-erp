@@ -65,7 +65,7 @@ export class InMemoryPayablesStore {
   private readonly invoiceRows = new Map<string, InvoiceRow>();
   private readonly paymentRows = new Map<string, PaymentPrimitives>();
   private readonly creditNoteRows = new Map<string, SupplierCreditNotePrimitives>();
-  private readonly purchaseReturnRows = new Map<string, { id: string; tenantId: string; supplierId: string; status: string }>();
+  private readonly purchaseReturnRows = new Map<string, { id: string; tenantId: string; supplierId: string; status: string; code?: string }>();
   private readonly invoiceLineRows = new Map<string, InMemoryInvoiceLineInfo[]>();
   private readonly returnReceiptLineRows = new Map<string, string[]>();
   private readonly amountDecimalsByTenant = new Map<string, number>();
@@ -104,8 +104,8 @@ export class InMemoryPayablesStore {
     if (row) this.invoiceRows.set(invoiceId, { ...row, status: 'cancelled' });
   }
 
-  purchaseReturn(tenantId: string, returnId: string, supplierId: string, status: string = 'confirmed'): void {
-    this.purchaseReturnRows.set(returnId, { id: returnId, tenantId, supplierId, status });
+  purchaseReturn(tenantId: string, returnId: string, supplierId: string, status: string = 'confirmed', code: string = 'DVC000001'): void {
+    this.purchaseReturnRows.set(returnId, { id: returnId, tenantId, supplierId, status, code });
   }
 
   get ledger(): PayablesLedger {
@@ -146,6 +146,12 @@ export class InMemoryPayablesStore {
       },
       returnReceiptLineIds: async (_tenantId: TenantId, returnId: string) => {
         return this.returnReceiptLineRows.get(returnId) ?? [];
+      },
+      purchaseReturns: async (tenantId: TenantId, returnIds: string[]) => {
+        return returnIds
+          .map((id) => this.purchaseReturnRows.get(id))
+          .filter((r): r is NonNullable<typeof r> => Boolean(r && r.tenantId === tenantId.value))
+          .map((r) => ({ id: r.id, code: r.code ?? 'DVC000001' }));
       },
     };
   }

@@ -35,6 +35,11 @@ export interface PayableInvoiceLineInfo {
   receiptLineId: string | null;
 }
 
+export interface PayablePurchaseReturnInfo {
+  id: string;
+  code: string;
+}
+
 // Lo que cuentas por pagar lee de compras: proveedores y facturas de compra, con lo pagado de cada una.
 // En la base el adaptador lee las tablas de compras; el dominio no sabe que existen.
 export interface PayablesLedger {
@@ -44,4 +49,5 @@ export interface PayablesLedger {
   invoices(tenantId: TenantId, filter?: PayableInvoiceFilter): Promise<PayableInvoice[]>;
   invoiceLines(tenantId: TenantId, invoiceId: string): Promise<PayableInvoiceLineInfo[]>;
   returnReceiptLineIds(tenantId: TenantId, returnId: string): Promise<string[]>;
+  purchaseReturns(tenantId: TenantId, returnIds: string[]): Promise<PayablePurchaseReturnInfo[]>;
 }

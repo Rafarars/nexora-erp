@@ -322,7 +322,7 @@ export class PrismaSupplierCreditNotePosting implements SupplierCreditNotePostin
         // H9 Defecto 1.6: Validar que las líneas de la devolución sean de líneas de entrada que esa factura facturó
         if (note.invoiceId()) {
           const returnLines = await tx.purchaseReturnLine.findMany({
-            where: { tenantId: tenant, returnId },
+            where: { tenantId: tenant, purchaseReturnId: returnId },
             select: { receiptLineId: true },
           });
           const invoiceLines = await tx.purchaseInvoiceLine.findMany({

@@ -185,6 +185,8 @@ export interface SupplierCreditNote {
   supplier: { id: string; name: string };
   invoice: { id: string; code: string } | null;
   purchaseReturnId: string | null;
+  purchaseReturn?: { id: string; code: string } | null;
+  purchaseReturnCode?: string | null;
   issuePaymentId: string | null;
   issuePaymentCode?: string | null;
   issueDate: string;

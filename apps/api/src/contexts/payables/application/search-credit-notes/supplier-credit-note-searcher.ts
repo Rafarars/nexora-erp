@@ -16,6 +16,8 @@ export interface SupplierCreditNoteResponse {
   supplier: { id: string; name: string };
   invoice: { id: string; code: string } | null;
   purchaseReturnId: string | null;
+  purchaseReturn: { id: string; code: string } | null;
+  purchaseReturnCode: string | null;
   issuePaymentId: string | null;
   issueDate: string;
   reason: CreditNoteReason;
@@ -90,13 +92,17 @@ export class SupplierCreditNoteSearcher {
     const supplierIds = [...new Set(rows.map((n) => n.supplierId))];
     const invoiceIds = [...new Set(rows.map((n) => n.invoiceId).filter((id): id is string => id !== null))];
 
-    const [suppliers, invoices] = await Promise.all([
+    const returnIds = [...new Set(rows.map((n) => n.purchaseReturnId).filter((id): id is string => id !== null))];
+
+    const [suppliers, invoices, returnRows] = await Promise.all([
       this.ledger.suppliers(tenantId),
       this.ledger.invoices(tenantId, { ids: invoiceIds }),
+      returnIds.length > 0 ? this.ledger.purchaseReturns(tenantId, returnIds) : Promise.resolve([]),
     ]);
 
     const supplierMap = new Map(suppliers.filter((s) => supplierIds.includes(s.id)).map((s) => [s.id, s]));
     const invoiceMap = new Map(invoices.map((inv) => [inv.id, inv.toPrimitives()]));
+    const returnMap = new Map(returnRows.map((r) => [r.id, r]));
 
     const appliedMap = await this.creditNotes.appliedAmountsByNotes(
       tenantId,
@@ -109,6 +115,7 @@ export class SupplierCreditNoteSearcher {
       const p = note.toPrimitives();
       const supplier = supplierMap.get(p.supplierId);
       const invoice = p.invoiceId ? invoiceMap.get(p.invoiceId) : null;
+      const ret = p.purchaseReturnId ? returnMap.get(p.purchaseReturnId) : null;
       const applied = p.status === 'confirmed' ? (appliedMap.get(note.id.value) ?? 0) : 0;
       const available = p.status === 'confirmed' ? PayableCreditQuota.available(p.total, applied) : 0;
 
@@ -118,6 +125,8 @@ export class SupplierCreditNoteSearcher {
         supplier: { id: p.supplierId, name: supplier?.name ?? p.supplierId },
         invoice: invoice ? { id: invoice.id, code: invoice.code } : null,
         purchaseReturnId: p.purchaseReturnId,
+        purchaseReturn: ret ? { id: ret.id, code: ret.code } : null,
+        purchaseReturnCode: ret?.code ?? null,
         issuePaymentId: p.issuePaymentId,
         issueDate: p.issueDate,
         reason: p.reason,
@@ -162,6 +171,7 @@ export class SupplierCreditNoteSearcher {
     const p = note.toPrimitives();
     const supplier = await this.ledger.supplier(tenantId, p.supplierId);
     const invoice = p.invoiceId ? (await this.ledger.invoices(tenantId, { ids: [p.invoiceId] }))[0]?.toPrimitives() ?? null : null;
+    const ret = p.purchaseReturnId ? (await this.ledger.purchaseReturns(tenantId, [p.purchaseReturnId]))[0] ?? null : null;
     const applied = p.status === 'confirmed' ? await this.creditNotes.appliedPaymentsSum(tenantId, note.id) : 0;
     const available = p.status === 'confirmed' ? PayableCreditQuota.available(p.total, applied) : 0;
 
@@ -171,6 +181,8 @@ export class SupplierCreditNoteSearcher {
       supplier: { id: p.supplierId, name: supplier?.name ?? p.supplierId },
       invoice: invoice ? { id: invoice.id, code: invoice.code } : null,
       purchaseReturnId: p.purchaseReturnId,
+      purchaseReturn: ret ? { id: ret.id, code: ret.code } : null,
+      purchaseReturnCode: ret?.code ?? null,
       issuePaymentId: p.issuePaymentId,
       issueDate: p.issueDate,
       reason: p.reason,
