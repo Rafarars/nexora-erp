@@ -167,11 +167,11 @@ test.describe('exports', () => {
 });
 
 test.describe('payables cross-check', () => {
-  // Se ejecuta en Initech ('dora@initech.com'), un tenant dedicado donde ninguna otra prueba escribe
+  // Se ejecuta en Wayne ('bruce@wayne.com'), un tenant dedicado donde ninguna otra prueba escribe
   // en paralelo, eliminando data races en las comprobaciones globales del tablero y asegurando
   // que la suma de facturas y proveedores sea exacta y determinista.
   test('§3.8 the invoice list, supplier aging, reports aging, statement and dashboard report the exact same balance', async ({ request }) => {
-    const token = await tokenFor(request, 'dora@initech.com');
+    const token = await tokenFor(request, 'bruce@wayne.com');
     const supplier = await aFreshSupplier(request, token);
     const today = companyToday();
 
@@ -236,7 +236,7 @@ test.describe('payables cross-check', () => {
     expect(payablesSupplierRow.balance).toBe(reportsSupplierRow.aging.total);
     expect(reportsSupplierRow.aging.total).toBe(statementData.summary.balance);
 
-    // Y a nivel global de la empresa (aislado en Initech donde nadie escribe en paralelo):
+    // Y a nivel global de la empresa (aislado en Wayne donde nadie escribe en paralelo):
     const [allInvoicesRes, allSuppliersRes, allAgingRes, dashboardRes] = await Promise.all([
       request.get('/api/v1/payables/invoices?limit=50', { headers: auth(token) }),
       request.get('/api/v1/payables/suppliers?limit=50', { headers: auth(token) }),

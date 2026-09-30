@@ -22,6 +22,10 @@ import {
 const ACME = '11111111-1111-4111-8111-111111111111';
 const GLOBEX = '22222222-2222-4222-8222-222222222222';
 const INITECH = '33333333-3333-4333-8333-333333333333';
+// Empresa Wayne: tenant exclusivo para pruebas de cruce de reportes (p.ej. §3.8 en reports.api.spec.ts),
+// donde se requiere verificar la igualdad exacta de saldos globales e individuales en el tablero,
+// reportes y cuentas por pagar sin riesgo de interferencias ni mutaciones de configuración concurrentes.
+const WAYNE = '55555555-5555-4555-8555-555555555555';
 
 const ACME_ADMIN_ROLE = 'a0000000-0000-4000-8000-000000000001';
 const ACME_VIEWER_ROLE = 'a0000000-0000-4000-8000-000000000002';
@@ -29,6 +33,7 @@ const GLOBEX_ADMIN_ROLE = 'b0000000-0000-4000-8000-000000000001';
 const INITECH_ADMIN_ROLE = 'f0000000-0000-4000-8000-000000000001';
 const VOLUME = '44444444-4444-4444-8444-444444444444';
 const VOLUME_ADMIN_ROLE = 'f0000000-0000-4000-8000-000000000002';
+const WAYNE_ADMIN_ROLE = 'f0000000-0000-4000-8000-000000000003';
 
 const ANA = 'c0000000-0000-4000-8000-000000000001';
 const BETO = 'c0000000-0000-4000-8000-000000000002';
@@ -36,6 +41,7 @@ const CONTADOR = 'c0000000-0000-4000-8000-000000000003';
 const SUPERUSER = 'c0000000-0000-4000-8000-000000000004';
 const DORA = 'c0000000-0000-4000-8000-000000000005';
 const VERA = 'c0000000-0000-4000-8000-000000000006';
+const BRUCE = 'c0000000-0000-4000-8000-000000000007';
 
 const PASSWORD = process.env.SEED_PASSWORD ?? 'Nexora-2026!';
 
@@ -368,7 +374,7 @@ async function main(): Promise<void> {
     await verifySeedIntegrity(prisma);
 
     console.log(
-      '  semillas aplicadas: 4 empresas con sus datos y parametros, 5 roles, 6 personas, 8 membresias; ' +
+      '  semillas aplicadas: 5 empresas con sus datos y parametros, 6 roles, 7 personas, 9 membresias; ' +
         'catalogo: 7 unidades, 3 categorias, 3 impuestos, 5 bodegas, 3 listas de precio, 5 articulos con 8 precios; ' +
         'inventario: 7 ajustes (3 confirmados), 5 existencias; ' +
         'compras: 3 proveedores, 7 ordenes, 5 entradas, 1 devolucion; ' +
@@ -386,8 +392,8 @@ async function main(): Promise<void> {
 // acumula basura de corridas anteriores y las capturas del reporte salen con
 // veinte filas llamadas `colado-1789144380150@acme.com`.
 async function removeLeftovers(prisma: PrismaClient): Promise<void> {
-  const seeded = [ANA, BETO, CONTADOR, SUPERUSER, DORA, VERA];
-  const seededRoles = [ACME_ADMIN_ROLE, ACME_VIEWER_ROLE, GLOBEX_ADMIN_ROLE, INITECH_ADMIN_ROLE, VOLUME_ADMIN_ROLE];
+  const seeded = [ANA, BETO, CONTADOR, SUPERUSER, DORA, VERA, BRUCE];
+  const seededRoles = [ACME_ADMIN_ROLE, ACME_VIEWER_ROLE, GLOBEX_ADMIN_ROLE, INITECH_ADMIN_ROLE, VOLUME_ADMIN_ROLE, WAYNE_ADMIN_ROLE];
 
   await prisma.membership.deleteMany({ where: { userId: { notIn: seeded } } });
   await prisma.user.deleteMany({ where: { id: { notIn: seeded } } });
@@ -410,6 +416,7 @@ async function upsertTenants(prisma: PrismaClient): Promise<void> {
     { id: GLOBEX, name: 'Globex Servicios', slug: 'globex' },
     { id: INITECH, name: 'Initech Logística', slug: 'initech' },
     { id: VOLUME, name: 'Volumen Distribuciones', slug: 'volumen' },
+    { id: WAYNE, name: 'Wayne Enterprises', slug: 'wayne' },
   ];
 
   for (const tenant of tenants) {
@@ -425,6 +432,7 @@ async function upsertCompanies(prisma: PrismaClient): Promise<void> {
     { tenantId: GLOBEX, legalName: 'Globex Servicios, C.A.', tradeName: 'Globex', fiscalId: 'J-40000002-0', address: 'Av. Bolívar Norte, Valencia', phone: '0241-555-0102', email: 'administracion@globex.com' },
     { tenantId: INITECH, legalName: 'Initech Logística, C.A.', tradeName: null, fiscalId: 'J-40000003-9', address: null, phone: null, email: null },
     { tenantId: VOLUME, legalName: 'Volumen Distribuciones, C.A.', tradeName: null, fiscalId: 'J-40000004-7', address: null, phone: null, email: null },
+    { tenantId: WAYNE, legalName: 'Wayne Enterprises, C.A.', tradeName: null, fiscalId: 'J-40000005-5', address: null, phone: null, email: null },
   ];
   const settings = { baseCurrency: 'USD', secondaryCurrency: 'VES', timeZone: 'America/Caracas', amountDecimals: 2, priceDecimals: 6, rateType: 'legal' as const, allowsRateOverride: true };
   const updatedAt = new Date('2026-09-01T12:00:00.000Z');
@@ -457,6 +465,7 @@ async function upsertExchangeRates(prisma: PrismaClient): Promise<void> {
     { id: 'f6000000-0000-4000-8000-000000000102', tenantId: GLOBEX, currency: 'USD', rateDate: '2026-01-01', type: 'legal', rate: '141.00', source: 'BCV' },
     { id: 'f6000000-0000-4000-8000-000000000201', tenantId: INITECH, currency: 'USD', rateDate: '2026-01-01', type: 'legal', rate: '140.00', source: 'BCV' },
     { id: 'f6000000-0000-4000-8000-000000000301', tenantId: VOLUME, currency: 'USD', rateDate: '2026-01-01', type: 'legal', rate: '140.00', source: 'BCV' },
+    { id: 'f6000000-0000-4000-8000-000000000401', tenantId: WAYNE, currency: 'USD', rateDate: '2026-01-01', type: 'legal', rate: '140.00', source: 'BCV' },
     { id: 'f6000000-0000-4000-8000-000000000101', tenantId: GLOBEX, currency: 'USD', rateDate: '2026-09-10', type: 'legal', rate: '152.80', source: 'BCV' },
   ] as const;
   const createdAt = new Date('2026-09-01T12:00:00.000Z');
@@ -520,6 +529,7 @@ async function upsertRoles(prisma: PrismaClient): Promise<void> {
     { id: GLOBEX_ADMIN_ROLE, tenantId: GLOBEX, name: 'Administrador', grantsAll: true, permissions: [] },
     { id: INITECH_ADMIN_ROLE, tenantId: INITECH, name: 'Administrador', grantsAll: true, permissions: [] },
     { id: VOLUME_ADMIN_ROLE, tenantId: VOLUME, name: 'Administrador', grantsAll: true, permissions: [] },
+    { id: WAYNE_ADMIN_ROLE, tenantId: WAYNE, name: 'Administrador', grantsAll: true, permissions: [] },
   ];
 
   for (const { permissions, ...role } of roles) {
@@ -545,6 +555,7 @@ async function upsertUsers(prisma: PrismaClient, passwordHash: string): Promise<
     // Solo en Initech: nadie mas entra ahi, asi que lo que ella mueve no pisa otra prueba.
     { id: DORA, email: 'dora@initech.com', name: 'Dora Paz' },
     { id: VERA, email: 'vera@volumen.com', name: 'Vera Ruiz' },
+    { id: BRUCE, email: 'bruce@wayne.com', name: 'Bruce Wayne' },
   ];
 
   for (const user of users) {
@@ -564,6 +575,7 @@ async function upsertMemberships(prisma: PrismaClient): Promise<void> {
     { id: 'd0000000-0000-4000-8000-000000000006', userId: SUPERUSER, tenantId: GLOBEX, roles: [GLOBEX_ADMIN_ROLE] },
     { id: 'd0000000-0000-4000-8000-000000000007', userId: DORA, tenantId: INITECH, roles: [INITECH_ADMIN_ROLE] },
     { id: 'd0000000-0000-4000-8000-000000000008', userId: VERA, tenantId: VOLUME, roles: [VOLUME_ADMIN_ROLE] },
+    { id: 'd0000000-0000-4000-8000-000000000009', userId: BRUCE, tenantId: WAYNE, roles: [WAYNE_ADMIN_ROLE] },
   ];
 
   for (const { roles, ...membership } of memberships) {

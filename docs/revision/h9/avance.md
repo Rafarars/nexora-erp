@@ -1873,3 +1873,43 @@ Para satisfacer las dos reglas sin romper los invariantes numéricos esperados p
   - `contract`: 302 pruebas de contrato contra PostgreSQL en verde (13 suites).
   - `e2e`: 524 pruebas de Playwright en verde (9.5m).
   Todo en verde.
+
+## Correcciones Ronda 4 — Sección 2: Empresa propia en la semilla para la prueba §3.8
+
+### 1. Justificación de la nueva empresa (`WAYNE`)
+La prueba de cruce de Cuentas por Pagar y Reportes (`test('§3.8 the invoice list, supplier aging, reports aging, statement and dashboard report the exact same balance')` en `apps/e2e/tests/api/reports.api.spec.ts`) valida no solo la coincidencia del saldo a nivel del proveedor creado en la prueba (`330,00 USD`), sino la igualdad matemática estricta a nivel global de toda la empresa:
+```ts
+expect(totalInvoicesBalance).toBe(totalSuppliersBalance);
+expect(totalSuppliersBalance).toBe(totalAgingBalance);
+expect(totalAgingBalance).toBe(dashboardPayableBalance);
+expect(dashboardPayableBalance).toBe(330);
+```
+Anteriormente la prueba utilizaba el tenant `INITECH` (`dora@initech.com`). Sin embargo, Initech es el tenant utilizado por otras pruebas que mutan configuraciones únicas de empresa (como la bodega por defecto) y datos auxiliares. Si otra prueba creaba datos o mutaba parámetros en paralelo, la aserción global del tablero (`expect(dashboardPayableBalance).toBe(330)`) sufría condiciones de carrera (*data races*).
+
+Para garantizar un aislamiento absoluto e indiscutible, se incorporó en la semilla una quinta empresa (`WAYNE`), dedicada exclusivamente a esta prueba de cruce determinista.
+
+### 2. Configuración en la semilla (`apps/api/prisma/seed.ts`)
+- **Tenant:** `WAYNE = '55555555-5555-4555-8555-555555555555'`, nombre «Wayne Enterprises», slug `'wayne'`.
+- **Perfil y configuración:** `legalName: 'Wayne Enterprises, C.A.'`, RIF `J-40000005-5`, moneda principal `USD`, secundaria `VES`, zona horaria `America/Caracas`.
+- **Tasa BCV:** Tasa legal del dólar en enero (`2026-01-01`) de `140.00` BCV (`id: 'f6000000-0000-4000-8000-000000000401'`).
+- **Rol:** `WAYNE_ADMIN_ROLE = 'f0000000-0000-4000-8000-000000000003'`, nombre «Administrador», `grantsAll: true`.
+- **Usuario:** `BRUCE = 'c0000000-0000-4000-8000-000000000007'`, correo `bruce@wayne.com`, nombre «Bruce Wayne».
+- **Membresía:** `id: 'd0000000-0000-4000-8000-000000000009'`, activa, asociando a Bruce con Wayne Enterprises bajo el rol de Administrador.
+- **Protección contra residuos:** `BRUCE` y `WAYNE_ADMIN_ROLE` añadidos a las listas blancas `seeded` y `seededRoles` de `removeLeftovers()`.
+- **Comentario explicativo:** Agregado en `seed.ts` documentando expresamente el propósito de aislamiento de la empresa.
+
+### 3. Actualización de la prueba (`apps/e2e/tests/api/reports.api.spec.ts`)
+- Se actualizó el bloque `payables cross-check` para autenticar contra `bruce@wayne.com` en lugar de `dora@initech.com`.
+- Corrida aislada de validación:
+  - *Comando:* `pnpm --filter e2e exec playwright test tests/api/reports.api.spec.ts -g "§3.8"`
+  - *Resultado:* `1 passed (1.1s)` en verde.
+
+### 4. Verificación de la Sección 2
+- Ejecutado `make verify > scratch/logs/verify-correcciones4-seccion2.log 2>&1`:
+  - `gitleaks`: 0 leaks detectados (311 commits analizados).
+  - `lint`: 0 errores en todos los paquetes.
+  - `typecheck`: limpio en todos los paquetes.
+  - `unit`: 3849 pruebas unitarias de API (184 suites) + 229 pruebas unitarias de Web (24 suites) en verde (4078 totales).
+  - `contract`: 302 pruebas de contrato contra PostgreSQL en verde (13 suites).
+  - `e2e`: 524 pruebas de Playwright en verde (9.8m).
+  Todo en verde.
