@@ -20,7 +20,7 @@ export interface PayablesPortsHarness {
   supplier(tenantId: string, supplier: PayableSupplier): Promise<void>;
   invoice(tenantId: string, invoice: Omit<PayableInvoicePrimitives, 'paid'>): Promise<void>;
   cancelInvoice(tenantId: string, invoiceId: string): Promise<void>;
-  purchaseReturn?(
+  purchaseReturn(
     tenantId: string,
     returnId: string,
     supplierId: string,
@@ -30,7 +30,7 @@ export interface PayablesPortsHarness {
   setAmountDecimals(tenantId: string, decimals: number): Promise<void>;
   reset(): Promise<void>;
   close(): Promise<void>;
-  invoiceLines?(
+  invoiceLines(
     tenantId: string,
     invoiceId: string,
     lines: Array<{
@@ -48,7 +48,7 @@ export interface PayablesPortsHarness {
       sourceMovementId?: string;
     }>,
   ): Promise<void>;
-  adjustmentsOf?(
+  adjustmentsOf(
     tenantId: string,
     originId: string,
   ): Promise<Array<{
@@ -60,6 +60,6 @@ export interface PayablesPortsHarness {
     originId: string;
     lines: Array<{ itemId: string; amount: number; direction: string; sourceMovementId?: string }>;
   }>>;
-  approveAdjustment?(tenantId: string, adjustmentId: string): Promise<void>;
-  ensureItem?(tenantId: string, itemId: string): Promise<void>;
+  approveAdjustment(tenantId: string, adjustmentId: string): Promise<void>;
+  ensureItem(tenantId: string, itemId: string): Promise<void>;
 }

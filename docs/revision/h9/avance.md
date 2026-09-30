@@ -1645,4 +1645,44 @@ Todo en verde.
    - `e2e`: 524 pruebas de Playwright en verde (9.1m).
    Todo en verde.
 
+## Correcciones Sección 4: Eliminación de fallos en silencio y desacoplamiento de errores
+
+### Qué se construyó y corrigió
+1. **Métodos obligatorios en arneses y eliminación de guardas condicionales:**
+   - En `apps/api/src/contexts/payables/testing/payables-ports.harness.ts`:
+     - Retirados los modificadores opcionales `?` de `purchaseReturn`, `invoiceLines`, `adjustmentsOf`, `approveAdjustment` y `ensureItem`.
+   - En `apps/api/src/contexts/purchasing/testing/purchasing-ports.harness.ts`:
+     - Retirado el modificador opcional `?` de `adjustmentsOf`.
+   - En `apps/api/src/contexts/payables/testing/payables-ports.contract.ts`:
+     - Eliminadas todas las guardas condicionales `if (harness.invoiceLines)`, `if (harness.ensureItem)`, `if (harness.adjustmentsOf)`, `if (harness.purchaseReturn)` e `if (harness.adjustmentsOf && harness.approveAdjustment)`.
+     - Ahora todos los casos de prueba de contratos ejecutan sus llamadas de configuración y aserciones de forma incondicional y estricta, evitando que un arnés incompleto pase en silencio.
+   - En `apps/api/src/contexts/purchasing/testing/purchasing-ports.contract.ts`:
+     - Eliminadas las guardas condicionales `if (harness.adjustmentsOf)` en los casos de prueba de revaluación de facturas (`§4.1, Ajuste 3` y cancelación).
+2. **`AdjustmentSearcher` con dependencia de documentos obligatoria:**
+   - En `apps/api/src/contexts/inventory/application/search-adjustments/adjustment-searcher.ts:78`:
+     - El constructor recibe ahora `private readonly documents: MovementDocuments` obligatorio (retirado `?`).
+     - Al no ser opcional, se garantiza que la búsqueda de códigos de documentos origen (`originCode`) nunca se omita en silencio ni devuelva `null` por falta de la dependencia.
+3. **Desacoplamiento de errores entre contextos:**
+   - En `apps/api/src/contexts/payables/domain/errors/payables.errors.ts:289`:
+     - Creado el error propio de dominio `RevaluationSourceMovementNotFoundError` extendiendo de `NotFoundError`, con mensaje técnico que cita el movimiento (`Movement <${movementId}> not found for revaluation.`) y mensaje público (`The inventory movement was not found.`).
+   - En `apps/api/src/contexts/payables/domain/errors/error-categories.spec.ts:50`:
+     - Registrado el nuevo error en la suite de comprobación de categorías (87 pruebas unitarias de errores de dominio en verde).
+   - En `apps/api/src/contexts/payables/infrastructure/persistence/prisma-supplier-credit-note-posting.ts:25`:
+     - Eliminada por completo la importación transversal indebida desde `inventory/domain/errors/inventory.errors.js`.
+     - Importa y lanza ahora el error propio de Cuentas por Pagar.
+
+### Cómo se verificó
+- Pruebas unitarias de categorías de errores en verde (`payables/domain/errors/error-categories.spec.ts` - 87 passed).
+- Pruebas de contrato en memoria en verde (`payables/infrastructure/testing/in-memory-payables-ports.contract.spec.ts` - 18 passed).
+- Pruebas de contrato de compras en verde (`purchasing/infrastructure/testing/in-memory-purchasing-ports.contract.spec.ts` - 42 passed).
+- Pruebas de ciclo de vida de inventario en verde (`inventory/application/adjustment-lifecycle.spec.ts` - 24 passed).
+- Verificación completa con `make verify > scratch/logs/verify-seccion4.log 2>&1`:
+  - `gitleaks`: 0 leaks detectados (306 commits analizados).
+  - `lint`: 0 errores en todos los paquetes.
+  - `typecheck`: limpio en todos los paquetes.
+  - `unit`: 3847 pruebas unitarias de API (184 suites) + 229 pruebas unitarias de Web (24 suites) en verde (4076 totales).
+  - `contract`: 302 pruebas de contrato contra PostgreSQL en verde (13 suites).
+  - `e2e`: 524 pruebas de Playwright en verde (9.2m).
+  Todo en verde.
+
 

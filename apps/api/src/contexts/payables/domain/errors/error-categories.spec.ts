@@ -47,6 +47,7 @@ const cases: Array<[DomainError, typeof DomainError]> = [
   [new errors.CreditNoteLineAmountExceedsInvoiceError(ID, 100, 50), ConflictError],
   [new errors.CreditNoteReturnLinesNotFromInvoiceError(ID, ID), ConflictError],
   [new errors.CreditNoteLineItemMismatchError(ID, ID, ID), ConflictError],
+  [new errors.RevaluationSourceMovementNotFoundError(ID), NotFoundError],
 ];
 
 describe('payables domain errors', () => {

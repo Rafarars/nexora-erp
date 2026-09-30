@@ -212,9 +212,7 @@ export function describePayablesPortsContract(implementation: string, createHarn
 
       it('confirms a credit note linked to an invoice and generates an issue payment', async () => {
         const invLineId = `f0000000-0000-4000-8000-${next()}`;
-        if (harness.invoiceLines) {
-          await harness.invoiceLines(TENANT_A, INVOICE, [{ id: invLineId, subtotal: 100 }]);
-        }
+        await harness.invoiceLines(TENANT_A, INVOICE, [{ id: invLineId, subtotal: 100 }]);
 
         const id = SupplierCreditNoteId.of(`c0000000-0000-4000-8000-${next()}`);
         const note = SupplierCreditNote.draft(
@@ -256,12 +254,8 @@ export function describePayablesPortsContract(implementation: string, createHarn
         const itemA = `a0000000-0000-4000-8000-${next()}`;
         const itemB = `b0000000-0000-4000-8000-${next()}`;
 
-        if (harness.invoiceLines) {
-          await harness.invoiceLines(TENANT_A, INVOICE, [{ id: invLineId, itemId: itemA, subtotal: 100 }]);
-        }
-        if (harness.ensureItem) {
-          await harness.ensureItem(TENANT_A, itemB);
-        }
+        await harness.invoiceLines(TENANT_A, INVOICE, [{ id: invLineId, itemId: itemA, subtotal: 100 }]);
+        await harness.ensureItem(TENANT_A, itemB);
 
         const id = SupplierCreditNoteId.of(`c0000000-0000-4000-8000-${next()}`);
         const note = SupplierCreditNote.draft(
@@ -288,9 +282,7 @@ export function describePayablesPortsContract(implementation: string, createHarn
 
       it('rejects credit note confirmation if cumulative line amount exceeds invoice line total', async () => {
         const invLineId = `f0000000-0000-4000-8000-${next()}`;
-        if (harness.invoiceLines) {
-          await harness.invoiceLines(TENANT_A, INVOICE, [{ id: invLineId, subtotal: 100 }]);
-        }
+        await harness.invoiceLines(TENANT_A, INVOICE, [{ id: invLineId, subtotal: 100 }]);
 
         const note1Id = SupplierCreditNoteId.of(`c0000000-0000-4000-8000-${next()}`);
         const note1 = SupplierCreditNote.draft(
@@ -336,9 +328,7 @@ export function describePayablesPortsContract(implementation: string, createHarn
 
       it('serializes concurrent credit notes so cumulative line amounts cannot exceed line total', async () => {
         const invLineId = `f0000000-0000-4000-8000-${next()}`;
-        if (harness.invoiceLines) {
-          await harness.invoiceLines(TENANT_A, INVOICE, [{ id: invLineId, subtotal: 100 }]);
-        }
+        await harness.invoiceLines(TENANT_A, INVOICE, [{ id: invLineId, subtotal: 100 }]);
 
         const note1Id = SupplierCreditNoteId.of(`c0000000-0000-4000-8000-${next()}`);
         const note1 = SupplierCreditNote.draft(
@@ -397,11 +387,9 @@ export function describePayablesPortsContract(implementation: string, createHarn
       it('creates draft negative revaluation adjustment when confirming credit note for goods price discount (H9 §3.10)', async () => {
         const invLineId = `f0000000-0000-4000-8000-${next()}`;
         const itemId = `f1000000-0000-4000-8000-${next()}`;
-        if (harness.invoiceLines) {
-          await harness.invoiceLines(TENANT_A, INVOICE, [
-            { id: invLineId, itemId, subtotal: 100, receiptRate: 36.5 },
-          ]);
-        }
+        await harness.invoiceLines(TENANT_A, INVOICE, [
+          { id: invLineId, itemId, subtotal: 100, receiptRate: 36.5 },
+        ]);
 
         const id = SupplierCreditNoteId.of(`c0000000-0000-4000-8000-${next()}`);
         const note = SupplierCreditNote.draft(
@@ -436,28 +424,24 @@ export function describePayablesPortsContract(implementation: string, createHarn
         expect(confirmed?.currentStatus()).toBe('confirmed');
         expect(confirmed?.toPrimitives().priceDifference).toBeCloseTo(-20 * 36.5, 2);
 
-        if (harness.adjustmentsOf) {
-          const adjs = await harness.adjustmentsOf(tenant.value, id.value);
-          expect(adjs.length).toBe(1);
-          expect(adjs[0].type).toBe('revaluation');
-          expect(adjs[0].status).toBe('draft');
-          expect(adjs[0].originType).toBe('supplier_credit_note');
-          expect(adjs[0].originId).toBe(id.value);
-          expect(adjs[0].lines[0].direction).toBe('out');
-          expect(adjs[0].lines[0].amount).toBeCloseTo(-20 * 36.5, 2);
-          expect(adjs[0].lines[0].sourceMovementId).toBeDefined();
-        }
+        const adjs = await harness.adjustmentsOf(tenant.value, id.value);
+        expect(adjs.length).toBe(1);
+        expect(adjs[0].type).toBe('revaluation');
+        expect(adjs[0].status).toBe('draft');
+        expect(adjs[0].originType).toBe('supplier_credit_note');
+        expect(adjs[0].originId).toBe(id.value);
+        expect(adjs[0].lines[0].direction).toBe('out');
+        expect(adjs[0].lines[0].amount).toBeCloseTo(-20 * 36.5, 2);
+        expect(adjs[0].lines[0].sourceMovementId).toBeDefined();
       });
 
       it('computes distinct price difference and exchange difference when goods receipt and credit note have different exchange rates (H9 §3.3 y §3.10)', async () => {
         const invLineId = `f0000000-0000-4000-8000-${next()}`;
         const itemId = `f1000000-0000-4000-8000-${next()}`;
-        if (harness.invoiceLines) {
-          // Entrada a tasa 35.0
-          await harness.invoiceLines(TENANT_A, INVOICE, [
-            { id: invLineId, itemId, subtotal: 100, receiptRate: 35.0 },
-          ]);
-        }
+        // Entrada a tasa 35.0
+        await harness.invoiceLines(TENANT_A, INVOICE, [
+          { id: invLineId, itemId, subtotal: 100, receiptRate: 35.0 },
+        ]);
 
         const id = SupplierCreditNoteId.of(`c0000000-0000-4000-8000-${next()}`);
         // Nota de credito a tasa 40.0 con rebaja de 20 USD
@@ -496,34 +480,28 @@ export function describePayablesPortsContract(implementation: string, createHarn
         // Variacion de tipo de cambio (40.0 - 35.0 = 5.0): -20 * 5.0 = -100.0
         expect(confirmed?.toPrimitives().exchangeDifference).toBeCloseTo(-100.0, 2);
 
-        if (harness.adjustmentsOf) {
-          const adjs = await harness.adjustmentsOf(tenant.value, id.value);
-          expect(adjs.length).toBe(1);
-          expect(adjs[0].type).toBe('revaluation');
-          expect(adjs[0].status).toBe('draft');
-          // El ajuste de revaluacion disminuye inventario a tasa de recepcion (-700.0)
-          expect(adjs[0].lines[0].direction).toBe('out');
-          expect(adjs[0].lines[0].amount).toBeCloseTo(-700.0, 2);
-          expect(adjs[0].lines[0].sourceMovementId).toBeDefined();
-        }
+        const adjs = await harness.adjustmentsOf(tenant.value, id.value);
+        expect(adjs.length).toBe(1);
+        expect(adjs[0].type).toBe('revaluation');
+        expect(adjs[0].status).toBe('draft');
+        // El ajuste de revaluacion disminuye inventario a tasa de recepcion (-700.0)
+        expect(adjs[0].lines[0].direction).toBe('out');
+        expect(adjs[0].lines[0].amount).toBeCloseTo(-700.0, 2);
+        expect(adjs[0].lines[0].sourceMovementId).toBeDefined();
       });
 
       it('does not create revaluation adjustments when confirming credit note that credits a purchase return (H9 §3.10)', async () => {
         const invLineId = `f0000000-0000-4000-8000-${next()}`;
         const itemId = `f1000000-0000-4000-8000-${next()}`;
-        if (harness.invoiceLines) {
-          await harness.invoiceLines(TENANT_A, INVOICE, [
-            { id: invLineId, itemId, subtotal: 100, receiptRate: 36.5 },
-          ]);
-        }
+        await harness.invoiceLines(TENANT_A, INVOICE, [
+          { id: invLineId, itemId, subtotal: 100, receiptRate: 36.5 },
+        ]);
 
         const invLines = await ports.ledger.invoiceLines(tenant, INVOICE);
         const receiptLineId = invLines[0]?.receiptLineId!;
 
         const returnId = `d1000000-0000-4000-8000-${next()}`;
-        if (harness.purchaseReturn) {
-          await harness.purchaseReturn(TENANT_A, returnId, SUPPLIER, 'confirmed', receiptLineId ? [receiptLineId] : undefined);
-        }
+        await harness.purchaseReturn(TENANT_A, returnId, SUPPLIER, 'confirmed', receiptLineId ? [receiptLineId] : undefined);
 
         const id = SupplierCreditNoteId.of(`c0000000-0000-4000-8000-${next()}`);
         const note = SupplierCreditNote.draft(
@@ -559,20 +537,16 @@ export function describePayablesPortsContract(implementation: string, createHarn
         expect(confirmed?.toPrimitives().priceDifference).toBe(0);
         expect(confirmed?.toPrimitives().exchangeDifference).toBe(0);
 
-        if (harness.adjustmentsOf) {
-          const adjs = await harness.adjustmentsOf(tenant.value, id.value);
-          expect(adjs).toHaveLength(0);
-        }
+        const adjs = await harness.adjustmentsOf(tenant.value, id.value);
+        expect(adjs).toHaveLength(0);
       });
 
       it('cancels draft revaluation adjustment when credit note is cancelled (H9 §4.1)', async () => {
         const invLineId = `f0000000-0000-4000-8000-${next()}`;
         const itemId = `f1000000-0000-4000-8000-${next()}`;
-        if (harness.invoiceLines) {
-          await harness.invoiceLines(TENANT_A, INVOICE, [
-            { id: invLineId, itemId, subtotal: 100, receiptRate: 36.5 },
-          ]);
-        }
+        await harness.invoiceLines(TENANT_A, INVOICE, [
+          { id: invLineId, itemId, subtotal: 100, receiptRate: 36.5 },
+        ]);
 
         const id = SupplierCreditNoteId.of(`c0000000-0000-4000-8000-${next()}`);
         const note = SupplierCreditNote.draft(
@@ -605,21 +579,17 @@ export function describePayablesPortsContract(implementation: string, createHarn
 
         await ports.creditNotePosting.cancel(tenant, id, NOW);
 
-        if (harness.adjustmentsOf) {
-          const adjs = await harness.adjustmentsOf(tenant.value, id.value);
-          expect(adjs.length).toBe(1);
-          expect(adjs[0].status).toBe('cancelled');
-        }
+        const adjs = await harness.adjustmentsOf(tenant.value, id.value);
+        expect(adjs.length).toBe(1);
+        expect(adjs[0].status).toBe('cancelled');
       });
 
       it('creates reverse revaluation adjustment when cancelling credit note whose adjustment was confirmed (H9 §4.1)', async () => {
         const invLineId = `f0000000-0000-4000-8000-${next()}`;
         const itemId = `f1000000-0000-4000-8000-${next()}`;
-        if (harness.invoiceLines) {
-          await harness.invoiceLines(TENANT_A, INVOICE, [
-            { id: invLineId, itemId, subtotal: 100, receiptRate: 36.5 },
-          ]);
-        }
+        await harness.invoiceLines(TENANT_A, INVOICE, [
+          { id: invLineId, itemId, subtotal: 100, receiptRate: 36.5 },
+        ]);
 
         const id = SupplierCreditNoteId.of(`c0000000-0000-4000-8000-${next()}`);
         const note = SupplierCreditNote.draft(
@@ -650,20 +620,18 @@ export function describePayablesPortsContract(implementation: string, createHarn
         await ports.creditNotes.save(note);
         await ports.creditNotePosting.confirm(tenant, id, NOW, TODAY);
 
-        if (harness.adjustmentsOf && harness.approveAdjustment) {
-          const adjs = await harness.adjustmentsOf(tenant.value, id.value);
-          expect(adjs.length).toBe(1);
-          await harness.approveAdjustment(tenant.value, adjs[0].id);
+        const adjs = await harness.adjustmentsOf(tenant.value, id.value);
+        expect(adjs.length).toBe(1);
+        await harness.approveAdjustment(tenant.value, adjs[0].id);
 
-          await ports.creditNotePosting.cancel(tenant, id, NOW);
+        await ports.creditNotePosting.cancel(tenant, id, NOW);
 
-          const updatedAdjs = await harness.adjustmentsOf(tenant.value, id.value);
-          expect(updatedAdjs.length).toBe(2);
-          const reverseAdj = updatedAdjs.find((a) => a.id !== adjs[0].id)!;
-          expect(reverseAdj.status).toBe('draft');
-          expect(reverseAdj.lines[0].direction).toBe('in');
-          expect(reverseAdj.lines[0].amount).toBeCloseTo(20 * 36.5, 2);
-        }
+        const updatedAdjs = await harness.adjustmentsOf(tenant.value, id.value);
+        expect(updatedAdjs.length).toBe(2);
+        const reverseAdj = updatedAdjs.find((a) => a.id !== adjs[0].id)!;
+        expect(reverseAdj.status).toBe('draft');
+        expect(reverseAdj.lines[0].direction).toBe('in');
+        expect(reverseAdj.lines[0].amount).toBeCloseTo(20 * 36.5, 2);
       });
     });
   });

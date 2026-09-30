@@ -9,7 +9,6 @@ import {
   type InvoiceRevaluationLineData,
 } from '../../../../shared/prisma/invoice-revaluation-posting.js';
 import { calculatePurchaseDiscountDifference, effectiveRateToBase } from '../../../../shared/domain/purchase-price-difference.js';
-import { RevaluationSourceMovementNotFoundError } from '../../../inventory/domain/errors/inventory.errors.js';
 import {
   CreditNoteAlreadyCancelledError,
   CreditNoteLineAmountExceedsInvoiceError,
@@ -23,6 +22,7 @@ import {
   CreditNoteWithApplicationsError,
   InvoiceNotPayableError,
   PayableInvoiceNotFoundError,
+  RevaluationSourceMovementNotFoundError,
 } from '../../domain/errors/payables.errors.js';
 import {
   SupplierCreditNoteId,

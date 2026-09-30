@@ -885,13 +885,11 @@ export function describePurchasingPortsContract(implementation: string, createHa
 
         expect(confirmedInv.priceDifference).toBe(20);
 
-        if (harness.adjustmentsOf) {
-          const adjs = await harness.adjustmentsOf(tenant.value, inv.id.value);
-          expect(adjs.length).toBe(1);
-          expect(adjs[0].type).toBe('revaluation');
-          expect(adjs[0].status).toBe('draft');
-          expect(adjs[0].lines[0].amount).toBe(20);
-        }
+        const adjs = await harness.adjustmentsOf(tenant.value, inv.id.value);
+        expect(adjs.length).toBe(1);
+        expect(adjs[0].type).toBe('revaluation');
+        expect(adjs[0].status).toBe('draft');
+        expect(adjs[0].lines[0].amount).toBe(20);
       });
 
       it('cancels draft revaluation adjustment when invoice is cancelled (H9 §4.1)', async () => {
@@ -906,11 +904,9 @@ export function describePurchasingPortsContract(implementation: string, createHa
 
         await ports.invoicePosting.cancel(tenant, inv.id, NOW);
 
-        if (harness.adjustmentsOf) {
-          const adjs = await harness.adjustmentsOf(tenant.value, inv.id.value);
-          expect(adjs.length).toBe(1);
-          expect(adjs[0].status).toBe('cancelled');
-        }
+        const adjs = await harness.adjustmentsOf(tenant.value, inv.id.value);
+        expect(adjs.length).toBe(1);
+        expect(adjs[0].status).toBe('cancelled');
       });
     });
 

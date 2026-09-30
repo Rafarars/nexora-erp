@@ -286,5 +286,11 @@ export class CreditNoteLineItemMismatchError extends ConflictError {
   }
 }
 
+export class RevaluationSourceMovementNotFoundError extends NotFoundError {
+  constructor(movementId: string) {
+    super(`Movement <${movementId}> not found for revaluation.`, 'The inventory movement was not found.');
+  }
+}
+
 
 

@@ -75,7 +75,7 @@ export class AdjustmentSearcher {
     private readonly adjustments: AdjustmentRepository,
     private readonly catalog: InventoryCatalog,
     private readonly authors: DocumentAuthors,
-    private readonly documents?: MovementDocuments,
+    private readonly documents: MovementDocuments,
   ) {}
 
   async run(request: AdjustmentSearcherRequest): Promise<AdjustmentSearcherResponse> {
@@ -121,7 +121,7 @@ export class AdjustmentSearcher {
       this.catalog.findItems(tenantId, itemIds),
       this.catalog.findWarehouses(tenantId, warehouseIds),
       this.authors.namesOf(tenantId, authorIds),
-      this.documents && originDocs.length > 0
+      originDocs.length > 0
         ? this.documents.codesOf(tenantId, originDocs)
         : Promise.resolve(new Map<string, string>()),
     ]);
