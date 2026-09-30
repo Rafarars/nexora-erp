@@ -1819,3 +1819,57 @@ Se mantuvieron en el repositorio bajo `docs/revision/h9/evidencia/` exclusivamen
   - `e2e`: 524 pruebas de Playwright en verde (9.0m).
   Todo en verde.
 
+## Correcciones Ronda 4 — Sección 1: Facturar entrada confirmada con cupo en Globex y validar mercancía y cupo en semilla
+
+### 1. Comprobaciones de integridad añadidas en la semilla (`verifySeedIntegrity`)
+Se incorporaron dos nuevas reglas de validación en `apps/api/prisma/seed.ts` para blindar la coherencia física y financiera del circuito Compras-Inventario-Facturación:
+1. **Regla 6 (Líneas de mercancía deben citar entrada):** Toda línea facturada (`purchase_invoice_lines`) cuyo artículo sea inventariable (`item.type === 'inventoried'`) debe tener obligatoriamente `receiptLineId !== null`.
+2. **Regla 7 (No facturar más de lo recibido en órdenes con stock):** En cada línea de orden de compra (`purchase_order_lines`) con `movesStock: true`, la cantidad acumulada facturada no puede superar la cantidad recibida (`invoicedQuantity <= receivedQuantity`).
+
+### 2. Salidas rojas capturadas antes del arreglo de Globex
+Al activar las comprobaciones sin modificar los datos de Globex, la semilla falló demostrando ambas inconsistencias:
+
+1. **Fallo en Regla 6 (FCP000002 facturaba artículo inventariable sin citar línea de entrada):**
+   - *Comando:* `DATABASE_URL="postgresql://nexora:nexora@localhost:5432/nexora?schema=public" pnpm --filter api exec tsx prisma/seed.ts`
+   - *Salida roja capturada:*
+     ```
+     Error: Seed integrity violation: invoice FCP000002 line fb100000-0000-4000-8000-000000000101 for inventoried item FILTRO-ACEITE does not cite a receipt line
+         at verifySeedIntegrity (/home/medine01/dev/erp-portafolio/apps/api/prisma/seed.ts:2910:13)
+     ```
+
+2. **Fallo en Regla 7 (Orden OC000001 tenía invoicedQuantity=10 superando receivedQuantity=0):**
+   - *Comando:* `DATABASE_URL="postgresql://nexora:nexora@localhost:5432/nexora?schema=public" pnpm --filter api exec tsx prisma/seed.ts`
+   - *Salida roja capturada:*
+     ```
+     Error: Seed integrity violation: order line ea000000-0000-4000-8000-000000000101 (order OC000001, item FILTRO-ACEITE) has invoicedQuantity=10 which exceeds receivedQuantity=0
+         at verifySeedIntegrity (/home/medine01/dev/erp-portafolio/apps/api/prisma/seed.ts:2931:13)
+     ```
+
+### 3. Balance exacto y correcciones en Globex
+Para satisfacer las dos reglas sin romper los invariantes numéricos esperados por las pruebas existentes de Reportes (`reports.api.spec.ts` y `reports.spec.ts`: `inventoryValue: 212.5` USD y saldo por pagar `96.00` USD a Repuestos Industriales), se implementó el siguiente balance matemático:
+1. **Conteo inicial de inventario (`INVENTORY.globex.openingFilter`):**
+   - 15 filtros a costo unitario 7,00 USD = 105,00 USD.
+2. **Entrada de compras confirmada `ENT000001` (`PURCHASING.globex.receiptFilter`):**
+   - 15 filtros recibidos a costo unitario 10,00 USD = 150,00 USD.
+   - Saldo acumulado en bodega: 30 filtros valorados en 255,00 USD -> Costo promedio ponderado: **8,50 USD**.
+3. **Despacho de ventas (`SALES.globex.dispatchMovement`):**
+   - Salen 5 filtros a costo 8,50 USD.
+   - Existencia remanente: 25 filtros a costo 8,50 USD = **212,50 USD** (coincide exactamente con el valor exigido en el tablero e inventario).
+4. **Factura confirmada `FCP000001` (`PAYABLES.globex.confirmedInvoiceLine`):**
+   - Factura 10 filtros de la entrada `ENT000001` (`receiptLineId: PURCHASING.globex.receiptFilter`) a precio unitario 10,00 USD.
+   - Diferencia de precio = 0 (precio 10,00 USD == costo de entrada 10,00 USD).
+   - Subtotal: 100,00 USD; Impuesto (16%): 16,00 USD; Total: 116,00 USD.
+5. **Saldo vivo y cupo remanente:**
+   - Saldo por pagar: Total 116,00 USD - Pago confirmado 20,00 USD = **96,00 USD** (coincide exactamente con el saldo vivo exigido en reportes por pagar).
+   - Cupo remanente de la entrada: 15 recibidos - 10 facturados = 5 unidades disponibles para facturar o devolver.
+   - En la línea de orden `PURCHASING.globex.confirmedFilter`: `receivedQuantity = 15`, `invoicedQuantity = 10`, cumpliendo `10 <= 15`.
+
+### 4. Verificación de la Sección 1
+- Ejecutado `make verify > scratch/logs/verify-correcciones4-seccion1.log 2>&1`:
+  - `gitleaks`: 0 leaks detectados (310 commits analizados).
+  - `lint`: 0 errores en todos los paquetes.
+  - `typecheck`: limpio en todos los paquetes.
+  - `unit`: 3849 pruebas unitarias de API (184 suites) + 229 pruebas unitarias de Web (24 suites) en verde (4078 totales).
+  - `contract`: 302 pruebas de contrato contra PostgreSQL en verde (13 suites).
+  - `e2e`: 524 pruebas de Playwright en verde (9.5m).
+  Todo en verde.

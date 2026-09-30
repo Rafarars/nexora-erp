@@ -136,6 +136,9 @@ const PURCHASING = {
     draftOrder: 'e9000000-0000-4000-8000-000000000102',
     confirmedFilter: 'ea000000-0000-4000-8000-000000000101',
     draftFilter: 'ea000000-0000-4000-8000-000000000102',
+    receipt: 'eb000000-0000-4000-8000-000000000102',
+    receiptFilter: 'ec000000-0000-4000-8000-000000000102',
+    receiptMovement: 'e7000000-0000-4000-8000-000000000103',
     draftReceipt: 'eb000000-0000-4000-8000-000000000101',
     draftReceiptFilter: 'ec000000-0000-4000-8000-000000000101',
   },
@@ -804,7 +807,7 @@ async function seedInventory(prisma: PrismaClient): Promise<void> {
     {
       id: INVENTORY.globex.opening, tenantId: GLOBEX, code: 'AJU000001', warehouseId: globex.warehouses.main, notes: 'Conteo inicial',
       type: 'physical_count' as const, status: 'confirmed' as const, confirmedAt, createdBy: BETO, confirmedBy: BETO,
-      lines: [{ id: INVENTORY.globex.openingFilter, itemId: globex.items.filter, unitId: globex.units.piece, quantity: 30, baseQuantity: 30, unitCost: 8.5 }],
+      lines: [{ id: INVENTORY.globex.openingFilter, itemId: globex.items.filter, unitId: globex.units.piece, quantity: 15, baseQuantity: 15, unitCost: 7.0 }],
     },
     {
       id: INVENTORY.globex.draft, tenantId: GLOBEX, code: 'AJU000002', warehouseId: globex.warehouses.main, notes: 'Filtros dañados',
@@ -832,7 +835,7 @@ async function seedInventory(prisma: PrismaClient): Promise<void> {
     { tenantId: ACME, itemId: acme.items.water, warehouseId: acme.warehouses.main, quantity: 240, cost: 0.5, movement: INVENTORY.acme.waterMovement, adjustmentId: INVENTORY.acme.opening, lineId: INVENTORY.acme.openingWater },
     { tenantId: ACME, itemId: acme.items.detergent, warehouseId: acme.warehouses.main, quantity: 50, cost: 3.2, movement: INVENTORY.acme.detergentMovement, adjustmentId: INVENTORY.acme.opening, lineId: INVENTORY.acme.openingDetergent },
     { tenantId: ACME, itemId: acme.items.soap, warehouseId: acme.warehouses.main, quantity: 100, cost: 1.5, movement: INVENTORY.acme.soapMovement, adjustmentId: INVENTORY.acme.opening, lineId: INVENTORY.acme.openingSoap },
-    { tenantId: GLOBEX, itemId: globex.items.filter, warehouseId: globex.warehouses.main, quantity: 30, cost: 8.5, movement: INVENTORY.globex.filterMovement, adjustmentId: INVENTORY.globex.opening, lineId: INVENTORY.globex.openingFilter },
+    { tenantId: GLOBEX, itemId: globex.items.filter, warehouseId: globex.warehouses.main, quantity: 15, cost: 7.0, movement: INVENTORY.globex.filterMovement, adjustmentId: INVENTORY.globex.opening, lineId: INVENTORY.globex.openingFilter },
   ];
 
   for (const stock of stocks) {
@@ -949,7 +952,7 @@ async function seedPurchasing(prisma: PrismaClient): Promise<void> {
       id: PURCHASING.globex.confirmedOrder, tenantId: GLOBEX, code: 'OC000001', supplierId: PURCHASING.globex.supplier,
       warehouseId: globex.warehouses.main, orderDate: date('2026-09-03'), expectedDate: null, notes: 'Filtros para taller',
       paymentTermDays: 15, status: 'confirmed' as const, confirmedAt: at('2026-09-03'),
-      lines: [{ id: PURCHASING.globex.confirmedFilter, itemId: globex.items.filter, unitId: globex.units.piece, quantity: 20, baseQuantity: 20, unitCost: 8, taxRate: 16, receivedQuantity: 0, invoicedQuantity: 10 }],
+      lines: [{ id: PURCHASING.globex.confirmedFilter, itemId: globex.items.filter, unitId: globex.units.piece, quantity: 20, baseQuantity: 20, unitCost: 10, taxRate: 16, receivedQuantity: 15, invoicedQuantity: 10 }],
     },
     {
       id: PURCHASING.globex.draftOrder, tenantId: GLOBEX, code: 'OC000002', supplierId: PURCHASING.globex.supplier,
@@ -998,8 +1001,14 @@ async function seedPurchasing(prisma: PrismaClient): Promise<void> {
       lines: [{ id: PURCHASING.acme.interWarehouseNorthReceiptLine, orderLineId: PURCHASING.acme.interWarehouseNorthOrderLine, itemId: acme.items.detergent, unitId: acme.units.kilo, quantity: 3, baseQuantity: 3, unitCost: 3.0 }],
     },
     {
-      id: PURCHASING.globex.draftReceipt, tenantId: GLOBEX, code: 'ENT000001', orderId: PURCHASING.globex.confirmedOrder,
-      warehouseId: globex.warehouses.main, receiptDate: date('2026-09-06'), notes: null,status: 'draft' as const, confirmedAt: null,
+      id: PURCHASING.globex.receipt, tenantId: GLOBEX, code: 'ENT000001', orderId: PURCHASING.globex.confirmedOrder,
+      warehouseId: globex.warehouses.main, receiptDate: date('2026-09-04'), notes: 'Recepción filtros para taller',
+      status: 'confirmed' as const, confirmedAt: at('2026-09-04'),
+      lines: [{ id: PURCHASING.globex.receiptFilter, orderLineId: PURCHASING.globex.confirmedFilter, itemId: globex.items.filter, unitId: globex.units.piece, quantity: 15, baseQuantity: 15, unitCost: 10 }],
+    },
+    {
+      id: PURCHASING.globex.draftReceipt, tenantId: GLOBEX, code: 'ENT000002', orderId: PURCHASING.globex.confirmedOrder,
+      warehouseId: globex.warehouses.main, receiptDate: date('2026-09-06'), notes: null, status: 'draft' as const, confirmedAt: null,
       lines: [{ id: PURCHASING.globex.draftReceiptFilter, orderLineId: PURCHASING.globex.confirmedFilter, itemId: globex.items.filter, unitId: globex.units.piece, quantity: 5, baseQuantity: 5, unitCost: 8 }],
     },
   ];
@@ -1109,9 +1118,21 @@ async function seedPurchasing(prisma: PrismaClient): Promise<void> {
     },
   });
 
+  await prisma.inventoryMovement.create({
+    data: {
+      id: PURCHASING.globex.receiptMovement, tenantId: GLOBEX, itemId: globex.items.filter, warehouseId: globex.warehouses.main, sequence: 2,
+      direction: 'in', quantity: 15, unitCost: 10, balanceQuantity: 30, balanceAverageCost: 8.5, originType: 'receipt',
+      originId: PURCHASING.globex.receipt, originLineId: PURCHASING.globex.receiptFilter, originDate: at('2026-09-04'), occurredAt: at('2026-09-04'),
+    },
+  });
+  await prisma.itemStock.update({
+    where: { tenantId_itemId_warehouseId: { tenantId: GLOBEX, itemId: globex.items.filter, warehouseId: globex.warehouses.main } },
+    data: { quantity: 30, lastSequence: 2, averageCost: 8.5, updatedAt: at('2026-09-04') },
+  });
+
   for (const [tenantId, prefix, lastValue] of [
     [ACME, 'PRV', 2], [ACME, 'OC', 7], [ACME, 'ENT', 5], [ACME, 'DVC', 1],
-    [GLOBEX, 'PRV', 1], [GLOBEX, 'OC', 2], [GLOBEX, 'ENT', 1],
+    [GLOBEX, 'PRV', 1], [GLOBEX, 'OC', 2], [GLOBEX, 'ENT', 2],
   ] as const) {
     await prisma.$executeRaw`
       INSERT INTO code_sequences (tenant_id, prefix, last_value)
@@ -1305,7 +1326,7 @@ async function seedSales(prisma: PrismaClient): Promise<void> {
     { id: SALES.acme.farmaciaDispatch2Movement, tenantId: ACME, itemId: acme.items.soap, warehouseId: acme.warehouses.main, sequence: 6, quantity: 10, cost: 1.5, balance: 86, originId: SALES.acme.farmaciaDispatch2, lineId: SALES.acme.farmaciaDispatch2Soap, day: '2026-09-07' },
     { id: SALES.acme.farmaciaDispatch3Movement, tenantId: ACME, itemId: acme.items.soap, warehouseId: acme.warehouses.main, sequence: 7, quantity: 1, cost: 1.5, balance: 85, originId: SALES.acme.farmaciaDispatch3, lineId: SALES.acme.farmaciaDispatch3Soap, day: '2026-09-07' },
     { id: SALES.acme.farmaciaDispatch4Movement, tenantId: ACME, itemId: acme.items.soap, warehouseId: acme.warehouses.main, sequence: 8, quantity: 2, cost: 1.5, balance: 83, originId: SALES.acme.farmaciaDispatch4, lineId: SALES.acme.farmaciaDispatch4Soap, day: '2026-09-07' },
-    { id: SALES.globex.dispatchMovement, tenantId: GLOBEX, itemId: globex.items.filter, warehouseId: globex.warehouses.main, sequence: 2, quantity: 5, cost: 8.5, balance: 25, originId: SALES.globex.dispatch, lineId: SALES.globex.dispatchFilter, day: '2026-09-06' },
+    { id: SALES.globex.dispatchMovement, tenantId: GLOBEX, itemId: globex.items.filter, warehouseId: globex.warehouses.main, sequence: 3, quantity: 5, cost: 8.5, balance: 25, originId: SALES.globex.dispatch, lineId: SALES.globex.dispatchFilter, day: '2026-09-06' },
   ];
 
   for (const exit of exits) {
@@ -1848,7 +1869,7 @@ async function seedPayables(prisma: PrismaClient): Promise<void> {
         {
           id: PAYABLES.globex.confirmedInvoiceLine,
           lineNumber: 1,
-          receiptLineId: null,
+          receiptLineId: PURCHASING.globex.receiptFilter,
           orderLineId: PURCHASING.globex.confirmedFilter,
           itemId: globex.items.filter,
           itemSku: 'FILTRO-ACEITE',
@@ -1889,8 +1910,8 @@ async function seedPayables(prisma: PrismaClient): Promise<void> {
         {
           id: PAYABLES.globex.draftInvoiceLine,
           lineNumber: 1,
-          receiptLineId: null,
-          orderLineId: PURCHASING.globex.draftFilter,
+          receiptLineId: PURCHASING.globex.receiptFilter,
+          orderLineId: PURCHASING.globex.confirmedFilter,
           itemId: globex.items.filter,
           itemSku: 'FILTRO-ACEITE',
           itemName: 'Filtro de aceite',
@@ -2889,6 +2910,47 @@ async function verifySeedIntegrity(prisma: PrismaClient): Promise<void> {
           `Seed integrity violation: credit note ${note.code} has priceDifference=0, but has ${revalAdjustments.length} revaluation adjustments`,
         );
       }
+    }
+  }
+
+  // 6. Toda línea facturada de un artículo que mueve existencias debe citar una línea de entrada
+  const invoiceLinesOfStockItems = await prisma.purchaseInvoiceLine.findMany({
+    where: {
+      item: {
+        type: 'inventoried',
+      },
+    },
+    include: {
+      invoice: true,
+      item: true,
+    },
+  });
+
+  for (const line of invoiceLinesOfStockItems) {
+    if (!line.receiptLineId) {
+      throw new Error(
+        `Seed integrity violation: invoice ${line.invoice.code} line ${line.id} for inventoried item ${line.itemSku ?? line.itemId} does not cite a receipt line`,
+      );
+    }
+  }
+
+  // 7. En cada línea de orden que mueve existencias, lo facturado no pasa de lo recibido
+  const stockOrderLines = await prisma.purchaseOrderLine.findMany({
+    where: {
+      movesStock: true,
+    },
+    include: {
+      order: true,
+    },
+  });
+
+  for (const ol of stockOrderLines) {
+    const invoiced = Number(ol.invoicedQuantity);
+    const received = Number(ol.receivedQuantity);
+    if (invoiced > received) {
+      throw new Error(
+        `Seed integrity violation: order line ${ol.id} (order ${ol.order.code}, item ${ol.itemSku}) has invoicedQuantity=${invoiced} which exceeds receivedQuantity=${received}`,
+      );
     }
   }
 }
