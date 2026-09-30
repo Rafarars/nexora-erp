@@ -643,20 +643,20 @@ componente, errores traducidos por código.
 
 ## 6. Fases
 
-- [ ] **0. Esquema y correlativos** — tablas, la cantidad facturada en la línea de orden, los
+- [x] **0. Esquema y correlativos** — tablas, la cantidad facturada en la línea de orden, los
       prefijos. Sin lógica.
-- [ ] **1. Factura de compra** — dominio, la unicidad del número del proveedor, la aritmética de
+- [x] **1. Factura de compra** — dominio, la unicidad del número del proveedor, la aritmética de
       cantidades, API y pantallas. **Sin** diferencia de precio todavía.
-- [ ] **2. Conciliación a tres bandas** — la comparación y el rechazo por cantidad (§3.9).
-- [ ] **3. La diferencia de precio** — la revaluación por importe en Inventario, su reparto al
+- [x] **2. Conciliación a tres bandas** — la comparación y el rechazo por cantidad (§3.9).
+- [x] **3. La diferencia de precio** — la revaluación por importe en Inventario, su reparto al
       aprobar, y la diferencia en cambio
       (§3.3). Va sola porque es la pieza con más riesgo.
-- [ ] **4. Pago a proveedor** — con su reparto, espejo del cobro.
-- [ ] **5. Saldo, antigüedad y estado de cuenta** — con la fórmula en un solo sitio (§3.8).
-- [ ] **6. Reportes** — antigüedad por pagar exportable y la cifra en el tablero.
-- [ ] **7. Nota de crédito de proveedor** (§3.10).
-- [ ] **8. Semillas y extremo a extremo.**
-- [ ] **9. Revisión** con `module-review`, modo «fase ya construida».
+- [x] **4. Pago a proveedor** — con su reparto, espejo del cobro.
+- [x] **5. Saldo, antigüedad y estado de cuenta** — con la fórmula en un solo sitio (§3.8).
+- [x] **6. Reportes** — antigüedad por pagar exportable y la cifra en el tablero.
+- [x] **7. Nota de crédito de proveedor** (§3.10).
+- [x] **8. Semillas y extremo a extremo.**
+- [x] **9. Revisión** con `module-review`, modo «fase ya construida» (informe en `docs/revision/h9/h9.md`).
 
 ---
 
@@ -719,3 +719,15 @@ transcribe en vez de emitirse (§3.1), y existe una conciliación que en ventas 
 Retención de impuestos —hito propio ya decidido—, programación de pagos en lote, costos en destino,
 el flujo de aprobación de la conciliación, las tolerancias configurables y el límite de crédito con
 el proveedor, que no debe existir. Cada uno con su porqué en `FUTURE.md`.
+
+---
+
+## 10. Cierre de H9
+
+La Fase 9 completó la revisión integral de Compras hasta el pago con la skill `module-review` en modo «fase ya construida».
+Se validaron las 25 reglas críticas de H9 §7 con mutaciones y salidas de error reales, se auditaron los 7 caminos viejos, la idempotencia de las migraciones y semillas (`make seed`), y la navegación en pantalla con `playwright-cli` (grabación de vídeo en `qa-evidence/h9-navegacion.webm`, trazas y 9 capturas en `docs/revision/h9/capturas/`).
+Se corrigieron los 3 hallazgos detectados (H-H9-1: bloqueo de edición/anulación en inventario de ajustes con `originType` en `8350139`; H-H9-2: bloqueo de anulación de entradas con facturas confirmadas en `c2970da`; H-H9-3: validación de pagos y notas de crédito aplicadas al anular facturas de compra en `c2bb525`).
+Suite completa en verde con 4.928 pruebas automatizadas pasando al 100%.
+
+Informe detallado: [`docs/revision/h9/h9.md`](revision/h9/h9.md).
+

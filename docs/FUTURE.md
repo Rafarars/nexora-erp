@@ -802,4 +802,29 @@ revisión de Impuestos.
 
 **Qué haría falta.** Mantener bajo observación en entornos de CI compartidos. Si se volvieran a observar falsos positivos por contención de CPU en runners virtualizados, evaluar ampliar el margen porcentual de tolerancia en la aserción de temporización sin comprometer la validación de seguridad contra enumeración de cuentas.
 
+## Programación de pagos en lote y remesas bancarias a proveedores
+
+**Qué es.** Generación de lotes de pago para múltiples facturas de compra y emisión de archivos de remesas bancarias según formatos de banca electrónica.
+
+**Por qué no se hizo** (H9, 30-sep-2026). H9 se focalizó en el circuito comercial y contable fundamental: facturación, conciliación, revaluación, notas de crédito y amortizaciones individuales. El volumen operativo actual no justifica la complejidad de generación de archivos bancarios específicos.
+
+**Qué haría falta.** Modelar la entidad `PaymentBatch`, seleccionar facturas filtradas por fecha de vencimiento y generar los extractos según las especificaciones de cada entidad financiera.
+
+## Costos en destino (landed costs) y prorrateo de fletes/aranceles en entradas
+
+**Qué es.** Asignación de costos adicionales de importación, aduanas o transporte a las entradas de mercancía, prorrateando el gasto en el costo unitario de los artículos recibidos.
+
+**Por qué no se hizo** (H9, 30-sep-2026). La revaluación por diferencia de precio en H9 (§3.3) resuelve las discrepancias entre la orden y la factura del proveedor principal. Los gastos adicionales de terceros sin orden pueden registrarse hoy como líneas de gasto en la factura de compra, imputándose a resultado sin alterar retroactivamente el kardex físico de la recepción.
+
+**Qué haría falta.** Crear un servicio de prorrateo que aplique revaluaciones por importe vinculadas a facturas de servicios logísticos sobre recepciones previas.
+
+## Tolerancias configurables en la conciliación a tres bandas
+
+**Qué es.** Reglas que permitan aprobar automáticamente facturas con pequeñas discrepancias de precio o cantidad respecto a la orden de compra y la recepción, dentro de un porcentaje o umbral monetario configurable por empresa.
+
+**Por qué no se hizo** (H9, 30-sep-2026). La política de Nexora ERP es estricta: nunca se factura más de lo recibido físicamente, y cualquier discrepancia de precio engendra transparentemente una revaluación sujeta a aprobación en Inventario. Las tolerancias automáticas oscurecen las variaciones operativas y son propensas a abusos sin auditoría.
+
+**Qué haría falta.** Añadir configuración de tolerancias por empresa y una bandera de aprobación automática para variaciones menores al umbral.
+
+
 

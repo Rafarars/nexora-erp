@@ -12,17 +12,29 @@ Contexto: `apps/api/src/contexts/purchasing` · Pantallas: `/compras/*` · Infor
 | Órdenes de compra | `purchase_orders`, `purchase_order_lines` | `OC` | Lo que se le pide a un proveedor para una bodega |
 | Entradas de mercancía | `goods_receipts`, `goods_receipt_lines` | `ENT` | Lo que llegó de una orden; al confirmarse sube la existencia |
 | Devoluciones a proveedor | `purchase_returns`, `purchase_return_lines` | `DVC` | Lo que se devuelve al proveedor de una entrada; baja existencia al costo congelado sin reabrir la orden |
+| Facturas de compra | `purchase_invoices`, `purchase_invoice_lines` | `FCP` | Cuentas por pagar con registro fiscal, control de cupo contra entradas y conciliación |
 | En camino | — (se calcula de las órdenes) | — | Lo pedido en órdenes confirmadas que todavía no llegó |
 
-**Depende de** Catálogo (artículos, unidades, impuestos, bodegas), que lee por su propio puerto, y de
-**Inventario**, al que le pide mover la existencia por un contrato publicado. No importa el código
-de ninguno de los dos.
+**Depende de** Catálogo (artículos, unidades, impuestos, bodegas), que lee por su propio puerto, de
+**Inventario**, al que le pide mover la existencia y revaluar costos por contratos publicados, y alimenta
+a **Cuentas por pagar** con las facturas confirmadas.
 
 ---
 
 ## Principios
 
-1. **La orden no mueve existencia.** Confirmada, *anuncia* lo que viene en camino. Solo la entrada
+1. **La factura de compra nunca mueve existencia.** La existencia sólo la mueven la Entrada y la
+   Devolución física. Confirmar una factura genera la obligación de pago y, si el precio difiere de
+   la entrada, engendra una revaluación por importe en borrador en Inventario.
+2. **La orden no mueve existencia.** Confirmada, *anuncia* lo que viene en camino. Solo la entrada
+   confirmada sube la existencia.
+3. **Nunca se factura más de lo recibido.** El cupo de facturación de cada línea de entrada es
+   estrictamente `received_quantity - returned_quantity - previously_invoiced_quantity`.
+4. **Unicidad de factura por proveedor con liberación al anular.** El número de factura del proveedor
+   (`supplier_invoice_number`) es único por proveedor en estado activo; anular la factura libera el
+   número para correcciones.
+5. **Entrada facturada no se anula.** Si una entrada tiene facturas de compra confirmadas que la citan,
+   queda bloqueada contra anulación (`GoodsReceiptHasConfirmedInvoicesError`).
    confirmada sube la existencia.
 2. **Nunca entra más de lo pedido.** Lo impide el dominio, lo impide un bloqueo de la orden bajo
    concurrencia y lo impide la base (`CHECK received_quantity <= quantity`).
