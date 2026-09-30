@@ -29,7 +29,9 @@ export class AdjustmentConfirmer {
     // El borrador pudo quedar viejo: se revalida con el catalogo de hoy antes de mover nada. Si el
     // articulo se desactivo, se rechaza; si su caja paso de 24 a 12, tambien, para que la persona
     // revise las cantidades y guarde el borrador. Si ya no es borrador, `update` lo rechaza.
-    if (adjustment.currentStatus() === 'draft') {
+    // Los ajustes nacidos de compras (origen FCP o NCP) tienen sus lineas por importe calculadas
+    // sobre el movimiento fuente y no deben revalidarse con factory.lines.
+    if (adjustment.currentStatus() === 'draft' && !adjustment.originType()) {
       const primitives = adjustment.toPrimitives();
       const lines = await this.factory.lines(
         tenantId,

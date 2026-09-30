@@ -3,6 +3,8 @@ import {
   AdjustmentNotConfirmableError,
   AdjustmentNotEditableError,
   AdjustmentNotFoundError,
+  AdjustmentFromOriginNotEditableError,
+  AdjustmentFromOriginNotCancellableError,
   InactiveStockItemError,
   InsufficientStockError,
   StockItemChangedError,
@@ -10,7 +12,7 @@ import {
   StockWarehouseNotFoundError,
 } from '../domain/errors/inventory.errors.js';
 import { TenantId } from '../domain/shared/tenant-id.vo.js';
-import { Adjustment } from '../domain/adjustment/adjustment.entity.js';
+import { Adjustment, AdjustmentId } from '../domain/adjustment/adjustment.entity.js';
 import { BOX, FOREIGN_WAREHOUSE, MAIN, NORTH, PIECE, TENANT_A, TENANT_B, WATER } from '../domain/testing/inventory.mother.js';
 import { AdjustmentCanceller } from './cancel-adjustment/adjustment-canceller.js';
 import { AdjustmentConfirmer } from './confirm-adjustment/adjustment-confirmer.js';
@@ -434,6 +436,93 @@ describe('queries', () => {
     expect(foundNoteAdj?.originType).toBe('supplier_credit_note');
     expect(foundNoteAdj?.originId).toBe(creditNoteId);
     expect(foundNoteAdj?.originCode).toBe('NCP000007');
+  });
+
+  it('blocks editing and cancelling adjustments originated from purchase invoice or credit note, and confirms amount revaluation correctly', async () => {
+    const s = await anInventoryScenario();
+    const cases = useCases(s);
+
+    // Sembrar stock inicial para que la revaluacion tenga stock en bodega
+    await cases.create.run({
+      tenantId: TENANT_A,
+      userId: ANA,
+      warehouseId: MAIN,
+      type: 'physical_count',
+      lines: [{ itemId: WATER, unitId: PIECE, direction: 'in', quantity: 10, unitCost: 10 }],
+    });
+    const { adjustments: [initialStockAdj] } = await s.store.search(TenantId.of(TENANT_A), FIRST_PAGE);
+    await cases.confirm.run({ tenantId: TENANT_A, adjustmentId: initialStockAdj.id.value, userId: ANA });
+
+    const invoiceAdjId = '77777777-7777-4777-8777-777777777777';
+    const invoiceAdjustment = Adjustment.fromPrimitives({
+      id: invoiceAdjId,
+      tenantId: TENANT_A,
+      code: 'AJU000010',
+      warehouseId: MAIN,
+      adjustmentDate: '2026-01-15',
+      type: 'revaluation',
+      notes: 'Revaluacion por factura FCP000042',
+      status: 'draft',
+      createdBy: ANA,
+      confirmedAt: null,
+      confirmedBy: null,
+      cancelledAt: null,
+      cancelledBy: null,
+      originType: 'purchase_invoice',
+      originId: 'f1111111-1111-4111-8111-111111111111',
+      createdAt: new Date('2026-01-15T10:00:00Z'),
+      updatedAt: new Date('2026-01-15T10:00:00Z'),
+      lines: [
+        {
+          id: '55555555-5555-4555-8555-555555555555',
+          lineNumber: 1,
+          itemId: WATER,
+          itemSku: 'AGUA-1L',
+          itemName: 'Agua Mineral 1L',
+          unitId: PIECE,
+          direction: 'in',
+          quantity: 0,
+          baseQuantity: 0,
+          unitCost: null,
+          revaluationKind: 'amount',
+          amount: 20,
+          sourceMovementId: null,
+          stockPart: 20,
+          soldPart: 0,
+        },
+      ],
+    });
+    await s.store.save(invoiceAdjustment);
+
+    // 1. Intentar editar el ajuste originado desde inventario debe fallar con AdjustmentFromOriginNotEditableError
+    await expect(
+      cases.update.run({
+        tenantId: TENANT_A,
+        adjustmentId: invoiceAdjId,
+        warehouseId: MAIN,
+        type: 'revaluation',
+        notes: 'Intento de edicion ilegal',
+        lines: [{ itemId: WATER, unitId: PIECE, direction: 'in', quantity: 0, unitCost: 15 }],
+      }),
+    ).rejects.toThrow(AdjustmentFromOriginNotEditableError);
+
+    // 2. Intentar anular el ajuste directamente desde inventario debe fallar con AdjustmentFromOriginNotCancellableError
+    await expect(
+      cases.cancel.run({
+        tenantId: TENANT_A,
+        adjustmentId: invoiceAdjId,
+        userId: ANA,
+      }),
+    ).rejects.toThrow(AdjustmentFromOriginNotCancellableError);
+
+    // 3. Confirmar el ajuste originado por importe debe completarse con exito
+    await cases.confirm.run({
+      tenantId: TENANT_A,
+      adjustmentId: invoiceAdjId,
+      userId: ANA,
+    });
+    const reloaded = await s.finder.find(TenantId.of(TENANT_A), AdjustmentId.of(invoiceAdjId));
+    expect(reloaded.currentStatus()).toBe('confirmed');
   });
 });
 

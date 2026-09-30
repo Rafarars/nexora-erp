@@ -6,6 +6,7 @@ import { AdjustmentRepository } from '../../domain/adjustment/adjustment.reposit
 import { AdjustmentFinder } from '../../domain/adjustment/find/adjustment-finder.js';
 import { AdjustmentLineFactory } from '../../domain/adjustment/lines/adjustment-line-factory.js';
 import { TenantId } from '../../domain/shared/tenant-id.vo.js';
+import { AdjustmentFromOriginNotEditableError } from '../../domain/errors/inventory.errors.js';
 import { AdjustmentInput } from '../create-adjustment/adjustment-creator.js';
 
 export interface AdjustmentUpdaterRequest extends AdjustmentInput {
@@ -26,6 +27,9 @@ export class AdjustmentUpdater {
   async run(request: AdjustmentUpdaterRequest): Promise<void> {
     const tenantId = TenantId.of(request.tenantId);
     const adjustment = await this.finder.find(tenantId, AdjustmentId.of(request.adjustmentId));
+    if (adjustment.originType() !== null) {
+      throw new AdjustmentFromOriginNotEditableError(adjustment.id.value, adjustment.originType()!);
+    }
     const now = this.clock.now();
     const today = await this.calendar.today(request.tenantId);
 

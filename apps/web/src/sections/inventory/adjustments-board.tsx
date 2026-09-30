@@ -138,6 +138,11 @@ export function AdjustmentsBoard({
                   <td className="px-4 py-3">
                     <p data-testid={`adjustment-lines-${adjustment.code}`}>{summarizeLines(adjustment.lines, baseUnitOf, adjustment.originCode)}</p>
                     {adjustment.notes ? <p className="text-muted text-xs">{adjustment.notes}</p> : null}
+                    {adjustment.originType ? (
+                      <p className="text-xs font-medium text-amber-700" data-testid={`adjustment-origin-hint-${adjustment.code}`}>
+                        Origen: {adjustment.originCode ?? (adjustment.originType === 'purchase_invoice' ? 'Factura de compra' : 'Nota de crédito')} (solo aprobación; para descartar anule el origen)
+                      </p>
+                    ) : null}
                   </td>
                   <td className="px-4 py-3">
                     <p data-testid={`adjustment-status-${adjustment.code}`}>{STATUS_LABELS[adjustment.status]}</p>

@@ -1,5 +1,6 @@
 import { Clock } from '../../../../shared/domain/ports/clock.js';
 import { AdjustmentId } from '../../domain/adjustment/adjustment.entity.js';
+import { AdjustmentFromOriginNotCancellableError } from '../../domain/errors/inventory.errors.js';
 import { AdjustmentCancellation } from '../../domain/adjustment/posting/adjustment-cancellation.js';
 import { AdjustmentPosting } from '../../domain/adjustment/posting/adjustment-posting.js';
 import { TenantId } from '../../domain/shared/tenant-id.vo.js';
@@ -16,8 +17,11 @@ export class AdjustmentCanceller {
   async run(request: { tenantId: string; adjustmentId: string; userId: string }): Promise<void> {
     const now = this.clock.now();
 
-    await this.posting.post(TenantId.of(request.tenantId), AdjustmentId.of(request.adjustmentId), (adjustment, ledger) =>
-      this.cancellation.apply(adjustment, ledger, now, request.userId),
-    );
+    await this.posting.post(TenantId.of(request.tenantId), AdjustmentId.of(request.adjustmentId), (adjustment, ledger) => {
+      if (adjustment.originType() !== null) {
+        throw new AdjustmentFromOriginNotCancellableError(adjustment.id.value, adjustment.originType()!);
+      }
+      return this.cancellation.apply(adjustment, ledger, now, request.userId);
+    });
   }
 }

@@ -199,3 +199,21 @@ export class RevaluationSourceMovementNotFoundError extends NotFoundError {
   }
 }
 
+export class AdjustmentFromOriginNotEditableError extends ConflictError {
+  constructor(id: string, originType: string) {
+    super(
+      `Adjustment <${id}> was originated from <${originType}> and cannot be edited manually.`,
+      'Este ajuste proviene de un documento de compras y no puede editarse manualmente: apruébelo o gestione el documento de origen.',
+    );
+  }
+}
+
+export class AdjustmentFromOriginNotCancellableError extends ConflictError {
+  constructor(id: string, originType: string) {
+    super(
+      `Adjustment <${id}> was originated from <${originType}> and cannot be cancelled directly from inventory.`,
+      'Este ajuste proviene de un documento de compras y no puede anularse desde inventario: anule el documento de origen para descartarlo.',
+    );
+  }
+}
+

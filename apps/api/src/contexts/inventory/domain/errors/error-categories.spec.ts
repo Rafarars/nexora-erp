@@ -32,6 +32,8 @@ const cases: Array<[DomainError, typeof DomainError]> = [
   [new errors.InventoryTextTooLongError('Notes', 500), InvalidArgumentError],
   [new errors.InvalidDirectionError('x'), InvalidArgumentError],
   [new errors.RevaluationSourceMovementNotFoundError(ID), NotFoundError],
+  [new errors.AdjustmentFromOriginNotEditableError(ID, 'purchase_invoice'), ConflictError],
+  [new errors.AdjustmentFromOriginNotCancellableError(ID, 'purchase_invoice'), ConflictError],
 ];
 
 describe('inventory domain errors', () => {

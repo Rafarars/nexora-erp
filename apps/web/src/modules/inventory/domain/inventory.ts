@@ -117,12 +117,14 @@ export const DIRECTION_LABELS: Record<Direction, string> = { in: 'Entrada', out:
 export const ORIGIN_LABELS: Record<MovementOriginType, string> = { adjustment: 'Ajuste', receipt: 'Entrada de compra', dispatch: 'Despacho' };
 
 // Lo que la interfaz ofrece en cada estado. La API lo vuelve a comprobar; esto solo evita
-// ofrecer un boton que acabaria en error.
-export function availableActions(adjustment: Pick<Adjustment, 'status'>): { edit: boolean; confirm: boolean; cancel: boolean } {
+// ofrecer un boton que acabaria en error. Los ajustes originados de compras solo se aprueban
+// aqui; para descartar se anula el documento de origen.
+export function availableActions(adjustment: Pick<Adjustment, 'status'> & { originType?: string | null }): { edit: boolean; confirm: boolean; cancel: boolean } {
+  const isFromOrigin = Boolean(adjustment.originType);
   return {
-    edit: adjustment.status === 'draft',
+    edit: adjustment.status === 'draft' && !isFromOrigin,
     confirm: adjustment.status === 'draft',
-    cancel: adjustment.status !== 'cancelled',
+    cancel: adjustment.status !== 'cancelled' && !isFromOrigin,
   };
 }
 

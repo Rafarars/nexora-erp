@@ -15,6 +15,11 @@ describe('availableActions', () => {
   it('offers nothing on a cancelled adjustment', () => {
     expect(availableActions({ status: 'cancelled' })).toEqual({ edit: false, confirm: false, cancel: false });
   });
+
+  it('offers only confirm on an adjustment originated from purchase invoice or credit note', () => {
+    expect(availableActions({ status: 'draft', originType: 'purchase_invoice' })).toEqual({ edit: false, confirm: true, cancel: false });
+    expect(availableActions({ status: 'confirmed', originType: 'supplier_credit_note' })).toEqual({ edit: false, confirm: false, cancel: false });
+  });
 });
 
 describe('summarizeLines', () => {
