@@ -3,6 +3,11 @@ import { hash } from '@node-rs/argon2';
 import { PrismaClient } from '../src/generated/prisma/client.js';
 import { assertDisposableDatabase } from './disposable-database.js';
 import { SYSTEM_PERMISSIONS } from '../src/contexts/access/domain/role/permissions.catalog.js';
+import {
+  calculatePurchasePriceDifference,
+  effectiveRateToBase,
+  type PriceDifferenceLineInput,
+} from '../src/shared/domain/purchase-price-difference.js';
 
 // Datos de demostracion para desarrollo y para la suite end-to-end. DOS empresas, no
 // una: sin una segunda empresa no se puede probar que el aislamiento funciona, que es
@@ -114,6 +119,16 @@ const PURCHASING = {
     northReceipt: 'eb000000-0000-4000-8000-000000000003',
     northReceiptLine: 'ec000000-0000-4000-8000-000000000003',
     northReceiptMovement: 'e7000000-0000-4000-8000-000000000014',
+    interWarehouseWaterOrder: 'e9000000-0000-4000-8000-000000000006',
+    interWarehouseWaterOrderLine: 'ea000000-0000-4000-8000-000000000007',
+    interWarehouseWaterReceipt: 'eb000000-0000-4000-8000-000000000004',
+    interWarehouseWaterReceiptLine: 'ec000000-0000-4000-8000-000000000004',
+    interWarehouseWaterMovement: 'e7000000-0000-4000-8000-000000000015',
+    interWarehouseNorthOrder: 'e9000000-0000-4000-8000-000000000007',
+    interWarehouseNorthOrderLine: 'ea000000-0000-4000-8000-000000000008',
+    interWarehouseNorthReceipt: 'eb000000-0000-4000-8000-000000000005',
+    interWarehouseNorthReceiptLine: 'ec000000-0000-4000-8000-000000000005',
+    interWarehouseNorthMovement: 'e7000000-0000-4000-8000-000000000016',
   },
   globex: {
     supplier: 'e8000000-0000-4000-8000-000000000101',
@@ -271,6 +286,8 @@ const PAYABLES = {
     payment2Alloc1: 'fc100000-0000-4000-8000-000000000003',
     payment3: 'fc000000-0000-4000-8000-000000000003',
     payment3Alloc1: 'fc100000-0000-4000-8000-000000000004',
+    payment4: 'fc000000-0000-4000-8000-000000000004',
+    payment4Alloc1: 'fc100000-0000-4000-8000-000000000005',
 
     // Notas de crédito de proveedor
     creditNote1: 'fd000000-0000-4000-8000-000000000001',
@@ -345,15 +362,16 @@ async function main(): Promise<void> {
     await seedReceivables(prisma);
     await seedPayables(prisma);
     await seedVolume(prisma);
+    await verifySeedIntegrity(prisma);
 
     console.log(
       '  semillas aplicadas: 4 empresas con sus datos y parametros, 5 roles, 6 personas, 8 membresias; ' +
         'catalogo: 7 unidades, 3 categorias, 3 impuestos, 5 bodegas, 3 listas de precio, 5 articulos con 8 precios; ' +
         'inventario: 7 ajustes (3 confirmados), 5 existencias; ' +
-        'compras: 3 proveedores, 5 ordenes, 3 entradas, 1 devolucion; ' +
+        'compras: 3 proveedores, 7 ordenes, 5 entradas, 1 devolucion; ' +
         'ventas: 4 clientes, 7 pedidos, 6 despachos, 6 facturas, 2 devoluciones; ' +
         'cuentas por cobrar: 3 notas de credito, 5 cobros (5 confirmados); ' +
-        'cuentas por pagar: 7 facturas (6 confirmadas), 4 notas de credito (3 confirmadas), 5 pagos (4 confirmados); ' +
+        'cuentas por pagar: 7 facturas (6 confirmadas), 4 notas de credito (3 confirmadas), 6 pagos (5 confirmados); ' +
         'volumen: 50 clientes, 5000 facturas, 3000 cobros',
     );
   } finally {
@@ -877,7 +895,7 @@ async function seedPurchasing(prisma: PrismaClient): Promise<void> {
       warehouseId: acme.warehouses.main, orderDate: date('2026-09-02'), expectedDate: date('2026-09-10'),
       notes: 'Reposición quincenal', paymentTermDays: 30, status: 'partially_received' as const, confirmedAt: at('2026-09-02'),
       lines: [
-        { id: PURCHASING.acme.partialWater, itemId: acme.items.water, unitId: acme.units.box, quantity: 10, baseQuantity: 240, unitCost: 12, taxRate: 16, receivedQuantity: 4 },
+        { id: PURCHASING.acme.partialWater, itemId: acme.items.water, unitId: acme.units.box, quantity: 10, baseQuantity: 240, unitCost: 12, taxRate: 16, receivedQuantity: 4, invoicedQuantity: 4 },
         { id: PURCHASING.acme.partialDetergent, itemId: acme.items.detergent, unitId: acme.units.kilo, quantity: 20, baseQuantity: 20, unitCost: 3.1, taxRate: 16, receivedQuantity: 0 },
       ],
     },
@@ -909,6 +927,22 @@ async function seedPurchasing(prisma: PrismaClient): Promise<void> {
       paymentTermDays: 30, status: 'received' as const, confirmedAt: at('2026-09-03'),
       lines: [
         { id: PURCHASING.acme.northOrderLine, itemId: acme.items.detergent, unitId: acme.units.kilo, quantity: 10, baseQuantity: 10, unitCost: 3.0, taxRate: 16, receivedQuantity: 10, invoicedQuantity: 10, movesStock: true },
+      ],
+    },
+    {
+      id: PURCHASING.acme.interWarehouseWaterOrder, tenantId: ACME, code: 'OC000006', supplierId: PURCHASING.acme.andina,
+      warehouseId: acme.warehouses.main, orderDate: date('2026-09-04'), expectedDate: date('2026-09-05'),
+      notes: 'Reposición agua para inter-bodegas', paymentTermDays: 30, status: 'received' as const, confirmedAt: at('2026-09-04'),
+      lines: [
+        { id: PURCHASING.acme.interWarehouseWaterOrderLine, itemId: acme.items.water, unitId: acme.units.box, quantity: 2, baseQuantity: 48, unitCost: 12, taxRate: 16, receivedQuantity: 2, invoicedQuantity: 2, movesStock: true },
+      ],
+    },
+    {
+      id: PURCHASING.acme.interWarehouseNorthOrder, tenantId: ACME, code: 'OC000007', supplierId: PURCHASING.acme.andina,
+      warehouseId: acme.warehouses.north, orderDate: date('2026-09-04'), expectedDate: date('2026-09-05'),
+      notes: 'Reposición detergente para inter-bodegas', paymentTermDays: 30, status: 'received' as const, confirmedAt: at('2026-09-04'),
+      lines: [
+        { id: PURCHASING.acme.interWarehouseNorthOrderLine, itemId: acme.items.detergent, unitId: acme.units.kilo, quantity: 3, baseQuantity: 3, unitCost: 3.0, taxRate: 16, receivedQuantity: 3, invoicedQuantity: 3, movesStock: true },
       ],
     },
     {
@@ -950,6 +984,18 @@ async function seedPurchasing(prisma: PrismaClient): Promise<void> {
       warehouseId: acme.warehouses.north, receiptDate: date('2026-09-04'), notes: 'Recepción en Norte conforme',
       status: 'confirmed' as const, confirmedAt: at('2026-09-04'),
       lines: [{ id: PURCHASING.acme.northReceiptLine, orderLineId: PURCHASING.acme.northOrderLine, itemId: acme.items.detergent, unitId: acme.units.kilo, quantity: 10, baseQuantity: 10, unitCost: 3.0 }],
+    },
+    {
+      id: PURCHASING.acme.interWarehouseWaterReceipt, tenantId: ACME, code: 'ENT000004', orderId: PURCHASING.acme.interWarehouseWaterOrder,
+      warehouseId: acme.warehouses.main, receiptDate: date('2026-09-05'), notes: 'Recepción agua para inter-bodegas',
+      status: 'confirmed' as const, confirmedAt: at('2026-09-05'),
+      lines: [{ id: PURCHASING.acme.interWarehouseWaterReceiptLine, orderLineId: PURCHASING.acme.interWarehouseWaterOrderLine, itemId: acme.items.water, unitId: acme.units.box, quantity: 2, baseQuantity: 48, unitCost: 12 }],
+    },
+    {
+      id: PURCHASING.acme.interWarehouseNorthReceipt, tenantId: ACME, code: 'ENT000005', orderId: PURCHASING.acme.interWarehouseNorthOrder,
+      warehouseId: acme.warehouses.north, receiptDate: date('2026-09-04'), notes: 'Recepción detergente para inter-bodegas',
+      status: 'confirmed' as const, confirmedAt: at('2026-09-04'),
+      lines: [{ id: PURCHASING.acme.interWarehouseNorthReceiptLine, orderLineId: PURCHASING.acme.interWarehouseNorthOrderLine, itemId: acme.items.detergent, unitId: acme.units.kilo, quantity: 3, baseQuantity: 3, unitCost: 3.0 }],
     },
     {
       id: PURCHASING.globex.draftReceipt, tenantId: GLOBEX, code: 'ENT000001', orderId: PURCHASING.globex.confirmedOrder,
@@ -1064,7 +1110,7 @@ async function seedPurchasing(prisma: PrismaClient): Promise<void> {
   });
 
   for (const [tenantId, prefix, lastValue] of [
-    [ACME, 'PRV', 2], [ACME, 'OC', 5], [ACME, 'ENT', 3], [ACME, 'DVC', 1],
+    [ACME, 'PRV', 2], [ACME, 'OC', 7], [ACME, 'ENT', 5], [ACME, 'DVC', 1],
     [GLOBEX, 'PRV', 1], [GLOBEX, 'OC', 2], [GLOBEX, 'ENT', 1],
   ] as const) {
     await prisma.$executeRaw`
@@ -1631,7 +1677,7 @@ async function seedPayables(prisma: PrismaClient): Promise<void> {
       subtotal: 41.5,
       tax: 6.64,
       total: 48.14,
-      priceDifference: 6.5,
+      priceDifference: 8.5,
       exchangeDifference: 0,
       confirmedAt: at('2026-09-06'),
       ...dollarsAt(150.25),
@@ -1642,8 +1688,8 @@ async function seedPayables(prisma: PrismaClient): Promise<void> {
         {
           id: PAYABLES.acme.invoice3LineMain,
           lineNumber: 1,
-          receiptLineId: PURCHASING.acme.receiptWater,
-          orderLineId: PURCHASING.acme.partialWater,
+          receiptLineId: PURCHASING.acme.interWarehouseWaterReceiptLine,
+          orderLineId: PURCHASING.acme.interWarehouseWaterOrderLine,
           itemId: acme.items.water,
           itemSku: 'AGUA-500',
           itemName: 'Agua mineral 500 ml',
@@ -1659,8 +1705,8 @@ async function seedPayables(prisma: PrismaClient): Promise<void> {
         {
           id: PAYABLES.acme.invoice3LineNorth,
           lineNumber: 2,
-          receiptLineId: PURCHASING.acme.northReceiptLine,
-          orderLineId: PURCHASING.acme.northOrderLine,
+          receiptLineId: PURCHASING.acme.interWarehouseNorthReceiptLine,
+          orderLineId: PURCHASING.acme.interWarehouseNorthOrderLine,
           itemId: acme.items.detergent,
           itemSku: 'DETERGENTE-1KG',
           itemName: 'Detergente en polvo 1 kg',
@@ -1979,7 +2025,7 @@ async function seedPayables(prisma: PrismaClient): Promise<void> {
           unitCost: null,
           revaluationKind: 'amount' as const,
           amount: 4.0,
-          sourceMovementId: PURCHASING.acme.receiptMovement,
+          sourceMovementId: PURCHASING.acme.interWarehouseWaterMovement,
           stockPart: null,
           soldPart: null,
         },
@@ -2013,8 +2059,8 @@ async function seedPayables(prisma: PrismaClient): Promise<void> {
           baseQuantity: 0,
           unitCost: null,
           revaluationKind: 'amount' as const,
-          amount: 2.5,
-          sourceMovementId: PURCHASING.acme.northReceiptMovement,
+          amount: 4.5,
+          sourceMovementId: PURCHASING.acme.interWarehouseNorthMovement,
           stockPart: null,
           soldPart: null,
         },
@@ -2056,23 +2102,6 @@ async function seedPayables(prisma: PrismaClient): Promise<void> {
       ],
     },
   ];
-
-  for (const { lines, ...adj } of revaluations) {
-    await prisma.adjustment.create({
-      data: {
-        ...adj,
-        createdAt: adj.adjustmentDate,
-        updatedAt: adj.confirmedAt ?? adj.adjustmentDate,
-      },
-    });
-    await prisma.adjustmentLine.createMany({
-      data: lines.map((l) => ({
-        ...l,
-        tenantId: adj.tenantId,
-        adjustmentId: adj.id,
-      })),
-    });
-  }
 
   // Movimientos en kardex y stock de la revaluación aprobada AJU000004 en north
   await prisma.inventoryMovement.create({
@@ -2128,6 +2157,94 @@ async function seedPayables(prisma: PrismaClient): Promise<void> {
       updatedAt: at('2026-09-04'),
     },
   });
+
+  // Movimientos en kardex de las entradas propias inter-bodegas citadas por FCP000003
+  await prisma.inventoryMovement.create({
+    data: {
+      id: PURCHASING.acme.interWarehouseNorthMovement,
+      tenantId: ACME,
+      itemId: acme.items.detergent,
+      warehouseId: acme.warehouses.north,
+      sequence: 4,
+      direction: 'in',
+      quantity: 3,
+      unitCost: 3.0,
+      balanceQuantity: 13,
+      balanceAverageCost: 3.38,
+      originType: 'receipt',
+      originId: PURCHASING.acme.interWarehouseNorthReceipt,
+      originLineId: PURCHASING.acme.interWarehouseNorthReceiptLine,
+      originDate: date('2026-09-04'),
+      occurredAt: at('2026-09-04'),
+    },
+  });
+  await prisma.itemStock.update({
+    where: {
+      tenantId_itemId_warehouseId: {
+        tenantId: ACME,
+        itemId: acme.items.detergent,
+        warehouseId: acme.warehouses.north,
+      },
+    },
+    data: {
+      quantity: 13,
+      averageCost: 3.38,
+      lastSequence: 4,
+      updatedAt: at('2026-09-04'),
+    },
+  });
+
+  await prisma.inventoryMovement.create({
+    data: {
+      id: PURCHASING.acme.interWarehouseWaterMovement,
+      tenantId: ACME,
+      itemId: acme.items.water,
+      warehouseId: acme.warehouses.main,
+      sequence: 4,
+      direction: 'in',
+      quantity: 48,
+      unitCost: 0.5,
+      balanceQuantity: 336,
+      balanceAverageCost: 0.5,
+      originType: 'receipt',
+      originId: PURCHASING.acme.interWarehouseWaterReceipt,
+      originLineId: PURCHASING.acme.interWarehouseWaterReceiptLine,
+      originDate: date('2026-09-05'),
+      occurredAt: at('2026-09-05'),
+    },
+  });
+  await prisma.itemStock.update({
+    where: {
+      tenantId_itemId_warehouseId: {
+        tenantId: ACME,
+        itemId: acme.items.water,
+        warehouseId: acme.warehouses.main,
+      },
+    },
+    data: {
+      quantity: 336,
+      averageCost: 0.5,
+      lastSequence: 4,
+      updatedAt: at('2026-09-05'),
+    },
+  });
+
+  for (const { lines, ...adj } of revaluations) {
+    await prisma.adjustment.create({
+      data: {
+        ...adj,
+        createdAt: adj.adjustmentDate,
+        updatedAt: adj.confirmedAt ?? adj.adjustmentDate,
+      },
+    });
+    await prisma.adjustmentLine.createMany({
+      data: lines.map((l) => ({
+        ...l,
+        tenantId: adj.tenantId,
+        adjustmentId: adj.id,
+      })),
+    });
+  }
 
   // Notas de crédito de proveedor
   const creditNotes = [
@@ -2385,6 +2502,26 @@ async function seedPayables(prisma: PrismaClient): Promise<void> {
         { id: PAYABLES.acme.payment3Alloc1, invoiceId: PAYABLES.acme.invoice5, amount: 6.96, exchangeDifference: 14.96 },
       ],
     },
+    // PAG000004: Consumo de crédito remanente de NCP000001 (7.00 USD aplicados a FCP000002)
+    {
+      id: PAYABLES.acme.payment4,
+      tenantId: ACME,
+      code: 'PAG000004',
+      supplierId: PURCHASING.acme.andina,
+      paymentDate: date('2026-09-09'),
+      method: 'credit_note' as const,
+      reference: null,
+      notes: 'Consumo de crédito remanente de NCP000001',
+      amount: 7.0,
+      status: 'confirmed' as const,
+      confirmedAt: at('2026-09-09'),
+      ...dollarsAt(152.4),
+      amountVes: 1066.8,
+      creditSourceId: PAYABLES.acme.creditNote1,
+      allocations: [
+        { id: PAYABLES.acme.payment4Alloc1, invoiceId: PAYABLES.acme.invoice2, amount: 7.0, exchangeDifference: 15.05 },
+      ],
+    },
     // Globex: Pagos para aislamiento
     {
       id: PAYABLES.globex.confirmedPayment,
@@ -2462,7 +2599,7 @@ async function seedPayables(prisma: PrismaClient): Promise<void> {
   // Secuencias de correlativos para Cuentas por Pagar e Inventario
   for (const [tenantId, prefix, lastValue] of [
     [ACME, 'FCP', 5],
-    [ACME, 'PAG', 3],
+    [ACME, 'PAG', 4],
     [ACME, 'NCP', 2],
     [ACME, 'AJU', 7],
     [GLOBEX, 'FCP', 2],
@@ -2527,6 +2664,120 @@ async function seedVolume(prisma: PrismaClient): Promise<void> {
       VALUES (${VOLUME}::uuid, ${prefix}, ${lastValue})
       ON CONFLICT (tenant_id, prefix)
       DO UPDATE SET last_value = GREATEST(code_sequences.last_value, EXCLUDED.last_value)`;
+  }
+}
+
+async function verifySeedIntegrity(prisma: PrismaClient): Promise<void> {
+  // 1. Verificar cupos de líneas de entrada de mercancía (facturado <= recibido - devuelto)
+  const receiptLines = await prisma.goodsReceiptLine.findMany({
+    include: {
+      receipt: true,
+      invoiceLines: {
+        where: {
+          invoice: { status: 'confirmed' },
+        },
+      },
+      returnLines: {
+        where: {
+          purchaseReturn: { status: 'confirmed' },
+        },
+      },
+    },
+  });
+
+  for (const rl of receiptLines) {
+    const received = Number(rl.quantity);
+    const returned = rl.returnLines.reduce((acc, ret) => acc + Number(ret.quantity), 0);
+    const invoiced = rl.invoiceLines.reduce((acc, inv) => acc + Number(inv.quantity), 0);
+
+    // Buscar notas de crédito confirmadas que acreditan devoluciones de estas facturas
+    const invoiceIds = rl.invoiceLines.map((il) => il.invoiceId);
+    const creditedReturns = await prisma.supplierCreditNoteLine.findMany({
+      where: {
+        creditNote: {
+          tenantId: rl.tenantId,
+          invoiceId: { in: invoiceIds },
+          purchaseReturnId: { not: null },
+          status: 'confirmed',
+        },
+      },
+      select: { quantity: true },
+    });
+    const credited = creditedReturns.reduce((acc, cn) => acc + Number(cn.quantity), 0);
+
+    // 1. Lo facturado bruto nunca puede superar lo recibido físicamente
+    if (invoiced > received) {
+      throw new Error(
+        `Seed integrity violation: receipt line ${rl.id} (${rl.itemSku ?? rl.id}) has received=${received}, but confirmed invoices total=${invoiced}`,
+      );
+    }
+
+    // 2. Lo facturado neto no puede superar lo recibido neto tras devoluciones
+    const netInvoiced = invoiced - credited;
+    const netReceived = received - returned;
+    if (netInvoiced > netReceived) {
+      throw new Error(
+        `Seed integrity violation: receipt line ${rl.id} (${rl.itemSku ?? rl.id}) has netReceived=${netReceived} (received=${received} - returned=${returned}), but netInvoiced=${netInvoiced} (invoiced=${invoiced} - credited=${credited})`,
+      );
+    }
+  }
+
+  // 2. Verificar priceDifference de facturas de compra confirmadas contra calculatePurchasePriceDifference
+  const confirmedInvoices = await prisma.purchaseInvoice.findMany({
+    where: { status: 'confirmed' },
+    include: {
+      lines: {
+        include: {
+          receiptLine: {
+            include: { receipt: true },
+          },
+        },
+      },
+    },
+  });
+
+  for (const inv of confirmedInvoices) {
+    const linesWithReceipt = inv.lines.filter((l) => l.receiptLineId && l.receiptLine);
+    if (linesWithReceipt.length === 0) continue;
+
+    const companySettings = await prisma.companySettings.findUnique({
+      where: { tenantId: inv.tenantId },
+    });
+    const baseCurrency = companySettings?.baseCurrency ?? 'USD';
+
+    const invRate = effectiveRateToBase(
+      inv.currency,
+      baseCurrency,
+      inv.exchangeRate ? Number(inv.exchangeRate) : null,
+      inv.baseExchangeRate ? Number(inv.baseExchangeRate) : null,
+    );
+
+    const priceDiffInputs: PriceDifferenceLineInput[] = linesWithReceipt.map((l) => {
+      const receipt = l.receiptLine!.receipt;
+      const recRate = effectiveRateToBase(
+        receipt.currency,
+        baseCurrency,
+        receipt.exchangeRate ? Number(receipt.exchangeRate) : null,
+        receipt.baseExchangeRate ? Number(receipt.baseExchangeRate) : null,
+      );
+
+      return {
+        quantity: Number(l.quantity),
+        invoiceUnitPrice: Number(l.unitPrice),
+        invoiceRate: invRate,
+        receiptUnitCost: Number(l.receiptLine!.unitCost),
+        receiptRate: recRate,
+      };
+    });
+
+    const expected = calculatePurchasePriceDifference(priceDiffInputs);
+    const actualPriceDiff = Number(inv.priceDifference);
+
+    if (Math.abs(actualPriceDiff - expected.priceDifference) > 0.001) {
+      throw new Error(
+        `Seed integrity violation: invoice ${inv.code} (${inv.id}) has stored priceDifference=${actualPriceDiff}, but calculatePurchasePriceDifference gives ${expected.priceDifference}`,
+      );
+    }
   }
 }
 

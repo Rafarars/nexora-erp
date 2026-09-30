@@ -1168,3 +1168,45 @@ Ninguno.
     - `test-contract`: 13 suites pasadas (13), 300 pruebas pasadas (300) en PostgreSQL.
     - `test-e2e`: 521 pruebas pasadas (521) en Playwright (9.4m).
 
+### Fase 4: Integridad de semilla y pagos con remanente de NCP (Prompt §2 y Ajuste 5)
+- **Comprobación de integridad automática de la semilla (`verifySeedIntegrity`):**
+  - Implementada directamente en `apps/api/prisma/seed.ts` e invocada al final de `main()`. Se ejecuta en cada `make seed` o `make verify`:
+    1. Recorre todas las líneas de entrada de mercancía (`goodsReceiptLine`) y verifica que la suma facturada por facturas confirmadas no supere la cantidad recibida físicamente (`invoiced <= received`), y que tras descontar devoluciones acreditadas por notas de crédito, la facturación neta no exceda lo recibido neto (`invoiced - credited <= received - returned`).
+    2. Recorre las facturas de compra confirmadas con líneas de recepción y verifica que el campo `priceDifference` almacenado coincida exactamente con el cálculo oficial de `calculatePurchasePriceDifference` (ubicado en `src/shared/domain/purchase-price-difference.ts`).
+- **Demostración de fallo antes de la corrección:**
+  - Al ejecutar `seed.ts` con la función de comprobación sobre la semilla previa a las correcciones, falló de inmediato con la salida exacta:
+    ```
+    Error: Seed integrity violation: receipt line ec000000-0000-4000-8000-000000000001 (AGUA-500) has received=4, returned=0, quota=4, but confirmed invoices total=6
+        at verifySeedIntegrity (/home/medine01/dev/erp-portafolio/apps/api/prisma/seed.ts:2564:13)
+        at process.processTicksAndRejections (node:internal/process/task_queues:103:5)
+        at async main (/home/medine01/dev/erp-portafolio/apps/api/prisma/seed.ts:353:5)
+        at async <anonymous> (/home/medine01/dev/erp-portafolio/apps/api/prisma/seed.ts:2629:1)
+    ```
+- **Correcciones aplicadas a la semilla:**
+  - **Entradas propias con cupo para `FCP000003`:**
+    - Creada orden `OC000006` en bodega `main` por 2 cajas de agua mineral y recepción `ENT000004` (2 cajas a 12.0 USD).
+    - Creada orden `OC000007` en bodega `north` por 3 kg de detergente y recepción `ENT000005` (3 kg a 3.0 USD).
+    - Generados movimientos de kardex y existencias independientes para ambas recepciones.
+    - `FCP000003` vinculada a `interWarehouseWaterReceiptLine` (2 cajas a 14.0 USD, diferencia +4.0 USD) e `interWarehouseNorthReceiptLine` (3 kg a 4.5 USD, diferencia +4.5 USD).
+    - Corregido `priceDifference: 8.5` en `FCP000003` (4.0 + 4.5 = 8.5 USD en vez del erróneo 6.5 USD).
+    - Corregido `AJU000006` en bodega `north` con `amount: 4.5` (en vez de 2.5) apuntando a `interWarehouseNorthMovement`.
+    - `AJU000005` en bodega `main` con `amount: 4.0` apuntando a `interWarehouseWaterMovement`.
+  - **Cupos consistentes en órdenes y recepciones:**
+    - En `partialWater` (`OC000001`): fijado explícitamente `invoicedQuantity: 4` (recibido 4, facturado 4 por `FCP000001`).
+    - En `northOrderLine` (`OC000005`): fijado `invoicedQuantity: 10` (recibido 10, facturado 10 por `FCP000002`).
+  - **Consumo de crédito remanente de `NCP000001` (Ajuste 7):**
+    - `NCP000001` (total 11.60 USD) amortizaba 4.60 USD en `FCP000001` vía `PAG000002`, dejando 7.00 USD disponibles.
+    - Creado pago `PAG000004` con método `credit_note`, `creditSourceId: NCP000001`, aplicando los 7.00 USD a `FCP000002` con su diferencial cambiario de 15.05 VES (tasa 152.40 vs 150.25).
+    - El crédito disponible de `NCP000001` queda en 0.00 USD.
+  - **Correlativos:**
+    - `code_sequences` actualizados: `OC: 7`, `ENT: 5`, `PAG: 4`.
+- **Verificación completa de la Fase 4 (`make verify` en `scratch/logs/verify-fase4-run.log`):**
+  - `apps/api lint`: 41 avisos, 0 errores en 1148 archivos.
+  - `apps/web lint`: 0 avisos y 0 errores en 44 archivos.
+  - `apps/e2e lint`: 0 avisos y 0 errores en 30 archivos.
+  - `test-unit`: 183 suites pasadas (183), 3649 pruebas pasadas (3649) en API; 229 pruebas pasadas (229) en Web.
+  - `test-contract`: 13 suites pasadas (13), 300 pruebas pasadas (300) en PostgreSQL.
+  - `seed`: ejecutado y validado en caliente por `verifySeedIntegrity` sin errores.
+  - `test-e2e`: 521 pruebas pasadas (521) en Playwright (8.9m).
+
+
