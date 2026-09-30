@@ -4,6 +4,7 @@ import { aCreditCustomer, anInvoice } from '../../support/receivables-fixtures.j
 import { ACME_INVENTORY } from '../../support/inventory-fixtures.js';
 import { DISPATCHES, INVOICES, SALES_ORDERS, aDraftDispatch, aDraftSalesOrder, aFreshCustomer, aStockedItem } from '../../support/sales-fixtures.js';
 import { excelRows, pdfText } from '../../support/report-files.js';
+import { aConfirmedPurchaseInvoice, aFreshSupplier } from '../../support/purchasing-fixtures.js';
 
 const REPORTS = '/api/v1/reports';
 const DELTA = 'ed000000-0000-4000-8000-000000000001';
@@ -138,5 +139,128 @@ test.describe('exports', () => {
 
     const period = await request.get(`${REPORTS}/sales-by-customer?from=2024-01-01&to=2026-01-01`, { headers: auth(token) });
     expect([period.status(), (await period.json()).error]).toEqual([400, 'ReportPeriodTooLongError']);
+  });
+
+  test('the payables aging Excel and PDF hold the same figures as the screen', async ({ request }) => {
+    const token = await tokenFor(request, 'beto@globex.com');
+
+    const xlsxRes = await request.get(`${REPORTS}/payables-aging/export?format=xlsx`, { headers: auth(token) });
+    expect(xlsxRes.headers()['content-type']).toContain('spreadsheetml');
+    expect(xlsxRes.headers()['content-disposition']).toMatch(/antiguedad-de-saldos-por-pagar-\d{4}-\d{2}-\d{2}\.xlsx/);
+
+    const rows = await excelRows(await xlsxRes.body());
+    expect(rows[0]).toEqual(['Antigüedad de saldos por pagar']);
+    expect(rows[1]).toEqual(['Globex Servicios, C.A. · RIF J-40000002-0']);
+    expect(rows.find((row) => row[1] === 'Repuestos Industriales')?.at(-1)).toBe(96);
+    expect(rows.at(-1)?.[0]).toBe('Total');
+    expect(rows.at(-1)?.at(-1)).toBe(96);
+
+    const pdfRes = await request.get(`${REPORTS}/payables-aging/export?format=pdf`, { headers: auth(token) });
+    expect(pdfRes.headers()['content-type']).toBe('application/pdf');
+
+    const text = await pdfText(await pdfRes.body());
+    expect(text).toContain('Antigüedad de saldos por pagar');
+    expect(text).toContain('Globex Servicios, C.A.');
+    expect(text).toMatch(/Repuestos\s+Industriales/);
+    expect(text).toContain('96,00');
+  });
+});
+
+test.describe('payables cross-check', () => {
+  test('§3.8 the invoice list, supplier aging, reports aging, statement and dashboard report the exact same balance', async ({ request }) => {
+    const token = await tokenFor(request, 'ana@acme.com');
+    const supplier = await aFreshSupplier(request, token);
+    const today = companyToday();
+
+    const inv1 = await aConfirmedPurchaseInvoice(request, token, supplier.id, 150, today);
+    const inv2 = await aConfirmedPurchaseInvoice(request, token, supplier.id, 250, today);
+
+    const payRes = await request.post('/api/v1/payables/payments', {
+      headers: auth(token),
+      data: {
+        supplierId: supplier.id,
+        date: today,
+        method: 'transfer',
+        reference: `TRF-${Date.now()}`,
+        currency: 'USD',
+        allocations: [{ invoiceId: inv1.id, amount: 70 }],
+      },
+    });
+    expect(payRes.status()).toBe(201);
+    const payment = await payRes.json();
+    const confirmPayRes = await request.put(`/api/v1/payables/payments/${payment.id}/confirm`, {
+      headers: auth(token),
+    });
+    expect(confirmPayRes.status()).toBe(200);
+
+    // 1. Listado de facturas
+    const invListRes = await request.get(`/api/v1/payables/invoices?supplierId=${supplier.id}`, { headers: auth(token) });
+    expect(invListRes.status()).toBe(200);
+    const { invoices: supplierInvoices } = await invListRes.json();
+    const supplierInvoicesBalance = supplierInvoices
+      .filter((i: { status: string }) => i.status !== 'paid')
+      .reduce((sum: number, i: { companyBalance: number }) => Math.round((sum + i.companyBalance) * 100) / 100, 0);
+
+    expect(supplierInvoicesBalance).toBe(330);
+
+    // 2. Antigüedad de Cuentas por pagar
+    const payablesSuppliersRes = await request.get(`/api/v1/payables/suppliers?q=${encodeURIComponent(supplier.name)}`, { headers: auth(token) });
+    expect(payablesSuppliersRes.status()).toBe(200);
+    const payablesSuppliersData = await payablesSuppliersRes.json();
+    const payablesSupplierRow = payablesSuppliersData.suppliers.find((s: { supplier: { id: string } }) => s.supplier.id === supplier.id);
+    expect(payablesSupplierRow).toBeDefined();
+    expect(payablesSupplierRow.balance).toBe(330);
+    expect(payablesSupplierRow.aging.total).toBe(330);
+
+    // 3. Antigüedad en Reportes
+    const reportsAgingRes = await request.get(`${REPORTS}/payables-aging?limit=50`, { headers: auth(token) });
+    expect(reportsAgingRes.status()).toBe(200);
+    const reportsAgingData = await reportsAgingRes.json();
+    const reportsSupplierRow = reportsAgingData.suppliers.find((s: { supplier: { id: string } }) => s.supplier.id === supplier.id);
+    expect(reportsSupplierRow).toBeDefined();
+    expect(reportsSupplierRow.aging.total).toBe(330);
+
+    // 4. Estado de cuenta del proveedor
+    const statementRes = await request.get(`/api/v1/payables/suppliers/${supplier.id}/statement`, { headers: auth(token) });
+    expect(statementRes.status()).toBe(200);
+    const statementData = await statementRes.json();
+    expect(statementData.summary.balance).toBe(330);
+    const lastMovement = statementData.movements.at(-1);
+    expect(lastMovement?.balance).toBe(330);
+
+    // Coincidencia exacta del saldo del proveedor en las 4 fuentes
+    expect(supplierInvoicesBalance).toBe(payablesSupplierRow.balance);
+    expect(payablesSupplierRow.balance).toBe(reportsSupplierRow.aging.total);
+    expect(reportsSupplierRow.aging.total).toBe(statementData.summary.balance);
+
+    // Y a nivel global de la empresa:
+    const [allInvoicesRes, allSuppliersRes, allAgingRes, dashboardRes] = await Promise.all([
+      request.get('/api/v1/payables/invoices?limit=50', { headers: auth(token) }),
+      request.get('/api/v1/payables/suppliers?limit=50', { headers: auth(token) }),
+      request.get(`${REPORTS}/payables-aging?limit=50`, { headers: auth(token) }),
+      request.get(`${REPORTS}/dashboard`, { headers: auth(token) }),
+    ]);
+
+    expect(allInvoicesRes.status()).toBe(200);
+    expect(allSuppliersRes.status()).toBe(200);
+    expect(allAgingRes.status()).toBe(200);
+    expect(dashboardRes.status()).toBe(200);
+
+    const allInvoicesData = await allInvoicesRes.json();
+    const allSuppliersData = await allSuppliersRes.json();
+    const allAgingData = await allAgingRes.json();
+    const dashboardData = await dashboardRes.json();
+
+    const totalInvoicesBalance = allInvoicesData.invoices
+      .filter((i: { status: string }) => i.status !== 'paid')
+      .reduce((sum: number, i: { companyBalance: number }) => Math.round((sum + i.companyBalance) * 100) / 100, 0);
+
+    const totalSuppliersBalance = allSuppliersData.totals.total;
+    const totalAgingBalance = allAgingData.totals.total;
+    const dashboardPayableBalance = dashboardData.payableBalance;
+
+    expect(totalInvoicesBalance).toBe(totalSuppliersBalance);
+    expect(totalSuppliersBalance).toBe(totalAgingBalance);
+    expect(totalAgingBalance).toBe(dashboardPayableBalance);
   });
 });

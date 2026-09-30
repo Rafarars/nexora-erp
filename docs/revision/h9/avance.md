@@ -1209,4 +1209,85 @@ Ninguno.
   - `seed`: ejecutado y validado en caliente por `verifySeedIntegrity` sin errores.
   - `test-e2e`: 521 pruebas pasadas (521) en Playwright (8.9m).
 
+### Fase 5: Cruce de cifras de cuentas por pagar, exportaciones de reportes y verificación en navegador (Prompt §3 y Ajuste 6)
+- **Pruebas de exportación y cruce de datos en `apps/e2e/tests/api/reports.api.spec.ts`:**
+  - **Exportación de antigüedad por pagar (`/api/v1/reports/payables-aging/export`):**
+    - Verificación de exportación a Excel (`format=xlsx`): tipo de contenido `application/vnd.openxmlformats-officedocument.spreadsheetml.sheet`, disposición de archivo coincidente con regex `/antiguedad-de-saldos-por-pagar-\d{4}-\d{2}-\d{2}\.xlsx/`, título «Antigüedad de saldos por pagar», cabecera de la empresa emisora («Globex Servicios, C.A. · RIF J-40000002-0»), fila del proveedor («Repuestos Industriales») con saldo numérico 96 y fila Total con 96.
+    - Verificación de exportación a PDF (`format=pdf`): tipo `application/pdf`, texto conteniendo el título del documento, la empresa emisora, el proveedor («Repuestos Industriales») y el saldo formateado «96,00».
+  - **Cruce e2e de datos reales (§3.8 y Ajuste 6):**
+    - Creación con token de Acme (`ana@acme.com`) de un proveedor nuevo, dos facturas de compra confirmadas (150.00 USD y 250.00 USD) y un abono parcial confirmado de 70.00 USD aplicado a la primera factura (dejando 80.00 USD en la primera y 250.00 USD en la segunda, total 330.00 USD).
+    - Verificación de coincidencia exacta del saldo del proveedor (330.00 USD) en las cuatro fuentes + estado de cuenta:
+      1. Listado de facturas (`/api/v1/payables/invoices?supplierId=${supplier.id}`): suma de `companyBalance` de facturas no saldadas = 330.00 USD.
+      2. Antigüedad de Cuentas por pagar (`/api/v1/payables/suppliers?q=...`): `balance` y `aging.total` del proveedor = 330.00 USD.
+      3. Antigüedad en Reportes (`/api/v1/reports/payables-aging`): `aging.total` del proveedor = 330.00 USD.
+      4. Estado de cuenta del proveedor (`/api/v1/payables/suppliers/:supplierId/statement`): `summary.balance` = 330.00 USD y saldo del último movimiento = 330.00 USD.
+    - Verificación de coincidencia global a nivel de empresa entre la suma de facturas pendientes en el listado, `totals.total` en proveedores de Cuentas por pagar, `totals.total` en el reporte de antigüedad y `payableBalance` en el tablero (`/api/v1/reports/dashboard`).
+- **Demostración de mutación sobre la fila §3.8:**
+  - *Qué se alteró:* En `apps/api/src/contexts/reporting/application/payables-aging/payables-aging-report.ts:42`, se introdujo una segunda resta sobre el saldo de las facturas:
+    ```ts
+    const balances = invoices.map((invoice) => ({ supplierId: invoice.supplierId, dueDate: invoice.dueDate, balance: invoice.balance - invoice.paid }));
+    ```
+  - *Prueba corrida:* `pnpm --filter e2e exec playwright test tests/api/reports.api.spec.ts -g "§3.8 the invoice list"`
+  - *Salida roja capturada y línea de fallo:*
+    ```
+    1) [api] › tests/api/reports.api.spec.ts:170:3 › payables cross-check › §3.8 the invoice list, supplier aging, reports aging, statement and dashboard report the exact same balance
+
+      Error: expect(received).toBe(expected) // Object.is equality
+
+      Expected: 330
+      Received: 260
+
+        219 |     const reportsSupplierRow = reportsAgingData.suppliers.find((s: { supplier: { id: string } }) => s.supplier.id === supplier.id);
+        220 |     expect(reportsSupplierRow).toBeDefined();
+      > 221 |     expect(reportsSupplierRow.aging.total).toBe(330);
+            |                                            ^
+        222 |
+        223 |     // 4. Estado de cuenta del proveedor
+        224 |     const statementRes = await request.get(`/api/v1/payables/suppliers/${supplier.id}/statement`, { headers: auth(token) });
+          at /home/medine01/dev/erp-portafolio/apps/e2e/tests/api/reports.api.spec.ts:221:44
+    ```
+  - *Restauración:* Se restauró `balance: invoice.balance` y la prueba volvió a verde (`1 passed (17.3s)`).
+- **Pruebas en el navegador con `playwright-cli` (headed y persistent, skill `web-qa`):**
+  - **Comandos ejecutados:**
+    ```bash
+    # Apertura de sesión e inicio de sesión con beto@globex.com
+    playwright-cli -s=fase5 open http://localhost:3000/login --headed --persistent
+    playwright-cli -s=fase5 fill e9 "beto@globex.com"
+    playwright-cli -s=fase5 fill e11 "Nexora-2026!"
+    playwright-cli -s=fase5 click e12
+    # Inspección de tablero y captura de la tarjeta "Saldo por pagar"
+    playwright-cli -s=fase5 screenshot --filename=docs/revision/h9/evidencia/fase5/01-tablero-saldo-por-pagar.png
+    # Navegación a Antigüedad de Cuentas por Pagar y captura
+    playwright-cli -s=fase5 goto http://localhost:3000/cuentas-por-pagar/antiguedad
+    playwright-cli -s=fase5 screenshot --filename=docs/revision/h9/evidencia/fase5/02-antiguedad-saldos-por-pagar.png
+    # Descarga de PDF y Excel mediante run-code
+    playwright-cli -s=fase5 run-code "async (page) => {
+      const downloadPromise = page.waitForEvent('download');
+      await page.getByTestId('download-antiguedad-por-pagar-pdf').click();
+      const download = await downloadPromise;
+      await download.saveAs('docs/revision/h9/evidencia/fase5/antiguedad-por-pagar.pdf');
+    }"
+    playwright-cli -s=fase5 run-code "async (page) => {
+      const downloadPromise = page.waitForEvent('download');
+      await page.getByTestId('download-antiguedad-por-pagar-xlsx').click();
+      const download = await downloadPromise;
+      await download.saveAs('docs/revision/h9/evidencia/fase5/antiguedad-por-pagar.xlsx');
+    }"
+    playwright-cli -s=fase5 close
+    ```
+  - **Evidencias generadas:**
+    - `docs/revision/h9/evidencia/fase5/01-tablero-saldo-por-pagar.png`: Tablero mostrando tarjeta «Saldo por pagar · USD: 96,00».
+    - `docs/revision/h9/evidencia/fase5/02-antiguedad-saldos-por-pagar.png`: Pantalla de Antigüedad mostrando proveedor «Repuestos Industriales» con saldo 96,00 USD y fila «Total del filtro: 96,00 USD».
+    - `docs/revision/h9/evidencia/fase5/antiguedad-por-pagar.pdf`: Archivo descargado con total «96,00».
+    - `docs/revision/h9/evidencia/fase5/antiguedad-por-pagar.xlsx`: Archivo descargado con fila Total `[ 'Total', <empty>, 96, 0, 0, 0, 0, 96 ]`.
+    - Se constató la coincidencia exacta de 96,00 USD entre la pantalla, el tablero y los dos archivos descargados.
+- **Verificación completa de la suite (`make verify` en `scratch/logs/verify-fase5-run.log`):**
+  - `apps/api lint`: 41 avisos (imports no utilizados de errores), 0 errores en 1148 archivos.
+  - `apps/web lint`: 0 avisos y 0 errores en 44 archivos.
+  - `apps/e2e lint`: 0 avisos y 0 errores en 30 archivos.
+  - `test-unit`: 183 suites pasadas (183), 3649 pruebas pasadas (3649) en API; 229 pruebas pasadas (229) en Web.
+  - `test-contract`: 13 suites pasadas (13), 300 pruebas pasadas (300) en PostgreSQL.
+  - `test-e2e`: 523 pruebas pasadas (523) en Playwright (8.8m).
+
+
 
