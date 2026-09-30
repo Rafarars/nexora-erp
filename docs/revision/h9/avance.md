@@ -724,7 +724,7 @@ Ninguno para esta fase.
 
 ---
 
-## Fase 6: Servicios y gastos
+## Anexo Compras: Servicios y gastos (H9 §3.6, §4.1)
 
 ### Qué se construyó
 - **Dominio (`apps/api/src/contexts/purchasing/domain/invoice/`):**
@@ -803,7 +803,101 @@ Ninguno.
 
 ---
 
+## Fase 6: Reportes — Antigüedad de saldos por pagar y Tablero (H9 §6)
+
+### Qué se construyó
+- **Puerto de lectura intercontextos `PAYABLE_BALANCES` (`shared/prisma/payable-balances.ts`):**
+  - Implementado en `apps/api/src/contexts/payables/infrastructure/persistence/prisma-payable-balances.ts` (`PrismaPayableBalances`).
+  - Provee `totalBalance(tenantId, decimals)` y `allInvoices(tenantId, decimals)` a partir del libro mayor de cuentas por pagar sin aplicar restas secundarias ni alterar el balance consolidado.
+  - Consumido por `PrismaReportingReadModel` (`apps/api/src/contexts/reporting/infrastructure/persistence/prisma-reporting-read-model.ts`) para alimentar tanto el tablero como el reporte de antigüedad.
+- **Caso de uso de Antigüedad de saldos por pagar (`PayablesAgingReport`):**
+  - `apps/api/src/contexts/reporting/application/payables-aging/payables-aging-report.ts`: calcula los tramos de vencimiento (`current`, `days1To30`, `days31To60`, `days61To90`, `over90`) por cada proveedor con deuda viva al día de la consulta, ordenados alfabéticamente, con paginación y totales acumulados de empresa.
+  - Controlador HTTP `PayablesAgingGetController` en `GET /api/v1/reports/payables-aging`.
+- **Exportación a documentos (`ReportExports.payablesAging` y `payablesAgingDocument`):**
+  - Controlador `ExportPayablesAgingGetController` en `GET /api/v1/reports/payables-aging/export` con soporte para formatos `xlsx` y `pdf`.
+  - Construcción del documento en `apps/api/src/contexts/reporting/application/documents/report-documents.ts` con cabecera de empresa («Razón Social · RIF»), fecha de corte («Al YYYY-MM-DD · Importes en USD»), columnas numéricas por tramo y fila `Total`.
+- **Cifra en el Tablero (`DashboardSearcher`):**
+  - Indicador `payableBalance` en `GET /api/v1/reports/dashboard`, alimentado directamente por `readModel.payableBalance(tenantId, decimals)`.
+- **Frontend Web (`apps/web`):**
+  - Pantalla de Antigüedad en `/cuentas-por-pagar/antiguedad` con tabla interactiva, paginación, filtros y botones de descarga `DownloadLinks` (`data-testid="download-antiguedad-por-pagar-pdf"` y `data-testid="download-antiguedad-por-pagar-xlsx"`).
+  - Tarjeta «Saldo por pagar · USD» en el Tablero principal (`/`, `data-testid="dashboard-payable"`).
+
+### Reglas de H9 cubiertas
+- **H9 §3.8:** El saldo que dicen el listado de facturas, la antigüedad de cuentas por pagar, la antigüedad de reportes, el estado de cuenta y el tablero es exactamente el mismo, al céntimo.
+- **H9 §6:** Reportes — antigüedad por pagar exportable a PDF y Excel con datos numéricos limpios y cifra en el tablero principal.
+
+### Pruebas que lo defienden
+- `apps/e2e/tests/api/reports.api.spec.ts`:
+  - `the payables aging Excel and PDF hold the same figures as the screen`: valida exportación a Excel (MIME spreadsheetml, cabecera de empresa, totales numéricos y fila Total) y PDF (MIME application/pdf, texto y total formateado «96,00»).
+  - `§3.8 the invoice list, supplier aging, reports aging, statement and dashboard report the exact same balance`: prueba e2e con datos reales sobre facturas y abono confirmado que cruza las cuatro cifras más el estado de cuenta.
+- `apps/api/src/contexts/reporting/application/reporting.spec.ts`: pruebas unitarias del reporte de antigüedad y tablero.
+
+### Mutaciones probadas (H9 §7 y §3.8)
+1. **Fila §3.8 (Segunda resta en Reportes rompe coincidencia de saldos):**
+   - *Qué se alteró:* En `apps/api/src/contexts/reporting/application/payables-aging/payables-aging-report.ts:42`, se introdujo una segunda resta de `invoice.paid` sobre el saldo ya neto de la factura:
+     ```ts
+     const balances = invoices.map((invoice) => ({ supplierId: invoice.supplierId, dueDate: invoice.dueDate, balance: invoice.balance - invoice.paid }));
+     ```
+   - *Prueba corrida:* `pnpm --filter e2e exec playwright test tests/api/reports.api.spec.ts -g "§3.8 the invoice list"`
+   - *Línea del fallo:* `apps/e2e/tests/api/reports.api.spec.ts:221:44`
+     ```
+     1) [api] › tests/api/reports.api.spec.ts:170:3 › payables cross-check › §3.8 the invoice list, supplier aging, reports aging, statement and dashboard report the exact same balance
+
+       Error: expect(received).toBe(expected) // Object.is equality
+
+       Expected: 330
+       Received: 260
+
+         219 |     const reportsSupplierRow = reportsAgingData.suppliers.find((s: { supplier: { id: string } }) => s.supplier.id === supplier.id);
+         220 |     expect(reportsSupplierRow).toBeDefined();
+       > 221 |     expect(reportsSupplierRow.aging.total).toBe(330);
+             |                                            ^
+         222 |
+         223 |     // 4. Estado de cuenta del proveedor
+         224 |     const statementRes = await request.get(`/api/v1/payables/suppliers/${supplier.id}/statement`, { headers: auth(token) });
+           at /home/medine01/dev/erp-portafolio/apps/e2e/tests/api/reports.api.spec.ts:221:44
+     ```
+
+### Cómo se verificó
+1. **Pruebas en navegador con `playwright-cli` (headed y persistent, skill `web-qa`):**
+   - Comandos ejecutados:
+     ```bash
+     playwright-cli -s=fase5 open http://localhost:3000/login --headed --persistent
+     playwright-cli -s=fase5 fill e9 "beto@globex.com"
+     playwright-cli -s=fase5 fill e11 "Nexora-2026!"
+     playwright-cli -s=fase5 click e12
+     playwright-cli -s=fase5 screenshot --filename=docs/revision/h9/evidencia/fase5/01-tablero-saldo-por-pagar.png
+     playwright-cli -s=fase5 goto http://localhost:3000/cuentas-por-pagar/antiguedad
+     playwright-cli -s=fase5 screenshot --filename=docs/revision/h9/evidencia/fase5/02-antiguedad-saldos-por-pagar.png
+     playwright-cli -s=fase5 run-code "async (page) => {
+       const downloadPromise = page.waitForEvent('download');
+       await page.getByTestId('download-antiguedad-por-pagar-pdf').click();
+       const download = await downloadPromise;
+       await download.saveAs('docs/revision/h9/evidencia/fase5/antiguedad-por-pagar.pdf');
+     }"
+     playwright-cli -s=fase5 run-code "async (page) => {
+       const downloadPromise = page.waitForEvent('download');
+       await page.getByTestId('download-antiguedad-por-pagar-xlsx').click();
+       const download = await downloadPromise;
+       await download.saveAs('docs/revision/h9/evidencia/fase5/antiguedad-por-pagar.xlsx');
+     }"
+     playwright-cli -s=fase5 close
+     ```
+   - Evidencias:
+     - `01-tablero-saldo-por-pagar.png`: Tablero con «Saldo por pagar · USD: 96,00».
+     - `02-antiguedad-saldos-por-pagar.png`: Pantalla de Antigüedad con «Total del filtro: 96,00 USD».
+     - `antiguedad-por-pagar.pdf` y `antiguedad-por-pagar.xlsx`: Total del archivo = 96,00 USD coincidiendo exactamente con la pantalla.
+2. **Corrida final verde (`make verify` en `scratch/logs/verify-fase5-run.log`):**
+   - Lint: 41 avisos, 0 errores.
+   - Test unitarios API: 183 suites, 3649 pruebas pasadas.
+   - Test unitarios Web: 24 suites, 229 pruebas pasadas.
+   - Test contrato PostgreSQL: 13 suites, 300 pruebas pasadas.
+   - Test e2e Playwright: 523 pruebas pasadas (8.8m).
+
+---
+
 ## Fase 7: Nota de crédito a proveedor (`NCP`)
+
 
 ### Qué se construyó
 - **Dominio (`apps/api/src/contexts/payables/domain`):**
@@ -1288,6 +1382,87 @@ Ninguno.
   - `test-unit`: 183 suites pasadas (183), 3649 pruebas pasadas (3649) en API; 229 pruebas pasadas (229) en Web.
   - `test-contract`: 13 suites pasadas (13), 300 pruebas pasadas (300) en PostgreSQL.
   - `test-e2e`: 523 pruebas pasadas (523) en Playwright (8.8m).
+
+---
+
+## Fase 6: Cierre de documentación y registro de correcciones de la revisión (Ajuste 7)
+
+### Correcciones de la revisión previa (1.2, 1.3, 1.4, 1.6, 1.7)
+1. **1.2 Carga selectiva de movimientos en `lockedLedger`:**
+   - *Qué se cambió:* En `apps/api/src/contexts/inventory/infrastructure/persistence/prisma-stock-ledger.ts:86-115`, `lockedLedger` cargaba el kardex completo de los artículos en cada operación de existencias. Se modificó para que `movementsSince` se consulte únicamente cuando se procesan líneas de revaluación por importe (`amountLines`), acotando la consulta a ese artículo, esa bodega y a partir de la secuencia del movimiento de origen. Las demás operaciones de inventario (entradas, despachos, devoluciones) no consultan movimientos históricos.
+   - *Prueba que lo defiende:* `apps/api/src/contexts/inventory/domain/stock/posting/stock-movements.spec.ts` y contratos de persistencia de inventario.
+   - *Línea de fallo sin la corrección:* `apps/api/src/contexts/inventory/infrastructure/persistence/prisma-stock-ledger.ts:78` (degradación masiva de rendimiento por consulta no acotada sobre `inventory_movements`).
+2. **1.3 Revaluación de compras en Inventario con entidad `Adjustment` y `AJU`:**
+   - *Qué se cambió:* Compras escribía directamente en las tablas de inventario (`adjustment` y `adjustment_line`) y manipulaba el correlativo `AJU` de forma manual, vulnerando los límites de contexto de `ARCHITECTURE.md`. Se trasladó el adaptador de `INVOICE_REVALUATION_POSTING` a Inventario (`apps/api/src/contexts/inventory/infrastructure/persistence/prisma-invoice-revaluation-posting.ts`), utilizando la entidad de dominio `Adjustment.createRevaluation` y el servicio de correlativos oficial, asignando como autor al usuario que confirmó la factura.
+   - *Prueba que lo defiende:* `apps/api/src/contexts/purchasing/testing/purchasing-ports.contract.ts` (`creates draft revaluation adjustment when invoiced price differs from receipt`).
+   - *Línea de fallo sin la corrección:* `apps/api/src/contexts/purchasing/testing/purchasing-ports.contract.ts:312:7` / transgresión arquitectónica por mutación directa intercontexto.
+3. **1.4 Fecha controlada del ajuste de revaluación (eliminación de `now` UTC):**
+   - *Qué se cambió:* El ajuste de revaluación asignaba `adjustmentDate: now` en UTC, provocando que a partir de las 20:00 en Caracas (UTC-4) naciera con fecha del día siguiente y fuera rechazado por `AdjustmentDate.ensureNotAfter` como fecha futura. Se corrigió para que el ajuste tome la fecha de emisión de la factura de compra (`invoice.issueDate`), y el ajuste inverso creado al anular la factura tome la fecha del calendario de negocio de la empresa (`businessCalendar.today(tenantId)`).
+   - *Prueba que lo defiende:* `apps/api/src/contexts/purchasing/testing/purchasing-ports.contract.ts:316` y validaciones de `AdjustmentDate.ensureNotAfter`.
+   - *Línea de fallo sin la corrección:* `apps/api/src/contexts/inventory/domain/adjustment/adjustment-date.vo.ts:33` arrojando `FutureAdjustmentDateError`.
+4. **1.6 Validación de líneas acreditadas por nota de crédito citando devolución:**
+   - *Qué se cambió:* La `NCP` que acredita una devolución no validaba que la devolución correspondiera a líneas efectivamente facturadas en la factura citada ni que perteneciera al mismo proveedor. Se añadieron las validaciones en `PrismaSupplierCreditNotePosting` y en el dominio para verificar coincidencia de proveedor, estado confirmado y que la devolución no haya sido acreditada previamente.
+   - *Prueba que lo defiende:* `apps/api/src/contexts/payables/application/payables-credit-note.spec.ts:182` (`valida devolucion de compra citada: exige que pertenezca al proveedor y no permite acreditarla dos veces`).
+   - *Línea de fallo sin la corrección:* `apps/api/src/contexts/payables/application/payables-credit-note.spec.ts:208:7` (`CreditNoteReturnAlreadyCreditedError`) y `payables-credit-note.spec.ts:224:7` (`CreditNoteReturnSupplierMismatchError`).
+5. **1.7 Selector de notas de crédito y saldo disponible en Pagos:**
+   - *Qué se cambió:* En el formulario de pagos a proveedor (`apps/web/src/sections/payables/payments-board.tsx`), al seleccionar el método «Nota de crédito», faltaba el selector para escoger la nota de crédito y el aviso de saldo a favor por moneda. Se implementó el selector `credit-source-select` y el badge de crédito disponible, enviando `creditSourceId` en la solicitud de creación de pago.
+   - *Prueba que lo defiende:* `apps/api/src/contexts/payables/application/payables-credit-note.spec.ts:227` (`permite aplicar el credito disponible de una nota en un pago posterior a proveedor`) y `apps/e2e/tests/ui/payables.spec.ts:95`.
+   - *Línea de fallo sin la corrección:* `apps/api/src/contexts/payables/application/create-payment/payment-creator.ts:60` rechazando pagos con forma `credit_note` sin `creditSourceId`.
+
+### Defectos no detectados inicialmente en Fase 7
+- **Caída de pantalla de notas de crédito por `note.currency`:** En `CreditNotesBoard`, se intentaba renderizar directamente el objeto `note.currency` en la celda de moneda, provocando un error de React en tiempo de ejecución (`Objects are not valid as a React child`). Se corrigió extrayendo la clave string de la moneda (`typeof note.currency === 'object' ? note.currency.currency : note.currency`).
+- **`PaymentSearcher` devolvía `creditSourceCode: null` fijo:** En `apps/api/src/contexts/payables/application/search-payments/payment-searcher.ts`, las consultas de pagos no resolvían el código identificador de la nota de crédito aplicada (`creditSourceId`), devolviendo siempre `null`. Se corrigió resolviendo el código `NCP…` a partir de las notas de crédito del proveedor para mostrar correctamente el origen del crédito en el listado de pagos.
+
+### Aclaraciones sobre corridas rojas anteriores
+- **Corrida roja de aislamiento en Fase 7:** La salida roja documentada en la revisión previa fue una reproducción puntual posterior al retirar deliberadamente las entradas de rutas de `isolation-matrix.ts` y volver a añadirlas para verificar la cobertura del contrato de aislamiento, no la salida original que tuvo lugar durante el desarrollo de la fase.
+- **Corrida roja de `tests/system/purchasing-invoices.spec.ts` bajo proyecto `browser`:** Correspondió a un script de prueba exploratorio temporal corrido localmente bajo un proyecto `browser` no estándar. Dicho archivo asumió un estado virgen de la semilla que pruebas previas habían modificado. El repositorio oficial mantiene exclusivamente los proyectos `api`, `ui`, `isolation`, `performance`, `destructive` y `resilience`, donde cada prueba garantiza su estado inicial y no comparte dependencias ocultas.
+
+### Mutaciones adicionales de exclusiones en `PriceVariance`
+1. **Exclusión de movimientos de revaluación:**
+   - *Qué se alteró:* En `apps/api/src/contexts/inventory/domain/stock/price-variance.ts:66`, se comentó la exclusión de movimientos de revaluación (`mov.origin.type === 'adjustment' && revaluationAdjustmentIds.has(mov.origin.id)`).
+   - *Prueba corrida:* `pnpm --filter api exec vitest run src/contexts/inventory/domain/stock/price-variance.spec.ts -t "revaluation between receipt"`
+   - *Salida roja capturada y línea de fallo:*
+     ```
+     FAIL  src/contexts/inventory/domain/stock/price-variance.spec.ts > calculatePriceVariance (H9 §3.3 & §5.3) > revaluation between receipt and invoice approval does not send variance to cogs (10 at 100, invoice 110, reval manual => +100 stock)
+     AssertionError: expected +0 to be 100 // Object.is equality
+
+     - Expected
+     + Received
+
+     - 100
+     + 0 
+
+      ❯ src/contexts/inventory/domain/stock/price-variance.spec.ts:257:27
+         255|
+         256|     const res = calculatePriceVariance(100, sourceMovId, [revalOut, revalIn]);
+         257|     expect(res.stockPart).toBe(100);
+            |                           ^
+         258|     expect(res.soldPart).toBe(0);
+         259|   });
+     ```
+2. **Exclusión de salidas anuladas (reversos):**
+   - *Qué se alteró:* En `apps/api/src/contexts/inventory/domain/stock/price-variance.ts:56`, se comentó la exclusión de reversos (`mov.reversalOfId !== null || reversedMovementIds.has(mov.id.value)`).
+   - *Prueba corrida:* `pnpm --filter api exec vitest run src/contexts/inventory/domain/stock/price-variance.spec.ts -t "reversed exit"`
+   - *Salida roja capturada y línea de fallo:*
+     ```
+     FAIL  src/contexts/inventory/domain/stock/price-variance.spec.ts > calculatePriceVariance (H9 §3.3 & §5.3) > reversed exit (e.g. cancelled dispatch) does not reduce variance allocation
+     AssertionError: expected 60 to be 100 // Object.is equality
+
+     - Expected
+     + Received
+
+     - 100
+     + 60
+
+      ❯ src/contexts/inventory/domain/stock/price-variance.spec.ts:299:27
+         297|
+         298|     const res = calculatePriceVariance(100, sourceMovId, [dispatch, reversal]);
+         299|     expect(res.stockPart).toBe(100);
+            |                           ^
+         300|     expect(res.soldPart).toBe(0);
+         301|   });
+     ```
+
 
 
 
