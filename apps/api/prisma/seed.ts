@@ -910,7 +910,7 @@ async function seedPurchasing(prisma: PrismaClient): Promise<void> {
       warehouseId: acme.warehouses.main, orderDate: date('2026-09-03'), expectedDate: date('2026-09-04'),
       notes: 'Compra de jabón líquido', paymentTermDays: 0, status: 'received' as const, confirmedAt: at('2026-09-03'),
       lines: [
-        { id: PURCHASING.acme.soapOrderLine, itemId: acme.items.soap, unitId: acme.units.piece, quantity: 20, baseQuantity: 20, unitCost: 1.5, taxRate: 16, receivedQuantity: 20 },
+        { id: PURCHASING.acme.soapOrderLine, itemId: acme.items.soap, unitId: acme.units.piece, quantity: 20, baseQuantity: 20, unitCost: 1.5, taxRate: 16, receivedQuantity: 20, invoicedQuantity: 20 },
       ],
     },
     {
@@ -949,7 +949,7 @@ async function seedPurchasing(prisma: PrismaClient): Promise<void> {
       id: PURCHASING.globex.confirmedOrder, tenantId: GLOBEX, code: 'OC000001', supplierId: PURCHASING.globex.supplier,
       warehouseId: globex.warehouses.main, orderDate: date('2026-09-03'), expectedDate: null, notes: 'Filtros para taller',
       paymentTermDays: 15, status: 'confirmed' as const, confirmedAt: at('2026-09-03'),
-      lines: [{ id: PURCHASING.globex.confirmedFilter, itemId: globex.items.filter, unitId: globex.units.piece, quantity: 20, baseQuantity: 20, unitCost: 8, taxRate: 16, receivedQuantity: 0 }],
+      lines: [{ id: PURCHASING.globex.confirmedFilter, itemId: globex.items.filter, unitId: globex.units.piece, quantity: 20, baseQuantity: 20, unitCost: 8, taxRate: 16, receivedQuantity: 0, invoicedQuantity: 10 }],
     },
     {
       id: PURCHASING.globex.draftOrder, tenantId: GLOBEX, code: 'OC000002', supplierId: PURCHASING.globex.supplier,
@@ -2777,6 +2777,118 @@ async function verifySeedIntegrity(prisma: PrismaClient): Promise<void> {
       throw new Error(
         `Seed integrity violation: invoice ${inv.code} (${inv.id}) has stored priceDifference=${actualPriceDiff}, but calculatePurchasePriceDifference gives ${expected.priceDifference}`,
       );
+    }
+  }
+
+  // 3. Verificar invoicedQuantity de cada línea de orden contra facturas confirmadas
+  const orderLines = await prisma.purchaseOrderLine.findMany({
+    include: {
+      order: true,
+      invoiceLines: {
+        where: {
+          invoice: { status: 'confirmed' },
+        },
+      },
+    },
+  });
+
+  for (const ol of orderLines) {
+    const invoicedSum = ol.invoiceLines.reduce((acc, il) => acc + Number(il.quantity), 0);
+    const storedInvoiced = Number(ol.invoicedQuantity);
+    if (Math.abs(storedInvoiced - invoicedSum) > 0.0001) {
+      throw new Error(
+        `Seed integrity violation: order line ${ol.id} (order ${ol.order.code}, item ${ol.itemSku}) has stored invoicedQuantity=${storedInvoiced}, but confirmed invoices total=${invoicedSum}`,
+      );
+    }
+  }
+
+  // 4. Verificar que la suma de revaluaciones por importe de cada factura coincide con su priceDifference (una por bodega)
+  for (const inv of confirmedInvoices) {
+    const invPriceDiff = Number(inv.priceDifference);
+    const revalAdjustments = await prisma.adjustment.findMany({
+      where: {
+        tenantId: inv.tenantId,
+        originType: 'purchase_invoice',
+        originId: inv.id,
+        type: 'revaluation',
+      },
+      include: {
+        lines: true,
+      },
+    });
+
+    if (Math.abs(invPriceDiff) > 0.001) {
+      const warehouseIds = revalAdjustments.map((a) => a.warehouseId);
+      const uniqueWarehouses = new Set(warehouseIds);
+      if (uniqueWarehouses.size !== warehouseIds.length) {
+        throw new Error(
+          `Seed integrity violation: invoice ${inv.code} has multiple revaluation adjustments for the same warehouse`,
+        );
+      }
+
+      const revalTotal = revalAdjustments
+        .flatMap((a) => a.lines)
+        .filter((l) => l.revaluationKind === 'amount')
+        .reduce((sum, l) => sum + Number(l.amount), 0);
+
+      if (Math.abs(revalTotal - invPriceDiff) > 0.001) {
+        throw new Error(
+          `Seed integrity violation: invoice ${inv.code} priceDifference=${invPriceDiff}, but revaluation adjustments sum=${revalTotal}`,
+        );
+      }
+    } else {
+      if (revalAdjustments.length > 0) {
+        throw new Error(
+          `Seed integrity violation: invoice ${inv.code} has priceDifference=0, but has ${revalAdjustments.length} revaluation adjustments`,
+        );
+      }
+    }
+  }
+
+  // 5. Verificar que la suma de revaluaciones por importe de cada nota de crédito coincide con su priceDifference (una por bodega)
+  const confirmedCreditNotes = await prisma.supplierCreditNote.findMany({
+    where: { status: 'confirmed' },
+  });
+
+  for (const note of confirmedCreditNotes) {
+    const notePriceDiff = Number(note.priceDifference);
+    const revalAdjustments = await prisma.adjustment.findMany({
+      where: {
+        tenantId: note.tenantId,
+        originType: 'supplier_credit_note',
+        originId: note.id,
+        type: 'revaluation',
+      },
+      include: {
+        lines: true,
+      },
+    });
+
+    if (Math.abs(notePriceDiff) > 0.001) {
+      const warehouseIds = revalAdjustments.map((a) => a.warehouseId);
+      const uniqueWarehouses = new Set(warehouseIds);
+      if (uniqueWarehouses.size !== warehouseIds.length) {
+        throw new Error(
+          `Seed integrity violation: credit note ${note.code} has multiple revaluation adjustments for the same warehouse`,
+        );
+      }
+
+      const revalTotal = revalAdjustments
+        .flatMap((a) => a.lines)
+        .filter((l) => l.revaluationKind === 'amount')
+        .reduce((sum, l) => sum + Number(l.amount), 0);
+
+      if (Math.abs(revalTotal - notePriceDiff) > 0.001) {
+        throw new Error(
+          `Seed integrity violation: credit note ${note.code} priceDifference=${notePriceDiff}, but revaluation adjustments sum=${revalTotal}`,
+        );
+      }
+    } else {
+      if (revalAdjustments.length > 0) {
+        throw new Error(
+          `Seed integrity violation: credit note ${note.code} has priceDifference=0, but has ${revalAdjustments.length} revaluation adjustments`,
+        );
+      }
     }
   }
 }

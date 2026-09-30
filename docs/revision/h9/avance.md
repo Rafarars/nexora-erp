@@ -1718,4 +1718,67 @@ Todo en verde.
   - `e2e`: 524 pruebas de Playwright en verde (8.9m).
   Todo en verde.
 
+## Correcciones Sección 6: Comprobación de integridad de la semilla completa
+
+### Qué se corrigió e implementó en la semilla (`apps/api/prisma/seed.ts`)
+1. **Corrección de `invoicedQuantity` en órdenes sembradas:**
+   - En `OC000003` (`PURCHASING.acme.soapOrderLine`, `seed.ts:913`): se corrigió añadiendo `invoicedQuantity: 20` para coincidir con las 20 unidades facturadas por la factura confirmada `FCP000005`.
+   - En `OC000001` de Globex (`PURCHASING.globex.confirmedFilter`, `seed.ts:952`): se corrigió añadiendo `invoicedQuantity: 10` para coincidir con las 10 unidades facturadas directamente por `FCP000001` de Globex.
+2. **Nuevas comprobaciones en `verifySeedIntegrity`:**
+   - **Comprobación 3 (`invoicedQuantity`):** Para cada línea de orden de compra (`PurchaseOrderLine`), suma las cantidades de sus líneas de factura confirmadas (`invoiceLines` con `invoice.status === 'confirmed'`) y exige coincidencia exacta con `invoicedQuantity`.
+   - **Comprobación 4 (Revaluaciones de facturas):** Para cada factura confirmada con `priceDifference != 0`:
+     - Exige exactamente una revaluación por bodega (sin bodegas duplicadas).
+     - Exige que la suma de los importes (`amount`) de las líneas de revaluación (`revaluationKind === 'amount'`) sea exactamente igual a `inv.priceDifference`.
+     - Si `priceDifference === 0`, exige que no existan revaluaciones.
+   - **Comprobación 5 (Revaluaciones de notas de crédito):** Para cada nota de crédito confirmada con `priceDifference != 0`:
+     - Exige una revaluación por bodega.
+     - Exige que la suma de importes de revaluación coincida exactamente con `note.priceDifference` (ej. `-10.0` para `NCP000001`).
+     - Si `priceDifference === 0`, exige que no existan revaluaciones.
+
+### Demostración de fallos de cada comprobación (salidas rojas capturadas)
+1. **Fallo en comprobación de `invoicedQuantity` en `soapOrderLine`:**
+   - *Comando:* `DATABASE_URL=... pnpm --filter api exec tsx prisma/seed.ts`
+   - *Salida roja capturada:*
+     ```
+     Error: Seed integrity violation: order line ea000000-0000-4000-8000-000000000004 (order OC000003, item JABON-500) has stored invoicedQuantity=0, but confirmed invoices total=20
+         at verifySeedIntegrity (/home/medine01/dev/erp-portafolio/apps/api/prisma/seed.ts:2799:13)
+     ```
+2. **Fallo en comprobación de importe de revaluación de factura (mutando `adjFcp1.amount` a 99.0):**
+   - *Comando:* `DATABASE_URL=... pnpm --filter api exec tsx prisma/seed.ts`
+   - *Salida roja capturada:*
+     ```
+     Error: Seed integrity violation: invoice FCP000001 priceDifference=12, but revaluation adjustments sum=99
+         at verifySeedIntegrity (/home/medine01/dev/erp-portafolio/apps/api/prisma/seed.ts:2835:15)
+     ```
+3. **Fallo en comprobación de importe de revaluación de nota de crédito (mutando `adjNcp1.amount` a -77.0):**
+   - *Comando:* `DATABASE_URL=... pnpm --filter api exec tsx prisma/seed.ts`
+   - *Salida roja capturada:*
+     ```
+     Error: Seed integrity violation: credit note NCP000001 priceDifference=-10, but revaluation adjustments sum=-77
+         at verifySeedIntegrity (/home/medine01/dev/erp-portafolio/apps/api/prisma/seed.ts:2882:15)
+     ```
+4. **Fallo en comprobación de una revaluación por bodega (mutando `adjFcp3North.warehouseId` a `main`):**
+   - *Comando:* `DATABASE_URL=... pnpm --filter api exec tsx prisma/seed.ts`
+   - *Salida roja capturada:*
+     ```
+     Error: Seed integrity violation: invoice FCP000003 has multiple revaluation adjustments for the same warehouse
+         at verifySeedIntegrity (/home/medine01/dev/erp-portafolio/apps/api/prisma/seed.ts:2824:15)
+     ```
+
+### Corrida verde de la semilla
+- *Comando:* `DATABASE_URL="postgresql://nexora:nexora@localhost:5432/nexora?schema=public" pnpm --filter api exec tsx prisma/seed.ts`
+- *Salida verde:*
+  ```
+    semillas aplicadas: 4 empresas con sus datos y parametros, 5 roles, 6 personas, 8 membresias; catalogo: 7 unidades, 3 categorias, 3 impuestos, 5 bodegas, 3 listas de precio, 5 articulos con 8 precios; inventario: 7 ajustes (3 confirmados), 5 existencias; compras: 3 proveedores, 7 ordenes, 5 entradas, 1 devolucion; ventas: 4 clientes, 7 pedidos, 6 despachos, 6 facturas, 2 devoluciones; cuentas por cobrar: 3 notas de credito, 5 cobros (5 confirmados); cuentas por pagar: 7 facturas (6 confirmadas), 4 notas de credito (3 confirmadas), 6 pagos (5 confirmados); volumen: 50 clientes, 5000 facturas, 3000 cobros
+  ```
+
+### Verificación de la Sección 6
+- Ejecutado `make verify > scratch/logs/verify-seccion6.log 2>&1`:
+  - `gitleaks`: 0 leaks detectados (308 commits analizados).
+  - `lint`: 0 errores en todos los paquetes.
+  - `typecheck`: limpio en todos los paquetes.
+  - `unit`: 3849 pruebas unitarias de API (184 suites) + 229 pruebas unitarias de Web (24 suites) en verde (4078 totales).
+  - `contract`: 302 pruebas de contrato contra PostgreSQL en verde (13 suites).
+  - `e2e`: 524 pruebas de Playwright en verde (9.2m).
+  Todo en verde.
 
