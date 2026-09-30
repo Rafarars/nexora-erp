@@ -1428,8 +1428,25 @@ Ninguno.
       ❯ src/contexts/inventory/infrastructure/persistence/prisma-invoice-revaluation-posting.spec.ts:48:5
      ```
 4. **1.6 Validación de líneas acreditadas por nota de crédito citando devolución:**
-   - *Qué se cambió:* La `NCP` que cita una devolución de compra debe validar que las líneas de la devolución correspondan a recepciones efectivamente facturadas en la factura citada (§4.4). Se implementó la verificación cruzada en `supplier-credit-note-creator.ts:186-193` y en el posting `prisma-supplier-credit-note-posting.ts:335`, lanzando `CreditNoteReturnLinesNotFromInvoiceError` si alguna línea devuelta pertenece a una entrada distinta.
-   - *Prueba que lo defiende:* `apps/api/src/contexts/payables/application/payables-credit-note.spec.ts:451` (`valida que las lineas de la devolucion correspondan a entradas que esa factura facturo (1.6)`).
+   - *Qué se cambió:* La `NCP` que cita una devolución de compra debe validar que las líneas de la devolución correspondan a recepciones efectivamente facturadas en la factura citada (§4.4).
+   - *Incidencia con `returnId`:* En el commit `b0bd40e` la regla se introdujo en `prisma-supplier-credit-note-posting.ts` usando la consulta:
+     ```ts
+     const returnLines = await tx.purchaseReturnLine.findMany({
+       where: { tenantId: tenant, returnId },
+       select: { receiptLineId: true },
+     });
+     ```
+     El campo `returnId` no existe en la tabla `PurchaseReturnLine` (el campo de relación en Prisma y en base de datos es `purchaseReturnId`). Al ejecutarse en PostgreSQL, esta consulta fallaba siempre con error de columna inexistente, lo que en producción habría impedido confirmar cualquier nota de crédito que acreditara una devolución. Ninguna prueba contra PostgreSQL la ejercía en ese momento.
+   - *Qué pruebas lo cubren ahora:*
+     - Contrato contra base de datos real: `apps/api/src/contexts/payables/infrastructure/testing/prisma-payables-ports.contract.integration.spec.ts` ejecutando la suite de contrato en `apps/api/src/contexts/payables/testing/payables-ports.contract.ts` (`eligible purchase returns and credited return tracking`), que confirma notas con devolución contra PostgreSQL.
+     - E2E en Playwright: `apps/e2e/tests/ui/payables.spec.ts:247` (`creates and confirms a credit note crediting a purchase return from the screen showing DVC code without revaluation in inventory`), que crea y confirma de punta a punta una nota con devolución contra PostgreSQL real a través de la UI y la API.
+   - *Por qué `tsc` no lo detectó:*
+     Los métodos de Prisma (`findMany`, `findFirst`, etc.) se declaran con una firma genérica:
+     `findMany<T extends PurchaseReturnLineFindManyArgs>(args?: Prisma.SelectSubset<T, PurchaseReturnLineFindManyArgs<ExtArgs>>)`
+     Donde `SelectSubset<T, U>` se define como:
+     `export type SelectSubset<T, U> = { [key in keyof T]: key extends keyof U ? T[key] : never } & ...`
+     Este tipo sólo valida las claves del nivel raíz de `T` (comprueba que `where` y `select` existen en `PurchaseReturnLineFindManyArgs`). Al ser una función genérica donde `T` se infiere del argumento literal `{ where: { tenantId, returnId }, select: ... }`, TypeScript infiere `T` con esa forma y no evalúa la comprobación de exceso de propiedades (`excess property check`) de manera profunda/recursiva sobre las propiedades anidadas de `where`. Al no ser recursivo `SelectSubset`, cualquier propiedad espuria en `where` pasa silenciosamente sin error de tipos. Se revisó todo `apps/api/src` para confirmar que no existen otras consultas con este patrón erróneo.
+   - *Prueba de aplicación que defiende la regla:* `apps/api/src/contexts/payables/application/payables-credit-note.spec.ts:451` (`valida que las lineas de la devolucion correspondan a entradas que esa factura facturo (1.6)`).
    - *Mutación demostrada y fallo capturado:* Al comentar el bloque de validación en `supplier-credit-note-creator.ts:186-193`, la prueba falla:
      ```
      FAIL src/contexts/payables/application/payables-credit-note.spec.ts > Supplier Credit Notes (NCP) in Payables > valida que las lineas de la devolucion correspondan a entradas que esa factura facturo (1.6)
@@ -1447,16 +1464,28 @@ Ninguno.
 5. **1.7 Selector de notas de crédito y saldo disponible en Pagos:**
    - *Qué se cambió:* En el formulario de pagos a proveedor (`apps/web/src/sections/payables/payments-board.tsx`), al seleccionar el método «Nota de crédito», se agregó el selector de notas con crédito disponible (`payment-credit-source`) y el aviso de saldo a favor, enviando obligatoriamente `creditSourceId` en la solicitud de creación de pago.
    - *Pruebas que lo defienden:*
-     - UI / E2E: `apps/e2e/tests/ui/payables.spec.ts:144-171` (interacción completa del selector `payment-credit-source`, aplicación de 10 USD de crédito y comprobación de saldo en la factura amortizada).
+     - UI / E2E: `apps/e2e/tests/ui/payables.spec.ts:91` (`spends available credit from a credit note in a payment from the screen`).
      - Aplicación / Dominio: `apps/api/src/contexts/payables/application/payables-credit-note.spec.ts:227` (`permite aplicar el credito disponible de una nota en un pago posterior a proveedor`).
-   - *Mutación demostrada y fallo capturado:* Al omitir `creditSourceId` en la llamada a `createPayment` en `payables-credit-note.spec.ts:242`, la entidad `SupplierPayment` rechaza el pago con:
+   - *Mutación demostrada y fallo capturado en la pantalla:* Al retirar el renderizado del selector `payment-credit-source` en `apps/web/src/sections/payables/payments-board.tsx` (`{method === 'credit_note' ? null : null}`), la prueba e2e `spends available credit from a credit note in a payment from the screen` en `apps/e2e/tests/ui/payables.spec.ts:91` falla de inmediato porque el selector desaparece del formulario:
      ```
-     FAIL src/contexts/payables/application/payables-credit-note.spec.ts > Supplier Credit Notes (NCP) in Payables > permite aplicar el credito disponible de una nota en un pago posterior a proveedor
-     CreditNotePaymentWithoutSourceError: A payment made with credit_note needs a creditSourceId.
-      ❯ valued src/contexts/payables/domain/payment/supplier-payment.entity.ts:220:74
-      ❯ Function.draft src/contexts/payables/domain/payment/supplier-payment.entity.ts:115:10
-      ❯ PaymentCreator.run src/contexts/payables/application/create-payment/payment-creator.ts:68:39
-      ❯ src/contexts/payables/application/payables-credit-note.spec.ts:238:28
+     1) [ui] › tests/ui/payables.spec.ts:91:1 › spends available credit from a credit note in a payment from the screen 
+
+       Error: expect(locator).toBeVisible() failed
+
+       Locator: getByTestId('payment-credit-source')
+       Expected: visible
+       Timeout: 5000ms
+       Error: element(s) not found
+
+       Call log:
+         - Expect "toBeVisible" getByTestId('payment-credit-source') with timeout 5000ms
+         - waiting for getByTestId('payment-credit-source')
+
+         155 |   await page.getByTestId('payment-method').selectOption('credit_note');
+         156 |   const creditSelect = page.getByTestId('payment-credit-source');
+       > 157 |   await expect(creditSelect).toBeVisible();
+             |                              ^
+         158 |   await creditSelect.selectOption(note.id);
      ```
 
 ### Defectos no detectados inicialmente en Fase 7
@@ -2022,4 +2051,56 @@ Running 1 test using 1 worker
   - `contract`: 302 pruebas de contrato contra PostgreSQL en verde (13 suites).
   - `e2e`: 526 pruebas de Playwright en verde (10.0m).
   Todo en verde.
+
+## Correcciones Ronda 4 — Sección 5: Mutación real del selector de crédito y análisis técnico de omisión en compilador
+
+### 1. Mutación de la corrección 1.7 en pantalla
+La corrección 1.7 agregó a la interfaz de pagos (`apps/web/src/sections/payables/payments-board.tsx`) el selector de notas de crédito con saldo a favor (`payment-credit-source`) y el envío del campo `creditSourceId`.
+- Para demostrar la mutación de la corrección en la propia pantalla (en vez de una mutación en las pruebas o en la entidad de dominio), se retiró temporalmente el renderizado del selector en `payments-board.tsx` (`{method === 'credit_note' ? null : null}`).
+- Se ejecutó la prueba de extremo a extremo que ejerce el pago con saldo de nota de crédito:
+  `pnpm --filter e2e exec playwright test tests/ui/payables.spec.ts -g "spends available credit"`
+- **Salida roja real capturada:**
+  ```
+  1) [ui] › tests/ui/payables.spec.ts:91:1 › spends available credit from a credit note in a payment from the screen 
+
+    Error: expect(locator).toBeVisible() failed
+
+    Locator: getByTestId('payment-credit-source')
+    Expected: visible
+    Timeout: 5000ms
+    Error: element(s) not found
+
+    Call log:
+      - Expect "toBeVisible" getByTestId('payment-credit-source') with timeout 5000ms
+      - waiting for getByTestId('payment-credit-source')
+
+      155 |   await page.getByTestId('payment-method').selectOption('credit_note');
+      156 |   const creditSelect = page.getByTestId('payment-credit-source');
+    > 157 |   await expect(creditSelect).toBeVisible();
+          |                              ^
+      158 |   await creditSelect.selectOption(note.id);
+  ```
+- Restaurado el selector en `payments-board.tsx` y reconstruido el servicio web, la prueba volvió a pasar en verde (5.1s).
+
+### 2. Análisis técnico de por qué `tsc` no detectó `returnId` en Prisma
+En el commit `b0bd40e`, se escribió en `prisma-supplier-credit-note-posting.ts`:
+```ts
+const returnLines = await tx.purchaseReturnLine.findMany({
+  where: { tenantId: tenant, returnId },
+  select: { receiptLineId: true },
+});
+```
+El campo de relación en `PurchaseReturnLine` es `purchaseReturnId`, por lo que `returnId` no existe y la consulta fallaba siempre en PostgreSQL.
+Al analizar por qué `tsc` no arrojó error de tipos:
+- La firma de `findMany` en el cliente generado de Prisma es:
+  `findMany<T extends PurchaseReturnLineFindManyArgs>(args?: Prisma.SelectSubset<T, PurchaseReturnLineFindManyArgs<ExtArgs>>)`
+- `SelectSubset<T, U>` opera como:
+  `export type SelectSubset<T, U> = { [key in keyof T]: key extends keyof U ? T[key] : never } & ...`
+- `SelectSubset` es una comprobación superficial (shallow) sobre las propiedades raíz de `T`. Dado que `where` y `select` existen en `PurchaseReturnLineFindManyArgs`, el tipo pasa la verificación del primer nivel sin asignar `never`.
+- Al recibir un argumento objeto con tipo genérico inferido `T = { where: { tenantId: string, returnId: string }, select: ... }`, TypeScript no aplica la verificación de exceso de propiedades (`excess property check`) a los niveles anidados dentro de `where`.
+- Por ende, las propiedades no definidas dentro de `where` se aceptan silenciosamente por el compilador como parte de `T['where']`.
+- No hubo un `any` ni un cast deshabilitando tipos.
+- Se inspeccionó todo `apps/api/src` para descartar otras consultas con propiedades incorrectas.
+- La consulta ahora está cubierta contra PostgreSQL tanto en el contrato de integración (`prisma-payables-ports.contract.integration.spec.ts`) como en la prueba de UI de Playwright (`payables.spec.ts:247`).
+
 
