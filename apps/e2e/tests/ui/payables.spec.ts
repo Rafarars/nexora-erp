@@ -248,7 +248,7 @@ test('creates and confirms a credit note crediting a purchase return from the sc
   test.slow();
   const token = await tokenFor(request, ACME_ADMIN.email, API);
   const supplier = await aFreshSupplier(request, token, API);
-  const invoice = await aConfirmedMerchandiseInvoice(request, token, supplier.id, 10, 5, API);
+  const invoice = await aConfirmedMerchandiseInvoice(request, token, supplier.id, 12, 5, API, 15);
   const purchaseReturn = await aConfirmedPurchaseReturnForReceipt(
     request,
     token,
@@ -291,6 +291,9 @@ test('creates and confirms a credit note crediting a purchase return from the sc
   await expect(noteRow.getByTestId(/credit-note-status-/)).toHaveText('Borrador');
   const codeText = (await noteRow.locator('td').first().locator('p.font-mono').innerText()).trim();
   expect(codeText).toMatch(/^NCP\d+$/);
+
+  const totalLabel = page.getByTestId(`credit-note-total-${codeText}`);
+  await expect(totalLabel).toContainText('30,00');
 
   const returnLabel = page.getByTestId(`credit-note-return-${codeText}`);
   await expect(returnLabel).toBeVisible();

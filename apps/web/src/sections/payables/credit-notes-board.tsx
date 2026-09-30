@@ -366,17 +366,25 @@ function CreditNoteFields({
     if (ret && ret.lines.length > 0) {
       setReason('return');
       setLines(
-        ret.lines.map((rl) => ({
-          concept: rl.concept,
-          quantity: String(rl.quantity),
-          unitPrice: String(rl.unitCost),
-          taxRate: '0',
-          itemId: rl.itemId,
-          itemSku: rl.itemSku,
-          itemName: rl.itemName,
-          unitId: rl.unitId,
-          invoiceLineId: undefined,
-        })),
+        ret.lines.map((rl) => {
+          const matchingInvoiceLine = rl.invoiceLineId
+            ? invoiceLines.find((il) => il.id === rl.invoiceLineId)
+            : invoiceLines.find((il) => il.receiptLineId && il.receiptLineId === rl.receiptLineId);
+          const price = rl.invoicedUnitPrice ?? matchingInvoiceLine?.unitPrice ?? rl.unitCost;
+          const invoiceLineId = rl.invoiceLineId ?? matchingInvoiceLine?.id ?? undefined;
+
+          return {
+            concept: rl.concept,
+            quantity: String(rl.quantity),
+            unitPrice: String(price),
+            taxRate: String(matchingInvoiceLine?.taxRate ?? '0'),
+            itemId: rl.itemId,
+            itemSku: rl.itemSku,
+            itemName: rl.itemName,
+            unitId: rl.unitId,
+            invoiceLineId,
+          };
+        }),
       );
     }
   };
@@ -575,7 +583,7 @@ function CreditNoteFields({
                     </select>
                   </div>
                 ) : (
-                  <input type="hidden" name="lineInvoiceLineId" value="" />
+                  <input type="hidden" name="lineInvoiceLineId" value={line.invoiceLineId ?? ''} />
                 )}
 
                 <input type="hidden" name="lineItemId" value={line.itemId ?? ''} />

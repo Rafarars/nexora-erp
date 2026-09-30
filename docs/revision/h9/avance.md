@@ -1957,3 +1957,69 @@ El frontend componía la búsqueda de devoluciones acreditables encadenando tres
   - `e2e`: 526 pruebas de Playwright en verde (10.0m).
   Todo en verde.
 
+## Correcciones Ronda 4 — Sección 4: Nota de crédito por devolución a precio facturado
+
+### 1. Causa del defecto y corrección en interfaz
+Al seleccionar una devolución de compra en el formulario de nota de crédito (`CreditNoteFields` en `apps/web/src/sections/payables/credit-notes-board.tsx`), las líneas de la nota se rellenaban tomando `unitPrice: String(rl.unitCost)`, que corresponde al costo de recepción de la entrada.
+En el dominio comercial y contable, una nota de crédito emitida por el proveedor debe acreditar el importe efectivamente facturado, el cual puede diferir del costo de entrada (por ejemplo, si hubo variación de precio convenida en la factura de compra o recargo comercial).
+
+**Corrección implementada:**
+- En `apps/web/src/sections/payables/credit-notes-board.tsx` (`onReturnChange`), se cruza cada línea de la devolución (`rl`) con la línea facturada correspondiente (`invoiceLines` / `rl.invoiceLineId`), estableciendo:
+  ```ts
+  const matchingInvoiceLine = rl.invoiceLineId
+    ? invoiceLines.find((il) => il.id === rl.invoiceLineId)
+    : invoiceLines.find((il) => il.receiptLineId && il.receiptLineId === rl.receiptLineId);
+  const price = rl.invoicedUnitPrice ?? matchingInvoiceLine?.unitPrice ?? rl.unitCost;
+  const invoiceLineId = rl.invoiceLineId ?? matchingInvoiceLine?.id ?? undefined;
+  ```
+- Se asigna `unitPrice: String(price)` y se preserva `invoiceLineId` en el input oculto del formulario cuando no se muestra el selector manual de líneas.
+
+### 2. Prueba de extremo a extremo con factura más cara que su entrada
+- En `apps/e2e/support/purchasing-fixtures.ts`: se añadió el parámetro opcional `unitPrice?: number` a `aConfirmedMerchandiseInvoice`, permitiendo emitir facturas con precio unitario diferente al costo unitario de la orden y la entrada.
+- En `apps/e2e/tests/ui/payables.spec.ts` (`creates and confirms a credit note crediting a purchase return from the screen showing DVC code without revaluation in inventory`):
+  - Se configuró la factura con costo de entrada 12 y precio facturado 15 para 5 unidades.
+  - Se devolvieron 2 unidades de la entrada.
+  - Se comprobó mediante el selector `credit-note-total-${codeText}` que el importe acreditado total en borrador es exactamente `USD 30,00` (2 × 15,00) y no `USD 24,00` (2 × 12,00).
+
+### 3. Evidencia de fallo antes del arreglo
+Corrida con `pnpm --filter e2e exec playwright test tests/ui/payables.spec.ts -g "crediting a purchase return"` antes de modificar `credit-notes-board.tsx`:
+```
+    Error: expect(locator).toContainText(expected) failed
+
+    Locator: getByTestId('credit-note-total-NCP000006')
+    Expected substring: "30,00"
+    Received string:    "USD 24,00"
+    Timeout: 5000ms
+
+    Call log:
+      - Expect "toContainText" getByTestId('credit-note-total-NCP000006') with timeout 5000ms
+      - waiting for getByTestId('credit-note-total-NCP000006')
+        14 × locator resolved to <p data-testid="credit-note-total-NCP000006">USD 24,00</p>
+           - unexpected value "USD 24,00"
+
+      294 |
+      295 |   const totalLabel = page.getByTestId(`credit-note-total-${codeText}`);
+    > 296 |   await expect(totalLabel).toContainText('30,00');
+          |                            ^
+```
+
+### 4. Evidencia de éxito tras el arreglo
+Corrida tras el arreglo en `credit-notes-board.tsx` y reconstrucción del servicio web:
+```
+Running 1 test using 1 worker
+
+  ✓  1 [ui] › tests/ui/payables.spec.ts:247:1 › creates and confirms a credit note crediting a purchase return from the screen showing DVC code without revaluation in inventory (5.5s)
+
+  1 passed (19.3s)
+```
+
+### 5. Verificación de la Sección 4
+- Ejecutado `make verify > scratch/logs/verify-correcciones4-seccion4.log 2>&1`:
+  - `gitleaks`: 0 leaks detectados (313 commits analizados).
+  - `lint`: 0 errores en todos los paquetes.
+  - `typecheck`: limpio en todos los paquetes.
+  - `unit`: 3854 pruebas unitarias de API (185 suites) + 229 pruebas unitarias de Web (24 suites) en verde (4083 totales).
+  - `contract`: 302 pruebas de contrato contra PostgreSQL en verde (13 suites).
+  - `e2e`: 526 pruebas de Playwright en verde (10.0m).
+  Todo en verde.
+

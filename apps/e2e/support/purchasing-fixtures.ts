@@ -121,7 +121,9 @@ export async function aConfirmedMerchandiseInvoice(
   unitCost = 10,
   quantity = 10,
   baseUrl = '',
+  unitPrice?: number,
 ) {
+  const effectiveUnitPrice = unitPrice ?? unitCost;
   const item = await aFreshItem(request, token, baseUrl);
   const order = await aDraftOrder(
     request,
@@ -165,7 +167,7 @@ export async function aConfirmedMerchandiseInvoice(
           itemName: item.name,
           unitId: ACME_INVENTORY.piece,
           quantity,
-          unitPrice: unitCost,
+          unitPrice: effectiveUnitPrice,
           taxRate: 0,
         },
       ],
@@ -189,7 +191,7 @@ export async function aConfirmedMerchandiseInvoice(
     id,
     code,
     invoiceNumber,
-    subtotal: unitCost * quantity,
+    subtotal: effectiveUnitPrice * quantity,
     lines,
     item,
     receiptId: receipt.id,
