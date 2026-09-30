@@ -20,7 +20,13 @@ export interface PayablesPortsHarness {
   supplier(tenantId: string, supplier: PayableSupplier): Promise<void>;
   invoice(tenantId: string, invoice: Omit<PayableInvoicePrimitives, 'paid'>): Promise<void>;
   cancelInvoice(tenantId: string, invoiceId: string): Promise<void>;
-  purchaseReturn?(tenantId: string, returnId: string, supplierId: string, status?: 'confirmed' | 'draft' | 'cancelled'): Promise<void>;
+  purchaseReturn?(
+    tenantId: string,
+    returnId: string,
+    supplierId: string,
+    status?: 'confirmed' | 'draft' | 'cancelled',
+    receiptLineIds?: string[],
+  ): Promise<void>;
   setAmountDecimals(tenantId: string, decimals: number): Promise<void>;
   reset(): Promise<void>;
   close(): Promise<void>;

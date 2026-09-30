@@ -1576,3 +1576,73 @@ Ejecución de `make verify` completo (registro en `scratch/logs/verify-seccion2.
 - `e2e`: 524 pruebas de Playwright en verde.
 Todo en verde.
 
+---
+
+## Correcciones Sección 3: Moneda de la rebaja unificada y pruebas de tasas distintas
+
+### Qué se construyó y corrigió
+1. **Cálculo de rebaja unificado y compartido (§3.10):**
+   - En `apps/api/src/shared/domain/purchase-price-difference.ts`:
+     - Definidas las interfaces `PurchaseDiscountLineInput` y `PurchaseDiscountDifferenceCalculation`.
+     - Implementada la función pura `calculatePurchaseDiscountDifference(lines)` con la misma función `round4` utilizada en el cálculo de diferencias de factura.
+     - La función calcula `priceDifferenceBase` a tasa de recepción (disminución negativa de costo) y `exchangeDifferenceBase` por la variación entre la tasa de la nota y la tasa de la recepción.
+   - En `PrismaSupplierCreditNotePosting.confirm` (`prisma-supplier-credit-note-posting.ts:386`) y en `InMemoryPayablesStore.confirm` (`in-memory-payables-store.ts:530`):
+     - Eliminado el cálculo manual inline (`subtotal * receiptRate` y `subtotal * (noteRate - receiptRate)`).
+     - Ambos adaptadores consumen ahora la función compartida `calculatePurchaseDiscountDifference`.
+2. **Pruebas unitarias de dominio:**
+   - En `apps/api/src/shared/domain/purchase-price-difference.spec.ts`:
+     - 4 nuevas pruebas unitarias cubriendo igualdad de tasas, tasas distintas (recepción 35.0 vs nota 40.0), precisión idéntica a factura con `round4`, y agregación de múltiples líneas.
+3. **Prueba de contrato con tasas distintas (§3.3 y §3.10):**
+   - En `apps/api/src/contexts/payables/testing/payables-ports.contract.ts`:
+     - Definida constante `USD_RATE_40` (tasa 40.0).
+     - Nueva prueba de contrato: `computes distinct price difference and exchange difference when goods receipt and credit note have different exchange rates (H9 §3.3 y §3.10)`.
+     - Entrada de mercancía a tasa 35.0; nota de crédito de rebaja de 20 USD a tasa 40.0.
+     - Valida `priceDifference = -700.0` (20 * 35.0 a tasa de recepción), `exchangeDifference = -100.0` (20 * (40.0 - 35.0)) y el importe del ajuste de revaluación por `-700.0` (dirección `out`).
+4. **Demostración de mutación convirtiendo con la tasa de la nota:**
+   - *Qué se alteró:* En `apps/api/src/shared/domain/purchase-price-difference.ts:49`, se mutó temporalmente el cálculo para convertir con la tasa de la nota:
+     ```typescript
+     const priceDiffBase = round4(-line.subtotal * line.noteRate);
+     ```
+   - *Comando ejecutado:*
+     ```bash
+     pnpm --filter api exec vitest run src/contexts/payables/infrastructure/testing/in-memory-payables-ports.contract.spec.ts -t "rates"
+     ```
+   - *Salida roja capturada y línea de fallo:*
+     ```
+     FAIL  src/contexts/payables/infrastructure/testing/in-memory-payables-ports.contract.spec.ts > Payables ports contract: in-memory > SupplierCreditNote contract > computes distinct price difference and exchange difference when goods receipt and credit note have different exchange rates (H9 §3.3 y §3.10)
+     AssertionError: expected -800 to be close to -700, received difference is 100, but expected 0.005
+      ❯ src/contexts/payables/testing/payables-ports.contract.ts:495:59
+         493|         expect(confirmed?.currentStatus()).toBe('confirmed');
+         494|         // A tasa de recepcion (35.0): -20 * 35.0 = -700.0
+         495|         expect(confirmed?.toPrimitives().priceDifference).toBeCloseTo(-700.0, 2);
+            |                                                           ^
+         496|         // Variacion de tipo de cambio (40.0 - 35.0 = 5.0): -20 * 5.0 = -100.0
+         497|         expect(confirmed?.toPrimitives().exchangeDifference).toBeCloseTo(-100.0, 2);
+     ```
+   - *Restauración:* Se restauró `priceDiffBase = round4(-line.subtotal * line.receiptRate)` volviendo la suite a verde (2 passed, 16 skipped).
+5. **Prueba de contrato: nota que acredita devolución no revalúa:**
+   - En `apps/api/src/contexts/payables/testing/payables-ports.contract.ts`:
+     - Nueva prueba de contrato: `does not create revaluation adjustments when confirming credit note that credits a purchase return (H9 §3.10)`.
+     - Implementado el método `purchaseReturn` en `PrismaPayablesPortsHarness` (`prisma-payables-ports.harness.ts:95`) e `InMemoryPayablesPortsHarness` (`in-memory-payables-ports.harness.ts:34`).
+     - Probado tanto contra el doble en memoria (`in-memory-payables-ports.contract.spec.ts`) como contra PostgreSQL (`prisma-payables-ports.contract.integration.spec.ts`), comprobando que `adjustmentsOf` no contiene ningún ajuste (`toHaveLength(0)`) y `priceDifference = 0`, `exchangeDifference = 0`.
+
+### Cómo se verificó
+1. **Corrida roja en `make verify` (`scratch/logs/verify-seccion3.log`):**
+   - El paso de typecheck falló con código 2:
+     ```
+     apps/api typecheck: src/contexts/payables/infrastructure/testing/in-memory-payables-ports.harness.ts(41,99): error TS2554: Expected 3-5 arguments, but got 6.
+     apps/api typecheck: src/contexts/payables/infrastructure/testing/prisma-payables-ports.harness.ts(193,22): error TS18047: 'warehouse' is possibly 'null'.
+     ```
+   - **Corrección aplicada:**
+     - En `in-memory-payables-store.ts:107`: agregado el parámetro `receiptLineIds?: string[]` a `purchaseReturn`.
+     - En `prisma-payables-ports.harness.ts:102-145`: tipada la variable `warehouseId: string` de forma garantizada a nivel de scope para eliminar el posible `null`.
+2. **Corrida verde final de `make verify` (`scratch/logs/verify-seccion3-r2.log`):**
+   - `gitleaks`: 0 leaks detectados (305 commits analizados).
+   - `lint`: 0 errores en todos los paquetes.
+   - `typecheck`: limpio en todos los paquetes.
+   - `unit`: 3847 pruebas unitarias de API (184 suites) + 229 pruebas unitarias de Web (24 suites) en verde (4076 totales).
+   - `contract`: 302 pruebas de contrato contra PostgreSQL en verde (13 suites).
+   - `e2e`: 524 pruebas de Playwright en verde (9.1m).
+   Todo en verde.
+
+

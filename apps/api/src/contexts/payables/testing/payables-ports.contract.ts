@@ -40,6 +40,14 @@ const USD_VES_RATES = DocumentCurrency.of({
   manualRate: false,
 });
 
+const USD_RATE_40 = DocumentCurrency.of({
+  currency: 'USD',
+  exchangeRate: 40.0,
+  baseCurrency: 'VES',
+  baseExchangeRate: 1,
+  manualRate: false,
+});
+
 // UNA suite para el doble y para PostgreSQL. Lo que importa: que dos pagos simultaneos no paguen
 // una factura de mas, que lo pagado cuente solo lo confirmado y que nada cruce de empresa.
 export function describePayablesPortsContract(implementation: string, createHarness: () => PayablesPortsHarness): void {
@@ -438,6 +446,122 @@ export function describePayablesPortsContract(implementation: string, createHarn
           expect(adjs[0].lines[0].direction).toBe('out');
           expect(adjs[0].lines[0].amount).toBeCloseTo(-20 * 36.5, 2);
           expect(adjs[0].lines[0].sourceMovementId).toBeDefined();
+        }
+      });
+
+      it('computes distinct price difference and exchange difference when goods receipt and credit note have different exchange rates (H9 §3.3 y §3.10)', async () => {
+        const invLineId = `f0000000-0000-4000-8000-${next()}`;
+        const itemId = `f1000000-0000-4000-8000-${next()}`;
+        if (harness.invoiceLines) {
+          // Entrada a tasa 35.0
+          await harness.invoiceLines(TENANT_A, INVOICE, [
+            { id: invLineId, itemId, subtotal: 100, receiptRate: 35.0 },
+          ]);
+        }
+
+        const id = SupplierCreditNoteId.of(`c0000000-0000-4000-8000-${next()}`);
+        // Nota de credito a tasa 40.0 con rebaja de 20 USD
+        const note = SupplierCreditNote.draft(
+          id,
+          tenant,
+          `NCP${next().slice(-6)}`,
+          {
+            supplierId: SUPPLIER,
+            invoiceId: INVOICE,
+            issueDate: PayablesDate.of(TODAY),
+            reason: 'price_correction',
+            currency: USD_RATE_40,
+            lines: [
+              {
+                id: `e0000000-0000-4000-8000-${next()}`,
+                invoiceLineId: invLineId,
+                itemId,
+                concept: 'Rebaja con tasas distintas',
+                quantity: 1,
+                unitPrice: 20,
+                taxRate: 0,
+              },
+            ],
+          },
+          NOW,
+          TODAY,
+        );
+        await ports.creditNotes.save(note);
+        await ports.creditNotePosting.confirm(tenant, id, NOW, TODAY);
+
+        const confirmed = await ports.creditNotes.find(tenant, id);
+        expect(confirmed?.currentStatus()).toBe('confirmed');
+        // A tasa de recepcion (35.0): -20 * 35.0 = -700.0
+        expect(confirmed?.toPrimitives().priceDifference).toBeCloseTo(-700.0, 2);
+        // Variacion de tipo de cambio (40.0 - 35.0 = 5.0): -20 * 5.0 = -100.0
+        expect(confirmed?.toPrimitives().exchangeDifference).toBeCloseTo(-100.0, 2);
+
+        if (harness.adjustmentsOf) {
+          const adjs = await harness.adjustmentsOf(tenant.value, id.value);
+          expect(adjs.length).toBe(1);
+          expect(adjs[0].type).toBe('revaluation');
+          expect(adjs[0].status).toBe('draft');
+          // El ajuste de revaluacion disminuye inventario a tasa de recepcion (-700.0)
+          expect(adjs[0].lines[0].direction).toBe('out');
+          expect(adjs[0].lines[0].amount).toBeCloseTo(-700.0, 2);
+          expect(adjs[0].lines[0].sourceMovementId).toBeDefined();
+        }
+      });
+
+      it('does not create revaluation adjustments when confirming credit note that credits a purchase return (H9 §3.10)', async () => {
+        const invLineId = `f0000000-0000-4000-8000-${next()}`;
+        const itemId = `f1000000-0000-4000-8000-${next()}`;
+        if (harness.invoiceLines) {
+          await harness.invoiceLines(TENANT_A, INVOICE, [
+            { id: invLineId, itemId, subtotal: 100, receiptRate: 36.5 },
+          ]);
+        }
+
+        const invLines = await ports.ledger.invoiceLines(tenant, INVOICE);
+        const receiptLineId = invLines[0]?.receiptLineId!;
+
+        const returnId = `d1000000-0000-4000-8000-${next()}`;
+        if (harness.purchaseReturn) {
+          await harness.purchaseReturn(TENANT_A, returnId, SUPPLIER, 'confirmed', receiptLineId ? [receiptLineId] : undefined);
+        }
+
+        const id = SupplierCreditNoteId.of(`c0000000-0000-4000-8000-${next()}`);
+        const note = SupplierCreditNote.draft(
+          id,
+          tenant,
+          `NCP${next().slice(-6)}`,
+          {
+            supplierId: SUPPLIER,
+            invoiceId: INVOICE,
+            purchaseReturnId: returnId,
+            issueDate: PayablesDate.of(TODAY),
+            reason: 'return',
+            currency: USD_VES_RATES,
+            lines: [
+              {
+                id: `e0000000-0000-4000-8000-${next()}`,
+                itemId,
+                concept: 'Acredita devolucion',
+                quantity: 1,
+                unitPrice: 20,
+                taxRate: 0,
+              },
+            ],
+          },
+          NOW,
+          TODAY,
+        );
+        await ports.creditNotes.save(note);
+        await ports.creditNotePosting.confirm(tenant, id, NOW, TODAY);
+
+        const confirmed = await ports.creditNotes.find(tenant, id);
+        expect(confirmed?.currentStatus()).toBe('confirmed');
+        expect(confirmed?.toPrimitives().priceDifference).toBe(0);
+        expect(confirmed?.toPrimitives().exchangeDifference).toBe(0);
+
+        if (harness.adjustmentsOf) {
+          const adjs = await harness.adjustmentsOf(tenant.value, id.value);
+          expect(adjs).toHaveLength(0);
         }
       });
 

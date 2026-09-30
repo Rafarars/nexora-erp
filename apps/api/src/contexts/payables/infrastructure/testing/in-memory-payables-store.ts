@@ -41,7 +41,7 @@ import { SupplierCreditNotePosting } from '../../domain/credit-note/posting/supp
 import { PayableCreditQuota } from '../../domain/credit-note/credit-quota.service.js';
 import { TenantId } from '../../domain/shared/tenant-id.vo.js';
 import { InMemoryInvoiceRevaluationPosting } from '../../../purchasing/infrastructure/testing/in-memory-invoice-revaluation-posting.js';
-import { effectiveRateToBase } from '../../../../shared/domain/purchase-price-difference.js';
+import { calculatePurchaseDiscountDifference, effectiveRateToBase } from '../../../../shared/domain/purchase-price-difference.js';
 import type { InvoiceWarehouseRevaluationData, InvoiceRevaluationLineData } from '../../../../shared/prisma/invoice-revaluation-posting.js';
 
 export interface InMemoryInvoiceLineInfo {
@@ -104,8 +104,18 @@ export class InMemoryPayablesStore {
     if (row) this.invoiceRows.set(invoiceId, { ...row, status: 'cancelled' });
   }
 
-  purchaseReturn(tenantId: string, returnId: string, supplierId: string, status: string = 'confirmed', code: string = 'DVC000001'): void {
+  purchaseReturn(
+    tenantId: string,
+    returnId: string,
+    supplierId: string,
+    status: string = 'confirmed',
+    code: string = 'DVC000001',
+    receiptLineIds?: string[],
+  ): void {
     this.purchaseReturnRows.set(returnId, { id: returnId, tenantId, supplierId, status, code });
+    if (receiptLineIds) {
+      this.returnReceiptLineRows.set(returnId, receiptLineIds);
+    }
   }
 
   get ledger(): PayablesLedger {
@@ -527,17 +537,26 @@ export class InMemoryPayablesStore {
               notePrimitives.baseExchangeRate,
             );
 
-            for (const l of linesWithInvoice) {
+            const discountCalc = calculatePurchaseDiscountDifference(
+              linesWithInvoice.map((l) => {
+                const invLine = invLinesMap.get(l.invoiceLineId!);
+                const receiptRate = invLine?.receiptRate ?? 1;
+                return {
+                  subtotal: Number(l.subtotal),
+                  noteRate,
+                  receiptRate,
+                };
+              }),
+            );
+
+            totalPriceDifference = discountCalc.priceDifference;
+            totalExchangeDifference = discountCalc.exchangeDifference;
+
+            for (let i = 0; i < linesWithInvoice.length; i++) {
+              const l = linesWithInvoice[i];
               const invLine = invLinesMap.get(l.invoiceLineId!);
               const warehouseId = invLine?.warehouseId ?? 'wh-001';
-              const receiptRate = invLine?.receiptRate ?? 1;
-              const lineSubtotal = Number(l.subtotal);
-
-              const amountBase = -1 * Number((lineSubtotal * receiptRate).toFixed(4));
-              const lineExchangeDiff = -1 * Number((lineSubtotal * (noteRate - receiptRate)).toFixed(4));
-
-              totalPriceDifference += amountBase;
-              totalExchangeDifference += lineExchangeDiff;
+              const amountBase = discountCalc.lineDifferences[i].priceDifferenceBase;
 
               const sourceMovementId = invLine?.sourceMovementId ?? `mov-${invLine?.receiptLineId ?? l.id}`;
               const whLines = revaluationsByWarehouse.get(warehouseId) ?? [];

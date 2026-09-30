@@ -92,6 +92,141 @@ export class PrismaPayablesPortsHarness implements PayablesPortsHarness {
     });
   }
 
+  async purchaseReturn(
+    tenantId: string,
+    returnId: string,
+    supplierId: string,
+    status: 'confirmed' | 'draft' | 'cancelled' = 'confirmed',
+    receiptLineIds?: string[],
+  ): Promise<void> {
+    let warehouseId: string;
+    const existingWarehouse = await this.prisma.warehouse.findFirst({ where: { tenantId } });
+    if (existingWarehouse) {
+      warehouseId = existingWarehouse.id;
+    } else {
+      const createdWh = await this.prisma.warehouse.create({
+        data: {
+          tenantId,
+          id: crypto.randomUUID(),
+          code: `BOD${crypto.randomUUID().slice(0, 6)}`,
+          name: 'Bodega Test',
+        },
+      });
+      warehouseId = createdWh.id;
+    }
+
+    let receiptId: string;
+    let currency = 'USD';
+    let exchangeRate: number | null = 36.5;
+    let baseCurrency = 'VES';
+    let baseExchangeRate: number | null = 1;
+
+    let receiptLinesToReturn: Array<{
+      id: string;
+      orderLineId: string;
+      itemId: string;
+      itemSku: string;
+      itemName: string;
+      unitId: string;
+      quantity: number;
+      unitCost: number;
+    }> = [];
+
+    if (receiptLineIds && receiptLineIds.length > 0) {
+      const recLines = await this.prisma.goodsReceiptLine.findMany({
+        where: { tenantId, id: { in: receiptLineIds } },
+        include: { receipt: true },
+      });
+      if (recLines.length > 0) {
+        receiptId = recLines[0].receiptId;
+        currency = recLines[0].receipt.currency;
+        exchangeRate = recLines[0].receipt.exchangeRate ? Number(recLines[0].receipt.exchangeRate) : null;
+        baseCurrency = recLines[0].receipt.baseCurrency;
+        baseExchangeRate = recLines[0].receipt.baseExchangeRate ? Number(recLines[0].receipt.baseExchangeRate) : null;
+        if (recLines[0].receipt.warehouseId) {
+          warehouseId = recLines[0].receipt.warehouseId;
+        }
+
+        receiptLinesToReturn = recLines.map((rl) => ({
+          id: rl.id,
+          orderLineId: rl.orderLineId,
+          itemId: rl.itemId,
+          itemSku: rl.itemSku,
+          itemName: rl.itemName,
+          unitId: rl.unitId,
+          quantity: Number(rl.quantity),
+          unitCost: Number(rl.unitCost),
+        }));
+      } else {
+        receiptId = crypto.randomUUID();
+      }
+    } else {
+      const existingReceipt = await this.prisma.goodsReceipt.findFirst({
+        where: { tenantId, order: { supplierId } },
+        include: { lines: true },
+      });
+      if (existingReceipt) {
+        receiptId = existingReceipt.id;
+        currency = existingReceipt.currency;
+        exchangeRate = existingReceipt.exchangeRate ? Number(existingReceipt.exchangeRate) : null;
+        baseCurrency = existingReceipt.baseCurrency;
+        baseExchangeRate = existingReceipt.baseExchangeRate ? Number(existingReceipt.baseExchangeRate) : null;
+        receiptLinesToReturn = existingReceipt.lines.map((rl) => ({
+          id: rl.id,
+          orderLineId: rl.orderLineId,
+          itemId: rl.itemId,
+          itemSku: rl.itemSku,
+          itemName: rl.itemName,
+          unitId: rl.unitId,
+          quantity: Number(rl.quantity),
+          unitCost: Number(rl.unitCost),
+        }));
+      } else {
+        receiptId = crypto.randomUUID();
+      }
+    }
+
+    const n = String((this.sequence += 1)).padStart(6, '0');
+    await this.prisma.purchaseReturn.create({
+      data: {
+        id: returnId,
+        tenantId,
+        code: `DVC${n}`,
+        supplierId,
+        receiptId,
+        warehouseId,
+        returnDate: new Date('2026-01-03'),
+        status,
+        currency,
+        exchangeRate,
+        baseCurrency,
+        baseExchangeRate,
+        confirmedAt: status === 'confirmed' ? new Date('2026-01-03') : null,
+        cancelledAt: status === 'cancelled' ? new Date('2026-01-03') : null,
+      },
+    });
+
+    for (let i = 0; i < receiptLinesToReturn.length; i++) {
+      const rl = receiptLinesToReturn[i];
+      await this.prisma.purchaseReturnLine.create({
+        data: {
+          id: crypto.randomUUID(),
+          tenantId,
+          purchaseReturnId: returnId,
+          receiptLineId: rl.id,
+          lineNumber: i + 1,
+          itemId: rl.itemId,
+          itemSku: rl.itemSku,
+          itemName: rl.itemName,
+          unitId: rl.unitId,
+          quantity: rl.quantity,
+          baseQuantity: rl.quantity,
+          unitCost: rl.unitCost,
+        },
+      });
+    }
+  }
+
   async invoiceLines(
     tenantId: string,
     invoiceId: string,

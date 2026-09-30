@@ -31,8 +31,14 @@ export class InMemoryPayablesPortsHarness implements PayablesPortsHarness {
     this.store.cancelInvoice(invoiceId);
   }
 
-  async purchaseReturn(tenantId: string, returnId: string, supplierId: string, status?: 'confirmed' | 'draft' | 'cancelled'): Promise<void> {
-    this.store.purchaseReturn(tenantId, returnId, supplierId, status ?? 'confirmed');
+  async purchaseReturn(
+    tenantId: string,
+    returnId: string,
+    supplierId: string,
+    status?: 'confirmed' | 'draft' | 'cancelled',
+    receiptLineIds?: string[],
+  ): Promise<void> {
+    this.store.purchaseReturn(tenantId, returnId, supplierId, status ?? 'confirmed', 'DVC000001', receiptLineIds);
   }
 
   async setAmountDecimals(tenantId: string, decimals: number): Promise<void> {

@@ -1,5 +1,10 @@
 import { describe, expect, it } from 'vitest';
-import { calculatePurchasePriceDifference, effectiveRateToBase } from './purchase-price-difference.js';
+import {
+  calculatePurchaseDiscountDifference,
+  calculatePurchasePriceDifference,
+  effectiveRateToBase,
+  round4,
+} from './purchase-price-difference.js';
 
 describe('effectiveRateToBase', () => {
   it('returns 1 when document currency is the company base currency', () => {
@@ -103,3 +108,65 @@ describe('calculatePurchasePriceDifference (H9 §3.3)', () => {
     expect(res.exchangeDifference).toBe(0);
   });
 });
+
+describe('calculatePurchaseDiscountDifference (H9 §3.10)', () => {
+  it('computes negative price difference at receipt rate when rates are equal', () => {
+    // Rebaja de 20 USD a tasa 36.5 (misma tasa de recepcion y nota)
+    // priceDifference = -1 * (20 * 36.5) = -730 Bs
+    // exchangeDifference = 0 Bs
+    const res = calculatePurchaseDiscountDifference([
+      {
+        subtotal: 20,
+        noteRate: 36.5,
+        receiptRate: 36.5,
+      },
+    ]);
+
+    expect(res.priceDifference).toBe(-730);
+    expect(res.exchangeDifference).toBe(0);
+    expect(res.lineDifferences[0].priceDifferenceBase).toBe(-730);
+    expect(res.lineDifferences[0].exchangeDifferenceBase).toBe(0);
+  });
+
+  it('computes negative price difference and negative exchange difference when note rate is higher than receipt rate', () => {
+    // Rebaja de 20 USD con tasa recepcion 35.0 y tasa nota 40.0
+    // priceDifference = -1 * (20 * 35.0) = -700.0 Bs
+    // exchangeDifference = -1 * (20 * (40.0 - 35.0)) = -100.0 Bs
+    const res = calculatePurchaseDiscountDifference([
+      {
+        subtotal: 20,
+        noteRate: 40.0,
+        receiptRate: 35.0,
+      },
+    ]);
+
+    expect(res.priceDifference).toBe(-700);
+    expect(res.exchangeDifference).toBe(-100);
+    expect(res.lineDifferences[0].priceDifferenceBase).toBe(-700);
+    expect(res.lineDifferences[0].exchangeDifferenceBase).toBe(-100);
+  });
+
+  it('uses round4 precision identical to invoice price difference', () => {
+    const res = calculatePurchaseDiscountDifference([
+      {
+        subtotal: 12.3456,
+        noteRate: 35.1234,
+        receiptRate: 30.5678,
+      },
+    ]);
+
+    expect(res.priceDifference).toBe(round4(-1 * round4(12.3456 * 30.5678)));
+    expect(res.exchangeDifference).toBe(round4(-1 * round4(12.3456 * (35.1234 - 30.5678))));
+  });
+
+  it('aggregates multiple lines accurately', () => {
+    const res = calculatePurchaseDiscountDifference([
+      { subtotal: 10, noteRate: 40, receiptRate: 35 }, // -350, -50
+      { subtotal: 15, noteRate: 40, receiptRate: 30 }, // -450, -150
+    ]);
+
+    expect(res.priceDifference).toBe(-800);
+    expect(res.exchangeDifference).toBe(-200);
+  });
+});
+

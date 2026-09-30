@@ -8,7 +8,7 @@ import {
   type InvoiceWarehouseRevaluationData,
   type InvoiceRevaluationLineData,
 } from '../../../../shared/prisma/invoice-revaluation-posting.js';
-import { effectiveRateToBase } from '../../../../shared/domain/purchase-price-difference.js';
+import { calculatePurchaseDiscountDifference, effectiveRateToBase } from '../../../../shared/domain/purchase-price-difference.js';
 import { RevaluationSourceMovementNotFoundError } from '../../../inventory/domain/errors/inventory.errors.js';
 import {
   CreditNoteAlreadyCancelledError,
@@ -383,30 +383,37 @@ export class PrismaSupplierCreditNotePosting implements SupplierCreditNotePostin
             notePrimitives.baseExchangeRate,
           );
 
-          totalExchangeDifference = 0;
+          const discountCalc = calculatePurchaseDiscountDifference(
+            linesWithInvoice.map((line) => {
+              const invLine = invLinesMap.get(line.invoiceLineId!);
+              const receipt = invLine?.receiptLine?.receipt;
+              const receiptRate = receipt
+                ? effectiveRateToBase(
+                    receipt.currency,
+                    receipt.baseCurrency,
+                    receipt.exchangeRate ? Number(receipt.exchangeRate) : null,
+                    receipt.baseExchangeRate ? Number(receipt.baseExchangeRate) : null,
+                  )
+                : 1;
+              return {
+                subtotal: Number(line.subtotal),
+                noteRate,
+                receiptRate,
+              };
+            }),
+          );
 
-          for (const line of linesWithInvoice) {
+          totalPriceDifference = discountCalc.priceDifference;
+          totalExchangeDifference = discountCalc.exchangeDifference;
+
+          for (let i = 0; i < linesWithInvoice.length; i++) {
+            const line = linesWithInvoice[i];
             const invLine = invLinesMap.get(line.invoiceLineId!);
             if (!invLine || !invLine.receiptLine) continue;
 
             const receipt = invLine.receiptLine.receipt;
             const warehouseId = receipt.warehouseId;
-            const lineSubtotal = Number(line.subtotal);
-
-            const receiptRate = effectiveRateToBase(
-              receipt.currency,
-              receipt.baseCurrency,
-              receipt.exchangeRate ? Number(receipt.exchangeRate) : null,
-              receipt.baseExchangeRate ? Number(receipt.baseExchangeRate) : null,
-            );
-
-            // La rebaja disminuye el costo de inventario a tasa de recepción
-            const amountBase = -1 * Number((lineSubtotal * receiptRate).toFixed(4));
-            // Diferencia en cambio por variación de tipo de cambio entre recepción y nota
-            const lineExchangeDiff = -1 * Number((lineSubtotal * (noteRate - receiptRate)).toFixed(4));
-
-            totalPriceDifference += amountBase;
-            totalExchangeDifference += lineExchangeDiff;
+            const amountBase = discountCalc.lineDifferences[i].priceDifferenceBase;
 
             const sourceMovementId = movementByLineId.get(invLine.receiptLineId!);
             if (!sourceMovementId) {
