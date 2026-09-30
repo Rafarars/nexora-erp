@@ -167,8 +167,11 @@ test.describe('exports', () => {
 });
 
 test.describe('payables cross-check', () => {
+  // Se ejecuta en Initech ('dora@initech.com'), un tenant dedicado donde ninguna otra prueba escribe
+  // en paralelo, eliminando data races en las comprobaciones globales del tablero y asegurando
+  // que la suma de facturas y proveedores sea exacta y determinista.
   test('§3.8 the invoice list, supplier aging, reports aging, statement and dashboard report the exact same balance', async ({ request }) => {
-    const token = await tokenFor(request, 'ana@acme.com');
+    const token = await tokenFor(request, 'dora@initech.com');
     const supplier = await aFreshSupplier(request, token);
     const today = companyToday();
 
@@ -193,7 +196,7 @@ test.describe('payables cross-check', () => {
     });
     expect(confirmPayRes.status()).toBe(200);
 
-    // 1. Listado de facturas
+    // 1. Listado de facturas: filtrado expresamente por el proveedor (nunca paginar a ciegas)
     const invListRes = await request.get(`/api/v1/payables/invoices?supplierId=${supplier.id}`, { headers: auth(token) });
     expect(invListRes.status()).toBe(200);
     const { invoices: supplierInvoices } = await invListRes.json();
@@ -203,7 +206,7 @@ test.describe('payables cross-check', () => {
 
     expect(supplierInvoicesBalance).toBe(330);
 
-    // 2. Antigüedad de Cuentas por pagar
+    // 2. Antigüedad de Cuentas por pagar: filtrado por el proveedor
     const payablesSuppliersRes = await request.get(`/api/v1/payables/suppliers?q=${encodeURIComponent(supplier.name)}`, { headers: auth(token) });
     expect(payablesSuppliersRes.status()).toBe(200);
     const payablesSuppliersData = await payablesSuppliersRes.json();
@@ -233,7 +236,7 @@ test.describe('payables cross-check', () => {
     expect(payablesSupplierRow.balance).toBe(reportsSupplierRow.aging.total);
     expect(reportsSupplierRow.aging.total).toBe(statementData.summary.balance);
 
-    // Y a nivel global de la empresa:
+    // Y a nivel global de la empresa (aislado en Initech donde nadie escribe en paralelo):
     const [allInvoicesRes, allSuppliersRes, allAgingRes, dashboardRes] = await Promise.all([
       request.get('/api/v1/payables/invoices?limit=50', { headers: auth(token) }),
       request.get('/api/v1/payables/suppliers?limit=50', { headers: auth(token) }),
@@ -251,6 +254,8 @@ test.describe('payables cross-check', () => {
     const allAgingData = await allAgingRes.json();
     const dashboardData = await dashboardRes.json();
 
+    expect(allInvoicesData.hasMore).toBe(false);
+
     const totalInvoicesBalance = allInvoicesData.invoices
       .filter((i: { status: string }) => i.status !== 'paid')
       .reduce((sum: number, i: { companyBalance: number }) => Math.round((sum + i.companyBalance) * 100) / 100, 0);
@@ -262,5 +267,6 @@ test.describe('payables cross-check', () => {
     expect(totalInvoicesBalance).toBe(totalSuppliersBalance);
     expect(totalSuppliersBalance).toBe(totalAgingBalance);
     expect(totalAgingBalance).toBe(dashboardPayableBalance);
+    expect(dashboardPayableBalance).toBe(330);
   });
 });

@@ -1685,4 +1685,37 @@ Todo en verde.
   - `e2e`: 524 pruebas de Playwright en verde (9.2m).
   Todo en verde.
 
+## Correcciones Sección 5: Aislamiento determinista de la prueba de cruce de Cuentas por Pagar (§3.8)
+
+### Qué se corrigió y decisión de diseño
+1. **Problemas identificados en la prueba anterior de `reports.api.spec.ts`:**
+   - La prueba corría en `Acme`, donde decenas de pruebas E2E escriben, confirman y pagan facturas en paralelo a través de los workers de Playwright.
+   - La suma global de facturas leía `/api/v1/payables/invoices?limit=50`, truncando a 50 facturas si la suite generaba más, y sufriendo condiciones de carrera (data races) entre las lecturas de los distintos reportes.
+   - El cruce por proveedor buscaba al nuevo proveedor dentro de la primera página (`limit=50`) de la antigüedad de saldos global, arriesgando que quedara fuera si había más de 50 proveedores con saldo.
+2. **Elección de aislamiento y justificación:**
+   - **Opción descartada (`describe.serial`):** Un `test.describe.serial` solo serializa las pruebas dentro del mismo archivo `reports.api.spec.ts`. Como Playwright ejecuta múltiples archivos en paralelo con varios workers (`payables.api.spec.ts`, `purchasing.api.spec.ts`, etc., corriendo simultáneamente contra `Acme`), la serialización intra-archivo no evita las escrituras concurrentes externas en la base de datos.
+   - **Opción elegida (Tenant dedicado Initech):** Se utilizó el tenant `Initech` (`dora@initech.com`). La semilla del proyecto (`apps/api/prisma/seed.ts:16-19`) reserva explícitamente a Initech como un tenant donde ninguna otra prueba escribe documentos operativos. Esto proporciona un aislamiento completo a nivel de base de datos multitenant:
+     - Ninguna otra prueba crea ni modifica facturas por pagar o cobros en Initech.
+     - Las peticiones concurrentes de otros workers de Playwright no interfieren.
+3. **Corrección de consultas:**
+   - En `apps/e2e/tests/api/reports.api.spec.ts:170-265`:
+     - Autenticado con `tokenFor(request, 'dora@initech.com')`.
+     - El cruce por proveedor filtra expresamente por el proveedor (`/api/v1/payables/invoices?supplierId=${supplier.id}`) y por búsqueda (`/api/v1/payables/suppliers?q=...`), sin truncar páginas arbitrariamente.
+     - En el cruce global del tablero (`invoices`, `suppliers`, `payables-aging`, `dashboard`), todas las facturas y proveedores del tenant son los creados por la prueba, verificando `expect(allInvoicesData.hasMore).toBe(false)` y asegurando coincidencia exacta en 330 en las 4 fuentes globales.
+
+### Cómo se verificó
+- Ejecución aislada de la suite con Playwright:
+  ```bash
+  pnpm --filter e2e exec playwright test tests/api/reports.api.spec.ts
+  ```
+  Salida: 11 tests pasados en 20.7s, con la prueba de cruce pasando limpiamente en 1.3s.
+- Verificación completa del repositorio con `make verify > scratch/logs/verify-seccion5.log 2>&1`:
+  - `gitleaks`: 0 leaks detectados (307 commits analizados).
+  - `lint`: 0 errores en todos los paquetes.
+  - `typecheck`: limpio en todos los paquetes.
+  - `unit`: 3847 pruebas unitarias de API (184 suites) + 229 pruebas unitarias de Web (24 suites) en verde (4076 totales).
+  - `contract`: 302 pruebas de contrato contra PostgreSQL en verde (13 suites).
+  - `e2e`: 524 pruebas de Playwright en verde (8.9m).
+  Todo en verde.
+
 
