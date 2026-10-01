@@ -340,10 +340,10 @@ borrador ───────────▶ confirmado ───────�
 | Confirmado | Ya la movió | Anular (escribe la contrapartida) |
 | Anulado | — | Nada |
 
-### 2.2.1 La revaluación, el motivo que no mueve cantidad
+### 2.2.1 La revaluación manual por costo unitario
 
 Revaluar **no cambia cuánto hay: cambia cuánto vale**. Su línea no lleva dirección ni cantidad,
-solo el artículo y el **costo nuevo por unidad base**.
+solo el artículo y el **costo nuevo por unidad base** (`revaluationKind: 'unit_cost'`).
 
 Al confirmar se expresa como lo que de verdad es: **sale toda la existencia al costo viejo y vuelve
 a entrar al nuevo**. El kardex no sabe escribir un movimiento de cantidad cero, y expresarlo así
@@ -359,6 +359,58 @@ bodega al confirmar**, no la que hubiera al escribir el borrador.
 Ejemplo: 40 unidades a 2,00 revaluadas a 3,00 escriben una salida de 40 a 2,00 y una entrada de
 40 a 3,00. La existencia sigue en 40; el promedio queda en 3,00. Anular lo devuelve a 2,00.
 
+### 2.2.2 La revaluación por importe (nacida de Compras y Notas de Crédito)
+
+Nace automáticamente desde [Compras](compras.md) al confirmar una factura de compra (`FCP`) o desde
+[Cuentas por pagar](cuentas-por-pagar.md) al confirmar una nota de crédito de rebaja (`NCP`), cuando
+el precio facturado difiere del precio al que entró la mercancía a la bodega (`revaluationKind: 'amount'`).
+
+Cada línea de revaluación por importe lleva:
+- El artículo y la bodega donde ingresó la mercancía original.
+- El importe total de la diferencia (`amount`), en la moneda de la empresa a la tasa de la recepción.
+- El identificador del movimiento original en el kardex (`sourceMovementId`).
+
+**El motor de reparto (`PriceVariance`):**
+Al confirmar el ajuste en Inventario (`AdjustmentConfirmer`), el sistema analiza la trazabilidad de la
+mercancía desde la secuencia del movimiento de entrada original (`movementsSince`):
+1. **Exclusiones rigurosas:** No cuentan como salidas las revaluaciones intermedias (su salida temporal
+   y reingreso), **ninguna** devolución a proveedor (salen a su costo congelado de entrada, no al promedio),
+   ni las salidas anuladas que cuentan con movimiento de contrapartida/reverso.
+2. **Reparto bodega vs. resultado:**
+   - **En bodega (`stockPart`):** La proporción de la entrada que permanece físicamente en la bodega
+     recalcula el costo promedio ponderado de las existencias actuales y escribe el movimiento en kardex.
+   - **En resultado (`soldPart`):** La proporción que ya fue despachada o consumida por ventas viaja
+     directamente a costo de ventas / resultado contable, sin generar movimiento físico en kardex.
+   - Si la mercancía se vendió entera antes de aprobar la revaluación, el 100% viaja a resultado y no
+     se escribe ninguna fila en kardex.
+3. **Revaluación negativa que supera el valor de la bodega:**
+   Si una rebaja de precio de una factura o nota de crédito disminuye un importe mayor al valor contable
+   total de la existencia remanente en esa bodega (`|amount| > existencia × costo_promedio`), la
+   confirmación se rechaza con `NegativeRevaluationExceedsInventoryValueError` (409 Conflict),
+   impidiendo que el inventario registre costos unitarios negativos o distorsiones contables.
+
+### 2.2.3 Ajustes con origen comercial (`originType !== null`)
+
+Cuando un ajuste nace de una factura (`purchase_invoice`) o de una nota de crédito (`supplier_credit_note`),
+se crea en estado **Borrador** para que el responsable de almacén lo audite y lo confirme.
+
+- **Bloqueo estricto en Inventario:**
+  - Se prohíbe editar sus líneas o importes (`AdjustmentFromOriginNotEditableError`, 409).
+  - Se prohíbe anularlo o descartarlo manualmente desde el módulo de Inventario (`AdjustmentFromOriginNotCancellableError`, 409).
+  - La razón: modificar o anular el ajuste a mano descuadraría irreversiblemente la diferencia de precio
+    asentada en el documento comercial de origen.
+- **Descarte y reversión controlados desde Compras:**
+  - Para descartar un ajuste de revaluación en borrador, se debe anular la factura o nota de crédito de origen
+    en Compras / Cuentas por Pagar. El sistema descarta automáticamente el ajuste borrador vinculado.
+  - Si el ajuste de revaluación ya estaba confirmado en Inventario, la anulación de la factura o nota de
+    crédito genera de inmediato un **ajuste de reversión en borrador** con el importe invertido (`* -1`),
+    preservando la trazabilidad y la fecha contable de la empresa.
+- **En la interfaz web:**
+  - El listado y detalle de ajustes muestran la insignia de origen con el correlativo del documento:
+    `Origen: FCP000015` o `Origen: NCP000006`, acompañado del aviso visual:
+    *«Origen: FCP000015 (solo aprobación; para descartar anule el origen)»*.
+  - Las acciones de «Editar» y «Anular» se ocultan, presentando únicamente el botón «Confirmar».
+
 **Confirmar**
 
 1. **Se revalida el borrador con el catálogo de hoy**: si el artículo se desactivó, se rechaza; si
@@ -372,7 +424,7 @@ Ejemplo: 40 unidades a 2,00 revaluadas a 3,00 escriben una salida de 40 a 2,00 y
 
 **Anular**
 
-- Un **borrador** solo cambia de estado.
+- Un **borrador** solo cambia de estado (si no tiene `originType`).
 - Uno **confirmado** revierte cada movimiento que escribió, del último al primero, con otro que lo
   cita (`reversal_of_id`).
 - Si la mercancía que entró **ya salió** por otro ajuste, revertir la entrada dejaría existencia
@@ -382,7 +434,7 @@ Ejemplo: 40 unidades a 2,00 revaluadas a 3,00 escriben una salida de 40 a 2,00 y
 
 **Editar**
 
-- Solo en borrador (`AdjustmentNotEditableError`).
+- Solo en borrador y sin `originType` (`AdjustmentNotEditableError`, `AdjustmentFromOriginNotEditableError`).
 - Si otra persona **confirma el ajuste mientras alguien edita el borrador**, el guardado de la
   edición se rechaza (409) en vez de devolverlo a borrador.
 

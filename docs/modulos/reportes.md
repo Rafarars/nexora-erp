@@ -8,13 +8,14 @@ Informe técnico: [`../H7-REPORTES.md`](../H7-REPORTES.md)
 
 | Submódulo | Qué es | Formatos |
 |---|---|---|
-| Tablero | Seis indicadores y dos rankings en el Panel | Pantalla |
-| Antigüedad de saldos | Lo que debe cada cliente por tramos de vencimiento | PDF y Excel |
+| Tablero | Siete indicadores y dos rankings en el Panel | Pantalla |
+| Antigüedad de saldos (cobrar) | Lo que debe cada cliente por tramos de vencimiento | PDF y Excel |
+| Antigüedad de cuentas por pagar | Lo que se debe a cada proveedor por tramos de vencimiento | PDF y Excel |
 | Estado de cuenta | Facturas y cobros de un cliente con saldo corrido | PDF (y Excel por API) |
 | Ventas por cliente | Lo facturado en un periodo, por cliente | PDF y Excel |
 | Valuación del inventario | Existencia al costo promedio, por bodega | PDF y Excel |
 
-**No tiene tablas ni escribe nada.** Lee las de Ventas, Compras, Cuentas por cobrar e Inventario por
+**No tiene tablas ni escribe nada.** Lee las de Ventas, Compras, Cuentas por cobrar, Cuentas por pagar e Inventario por
 su propio adaptador, sin importar código de esos módulos. Los reportes están fijos en el código: no
 hay reportes configurables por el usuario ni envíos programados ([FUTURE.md](../FUTURE.md)).
 
@@ -79,12 +80,20 @@ Panel con los datos de su sesión.
 | Ventas del mes | Total (con impuesto) de las facturas **emitidas** | Del 1 del mes hasta hoy |
 | Compras recibidas del mes | Cantidad × costo de las líneas de **entradas confirmadas**, redondeado por línea, **sin impuesto** | Del 1 del mes hasta hoy |
 | Cobrado en el mes | Importe de los **cobros confirmados** | Del 1 del mes hasta hoy |
-| Saldo por cobrar | Lo que deben todas las facturas emitidas | Hoy |
-| Vencido | La parte de ese saldo cuyas facturas ya vencieron | Hoy |
+| Saldo por cobrar | Lo que deben todas las facturas emitidas a clientes | Hoy |
+| Saldo por pagar | Lo que se debe a todos los proveedores por facturas de compra activas | Hoy |
+| Vencido (cobrar) | La parte del saldo por cobrar cuyas facturas ya vencieron | Hoy |
 | Valor del inventario | Existencia × costo promedio, redondeado por fila | Hoy |
 
 Además: **los 5 clientes que más deben** (con su vencido) y **los 5 artículos más vendidos del mes**
 por subtotal.
+
+**El saldo por pagar (`payableBalance`):**
+Añadido en H9. Se obtiene consumiendo el puerto **`PAYABLE_BALANCES`** (`apps/api/src/contexts/payables/domain/ledger/payable-balances.port.ts`).
+**No hace una segunda resta SQL en reporting**: el libro de cuentas por pagar ya mantiene el saldo deudor
+neto exacto tras amortizaciones de pagos y aplicaciones de notas de crédito. Por ello, la cifra que muestra
+el tablero (`DashboardSearcher.payableBalance`), el listado de facturas, la antigüedad de cuentas por pagar
+y el estado de cuenta coinciden al centavo (H9 §3.8).
 
 **Ejemplo (Globex, datos de demostración):** Talleres Omega debe 61,20 (factura de 81,20 menos un cobro
 de 20); hay 25 filtros a 8,50 → inventario 212,50.
@@ -98,11 +107,23 @@ ni deuda; la entrada sí.
 
 ---
 
-## 2. Antigüedad de saldos
+## 2. Antigüedad de saldos (Cuentas por cobrar)
 
 Idéntica a la de [Cuentas por cobrar §4](cuentas-por-cobrar.md#4-antigüedad-de-saldos): por cliente que
 debe algo, tramos **por vencer, 1–30, 31–60, 61–90 y más de 90 días**, más la fila de totales. El
 archivo lleva la empresa y la fecha de corte (`antiguedad-de-saldos-2026-09-14.xlsx`).
+
+---
+
+## 2.1 Antigüedad de cuentas por pagar
+
+Idéntica a la de [Cuentas por pagar §4](cuentas-por-pagar.md#4-antigüedad-de-cuentas-por-pagar): por
+proveedor al que se le debe algo, tramos **por vencer, 1–30, 31–60, 61–90 y más de 90 días**, más la
+fila de totales generales en la moneda de la empresa.
+
+- Disponible para descarga en PDF y Excel (`antiguedad-por-pagar-YYYY-MM-DD.pdf / .xlsx`).
+- Comparte el mismo motor de cálculo y tramos que Cuentas por pagar, garantizando cuadre estricto entre
+  la consulta operativa y el reporte gerencial.
 
 ---
 
@@ -162,14 +183,15 @@ se ve renglón por renglón.
 | Acción | Ruta | Permiso |
 |---|---|---|
 | Tablero | `GET /api/v1/reports/dashboard` | `reports.dashboard.search` |
-| Antigüedad | `GET /api/v1/reports/receivables-aging`, `…/export?format=pdf\|xlsx` | `reports.receivables.search` |
+| Antigüedad (cobrar) | `GET /api/v1/reports/receivables-aging`, `…/export?format=pdf\|xlsx` | `reports.receivables.search` |
+| Antigüedad (pagar) | `GET /api/v1/reports/payables-aging`, `…/export?format=pdf\|xlsx` | `reports.payables.search` |
 | Estado de cuenta | `GET /api/v1/reports/customers/:customerId/statement`, `…/statement/export?format=` | `reports.receivables.search` |
 | Ventas por cliente | `GET /api/v1/reports/sales-by-customer?from=&to=`, `…/export?format=&from=&to=` | `reports.sales.search` |
 | Valuación | `GET /api/v1/reports/inventory-valuation?warehouseId=`, `…/export?format=&warehouseId=` | `reports.inventory.search` |
 
 Las exportaciones responden el archivo con `Content-Type` y `Content-Disposition: attachment;
 filename="…"`. La web las descarga por `/reportes/descargar?reporte=&formato=…`, una ruta del servidor
-de Next que agrega el token y **solo reenvía las cuatro exportaciones conocidas**.
+de Next que agrega el token y **solo reenvía las exportaciones conocidas**.
 
 **Errores**
 
@@ -187,8 +209,9 @@ de Next que agrega el token y **solo reenvía las cuatro exportaciones conocidas
 
 | Ruta | Qué muestra |
 |---|---|
-| `/` (Panel) | Datos de la sesión y, con permiso, el **tablero** |
+| `/` (Panel) | Datos de la sesión y, con permiso, el **tablero** (incluye saldo por cobrar y saldo por pagar) |
 | `/reportes/antiguedad` | Tabla por cliente y tramo con totales; descargar PDF o Excel |
+| `/reportes/antiguedad-cuentas-por-pagar` | Tabla por proveedor y tramo con totales; descargar PDF o Excel |
 | `/reportes/estado-de-cuenta?cliente=` | Selector de clientes con saldo, resumen y movimientos; descargar PDF |
 | `/reportes/ventas-por-cliente?desde=&hasta=` | Fechas (por defecto el mes), tabla y totales; descargar PDF o Excel |
 | `/reportes/valuacion-inventario?bodega=` | Filtro de bodega, tabla y total; descargar PDF o Excel |
