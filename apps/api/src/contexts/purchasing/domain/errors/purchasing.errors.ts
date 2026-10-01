@@ -462,6 +462,15 @@ export class PurchaseInvoiceWithPaymentsError extends ConflictError {
   }
 }
 
+export class PurchaseInvoiceWithCreditNotesError extends ConflictError {
+  constructor(id: string) {
+    super(
+      `Purchase invoice <${id}> has applied credit notes and cannot be cancelled.`,
+      'The purchase invoice has credit notes applied and cannot be cancelled.',
+    );
+  }
+}
+
 export class InvoiceQuantityExceedsReceiptError extends ConflictError {
   constructor(receiptLineId: string, available: number, requested: number) {
     super(

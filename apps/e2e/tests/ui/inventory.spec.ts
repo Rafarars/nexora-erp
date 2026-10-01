@@ -2,6 +2,7 @@ import { expect, test } from '@playwright/test';
 import { ACCOUNTANT, ACME_ADMIN, LoginPage } from '../../pages/login.page.js';
 import { InventoryPage } from '../../pages/inventory.page.js';
 import { aFreshItem, tokenFor } from '../../support/inventory-fixtures.js';
+import { aConfirmedMerchandiseInvoice, aFreshSupplier } from '../../support/purchasing-fixtures.js';
 
 const API = process.env.API_URL ?? 'http://localhost:3001';
 
@@ -114,6 +115,39 @@ test.describe('The inventory, from the screen', () => {
 
     await expect(page.getByTestId('adjustment-action-error')).toHaveText('No hay existencia suficiente para esta salida.');
     await expect(row.getByTestId(/adjustment-status-/)).toHaveText('Borrador');
+  });
+
+  test('confirms from the screen a draft amount revaluation born from a purchase invoice and updates kardex (H-H9-4)', async ({ page, request }) => {
+    test.slow();
+    const token = await tokenFor(request, ACME_ADMIN.email, API);
+    const supplier = await aFreshSupplier(request, token, API);
+    // Entrada de 5 unidades a $10, factura a $15 -> diferencia +$25
+    const invoice = await aConfirmedMerchandiseInvoice(request, token, supplier.id, 10, 5, API, 15);
+    const item = invoice.item;
+    const label = `${item.sku} — ${item.name}`;
+
+    const inventory = new InventoryPage(page);
+    await new LoginPage(page).signIn(ACME_ADMIN);
+    await inventory.open('ajustes');
+
+    // Localizar el ajuste nacido de la factura FCP...
+    const row = inventory.adjustmentWith(invoice.code);
+    await expect(row).toBeVisible();
+    await expect(row.getByTestId(/adjustment-status-/)).toHaveText('Borrador');
+    await expect(row.getByTestId(/adjustment-lines-/)).toContainText(`Revaluación +25,00 (${invoice.code})`);
+    await expect(row.getByTestId(/adjustment-origin-hint-/)).toContainText(invoice.code);
+
+    // Confirmar desde las opciones de la fila (ejecuta AdjustmentConfirmer con revaluación por importe)
+    await inventory.act(row, 'Confirmar');
+    await expect(row.getByTestId(/adjustment-status-/)).toHaveText('Confirmado');
+
+    // Comprobar en kardex que los movimientos de revaluación se escribieron al costo nuevo (15,00)
+    await inventory.open('kardex');
+    await page.getByTestId('kardex-item').selectOption({ label });
+    await page.getByTestId('kardex-submit').click();
+    await expect(page.getByTestId('kardex-row-Principal-3')).toContainText('Ajuste');
+    await expect(page.getByTestId('kardex-row-Principal-3')).toContainText('15,00');
+    await expect(page.getByTestId('kardex-balance-Principal-3')).toHaveText('5 un');
   });
 });
 

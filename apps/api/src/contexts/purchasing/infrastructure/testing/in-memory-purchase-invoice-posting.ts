@@ -9,6 +9,7 @@ import {
   PurchaseInvoiceNotCancellableError,
   PurchaseInvoiceNotConfirmableError,
   PurchaseInvoiceNotFoundError,
+  PurchaseInvoiceWithCreditNotesError,
   PurchaseInvoiceWithPaymentsError,
 } from '../../domain/errors/purchasing.errors.js';
 import {
@@ -33,6 +34,7 @@ import { PurchaseOrderLineId } from '../../domain/order/purchase-order-line.js';
 export class InMemoryPurchaseInvoicePosting implements PurchaseInvoicePosting {
   private queue: Promise<unknown> = Promise.resolve();
   private readonly paidInvoices = new Set<string>();
+  private readonly creditedInvoices = new Set<string>();
 
   constructor(
     private readonly invoices: PurchaseInvoiceRepository,
@@ -45,6 +47,10 @@ export class InMemoryPurchaseInvoicePosting implements PurchaseInvoicePosting {
 
   registerPayment(invoiceId: string): void {
     this.paidInvoices.add(invoiceId);
+  }
+
+  registerCreditNote(invoiceId: string): void {
+    this.creditedInvoices.add(invoiceId);
   }
 
   private serial<T>(run: () => Promise<T>): Promise<T> {
@@ -281,6 +287,9 @@ export class InMemoryPurchaseInvoicePosting implements PurchaseInvoicePosting {
       }
       if (this.paidInvoices.has(invoice.id.value)) {
         throw new PurchaseInvoiceWithPaymentsError(invoice.id.value);
+      }
+      if (this.creditedInvoices.has(invoice.id.value)) {
+        throw new PurchaseInvoiceWithCreditNotesError(invoice.id.value);
       }
 
       // Revertir cantidades en ordenes

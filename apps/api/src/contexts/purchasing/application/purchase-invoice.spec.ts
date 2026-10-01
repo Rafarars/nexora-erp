@@ -15,6 +15,7 @@ import {
   PurchaseInvoiceNotConfirmableError,
   PurchaseInvoiceNotEditableError,
   PurchaseInvoiceNotFoundError,
+  PurchaseInvoiceWithCreditNotesError,
   PurchaseInvoiceWithPaymentsError,
 } from '../domain/errors/purchasing.errors.js';
 import { PurchaseInvoiceReferences } from '../domain/invoice/lines/purchase-invoice-references.js';
@@ -884,5 +885,23 @@ describe('PurchaseInvoice application services (H9 Fase 1)', () => {
     await expect(
       canceller.run({ tenantId: TENANT, invoiceId: inv.id.value }),
     ).rejects.toThrow(PurchaseInvoiceWithPaymentsError);
+  });
+
+  it('rejects cancelling a purchase invoice that has credit notes applied', async () => {
+    const inv = await creator.run({
+      tenantId: TENANT,
+      supplierId: SUPPLIER_A,
+      supplierInvoiceNumber: 'FAC-WITH-CREDIT-NOTES',
+      lines: [
+        { concept: 'Gasto operativo', quantity: 1, unitPrice: 100, taxRate: 0 },
+      ],
+    });
+    await confirmer.run({ tenantId: TENANT, invoiceId: inv.id.value });
+
+    posting.registerCreditNote(inv.id.value);
+
+    await expect(
+      canceller.run({ tenantId: TENANT, invoiceId: inv.id.value }),
+    ).rejects.toThrow(PurchaseInvoiceWithCreditNotesError);
   });
 });

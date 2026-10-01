@@ -3,6 +3,7 @@ import { DOCUMENT_STOCK_POSTING } from '../../../../shared/prisma/document-stock
 import type { DocumentStockPosting } from '../../../../shared/prisma/document-stock-posting.js';
 import { PrismaService } from '../../../../shared/prisma/prisma.service.js';
 import {
+  GoodsReceiptHasConfirmedInvoicesError,
   GoodsReceiptNotFoundError,
   InactivePurchaseItemError,
   ReceivedGoodsAlreadyUsedError,
@@ -66,6 +67,24 @@ export class PrismaReceiptPosting implements ReceiptPosting {
 
         await moveStock(() => this.stock.receive(tx, tenant, document, entries, now), header.id);
       } else if (result.stock.kind === 'reverse') {
+        const receiptLineIds = receipt.lines().map((l) => l.id.value);
+        if (receiptLineIds.length > 0) {
+          const invoicedLine = await tx.purchaseInvoiceLine.findFirst({
+            where: {
+              tenantId: tenant,
+              receiptLineId: { in: receiptLineIds },
+              invoice: {
+                status: 'confirmed',
+              },
+            },
+            select: { id: true },
+          });
+
+          if (invoicedLine) {
+            throw new GoodsReceiptHasConfirmedInvoicesError(receiptId.value);
+          }
+        }
+
         await moveStock(() => this.stock.reverse(tx, tenant, document, now), header.id);
       }
     });

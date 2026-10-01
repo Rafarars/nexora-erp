@@ -4,10 +4,13 @@ import {
   DuplicateSupplierInvoiceNumberError,
   DuplicateSupplierNameError,
   GoodsReceiptAlreadyCancelledError,
+  GoodsReceiptHasConfirmedInvoicesError,
   GoodsReceiptNotEditableError,
   GoodsReceiptNotFoundError,
   InvoiceQuantityExceedsReceiptError,
+  InvoiceReceiptNotConfirmedError,
   PurchaseItemChangedError,
+  PurchaseInvoiceWithCreditNotesError,
   PurchaseOrderNotEditableError,
   PurchaseOrderNotFoundError,
   PurchaseOrderWithReceiptsError,
@@ -903,6 +906,60 @@ export function describePurchasingPortsContract(implementation: string, createHa
         const adjs = await harness.adjustmentsOf(tenant.value, inv.id.value);
         expect(adjs.length).toBe(1);
         expect(adjs[0].status).toBe('cancelled');
+      });
+
+      it('rejects cancelling a purchase invoice that has confirmed credit notes applied (H-H9-3)', async () => {
+        const order = await confirmedOrder([anOrderLine({ quantity: 10, unitCost: 10 })]);
+        const receiptId = await draftReceipt(order, [10]);
+        await confirm(receiptId);
+        const receipt = (await ports.receipts.find(tenant, receiptId))!;
+        const receiptLine = receipt.lines()[0];
+
+        const inv = await draftInvoice({ receiptLineId: receiptLine.id.value, quantity: 10, unitPrice: 10 });
+        await ports.invoicePosting.confirm(tenant, inv.id, NOW);
+
+        await harness.attachConfirmedCreditNote(inv.id.value, 20);
+
+        await expect(ports.invoicePosting.cancel(tenant, inv.id, NOW)).rejects.toThrow(
+          PurchaseInvoiceWithCreditNotesError,
+        );
+      });
+
+      it('two simultaneous operations compete: cancelling a receipt and confirming its invoice cannot both succeed (H-H9-2)', async () => {
+        const order = await confirmedOrder([anOrderLine({ quantity: 10, unitCost: 10 })]);
+        const receiptId = await draftReceipt(order, [10]);
+        await confirm(receiptId);
+        const receipt = (await ports.receipts.find(tenant, receiptId))!;
+        const receiptLine = receipt.lines()[0];
+
+        const inv = await draftInvoice({ receiptLineId: receiptLine.id.value, quantity: 10, unitPrice: 10 });
+
+        const results = await Promise.allSettled([
+          cancel(receiptId),
+          ports.invoicePosting.confirm(tenant, inv.id, NOW),
+        ]);
+
+        const fulfilled = results.filter((r) => r.status === 'fulfilled');
+        const rejected = results.filter((r) => r.status === 'rejected');
+
+        expect(fulfilled.length).toBe(1);
+        expect(rejected.length).toBe(1);
+
+        const error = (rejected[0] as PromiseRejectedResult).reason;
+        const validError =
+          error instanceof GoodsReceiptHasConfirmedInvoicesError ||
+          error instanceof InvoiceReceiptNotConfirmedError;
+        expect(validError).toBe(true);
+
+        const finalReceipt = (await ports.receipts.find(tenant, receiptId))!;
+        const finalInvoice = (await ports.invoices.findById(tenant, inv.id))!;
+
+        if (finalReceipt.currentStatus() === 'cancelled') {
+          expect(finalInvoice.currentStatus).not.toBe('confirmed');
+        }
+        if (finalInvoice.currentStatus === 'confirmed') {
+          expect(finalReceipt.currentStatus()).toBe('confirmed');
+        }
       });
     });
 

@@ -33,6 +33,7 @@ export interface PurchasingPortsHarness {
   adjustmentsOf(tenantId: string, invoiceId: string): Promise<Array<{ id: string; code: string; status: string; type: string; lines: Array<{ itemId: string; amount: number; direction: string }> }>>;
   // Simula que parte de la mercancia salio por otro documento.
   withdraw(itemId: string, warehouseId: string, quantity: number): Promise<void>;
+  attachConfirmedCreditNote(invoiceId: string, amount: number): Promise<void>;
   reset(): Promise<void>;
   close(): Promise<void>;
 }

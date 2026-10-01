@@ -202,6 +202,62 @@ describe('revaluing what is already in the warehouse', () => {
     );
     expect(await w.kardex()).toEqual([]);
   });
+
+  it('reproduces unabsorbed excess: negative revaluation of 150 on stock worth 100', async () => {
+    const w = world();
+    // Entrada inicial: 10 unidades a 10 USD c/u = 100 USD en bodega
+    const entryId = await draft(w.store, A1, [line('in', 10, 10)]);
+    await w.confirm(entryId);
+    const entryMovement = (await w.kardex())[0];
+
+    // Revaluación por importe de -150
+    const revalLine = AdjustmentLine.of({
+      id: AdjustmentLineId.of('11111111-cccc-4ccc-8ccc-000000000099'),
+      lineNumber: 1,
+      itemId: ItemRef.of(WATER),
+      itemSku: 'PRUEBA-SKU',
+      itemName: 'Articulo de prueba',
+      unitId: UnitRef.of(PIECE),
+      direction: 'in',
+      quantity: Quantity.zero(),
+      baseQuantity: Quantity.zero(),
+      unitCost: null,
+      revaluationKind: 'amount',
+      amount: -150,
+      sourceMovementId: entryMovement.id,
+    });
+
+    const revalId = await draft(w.store, A2, [revalLine], MAIN, TODAY, 'revaluation');
+    await w.confirm(revalId);
+
+    const revalAdjustment = await w.store.find(tenant, revalId);
+    const confirmedLine = revalAdjustment?.lines()[0];
+    const kardex = await w.kardex();
+
+    // Movimientos de revaluación en kardex:
+    // Sale a 10 (10 * 10 = 100 USD de salida)
+    // Entra a 0 (10 * 0 = 0 USD de entrada)
+    // Reducción real de inventario en kardex: 100 USD
+    const outMove = kardex[1];
+    const inMove = kardex[2];
+    expect(outMove.unitCost).toBe(10);
+    expect(inMove.unitCost).toBe(0);
+
+    // En la línea del ajuste (Opción 1 implementada):
+    // stockPart se topa a -100 (el valor total que había en bodega)
+    // soldPart absorbe el exceso no absorbible: 0 + (-50) = -50
+    // Total: -100 + (-50) = -150 (cuadre contable exacto)
+    expect(confirmedLine?.stockPart).toBe(-100);
+    expect(confirmedLine?.soldPart).toBe(-50);
+    // El costo unitario nuevo queda en 0
+    expect(confirmedLine?.unitCost?.toNumber()).toBe(0);
+
+    // Comprobación de cuadre exacto con kardex:
+    const kardexAbsorbed = (inMove.quantity * (inMove.unitCost ?? 0)) - (outMove.quantity * (outMove.unitCost ?? 0));
+    expect(kardexAbsorbed).toBe(-100);
+    expect(confirmedLine?.stockPart).toBe(kardexAbsorbed);
+    expect((confirmedLine?.stockPart ?? 0) + (confirmedLine?.soldPart ?? 0)).toBe(-150);
+  });
 });
 
 describe('cancelling an adjustment', () => {

@@ -1,5 +1,6 @@
 import { ConcurrentModificationError } from '../../../../shared/domain/concurrent-modification.error.js';
 import {
+  GoodsReceiptHasConfirmedInvoicesError,
   GoodsReceiptNotEditableError,
   GoodsReceiptNotFoundError,
   PurchaseOrderNotEditableError,
@@ -51,6 +52,11 @@ export class InMemoryPurchasingStore {
   private readonly stocks = new Map<string, { quantity: number; averageCost: number }>();
   private readonly withdrawn = new Map<string, number>();
   private queue: Promise<unknown> = Promise.resolve();
+  private confirmedInvoicesChecker?: (receiptLineIds: string[]) => Promise<boolean> | boolean;
+
+  setConfirmedInvoicesChecker(fn: (receiptLineIds: string[]) => Promise<boolean> | boolean): void {
+    this.confirmedInvoicesChecker = fn;
+  }
 
   // El catalogo de la prueba hace de tabla de articulos: confirmar una orden lo lee como si lo
   // tuviera bloqueado.
@@ -418,6 +424,13 @@ export class InMemoryPurchasingStore {
           }
 
           const reversing = result.stock.kind === 'reverse' ? this.stockLines.filter((line) => line.receiptId === receipt.id.value && !line.reversed) : [];
+
+          if (result.stock.kind === 'reverse' && this.confirmedInvoicesChecker) {
+            const receiptLineIds = receipt.lines().map((l) => l.id.value);
+            if (await this.confirmedInvoicesChecker(receiptLineIds)) {
+              throw new GoodsReceiptHasConfirmedInvoicesError(receipt.id.value);
+            }
+          }
 
           // Como el inventario de verdad: no se revierte lo que ya salio.
           for (const line of reversing) {

@@ -11,6 +11,7 @@ import {
   PurchaseInvoiceNotCancellableError,
   PurchaseInvoiceNotConfirmableError,
   PurchaseInvoiceNotFoundError,
+  PurchaseInvoiceWithCreditNotesError,
   PurchaseInvoiceWithPaymentsError,
 } from '../../domain/errors/purchasing.errors.js';
 import {
@@ -456,7 +457,7 @@ export class PrismaPurchaseInvoicePosting implements PurchaseInvoicePosting {
         },
       });
       if (creditNotesApplied) {
-        throw new PurchaseInvoiceWithPaymentsError(invoice.id.value);
+        throw new PurchaseInvoiceWithCreditNotesError(invoice.id.value);
       }
 
       // Revertir cantidades en ordenes de compra

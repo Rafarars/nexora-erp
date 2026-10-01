@@ -80,11 +80,20 @@ export class AdjustmentConfirmation {
         }
 
         const currentValue = quantity.toNumber() * stock.currentAverageCost().toNumber();
-        const newValue = currentValue + stockPart;
+        let effectiveStockPart = stockPart;
+        let effectiveSoldPart = soldPart;
+
+        if (stockPart < 0 && currentValue + stockPart < 0) {
+          const unabsorbed = currentValue + stockPart;
+          effectiveStockPart = -currentValue;
+          effectiveSoldPart = soldPart + unabsorbed;
+        }
+
+        const newValue = currentValue + effectiveStockPart;
         const newCostNumber = Math.max(0, newValue / quantity.toNumber());
         const newUnitCost = UnitCost.of(newCostNumber);
 
-        line.allocateVariance(stockPart, soldPart, newUnitCost);
+        line.allocateVariance(effectiveStockPart, effectiveSoldPart, newUnitCost);
 
         const common = { lineId: line.id.value, itemId: line.itemId, warehouseId, quantity };
         return [

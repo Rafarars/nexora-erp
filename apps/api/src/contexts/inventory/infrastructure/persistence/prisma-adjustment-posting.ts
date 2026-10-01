@@ -70,6 +70,19 @@ export class PrismaAdjustmentPosting implements AdjustmentPosting {
         },
       });
 
+      for (const line of header.lines) {
+        if (line.revaluationKind === 'amount') {
+          await tx.adjustmentLine.update({
+            where: { id: line.id },
+            data: {
+              stockPart: line.stockPart,
+              soldPart: line.soldPart,
+              unitCost: line.unitCost,
+            },
+          });
+        }
+      }
+
       await writeChanges(tx, tenant, posting);
     });
   }

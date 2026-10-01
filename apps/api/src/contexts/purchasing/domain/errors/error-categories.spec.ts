@@ -69,6 +69,7 @@ const cases: Array<[DomainError, typeof DomainError]> = [
   [new errors.PurchaseInvoiceAlreadyCancelledError(ID), ConflictError],
   [new errors.PurchaseInvoiceNotCancellableError(ID, 'cancelled'), ConflictError],
   [new errors.PurchaseInvoiceWithPaymentsError(ID), ConflictError],
+  [new errors.PurchaseInvoiceWithCreditNotesError(ID), ConflictError],
   [new errors.InvoiceQuantityExceedsReceiptError(ID, 1, 2), ConflictError],
   [new errors.InvoiceQuantityExceedsOrderServiceError(ID, 1, 2), ConflictError],
   [new errors.InvoiceLinesFromDifferentSupplierError(ID, ID), InvalidArgumentError],

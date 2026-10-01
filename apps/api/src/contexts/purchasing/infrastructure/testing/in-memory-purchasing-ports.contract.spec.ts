@@ -4,6 +4,7 @@ import { InMemoryPurchasingCodeSequence } from './in-memory-purchasing-code-sequ
 import { InMemoryPurchasingStore } from './in-memory-purchasing-store.js';
 import { InMemorySupplierRepository } from './in-memory-supplier.repository.js';
 import { TENANT_A, purchasableItems, purchaseWarehouses } from '../../domain/testing/purchasing.mother.js';
+import { TenantId } from '../../domain/shared/tenant-id.vo.js';
 import { InMemoryPurchasingCatalog } from './in-memory-purchasing-catalog.js';
 
 import { InMemoryPurchaseInvoiceRepository } from './in-memory-purchase-invoice.repository.js';
@@ -32,6 +33,10 @@ class InMemoryPurchasingPortsHarness implements PurchasingPortsHarness {
     this.store.withdraw(TENANT_A, itemId, warehouseId, quantity);
   }
 
+  async attachConfirmedCreditNote(invoiceId: string, _amount: number): Promise<void> {
+    (this.current.invoicePosting as InMemoryPurchaseInvoicePosting).registerCreditNote(invoiceId);
+  }
+
   async adjustmentsOf(tenantId: string, invoiceId: string) {
     return this.revaluationPosting.adjustments
       .filter((a) => a.tenantId === tenantId && a.originType === 'purchase_invoice' && a.originId === invoiceId)
@@ -54,6 +59,11 @@ class InMemoryPurchasingPortsHarness implements PurchasingPortsHarness {
   async close(): Promise<void> {}
 
   private build(): PurchasingPorts {
+    this.store.setConfirmedInvoicesChecker(async (receiptLineIds) => {
+      const quantities = await this.invoiceRepo.invoicedQuantitiesByReceiptLine(TenantId.of(TENANT_A), receiptLineIds);
+      return Array.from(quantities.values()).some((q) => q > 0);
+    });
+
     return {
       suppliers: new InMemorySupplierRepository(),
       orders: this.store.orders,

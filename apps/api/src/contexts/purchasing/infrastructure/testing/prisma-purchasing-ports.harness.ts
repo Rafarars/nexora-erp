@@ -90,6 +90,32 @@ export class PrismaPurchasingPortsHarness implements PurchasingPortsHarness {
     await this.prisma.itemStock.updateMany({ where: { tenantId: TENANT_A, itemId, warehouseId }, data: { quantity: { decrement: quantity } } });
   }
 
+  async attachConfirmedCreditNote(invoiceId: string, amount: number): Promise<void> {
+    const inv = await this.prisma.purchaseInvoice.findUniqueOrThrow({
+      where: { id: invoiceId },
+    });
+    await this.prisma.supplierCreditNote.create({
+      data: {
+        id: `0c000000-0000-4000-8000-${Math.random().toString().slice(2, 14)}`,
+        tenantId: inv.tenantId,
+        code: `NCP${Math.floor(Math.random() * 899999 + 100000)}`,
+        supplierId: inv.supplierId,
+        invoiceId: inv.id,
+        issueDate: inv.issueDate,
+        reason: 'subsequent_discount',
+        status: 'confirmed',
+        currency: inv.currency,
+        exchangeRate: inv.exchangeRate,
+        baseCurrency: inv.baseCurrency,
+        baseExchangeRate: inv.baseExchangeRate,
+        subtotal: amount,
+        tax: 0,
+        total: amount,
+        notes: 'NCP en contrato',
+      },
+    });
+  }
+
   async reset(): Promise<void> {
     await this.prisma.supplierPaymentAllocation.deleteMany();
     await this.prisma.paymentAllocation.deleteMany();
