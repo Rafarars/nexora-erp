@@ -5,7 +5,7 @@ import { PrismaService } from '../../../../shared/prisma/prisma.service.js';
 // El arnes compone el sistema de verdad como lo hace el modulo: compras con el inventario real
 // detras de DOCUMENT_STOCK_POSTING. Es composicion de prueba, no dependencia del dominio.
 import { PrismaDocumentStockPosting } from '../../../inventory/infrastructure/persistence/prisma-document-stock-posting.js';
-import { BOX, MAIN, NORTH, PIECE, TENANT_A, TENANT_B, WATER } from '../../domain/testing/purchasing.mother.js';
+import { BOX, MAIN, NORTH, PIECE, SERVICE, TENANT_A, TENANT_B, WATER } from '../../domain/testing/purchasing.mother.js';
 import { PurchasingPorts, PurchasingPortsHarness } from '../../testing/purchasing-ports.harness.js';
 import { PrismaGoodsReceiptRepository } from '../persistence/prisma-goods-receipt.repository.js';
 import { PrismaInvoiceRevaluationPosting } from '../../../inventory/infrastructure/persistence/prisma-invoice-revaluation-posting.js';
@@ -189,6 +189,18 @@ export class PrismaPurchasingPortsHarness implements PurchasingPortsHarness {
         update: {},
       });
     }
+
+    await this.prisma.item.upsert({
+      where: { id: SERVICE },
+      create: { id: SERVICE, tenantId: TENANT_A, code: 'SRV900001', sku: 'CONTRATO-SERVICIO', name: 'Contrato servicio', type: 'service' },
+      update: {},
+    });
+
+    await this.prisma.itemUnit.upsert({
+      where: { itemId_unitId: { itemId: SERVICE, unitId: PIECE } },
+      create: { tenantId: TENANT_A, itemId: SERVICE, unitId: PIECE, conversionFactor: 1, isBase: true },
+      update: {},
+    });
   }
 
   async close(): Promise<void> {

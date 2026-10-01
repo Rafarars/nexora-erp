@@ -353,6 +353,9 @@ async function main(): Promise<void> {
   const passwordHash = await hash(PASSWORD);
 
   try {
+    // Vaciar inventario y documentos de corridas anteriores antes de limpiar usuarios,
+    // ya que ajustes creados en pruebas de integracion o E2E referencian a dichos usuarios.
+    await removeInventory(prisma);
     await removeLeftovers(prisma);
     await syncPermissions(prisma);
     await upsertTenants(prisma);
@@ -361,7 +364,7 @@ async function main(): Promise<void> {
     await upsertRoles(prisma);
     await upsertUsers(prisma, passwordHash);
     await upsertMemberships(prisma);
-    // El inventario apunta al catalogo: se vacia antes de limpiar el catalogo y se siembra
+    // El inventario apunta al catalogo: se vuelve a vaciar antes de limpiar el catalogo y se siembra
     // despues de sembrarlo.
     await removeInventory(prisma);
     await seedCatalog(prisma);
@@ -394,6 +397,27 @@ async function main(): Promise<void> {
 async function removeLeftovers(prisma: PrismaClient): Promise<void> {
   const seeded = [ANA, BETO, CONTADOR, SUPERUSER, DORA, VERA, BRUCE];
   const seededRoles = [ACME_ADMIN_ROLE, ACME_VIEWER_ROLE, GLOBEX_ADMIN_ROLE, INITECH_ADMIN_ROLE, VOLUME_ADMIN_ROLE, WAYNE_ADMIN_ROLE];
+
+  await prisma.adjustmentLine.deleteMany({
+    where: {
+      adjustment: {
+        OR: [
+          { createdBy: { notIn: seeded } },
+          { confirmedBy: { notIn: seeded } },
+          { cancelledBy: { notIn: seeded } },
+        ],
+      },
+    },
+  });
+  await prisma.adjustment.deleteMany({
+    where: {
+      OR: [
+        { createdBy: { notIn: seeded } },
+        { confirmedBy: { notIn: seeded } },
+        { cancelledBy: { notIn: seeded } },
+      ],
+    },
+  });
 
   await prisma.membership.deleteMany({ where: { userId: { notIn: seeded } } });
   await prisma.user.deleteMany({ where: { id: { notIn: seeded } } });

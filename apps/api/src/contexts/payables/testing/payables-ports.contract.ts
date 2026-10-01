@@ -1,5 +1,6 @@
 import { afterAll, afterEach, beforeEach, describe, expect, it } from 'vitest';
 import {
+  CreditNoteExceededError,
   CreditNoteLineAmountExceedsInvoiceError,
   CreditNoteLineItemMismatchError,
   InvoiceNotPayableError,
@@ -84,6 +85,17 @@ export function describePayablesPortsContract(implementation: string, createHarn
 
       await ports.payments.save(
         SupplierPayment.draft(id, tenant, `PAG${next().slice(-6)}`, { supplierId, date: PayablesDate.of(TODAY), method: 'transfer', reference: 'TRF', notes: 'contrato', allocations }, invoices, aPaymentRates(), NOW, TODAY),
+      );
+
+      return id;
+    }
+
+    async function draftCreditPayment(allocations: PaymentDetails['allocations'], creditSourceId: string, supplierId = SUPPLIER): Promise<PaymentId> {
+      const id = PaymentId.of(`d0000000-0000-4000-8000-${next()}`);
+      const invoices = await ports.ledger.invoices(tenant, { ids: allocations.map((row) => row.invoiceId) });
+
+      await ports.payments.save(
+        SupplierPayment.draft(id, tenant, `PAG${next().slice(-6)}`, { supplierId, date: PayablesDate.of(TODAY), method: 'credit_note', creditSourceId, reference: null, notes: 'pago con credito', allocations }, invoices, aPaymentRates(), NOW, TODAY),
       );
 
       return id;
@@ -582,6 +594,39 @@ export function describePayablesPortsContract(implementation: string, createHarn
         const adjs = await harness.adjustmentsOf(tenant.value, id.value);
         expect(adjs.length).toBe(1);
         expect(adjs[0].status).toBe('cancelled');
+      });
+
+      it('allows spending available credit from a credit note in a payment and rejects exceeding it (H9 §3.10)', async () => {
+        // Nota libre por 70 USD
+        const noteId = SupplierCreditNoteId.of(`c0000000-0000-4000-8000-${next()}`);
+        const note = SupplierCreditNote.draft(
+          noteId,
+          tenant,
+          `NCP${next().slice(-6)}`,
+          {
+            supplierId: SUPPLIER,
+            invoiceId: null,
+            issueDate: PayablesDate.of(TODAY),
+            reason: 'subsequent_discount',
+            currency: aPaymentRates().currency,
+            lines: [{ id: `e0000000-0000-4000-8000-${next()}`, invoiceLineId: null, concept: 'Credito comercial', quantity: 1, unitPrice: 70, taxRate: 0 }],
+          },
+          NOW,
+          TODAY,
+        );
+        await ports.creditNotes.save(note);
+        await ports.creditNotePosting.confirm(tenant, noteId, NOW, TODAY);
+
+        // Pagar 40 USD de INVOICE (que debe 100) usando el credito de la nota
+        const pay1Id = await draftCreditPayment([allocation(INVOICE, 40)], noteId.value);
+        await confirm(pay1Id);
+
+        const inv = await invoice(INVOICE);
+        expect(inv.balance()).toBe(60);
+
+        // Intentar gastar 35 mas (40 + 35 = 75 > 70 disponible de la nota) se rechaza
+        const pay2Id = await draftCreditPayment([allocation(INVOICE, 35)], noteId.value);
+        await expect(confirm(pay2Id)).rejects.toThrow(CreditNoteExceededError);
       });
 
       it('creates reverse revaluation adjustment when cancelling credit note whose adjustment was confirmed (H9 §4.1)', async () => {

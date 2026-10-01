@@ -7,6 +7,7 @@ import {
   GoodsReceiptHasConfirmedInvoicesError,
   GoodsReceiptNotEditableError,
   GoodsReceiptNotFoundError,
+  InvoiceQuantityExceedsOrderServiceError,
   InvoiceQuantityExceedsReceiptError,
   InvoiceReceiptNotConfirmedError,
   PurchaseItemChangedError,
@@ -41,7 +42,7 @@ import { Quantity } from '../domain/shared/quantity.vo.js';
 import { WarehouseRef } from '../domain/shared/references.vo.js';
 import { TenantId } from '../domain/shared/tenant-id.vo.js';
 import { Supplier, SupplierId } from '../domain/supplier/supplier.entity.js';
-import { BOX, MAIN, NOW, SUPPLIER, TENANT_A, TENANT_B, TODAY, WATER, aDocumentCurrency, anOrderLine } from '../domain/testing/purchasing.mother.js';
+import { BOX, MAIN, NOW, PIECE, SERVICE, SUPPLIER, TENANT_A, TENANT_B, TODAY, WATER, aDocumentCurrency, anOrderLine } from '../domain/testing/purchasing.mother.js';
 import { PurchasingPorts, PurchasingPortsHarness } from './purchasing-ports.harness.js';
 
 const tenant = TenantId.of(TENANT_A);
@@ -826,6 +827,159 @@ export function describePurchasingPortsContract(implementation: string, createHa
 
         reloadedOrder = (await ports.orders.find(tenant, order.id))!;
         expect(reloadedOrder.lines()[0].invoicedQuantity().toNumber()).toBe(0);
+      });
+
+      it('invoicing direct service line marks invoiced and rejects exceeding ordered (H9 §4.1)', async () => {
+        const order = await confirmedOrder([
+          anOrderLine({ item: SERVICE, unit: PIECE, quantity: 5, unitCost: 50, factor: 1 }),
+        ]);
+        const orderLine = order.lines()[0];
+
+        // Facturar 3 de 5
+        const inv1 = await draftInvoice({ orderLineId: orderLine.id.value, quantity: 3, unitPrice: 50, unitId: PIECE });
+        await ports.invoicePosting.confirm(tenant, inv1.id, NOW);
+
+        const updatedOrder = (await ports.orders.find(tenant, order.id))!;
+        expect(updatedOrder.lines()[0].invoicedQuantity().toNumber()).toBe(3);
+
+        // Intentar facturar 3 mas (3 + 3 = 6 > 5) se rechaza
+        const inv2 = await draftInvoice({
+          orderLineId: orderLine.id.value,
+          quantity: 3,
+          unitPrice: 50,
+          unitId: PIECE,
+          supplierInvoiceNumber: 'FAC-SRV-EXC',
+        });
+        await expect(ports.invoicePosting.confirm(tenant, inv2.id, NOW)).rejects.toThrow(
+          InvoiceQuantityExceedsOrderServiceError,
+        );
+      });
+
+      it('rejects invoicing goods that were already returned (H9 §3.4)', async () => {
+        const order = await confirmedOrder([anOrderLine({ quantity: 10, unitCost: 10 })]);
+        const receiptId = await draftReceipt(order, [10]);
+        await confirm(receiptId);
+        const receipt = (await ports.receipts.find(tenant, receiptId))!;
+        const receiptLine = receipt.lines()[0];
+
+        const retId = await draftReturn(receipt, [4]);
+        await confirmReturn(retId);
+
+        // Quedan 10 - 4 = 6 disponibles. Intentar facturar 7 falla
+        const inv = await draftInvoice({ receiptLineId: receiptLine.id.value, quantity: 7, unitPrice: 10 });
+        await expect(ports.invoicePosting.confirm(tenant, inv.id, NOW)).rejects.toThrow(InvoiceQuantityExceedsReceiptError);
+      });
+
+      it('covers two receipts in one invoice, and one receipt split across two invoices (H9 §3.5)', async () => {
+        const order = await confirmedOrder([anOrderLine({ quantity: 20, unitCost: 10 })]);
+        const r1Id = await draftReceipt(order, [10]);
+        await confirm(r1Id);
+        const r1 = (await ports.receipts.find(tenant, r1Id))!;
+        const r1Line = r1.lines()[0];
+
+        const r2Id = await draftReceipt(order, [10]);
+        await confirm(r2Id);
+        const r2 = (await ports.receipts.find(tenant, r2Id))!;
+        const r2Line = r2.lines()[0];
+
+        // Factura 1 cubre parte de r1 (6) y parte de r2 (4)
+        const invMulti = PurchaseInvoice.draft(
+          PurchaseInvoiceId.of(`0f100000-0000-4000-8000-${next()}`),
+          tenant,
+          `FCP${next().slice(-6)}`,
+          {
+            supplierId: SupplierId.of(SUPPLIER),
+            supplierInvoiceNumber: SupplierInvoiceNumber.of('FAC-MULTI-01'),
+            supplierInvoiceSeries: null,
+            issueDate: PurchaseDate.of(TODAY),
+            dueDate: PurchaseDate.of(TODAY),
+            currency: aDocumentCurrency(),
+            lines: [
+              PurchaseInvoiceLine.of({
+                id: `0f200000-0000-4000-8000-${next()}`,
+                lineNumber: 1,
+                receiptLineId: r1Line.id.value,
+                orderLineId: null,
+                itemId: WATER,
+                itemSku: 'PRUEBA-SKU',
+                itemName: 'Articulo prueba',
+                concept: null,
+                unitId: BOX,
+                quantity: Quantity.of(6),
+                unitPrice: 10,
+                taxRate: 0.16,
+              }),
+              PurchaseInvoiceLine.of({
+                id: `0f200000-0000-4000-8000-${next()}`,
+                lineNumber: 2,
+                receiptLineId: r2Line.id.value,
+                orderLineId: null,
+                itemId: WATER,
+                itemSku: 'PRUEBA-SKU',
+                itemName: 'Articulo prueba',
+                concept: null,
+                unitId: BOX,
+                quantity: Quantity.of(4),
+                unitPrice: 10,
+                taxRate: 0.16,
+              }),
+            ],
+            notes: 'Multiples recepciones',
+          },
+          NOW,
+          TODAY,
+        );
+        await ports.invoices.save(invMulti);
+        const confirmedMulti = await ports.invoicePosting.confirm(tenant, invMulti.id, NOW);
+        expect(confirmedMulti.currentStatus).toBe('confirmed');
+
+        // Factura 2 cubre el resto de r1 (4 unidades restantes)
+        const invSplit = await draftInvoice({
+          receiptLineId: r1Line.id.value,
+          quantity: 4,
+          unitPrice: 10,
+          supplierInvoiceNumber: 'FAC-SPLIT-02',
+        });
+        const confirmedSplit = await ports.invoicePosting.confirm(tenant, invSplit.id, NOW);
+        expect(confirmedSplit.currentStatus).toBe('confirmed');
+      });
+
+      it('confirms invoice of free expense without receipt or order (H9 §3.6)', async () => {
+        const invFree = PurchaseInvoice.draft(
+          PurchaseInvoiceId.of(`0f100000-0000-4000-8000-${next()}`),
+          tenant,
+          `FCP${next().slice(-6)}`,
+          {
+            supplierId: SupplierId.of(SUPPLIER),
+            supplierInvoiceNumber: SupplierInvoiceNumber.of('FAC-FREE-01'),
+            supplierInvoiceSeries: null,
+            issueDate: PurchaseDate.of(TODAY),
+            dueDate: PurchaseDate.of(TODAY),
+            currency: aDocumentCurrency(),
+            lines: [
+              PurchaseInvoiceLine.of({
+                id: `0f200000-0000-4000-8000-${next()}`,
+                lineNumber: 1,
+                receiptLineId: null,
+                orderLineId: null,
+                itemId: null,
+                itemSku: null,
+                itemName: 'Gasto libre de oficina',
+                concept: 'Gasto libre de oficina',
+                unitId: null,
+                quantity: Quantity.of(1),
+                unitPrice: 250,
+                taxRate: 0.16,
+              }),
+            ],
+            notes: 'Gasto libre',
+          },
+          NOW,
+          TODAY,
+        );
+        await ports.invoices.save(invFree);
+        const confirmed = await ports.invoicePosting.confirm(tenant, invFree.id, NOW);
+        expect(confirmed.currentStatus).toBe('confirmed');
       });
 
       it('two simultaneous confirms compete: exactly one succeeds and one fails without exceeding receipt quantity', async () => {
