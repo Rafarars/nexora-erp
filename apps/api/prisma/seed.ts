@@ -398,27 +398,6 @@ async function removeLeftovers(prisma: PrismaClient): Promise<void> {
   const seeded = [ANA, BETO, CONTADOR, SUPERUSER, DORA, VERA, BRUCE];
   const seededRoles = [ACME_ADMIN_ROLE, ACME_VIEWER_ROLE, GLOBEX_ADMIN_ROLE, INITECH_ADMIN_ROLE, VOLUME_ADMIN_ROLE, WAYNE_ADMIN_ROLE];
 
-  await prisma.adjustmentLine.deleteMany({
-    where: {
-      adjustment: {
-        OR: [
-          { createdBy: { notIn: seeded } },
-          { confirmedBy: { notIn: seeded } },
-          { cancelledBy: { notIn: seeded } },
-        ],
-      },
-    },
-  });
-  await prisma.adjustment.deleteMany({
-    where: {
-      OR: [
-        { createdBy: { notIn: seeded } },
-        { confirmedBy: { notIn: seeded } },
-        { cancelledBy: { notIn: seeded } },
-      ],
-    },
-  });
-
   await prisma.membership.deleteMany({ where: { userId: { notIn: seeded } } });
   await prisma.user.deleteMany({ where: { id: { notIn: seeded } } });
   await prisma.role.deleteMany({ where: { id: { notIn: seededRoles } } });

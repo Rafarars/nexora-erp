@@ -89,7 +89,7 @@ Además: **los 5 clientes que más deben** (con su vencido) y **los 5 artículos
 por subtotal.
 
 **El saldo por pagar (`payableBalance`):**
-Añadido en H9. Se obtiene consumiendo el puerto **`PAYABLE_BALANCES`** (`apps/api/src/contexts/payables/domain/ledger/payable-balances.port.ts`).
+Añadido en H9. Se obtiene consumiendo el puerto **`PAYABLE_BALANCES`** (`apps/api/src/shared/prisma/payable-balances.ts`).
 **No hace una segunda resta SQL en reporting**: el libro de cuentas por pagar ya mantiene el saldo deudor
 neto exacto tras amortizaciones de pagos y aplicaciones de notas de crédito. Por ello, la cifra que muestra
 el tablero (`DashboardSearcher.payableBalance`), el listado de facturas, la antigüedad de cuentas por pagar

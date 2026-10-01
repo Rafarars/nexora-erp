@@ -383,11 +383,14 @@ mercancía desde la secuencia del movimiento de entrada original (`movementsSinc
      directamente a costo de ventas / resultado contable, sin generar movimiento físico en kardex.
    - Si la mercancía se vendió entera antes de aprobar la revaluación, el 100% viaja a resultado y no
      se escribe ninguna fila en kardex.
-3. **Revaluación negativa que supera el valor de la bodega:**
+3. **Revaluación negativa que supera el valor de la bodega (exceso a resultado):**
    Si una rebaja de precio de una factura o nota de crédito disminuye un importe mayor al valor contable
-   total de la existencia remanente en esa bodega (`|amount| > existencia × costo_promedio`), la
-   confirmación se rechaza con `NegativeRevaluationExceedsInventoryValueError` (409 Conflict),
-   impidiendo que el inventario registre costos unitarios negativos o distorsiones contables.
+   total de la existencia remanente en esa bodega (`|stockPart| > existencia × costo_promedio`), la
+   bodega absorbe la disminución hasta agotar el valor del inventario (`effectiveStockPart = -currentValue`),
+   dejando el nuevo costo unitario en cero (`Math.max(0, ...)`). El exceso no absorbible
+   (`unabsorbed = currentValue + stockPart`) se transfiere a `soldPart` (`effectiveSoldPart = soldPart + unabsorbed`),
+   enviándose íntegramente a resultado contable. Así se mantiene la invariante fundamental de cuadre
+   `stockPart + soldPart = amount` y el movimiento de kardex refleja exactamente `stockPart`.
 
 ### 2.2.3 Ajustes con origen comercial (`originType !== null`)
 
