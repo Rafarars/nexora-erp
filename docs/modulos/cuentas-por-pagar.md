@@ -71,7 +71,7 @@ Cuando se confirma una `NCP` vinculada a una factura que tiene saldo pendiente, 
 
 ### Líneas de nota de crédito (`supplier_credit_note_lines`)
 - **`invoiceLineId`:** Identifica la línea de la factura que se rebaja. Permite rastrear la entrada original (`sourceMovementId`) y la bodega para la revaluación de inventario.
-- **Tope acumulado por línea:** La suma de rebajas aplicadas a una línea de factura (entre la nota actual y notas confirmadas previas) no puede exceder el importe total facturado en esa línea (`CumulativeDiscountExceedsLineTotalError`).
+- **Tope acumulado por línea:** La suma de rebajas aplicadas a una línea de factura (entre la nota actual y notas confirmadas previas) no puede exceder el importe total facturado en esa línea (`CreditNoteLineAmountExceedsInvoiceError`).
 - **Moneda de la rebaja:** La nota de crédito se emite en la misma moneda que la factura que rectifica.
 
 ### Selector de devoluciones elegibles

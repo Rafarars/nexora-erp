@@ -243,6 +243,7 @@ export class PrismaPayablesPortsHarness implements PayablesPortsHarness {
       warehouseId?: string;
       receiptRate?: number;
       sourceMovementId?: string;
+      withoutMovement?: boolean;
     }>,
   ): Promise<void> {
     const inv = await this.prisma.purchaseInvoice.findUniqueOrThrow({
@@ -373,35 +374,37 @@ export class PrismaPayablesPortsHarness implements PayablesPortsHarness {
           },
         });
 
-        const lastMov = await this.prisma.inventoryMovement.findFirst({
-          where: { tenantId, itemId: line.itemId, warehouseId },
-          orderBy: { sequence: 'desc' },
-          select: { sequence: true, balanceQuantity: true },
-        });
-        const seq = (lastMov?.sequence ?? 0) + 1;
-        const qty = line.quantity ?? 1;
-        const cost = line.unitPrice ?? line.subtotal;
+        if (!line.withoutMovement) {
+          const lastMov = await this.prisma.inventoryMovement.findFirst({
+            where: { tenantId, itemId: line.itemId, warehouseId },
+            orderBy: { sequence: 'desc' },
+            select: { sequence: true, balanceQuantity: true },
+          });
+          const seq = (lastMov?.sequence ?? 0) + 1;
+          const qty = line.quantity ?? 1;
+          const cost = line.unitPrice ?? line.subtotal;
 
-        const movId = line.sourceMovementId ?? crypto.randomUUID();
-        await this.prisma.inventoryMovement.create({
-          data: {
-            id: movId,
-            tenantId,
-            itemId: line.itemId,
-            warehouseId,
-            sequence: seq,
-            direction: 'in',
-            quantity: qty,
-            unitCost: cost,
-            balanceQuantity: Number(lastMov?.balanceQuantity ?? 0) + qty,
-            balanceAverageCost: cost,
-            originType: 'receipt',
-            originId: receiptId,
-            originLineId: recLineId,
-            originDate: new Date('2026-01-02'),
-            occurredAt: new Date('2026-01-02T10:00:00.000Z'),
-          },
-        });
+          const movId = line.sourceMovementId ?? crypto.randomUUID();
+          await this.prisma.inventoryMovement.create({
+            data: {
+              id: movId,
+              tenantId,
+              itemId: line.itemId,
+              warehouseId,
+              sequence: seq,
+              direction: 'in',
+              quantity: qty,
+              unitCost: cost,
+              balanceQuantity: Number(lastMov?.balanceQuantity ?? 0) + qty,
+              balanceAverageCost: cost,
+              originType: 'receipt',
+              originId: receiptId,
+              originLineId: recLineId,
+              originDate: new Date('2026-01-02'),
+              occurredAt: new Date('2026-01-02T10:00:00.000Z'),
+            },
+          });
+        }
 
         receiptLineId = recLineId;
       }

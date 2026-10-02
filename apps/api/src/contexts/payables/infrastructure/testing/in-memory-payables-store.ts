@@ -21,6 +21,7 @@ import {
   PaymentAlreadyCancelledError,
   PaymentNotEditableError,
   PaymentNotFoundError,
+  RevaluationSourceMovementNotFoundError,
 } from '../../domain/errors/payables.errors.js';
 import { PayableInvoice, PayableInvoicePrimitives } from '../../domain/ledger/payable-invoice.js';
 import { PayableInvoiceFilter, PayableSupplier, PayableSupplierFilter, PayablesLedger } from '../../domain/ledger/payables-ledger.js';
@@ -55,6 +56,7 @@ export interface InMemoryInvoiceLineInfo {
   warehouseId?: string;
   receiptRate?: number;
   sourceMovementId?: string;
+  withoutMovement?: boolean;
 }
 
 type InvoiceRow = Omit<PayableInvoicePrimitives, 'paid'> & { tenantId: string };
@@ -598,7 +600,12 @@ export class InMemoryPayablesStore {
               const warehouseId = invLine?.warehouseId ?? 'wh-001';
               const amountBase = discountCalc.lineDifferences[i].priceDifferenceBase;
 
-              const sourceMovementId = invLine?.sourceMovementId ?? `mov-${invLine?.receiptLineId ?? l.id}`;
+              const sourceMovementId = invLine?.withoutMovement
+                ? undefined
+                : (invLine?.sourceMovementId ?? `mov-${invLine?.receiptLineId ?? l.id}`);
+              if (!sourceMovementId) {
+                throw new RevaluationSourceMovementNotFoundError(invLine?.receiptLineId ?? l.invoiceLineId!);
+              }
               const whLines = revaluationsByWarehouse.get(warehouseId) ?? [];
               whLines.push({
                 lineNumber: whLines.length + 1,

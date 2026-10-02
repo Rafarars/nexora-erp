@@ -61,6 +61,7 @@ export class InMemoryPayablesPortsHarness implements PayablesPortsHarness {
       warehouseId?: string;
       receiptRate?: number;
       sourceMovementId?: string;
+      withoutMovement?: boolean;
     }>,
   ): Promise<void> {
     this.store.setInvoiceLines(
@@ -76,6 +77,7 @@ export class InMemoryPayablesPortsHarness implements PayablesPortsHarness {
         warehouseId: l.warehouseId,
         receiptRate: l.receiptRate,
         sourceMovementId: l.sourceMovementId,
+        withoutMovement: l.withoutMovement,
       })),
     );
   }

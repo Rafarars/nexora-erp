@@ -395,12 +395,12 @@ POST /api/v1/purchasing/receipts
 | `ReceiptExceedsPendingError` | 409 | La entrada supera lo pendiente |
 | `ReceivedGoodsAlreadyUsedError` | 409 | Anular una entrada cuya mercancía ya salió |
 | `PurchaseReturnNotFoundError` | 404 | La devolución no existe en esta empresa |
-| `ReturnSupplierMismatchError` | 409 | El proveedor no coincide con el de la entrada |
+| `PurchaseReturnSupplierMismatchError` | 409 | El proveedor no coincide con el de la entrada |
 | `ReturnBeforeReceiptError` | 409 | La fecha de devolución es anterior a la entrada |
-| `ReturnQuantityExceededError` | 409 | La cantidad a devolver supera lo recibido pendiente |
-| `ReturnAlreadyCancelledError` | 409 | La devolución ya está anulada |
-| `ReturnNotEditableError` | 409 | Solo se puede editar una devolución en borrador |
-| `ReturnNotConfirmableError` | 409 | Solo se puede confirmar una devolución en borrador |
+| `QuantityExceedsReceiptReturnQuotaError` | 409 | La cantidad a devolver supera lo recibido pendiente |
+| `PurchaseReturnAlreadyCancelledError` | 409 | La devolución ya está anulada |
+| `PurchaseReturnNotEditableError` | 409 | Solo se puede editar una devolución en borrador |
+| `PurchaseReturnNotConfirmableError` | 409 | Solo se puede confirmar una devolución en borrador |
 | `MissingExchangeRateError` | 409 | No hay tasa de esa moneda en la fecha del documento ni antes |
 | `RateOverrideNotAllowedError` | 409 | Tasa escrita a mano en una empresa que no lo permite |
 | `FixedExchangeRateError` | 400 | Tasa escrita a mano para la moneda de la empresa o el bolívar |

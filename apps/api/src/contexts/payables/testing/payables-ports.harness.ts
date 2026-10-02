@@ -46,6 +46,7 @@ export interface PayablesPortsHarness {
       warehouseId?: string;
       receiptRate?: number;
       sourceMovementId?: string;
+      withoutMovement?: boolean;
     }>,
   ): Promise<void>;
   adjustmentsOf(

@@ -9,6 +9,7 @@ import {
   PaymentExceedsBalanceError,
   PaymentNotEditableError,
   PaymentNotFoundError,
+  RevaluationSourceMovementNotFoundError,
 } from '../domain/errors/payables.errors.js';
 import { SupplierPayment, PaymentDetails, PaymentId } from '../domain/payment/supplier-payment.entity.js';
 import { SupplierCreditNote, SupplierCreditNoteId } from '../domain/credit-note/supplier-credit-note.entity.js';
@@ -445,6 +446,46 @@ export function describePayablesPortsContract(implementation: string, createHarn
         expect(adjs[0].lines[0].direction).toBe('out');
         expect(adjs[0].lines[0].amount).toBeCloseTo(-20 * 36.5, 2);
         expect(adjs[0].lines[0].sourceMovementId).toBeDefined();
+      });
+
+      it('rejects confirming price discount credit note if receipt line has no inventory movement', async () => {
+        const invLineId = `f0000000-0000-4000-8000-${next()}`;
+        const itemId = `f1000000-0000-4000-8000-${next()}`;
+        await harness.invoiceLines(TENANT_A, INVOICE, [
+          { id: invLineId, itemId, subtotal: 100, receiptRate: 36.5, withoutMovement: true },
+        ]);
+
+        const id = SupplierCreditNoteId.of(`c0000000-0000-4000-8000-${next()}`);
+        const note = SupplierCreditNote.draft(
+          id,
+          tenant,
+          `NCP${next().slice(-6)}`,
+          {
+            supplierId: SUPPLIER,
+            invoiceId: INVOICE,
+            issueDate: PayablesDate.of(TODAY),
+            reason: 'price_correction',
+            currency: USD_VES_RATES,
+            lines: [
+              {
+                id: `e0000000-0000-4000-8000-${next()}`,
+                invoiceLineId: invLineId,
+                itemId,
+                concept: 'Rebaja mercancia sin kardex',
+                quantity: 1,
+                unitPrice: 20,
+                taxRate: 0,
+              },
+            ],
+          },
+          NOW,
+          TODAY,
+        );
+        await ports.creditNotes.save(note);
+
+        await expect(ports.creditNotePosting.confirm(tenant, id, NOW, TODAY)).rejects.toThrow(
+          RevaluationSourceMovementNotFoundError,
+        );
       });
 
       it('computes distinct price difference and exchange difference when goods receipt and credit note have different exchange rates (H9 §3.3 y §3.10)', async () => {

@@ -368,10 +368,10 @@ confirmar, con las filas bloqueadas.
 | `SalesReturnNotFoundError` | 404 | La devolución no existe en esta empresa |
 | `ReturnCustomerMismatchError` | 409 | El cliente no coincide con el cliente del despacho |
 | `ReturnBeforeDispatchError` | 409 | La fecha de devolución es anterior al despacho |
-| `ReturnQuantityExceededError` | 409 | La cantidad a devolver supera lo despachado pendiente |
-| `ReturnAlreadyCancelledError` | 409 | La devolución ya está anulada |
-| `ReturnNotEditableError` | 409 | Solo se puede editar una devolución en borrador |
-| `ReturnNotConfirmableError` | 409 | Solo se puede confirmar una devolución en borrador |
+| `QuantityExceedsDispatchedReturnQuotaError` | 409 | La cantidad a devolver supera lo despachado pendiente |
+| `SalesReturnAlreadyCancelledError` | 409 | La devolución ya está anulada |
+| `SalesReturnNotEditableError` | 409 | Solo se puede editar una devolución en borrador |
+| `SalesReturnNotConfirmableError` | 409 | Solo se puede confirmar una devolución en borrador |
 | `InvoiceWithReturnsError` | 409 | Se intentó anular una factura con devoluciones registradas |
 | `InactiveSalesItemError` | 409 | El artículo a devolver está inactivo (al crear sin origen o confirmar en resalable con despacho) |
 | Disponibilidad | `GET /api/v1/sales/availability` | `sales.availability.search` |
