@@ -4,6 +4,7 @@ import type { TransactionClient } from '../../../../shared/prisma/document-stock
 import { RECEIVABLE_BALANCES } from '../../../../shared/prisma/receivable-balances.js';
 import type { ReceivableBalances } from '../../../../shared/prisma/receivable-balances.js';
 import { violatedUniqueFields } from '../../../../shared/prisma/unique-violation.js';
+import { DOCUMENT_ACCOUNTING_POSTING, type DocumentAccountingPosting } from '../../../../shared/prisma/document-accounting-posting.js';
 import { CustomerId } from '../../domain/customer/customer.entity.js';
 import { Dispatch, DispatchId } from '../../domain/dispatch/dispatch.entity.js';
 import { CustomerNotFoundError, DispatchAlreadyInvoicedError, InvoiceNotFoundError } from '../../domain/errors/sales.errors.js';
@@ -23,6 +24,7 @@ export class PrismaInvoicePosting implements InvoicePosting {
   constructor(
     private readonly prisma: PrismaService,
     @Inject(RECEIVABLE_BALANCES) private readonly balances: ReceivableBalances,
+    @Inject(DOCUMENT_ACCOUNTING_POSTING) private readonly accounting: DocumentAccountingPosting,
   ) {}
 
   async credit(tenantId: TenantId, customerId: CustomerId, today: SalesDate, decimals: number): Promise<CustomerCredit> {
@@ -57,6 +59,23 @@ export class PrismaInvoicePosting implements InvoicePosting {
             data: { invoicedQuantity: line.invoicedQuantity },
           });
         }
+
+        await this.accounting.post(tx, tenant, {
+          kind: 'sales-invoice-issued',
+          documentId: row.id,
+          date: asDate(issueDate),
+          customerId: order.customerId().value,
+          currency: row.currency,
+          lines: lines.map((l) => ({
+            itemId: l.itemId ?? null,
+            concept: l.itemName,
+            subtotal: Number(l.subtotal),
+            tax: Number(l.tax),
+            label: l.itemName,
+          })),
+          tax: Number(row.tax),
+          total: Number(row.total),
+        });
       });
     } catch (error) {
       // El bloqueo ya pone en fila dos emisiones; el indice parcial es la ultima palabra.
@@ -98,6 +117,13 @@ export class PrismaInvoicePosting implements InvoicePosting {
           data: { invoicedQuantity: line.invoicedQuantity },
         });
       }
+
+      await this.accounting.post(tx, tenant, {
+        kind: 'document-cancelled',
+        originType: 'sales_invoice',
+        originId: invoiceId.value,
+        date: cancelledAt ?? new Date(),
+      });
     });
   }
 

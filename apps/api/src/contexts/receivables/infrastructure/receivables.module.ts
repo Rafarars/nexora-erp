@@ -10,6 +10,7 @@ import { ID_GENERATOR } from '../../../shared/domain/ports/id-generator.js';
 import { CompanyModule } from '../../company/infrastructure/company.module.js';
 import { SharedModule } from '../../../shared/infrastructure/shared.module.js';
 import { PrismaModule } from '../../../shared/prisma/prisma.module.js';
+import { AccountingModule } from '../../accounting/infrastructure/accounting.module.js';
 import { RECEIVABLE_BALANCES } from '../../../shared/prisma/receivable-balances.js';
 import { PaymentCanceller } from '../application/cancel-payment/payment-canceller.js';
 import { PaymentConfirmer } from '../application/confirm-payment/payment-confirmer.js';
@@ -65,7 +66,7 @@ import { PrismaCreditNotePosting } from './persistence/prisma-credit-note-postin
 // El cableado de cuentas por cobrar. No importa ventas: lee sus tablas por su propio adaptador.
 // Exporta RECEIVABLE_BALANCES, lo que ventas necesita para facturar a credito y anular.
 @Module({
-  imports: [PrismaModule, SharedModule, CompanyModule],
+  imports: [PrismaModule, SharedModule, CompanyModule, AccountingModule],
   controllers: [
     SearchPaymentsGetController,
     CreatePaymentPostController,

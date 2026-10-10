@@ -12,6 +12,7 @@ import { TenantId } from '../../domain/shared/tenant-id.vo.js';
 import { PrismaSalesPortsHarness } from '../testing/prisma-sales-ports.harness.js';
 import { PrismaInvoicePosting } from './prisma-invoice-posting.js';
 import { PrismaSalesReturnsOfInvoice } from './prisma-sales-returns-of-invoice.js';
+import { PrismaDocumentAccountingPosting } from '../../../accounting/infrastructure/persistence/prisma-document-accounting-posting.js';
 
 import { MAIN, PIECE, TENANT_A, WATER } from '../../domain/testing/sales.mother.js';
 
@@ -204,7 +205,7 @@ describe('PrismaSalesReturnsOfInvoice integration', () => {
 
     // 4. Intentar anular la factura con InvoiceCanceller: debe rechazar con InvoiceWithReturnsError
     const canceller = new InvoiceCanceller(
-      new PrismaInvoicePosting(prisma, new PrismaReceivableBalances()),
+      new PrismaInvoicePosting(prisma, new PrismaReceivableBalances(), new PrismaDocumentAccountingPosting()),
       new InvoiceIssuance(),
       returnsOfInvoice,
       new SystemClock(),

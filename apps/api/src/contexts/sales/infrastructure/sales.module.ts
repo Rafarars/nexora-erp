@@ -10,6 +10,7 @@ import { ID_GENERATOR } from '../../../shared/domain/ports/id-generator.js';
 import { CompanyModule } from '../../company/infrastructure/company.module.js';
 import { SharedModule } from '../../../shared/infrastructure/shared.module.js';
 import { PrismaModule } from '../../../shared/prisma/prisma.module.js';
+import { AccountingModule } from '../../accounting/infrastructure/accounting.module.js';
 import { InventoryModule } from '../../inventory/infrastructure/inventory.module.js';
 import { ReceivablesModule } from '../../receivables/infrastructure/receivables.module.js';
 import { DispatchCanceller } from '../application/cancel-dispatch/dispatch-canceller.js';
@@ -122,7 +123,7 @@ import { PrismaSalesReturnsOfInvoice } from './persistence/prisma-sales-returns-
 // DOCUMENT_STOCK_POSTING: reservar bloquea existencias y despachar las saca. Importa cuentas por
 // cobrar solo por RECEIVABLE_BALANCES: facturar a credito y anular miran lo cobrado.
 @Module({
-  imports: [PrismaModule, SharedModule, CompanyModule, InventoryModule, ReceivablesModule],
+  imports: [PrismaModule, SharedModule, CompanyModule, InventoryModule, ReceivablesModule, AccountingModule],
   controllers: [
     SearchCustomersGetController,
     CreateCustomerPostController,

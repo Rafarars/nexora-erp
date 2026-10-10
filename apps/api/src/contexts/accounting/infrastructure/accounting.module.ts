@@ -16,8 +16,10 @@ import { GetJournalEntryGetController } from './http/get-journal-entry-get.contr
 import { SearchAccountsGetController } from './http/search-accounts-get.controller.js';
 import { SearchJournalEntriesGetController } from './http/search-journal-entries-get.controller.js';
 import { UpdateAccountPutController } from './http/update-account-put.controller.js';
+import { DOCUMENT_ACCOUNTING_POSTING } from '../../../shared/prisma/document-accounting-posting.js';
 import { PrismaAccountRepository } from './persistence/prisma-account.repository.js';
 import { PrismaAccountingCodeSequence } from './persistence/prisma-accounting-code-sequence.js';
+import { PrismaDocumentAccountingPosting } from './persistence/prisma-document-accounting-posting.js';
 import { PrismaJournalEntryRepository } from './persistence/prisma-journal-entry.repository.js';
 
 @Module({
@@ -42,6 +44,10 @@ import { PrismaJournalEntryRepository } from './persistence/prisma-journal-entry
     {
       provide: ACCOUNTING_CODE_SEQUENCE,
       useClass: PrismaAccountingCodeSequence,
+    },
+    {
+      provide: DOCUMENT_ACCOUNTING_POSTING,
+      useClass: PrismaDocumentAccountingPosting,
     },
     {
       provide: CreateAccountUseCase,
@@ -74,6 +80,7 @@ import { PrismaJournalEntryRepository } from './persistence/prisma-journal-entry
     ACCOUNT_REPOSITORY,
     JOURNAL_ENTRY_REPOSITORY,
     ACCOUNTING_CODE_SEQUENCE,
+    DOCUMENT_ACCOUNTING_POSTING,
     CreateAccountUseCase,
     UpdateAccountUseCase,
     SearchAccountsUseCase,

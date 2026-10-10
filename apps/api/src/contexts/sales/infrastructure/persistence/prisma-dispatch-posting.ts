@@ -1,6 +1,7 @@
 import { Inject, Injectable } from '@nestjs/common';
 import { DOCUMENT_STOCK_POSTING } from '../../../../shared/prisma/document-stock-posting.js';
 import type { DocumentStockPosting } from '../../../../shared/prisma/document-stock-posting.js';
+import { DOCUMENT_ACCOUNTING_POSTING, type DocumentAccountingPosting } from '../../../../shared/prisma/document-accounting-posting.js';
 import { PrismaService } from '../../../../shared/prisma/prisma.service.js';
 import { Dispatch, DispatchId } from '../../domain/dispatch/dispatch.entity.js';
 import { DispatchPosting, DispatchPostingResult } from '../../domain/dispatch/posting/dispatch-posting.js';
@@ -16,6 +17,7 @@ export class PrismaDispatchPosting implements DispatchPosting {
   constructor(
     private readonly prisma: PrismaService,
     @Inject(DOCUMENT_STOCK_POSTING) private readonly stock: DocumentStockPosting,
+    @Inject(DOCUMENT_ACCOUNTING_POSTING) private readonly accounting: DocumentAccountingPosting,
   ) {}
 
   async post(
@@ -50,8 +52,29 @@ export class PrismaDispatchPosting implements DispatchPosting {
             })),
             now,
           );
+
+          const movements = await this.stock.movementsOf(tx, tenant, 'dispatch', dispatch.id.value);
+          await this.accounting.post(tx, tenant, {
+            kind: 'goods-dispatched',
+            documentId: dispatch.id.value,
+            date: result.dispatch.toPrimitives().dispatchDate,
+            lines: movements.map((m) => ({
+              itemId: m.itemId,
+              quantity: m.quantity,
+              unitCost: m.unitCost,
+              amount: Number((m.quantity * m.unitCost).toFixed(2)),
+              label: `Artículo ${m.itemId}`,
+            })),
+          });
         } else if (result.stock.kind === 'reverse') {
           await this.stock.reverse(tx, tenant, document, now);
+
+          await this.accounting.post(tx, tenant, {
+            kind: 'document-cancelled',
+            originType: 'dispatch',
+            originId: dispatch.id.value,
+            date: now,
+          });
         }
       } catch (error) {
         // Capa anticorrupcion: revertir la salida de un despacho solo devuelve existencia y no

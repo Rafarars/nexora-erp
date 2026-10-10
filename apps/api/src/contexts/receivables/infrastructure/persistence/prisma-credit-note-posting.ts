@@ -22,6 +22,7 @@ import { CreditQuota } from '../../domain/credit-note/credit-quota.service.js';
 import { CustomerPayment, PaymentId } from '../../domain/payment/customer-payment.entity.js';
 import { RECEIVABLES_CODE_SEQUENCE, type ReceivablesCodeSequence, receivablesCode } from '../../domain/shared/code-sequence.js';
 import { TenantId } from '../../domain/shared/tenant-id.vo.js';
+import { DOCUMENT_ACCOUNTING_POSTING, type DocumentAccountingPosting } from '../../../../shared/prisma/document-accounting-posting.js';
 import { asDate, CREDIT_NOTE_INCLUDE, creditNoteFromRow, CreditNoteRow, invoiceFromRow, invoiceSelect, PAYMENT_INCLUDE, paymentFromRow, PaymentRow } from './receivables-rows.js';
 
 @Injectable()
@@ -30,6 +31,7 @@ export class PrismaCreditNotePosting implements CreditNotePosting {
     private readonly prisma: PrismaService,
     @Inject(RECEIVABLES_CODE_SEQUENCE) private readonly codes: ReceivablesCodeSequence,
     @Inject(ID_GENERATOR) private readonly ids: IdGenerator,
+    @Inject(DOCUMENT_ACCOUNTING_POSTING) private readonly accounting: DocumentAccountingPosting,
   ) {}
 
   async confirm(
@@ -259,6 +261,39 @@ export class PrismaCreditNotePosting implements CreditNotePosting {
         },
       });
 
+      const notePrim = note.toPrimitives();
+      await this.accounting.post(tx, tenant, {
+        kind: 'customer-credit-note-issued',
+        documentId: noteId.value,
+        date: notePrim.issueDate,
+        customerId: notePrim.customerId,
+        currency: notePrim.currency,
+        lines: notePrim.lines.map((l) => ({
+          itemId: l.itemId,
+          concept: l.concept ?? l.itemName ?? 'Nota de crédito',
+          subtotal: l.subtotal,
+          tax: l.tax,
+          label: l.itemName ?? l.concept ?? 'Nota de crédito',
+        })),
+        tax: notePrim.tax,
+        total: notePrim.total,
+      });
+
+      if (issuePayment) {
+        const payPrim = issuePayment.toPrimitives();
+        await this.accounting.post(tx, tenant, {
+          kind: 'payment-received',
+          documentId: payPrim.id,
+          date: payPrim.paymentDate,
+          amount: payPrim.amount,
+          allocatedAmount: payPrim.amount,
+          exchangeDifference: 0,
+          currency: payPrim.currency,
+          creditSourceId: noteId.value,
+          allocations: [],
+        });
+      }
+
       return { creditNote: note, issuePayment };
     });
   }
@@ -340,6 +375,22 @@ export class PrismaCreditNotePosting implements CreditNotePosting {
           updatedAt: now,
         },
       });
+
+      await this.accounting.post(tx, tenant, {
+        kind: 'document-cancelled',
+        originType: 'customer_credit_note',
+        originId: note.id.value,
+        date: now,
+      });
+
+      if (note.toPrimitives().issuePaymentId) {
+        await this.accounting.post(tx, tenant, {
+          kind: 'document-cancelled',
+          originType: 'customer_payment',
+          originId: note.toPrimitives().issuePaymentId!,
+          date: now,
+        });
+      }
     });
   }
 }

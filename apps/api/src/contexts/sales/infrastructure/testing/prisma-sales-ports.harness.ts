@@ -20,6 +20,8 @@ import { PrismaSalesOrderRepository } from '../persistence/prisma-sales-order.re
 import { PrismaSalesReturnCreditedChecker } from '../persistence/prisma-sales-return-credited-checker.js';
 import { PrismaSalesReturnPosting } from '../persistence/prisma-sales-return-posting.js';
 import { PrismaSalesReturnRepository } from '../persistence/prisma-sales-return.repository.js';
+import { PrismaDocumentAccountingPosting } from '../../../accounting/infrastructure/persistence/prisma-document-accounting-posting.js';
+import { seedAccountingForTenant } from '../../../accounting/infrastructure/testing/accounting-seed.helper.js';
 
 function connectionString(): string {
   const url = process.env.DATABASE_URL;
@@ -36,6 +38,8 @@ export class PrismaSalesPortsHarness implements SalesPortsHarness {
     const ids = new SequentialIdGenerator();
     const stock = new PrismaDocumentStockPosting({ next: () => `8${ids.next().slice(1)}` });
 
+    const accounting = new PrismaDocumentAccountingPosting();
+
     return {
       customers: new PrismaCustomerRepository(this.prisma),
       orders: new PrismaSalesOrderRepository(this.prisma),
@@ -43,9 +47,9 @@ export class PrismaSalesPortsHarness implements SalesPortsHarness {
       invoices: new PrismaInvoiceRepository(this.prisma),
       returns: new PrismaSalesReturnRepository(this.prisma),
       orderPosting: new PrismaSalesOrderPosting(this.prisma, stock),
-      dispatchPosting: new PrismaDispatchPosting(this.prisma, stock),
-      invoicePosting: new PrismaInvoicePosting(this.prisma, new PrismaReceivableBalances()),
-      returnPosting: new PrismaSalesReturnPosting(this.prisma, stock, new PrismaSalesReturnCreditedChecker(this.prisma)),
+      dispatchPosting: new PrismaDispatchPosting(this.prisma, stock, accounting),
+      invoicePosting: new PrismaInvoicePosting(this.prisma, new PrismaReceivableBalances(), accounting),
+      returnPosting: new PrismaSalesReturnPosting(this.prisma, stock, new PrismaSalesReturnCreditedChecker(this.prisma), accounting),
       codes: new PrismaSalesCodeSequence(this.prisma),
     };
   }
@@ -151,6 +155,7 @@ export class PrismaSalesPortsHarness implements SalesPortsHarness {
       [TENANT_B, 'contract-sales-b'],
     ]) {
       await this.prisma.tenant.upsert({ where: { id }, create: { id, name: slug, slug }, update: {} });
+      await seedAccountingForTenant(this.prisma, id);
     }
 
     const unit = (id: string, code: string, name: string, abbreviation: string) =>

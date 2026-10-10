@@ -1,6 +1,9 @@
-import { Injectable } from '@nestjs/common';
+import { Inject, Injectable } from '@nestjs/common';
+import { DOCUMENT_ACCOUNTING_POSTING, type DocumentAccountingPosting } from '../../../../shared/prisma/document-accounting-posting.js';
 import { PrismaService } from '../../../../shared/prisma/prisma.service.js';
 import { ConcurrentModificationError } from '../../../../shared/domain/concurrent-modification.error.js';
+import { amountUnits, unitsToNumber } from '../../../../shared/domain/amount.js';
+import { DocumentCurrency } from '../../../../shared/domain/document-currency.js';
 import {
   CreditNoteCurrencyMismatchError,
   CreditNoteCustomerMismatchError,
@@ -21,7 +24,10 @@ import { queryAppliedPaymentsSum } from './credit-note-applied-query.js';
 // PrismaCreditNotePosting, que siempre adquiere la nota antes que su cobro.
 @Injectable()
 export class PrismaPaymentPosting implements PaymentPosting {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    @Inject(DOCUMENT_ACCOUNTING_POSTING) private readonly accounting: DocumentAccountingPosting,
+  ) {}
 
   async post(tenantId: TenantId, paymentId: PaymentId, work: (payment: CustomerPayment, invoices: ReceivableInvoice[]) => void): Promise<void> {
     const tenant = tenantId.value;
@@ -103,6 +109,77 @@ export class PrismaPaymentPosting implements PaymentPosting {
 
       for (const allocation of allocations) {
         await tx.paymentAllocation.update({ where: { id: allocation.id }, data: { exchangeRate: allocation.exchangeRate, exchangeDifference: allocation.exchangeDifference } });
+      }
+
+      if (status === 'confirmed') {
+        const prim = payment.toPrimitives();
+        const settings = await tx.companySettings.findUnique({ where: { tenantId: tenant } });
+        const decimals = settings?.amountDecimals ?? 2;
+        const docCurrency = DocumentCurrency.fromPrimitives(prim);
+        const baseAmountPaid = unitsToNumber(docCurrency.baseAmount(amountUnits(prim.amount), decimals));
+
+        if (prim.creditSourceId) {
+          await this.accounting.post(tx, tenant, {
+            kind: 'payment-received',
+            documentId: paymentId.value,
+            date: prim.paymentDate,
+            amount: baseAmountPaid,
+            allocatedAmount: baseAmountPaid,
+            exchangeDifference: 0,
+            currency: prim.baseCurrency,
+            creditSourceId: prim.creditSourceId,
+            allocations: [],
+          });
+        } else {
+          let totalAllocatedBaseUnits = 0n;
+
+          for (const a of allocations) {
+            const invRow = await tx.invoice.findUnique({
+              where: { tenantId_id: { tenantId: tenant, id: a.invoiceId } },
+              select: { currency: true, exchangeRate: true, baseCurrency: true, baseExchangeRate: true, manualExchangeRate: true },
+            });
+
+            if (invRow) {
+              const invCurrency = DocumentCurrency.fromPrimitives({
+                currency: invRow.currency,
+                exchangeRate: invRow.exchangeRate ? Number(invRow.exchangeRate) : null,
+                baseCurrency: invRow.baseCurrency,
+                baseExchangeRate: invRow.baseExchangeRate ? Number(invRow.baseExchangeRate) : null,
+                manualExchangeRate: invRow.manualExchangeRate,
+              });
+              totalAllocatedBaseUnits += invCurrency.baseAmount(amountUnits(a.amount), decimals);
+            } else {
+              totalAllocatedBaseUnits += docCurrency.baseAmount(amountUnits(a.amount), decimals);
+            }
+          }
+
+          const baseAllocatedAmount = unitsToNumber(totalAllocatedBaseUnits);
+          const diffUnits = totalAllocatedBaseUnits - amountUnits(baseAmountPaid);
+          const baseExchangeDiff = unitsToNumber(diffUnits);
+
+          await this.accounting.post(tx, tenant, {
+            kind: 'payment-received',
+            documentId: paymentId.value,
+            date: prim.paymentDate,
+            amount: baseAmountPaid,
+            allocatedAmount: baseAllocatedAmount,
+            exchangeDifference: baseExchangeDiff,
+            currency: prim.baseCurrency,
+            creditSourceId: null,
+            allocations: allocations.map((a) => ({
+              invoiceId: a.invoiceId,
+              amount: a.amount,
+              exchangeDifference: a.exchangeDifference ?? 0,
+            })),
+          });
+        }
+      } else if (status === 'cancelled') {
+        await this.accounting.post(tx, tenant, {
+          kind: 'document-cancelled',
+          originType: 'customer_payment',
+          originId: paymentId.value,
+          date: cancelledAt ?? new Date(),
+        });
       }
     });
   }

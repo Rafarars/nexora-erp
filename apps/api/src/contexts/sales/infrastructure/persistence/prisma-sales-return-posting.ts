@@ -1,6 +1,7 @@
 import { Inject, Injectable } from '@nestjs/common';
 import { DOCUMENT_STOCK_POSTING } from '../../../../shared/prisma/document-stock-posting.js';
 import type { DocumentStockPosting } from '../../../../shared/prisma/document-stock-posting.js';
+import { DOCUMENT_ACCOUNTING_POSTING, type DocumentAccountingPosting } from '../../../../shared/prisma/document-accounting-posting.js';
 import { PrismaService } from '../../../../shared/prisma/prisma.service.js';
 import {
   DispatchLineNotFoundError,
@@ -29,6 +30,7 @@ export class PrismaSalesReturnPosting implements SalesReturnPosting {
     private readonly prisma: PrismaService,
     @Inject(DOCUMENT_STOCK_POSTING) private readonly stock: DocumentStockPosting,
     @Inject(SALES_RETURN_CREDITED_CHECKER) private readonly creditedChecker: SalesReturnCreditedChecker,
+    @Inject(DOCUMENT_ACCOUNTING_POSTING) private readonly accounting: DocumentAccountingPosting,
   ) {}
 
   async confirm(tenantId: TenantId, returnId: SalesReturnId, now: Date): Promise<SalesReturn> {
@@ -190,6 +192,21 @@ export class PrismaSalesReturnPosting implements SalesReturnPosting {
           }
           throw error;
         }
+
+        await this.accounting.post(tx, tenant, {
+          kind: 'goods-returned',
+          documentId: returnEntity.id.value,
+          date: returnEntity.date().value,
+          side: 'customer',
+          lines: returnEntity.lines().map((l) => ({
+            itemId: l.itemId.value,
+            quantity: l.baseQuantity.toNumber(),
+            unitCost: l.unitCost ?? 0,
+            amount: Number((l.baseQuantity.toNumber() * (l.unitCost ?? 0)).toFixed(2)),
+            restoresMovementId: l.restoresMovementId,
+            label: `Artículo ${l.itemId.value}`,
+          })),
+        });
       }
 
       return returnEntity;
@@ -225,6 +242,13 @@ export class PrismaSalesReturnPosting implements SalesReturnPosting {
           },
           now,
         );
+
+        await this.accounting.post(tx, tenant, {
+          kind: 'document-cancelled',
+          originType: 'sales_return',
+          originId: returnEntity.id.value,
+          date: now,
+        });
       }
 
       returnEntity.cancel(now);

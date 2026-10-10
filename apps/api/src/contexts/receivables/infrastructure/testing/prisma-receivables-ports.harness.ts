@@ -14,6 +14,8 @@ import { PrismaCreditNotePosting } from '../persistence/prisma-credit-note-posti
 
 import { IdGenerator } from '../../../../shared/domain/ports/id-generator.js';
 import { SalesReturnWithCreditNoteError } from '../../../sales/domain/errors/sales.errors.js';
+import { PrismaDocumentAccountingPosting } from '../../../accounting/infrastructure/persistence/prisma-document-accounting-posting.js';
+import { seedAccountingForTenant } from '../../../accounting/infrastructure/testing/accounting-seed.helper.js';
 
 const WAREHOUSE: Record<string, string> = { [TENANT_A]: 'b7111111-1111-4111-8111-111111111111', [TENANT_B]: 'b7222222-2222-4222-8222-222222222222' };
 
@@ -36,14 +38,15 @@ export class PrismaReceivablesPortsHarness implements ReceivablesPortsHarness {
   ports(): ReceivablesPorts {
     const codes = new PrismaReceivablesCodeSequence(this.prisma);
     const ids: IdGenerator = { next: () => crypto.randomUUID() };
+    const accounting = new PrismaDocumentAccountingPosting();
 
     return {
       payments: new PrismaPaymentRepository(this.prisma),
-      posting: new PrismaPaymentPosting(this.prisma),
+      posting: new PrismaPaymentPosting(this.prisma, accounting),
       ledger: new PrismaReceivablesLedger(this.prisma),
       codes,
       creditNotes: new PrismaCustomerCreditNoteRepository(this.prisma),
-      creditNotePosting: new PrismaCreditNotePosting(this.prisma, codes, ids),
+      creditNotePosting: new PrismaCreditNotePosting(this.prisma, codes, ids, accounting),
     };
   }
 
@@ -204,11 +207,7 @@ export class PrismaReceivablesPortsHarness implements ReceivablesPortsHarness {
     ]) {
       await this.prisma.tenant.upsert({ where: { id }, create: { id, name: slug, slug }, update: {} });
       await this.prisma.warehouse.upsert({ where: { id: WAREHOUSE[id] }, create: { id: WAREHOUSE[id], tenantId: id, code: 'BOD970001', name: 'Contrato cobranza' }, update: {} });
-      await this.prisma.companySettings.upsert({
-        where: { tenantId: id },
-        create: { tenantId: id, baseCurrency: 'USD', timeZone: 'UTC', amountDecimals: 2, priceDecimals: 2, rateType: 'legal', updatedAt: new Date() },
-        update: { amountDecimals: 2 },
-      });
+      await seedAccountingForTenant(this.prisma, id);
     }
   }
 
