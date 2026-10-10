@@ -160,6 +160,13 @@ export const PAYABLES_PERMISSIONS: PermissionDefinition[] = [
   { code: 'payables.creditnotes.cancel', description: 'Anular notas de crédito de proveedores' },
 ];
 
+export const ACCOUNTING_PERMISSIONS: PermissionDefinition[] = [
+  { code: 'accounting.accounts.search', description: 'Consultar el plan de cuentas' },
+  { code: 'accounting.accounts.create', description: 'Crear cuentas en el plan de cuentas' },
+  { code: 'accounting.accounts.update', description: 'Editar cuentas en el plan de cuentas' },
+  { code: 'accounting.accounts.deactivate', description: 'Desactivar y reactivar cuentas' },
+];
+
 export const REPORTS_PERMISSIONS: PermissionDefinition[] = [
   { code: 'reports.dashboard.search', description: 'Ver el tablero con los indicadores del mes' },
   { code: 'reports.receivables.search', description: 'Ver y exportar la antigüedad de saldos y los estados de cuenta' },
@@ -176,6 +183,7 @@ export const SYSTEM_PERMISSIONS: PermissionDefinition[] = [
   ...SALES_PERMISSIONS,
   ...RECEIVABLES_PERMISSIONS,
   ...PAYABLES_PERMISSIONS,
+  ...ACCOUNTING_PERMISSIONS,
   ...REPORTS_PERMISSIONS,
 ];
 

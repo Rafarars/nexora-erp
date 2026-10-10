@@ -10,6 +10,7 @@ import { visibleReportSections } from '@/modules/reports/domain/reports-sections
 import { visibleReceivablesSections } from '@/modules/receivables/domain/receivables-sections';
 import { visiblePayablesSections } from '@/modules/payables/domain/payables-sections';
 import { visibleSalesSections } from '@/modules/sales/domain/sales-sections';
+import { visibleAccountingSections } from '@/modules/accounting/domain/accounting-sections';
 import { requireSession } from '@/shared/session/current-session';
 
 // La sesion se pide al servidor en cada navegacion: si le quitan un rol a alguien,
@@ -32,6 +33,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
             showSales={visibleSalesSections(session).length > 0}
             showReceivables={visibleReceivablesSections(session).length > 0}
             showPayables={visiblePayablesSections(session).length > 0}
+            showAccounting={visibleAccountingSections(session).length > 0}
             showReports={visibleReportSections(session).length > 0}
           />
         </div>

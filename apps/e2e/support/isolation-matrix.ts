@@ -38,6 +38,7 @@ export const GLOBEX = {
   confirmedSupplierPaymentId: 'fc000000-0000-4000-8000-000000000102',
   draftSupplierCreditNoteId: 'fd000000-0000-4000-8000-000000000101',
   confirmedSupplierCreditNoteId: 'fd000000-0000-4000-8000-000000000102',
+  accountId: 'd27ecf7f-a81c-492e-af31-1dfb9aaff063',
 };
 
 export const ACME = {
@@ -865,6 +866,20 @@ export const ISOLATION_CASES: IsolationCase[] = [
     title: 'read eligible purchase returns for an invoice of another tenant',
     method: 'get',
     path: `/api/v1/payables/invoices/${GLOBEX.confirmedPurchaseInvoiceId}/eligible-returns`,
+  },
+  {
+    route: 'PUT /api/v1/accounting/accounts/:id',
+    title: 'update an account of another tenant',
+    method: 'put',
+    path: `/api/v1/accounting/accounts/${GLOBEX.accountId}`,
+    body: { name: 'Nombre adulterado' },
+  },
+  {
+    route: 'PUT /api/v1/accounting/accounts/:id/status',
+    title: 'change status of an account of another tenant',
+    method: 'put',
+    path: `/api/v1/accounting/accounts/${GLOBEX.accountId}/status`,
+    body: { isActive: false },
   },
 ];
 

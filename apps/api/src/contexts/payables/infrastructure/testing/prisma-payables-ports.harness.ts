@@ -14,6 +14,7 @@ import { ClockBusinessCalendar } from '../../../../shared/infrastructure/testing
 import { SystemClock } from '../../../../shared/infrastructure/system-clock.js';
 import { PrismaInvoiceRevaluationPosting } from '../../../inventory/infrastructure/persistence/prisma-invoice-revaluation-posting.js';
 import { PrismaInventoryCodeSequence } from '../../../inventory/infrastructure/persistence/prisma-inventory-code-sequence.js';
+import { TENANT_A, TENANT_B } from '../../domain/testing/payables.mother.js';
 
 function connectionString(): string {
   const url = process.env.DATABASE_URL;
@@ -540,6 +541,13 @@ export class PrismaPayablesPortsHarness implements PayablesPortsHarness {
     await this.prisma.adjustment.deleteMany();
     await this.prisma.inventoryMovement.updateMany({ data: { reversalOfId: null, restoresMovementId: null } });
     await this.prisma.inventoryMovement.deleteMany();
+
+    for (const [id, slug] of [
+      [TENANT_A, 'contract-payables-a'],
+      [TENANT_B, 'contract-payables-b'],
+    ]) {
+      await this.prisma.tenant.upsert({ where: { id }, create: { id, name: slug, slug }, update: {} });
+    }
   }
 
   async close(): Promise<void> {

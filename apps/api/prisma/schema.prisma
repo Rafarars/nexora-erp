@@ -58,6 +58,9 @@ model Tenant {
   supplierPaymentAllocations SupplierPaymentAllocation[]
   supplierCreditNotes     SupplierCreditNote[]
   supplierCreditNoteLines SupplierCreditNoteLine[]
+  accounts                Account[]
+  journalEntries          JournalEntry[]
+  journalLines            JournalEntryLine[]
   profile          CompanyProfile?
   settings         CompanySettings?
   exchangeRates    ExchangeRate[]
@@ -229,6 +232,22 @@ model CompanySettings {
   priceDecimals      Int              @map("price_decimals")
   rateType           ExchangeRateType @default(legal) @map("rate_type")
   allowsRateOverride Boolean          @default(true) @map("allows_rate_override")
+  inventoryAccountId                  String?          @map("inventory_account_id") @db.Uuid
+  cogsAccountId                       String?          @map("cogs_account_id") @db.Uuid
+  salesRevenueAccountId               String?          @map("sales_revenue_account_id") @db.Uuid
+  taxPayableAccountId                 String?          @map("tax_payable_account_id") @db.Uuid
+  receivablesAccountId                String?          @map("receivables_account_id") @db.Uuid
+  payablesAccountId                   String?          @map("payables_account_id") @db.Uuid
+  cashAccountId                       String?          @map("cash_account_id") @db.Uuid
+  inventoryAdjustmentAccountId        String?          @map("inventory_adjustment_account_id") @db.Uuid
+  unappliedCreditNotesAccountId       String?          @map("unapplied_credit_notes_account_id") @db.Uuid
+  unappliedSupplierCreditNotesAccountId String?        @map("unapplied_supplier_credit_notes_account_id") @db.Uuid
+  unbilledGoodsAccountId              String?          @map("unbilled_goods_account_id") @db.Uuid
+  priceDifferenceAccountId            String?          @map("price_difference_account_id") @db.Uuid
+  purchaseExpenseAccountId            String?          @map("purchase_expense_account_id") @db.Uuid
+  pendingPriceDifferenceAccountId     String?          @map("pending_price_difference_account_id") @db.Uuid
+  exchangeDifferenceAccountId         String?          @map("exchange_difference_account_id") @db.Uuid
+  openingEquityAccountId              String?          @map("opening_equity_account_id") @db.Uuid
   updatedAt          DateTime         @map("updated_at")
 
   tenant    Tenant    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
@@ -294,6 +313,10 @@ model Category {
   name        String   @db.VarChar(150)
   description String?
   isActive    Boolean  @default(true) @map("is_active")
+  inventoryAccountId       String?  @map("inventory_account_id") @db.Uuid
+  cogsAccountId            String?  @map("cogs_account_id") @db.Uuid
+  salesRevenueAccountId    String?  @map("sales_revenue_account_id") @db.Uuid
+  purchaseExpenseAccountId String?  @map("purchase_expense_account_id") @db.Uuid
   createdAt   DateTime @default(now()) @map("created_at")
   updatedAt   DateTime @updatedAt @map("updated_at")
 
@@ -445,6 +468,10 @@ model Item {
   /// pueden estar en varias: el precio de la linea se convierte antes de comparar.
   minPrice      Decimal? @map("min_price") @db.Decimal(18, 6)
   isActive    Boolean  @default(true) @map("is_active")
+  inventoryAccountId       String?  @map("inventory_account_id") @db.Uuid
+  cogsAccountId            String?  @map("cogs_account_id") @db.Uuid
+  salesRevenueAccountId    String?  @map("sales_revenue_account_id") @db.Uuid
+  purchaseExpenseAccountId String?  @map("purchase_expense_account_id") @db.Uuid
   createdAt   DateTime @default(now()) @map("created_at")
   updatedAt   DateTime @updatedAt @map("updated_at")
 
@@ -1753,3 +1780,89 @@ model SupplierCreditNoteLine {
   @@index([tenantId, invoiceLineId])
   @@map("supplier_credit_note_lines")
 }
+
+// ---------------------------------------------------------------- contabilidad
+//
+
+enum AccountType {
+  asset
+  liability
+  equity
+  income
+  expense
+}
+
+/// Una cuenta del plan. Las de grupo agrupan y no admiten movimientos.
+model Account {
+  id             String      @id @db.Uuid
+  tenantId       String      @map("tenant_id") @db.Uuid
+  code           String      @db.VarChar(20)
+  name           String      @db.VarChar(120)
+  type           AccountType
+  /// Sólo las hojas reciben asientos. Un asiento contra una cuenta de grupo
+  /// descuadraría la balanza sin que nadie lo note.
+  acceptsEntries Boolean     @map("accepts_entries")
+  parentId       String?     @map("parent_id") @db.Uuid
+  isActive       Boolean     @default(true) @map("is_active")
+
+  tenant   Tenant             @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  parent   Account?           @relation("AccountTree", fields: [parentId], references: [id])
+  children Account[]          @relation("AccountTree")
+  lines    JournalEntryLine[]
+
+  @@unique([tenantId, id])
+  @@unique([tenantId, code])
+  @@index([tenantId, parentId])
+  @@map("accounts")
+}
+
+/// Un asiento. Nace cuadrado y no se edita: anular genera otro que lo revierte.
+model JournalEntry {
+  id           String   @id @db.Uuid
+  tenantId     String   @map("tenant_id") @db.Uuid
+  code         String   @db.VarChar(12)
+  entryDate    DateTime @map("entry_date") @db.Date
+  /// De qué documento nació, para poder volver a él desde la balanza.
+  originType   String   @map("origin_type") @db.VarChar(30)
+  originId     String   @map("origin_id") @db.Uuid
+  description  String   @db.VarChar(200)
+  currency     String   @db.Char(3)
+  reversalOfId String?  @map("reversal_of_id") @db.Uuid
+
+  tenant     Tenant             @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  lines      JournalEntryLine[]
+  reversalOf JournalEntry?      @relation("JournalReversal", fields: [reversalOfId], references: [id])
+  reversedBy JournalEntry?      @relation("JournalReversal")
+
+  /// Igual que el kardex: un asiento se revierte una sola vez.
+  @@unique([reversalOfId])
+  @@unique([tenantId, id])
+  @@unique([tenantId, code])
+  @@index([tenantId, originType, originId])
+  @@index([tenantId, entryDate])
+  @@map("journal_entries")
+}
+
+model JournalEntryLine {
+  id        String  @id @db.Uuid
+  tenantId  String  @map("tenant_id") @db.Uuid
+  entryId   String  @map("entry_id") @db.Uuid
+  accountId String  @map("account_id") @db.Uuid
+  /// Uno de los dos es cero. Nunca los dos a la vez, nunca negativos.
+  /// Invariante dura en la migración SQL (ARCHITECTURE.md:247):
+  /// CHECK ((debit > 0 AND credit = 0) OR (credit > 0 AND debit = 0))
+  /// CHECK (debit >= 0 AND credit >= 0)
+  debit     Decimal @db.Decimal(18, 4)
+  credit    Decimal @db.Decimal(18, 4)
+  label     String  @db.VarChar(200)
+
+  tenant  Tenant       @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  entry   JournalEntry @relation(fields: [entryId], references: [id], onDelete: Cascade)
+  account Account      @relation(fields: [accountId], references: [id])
+
+  @@unique([tenantId, id])
+  @@index([tenantId, entryId])
+  @@index([tenantId, accountId])
+  @@map("journal_entry_lines")
+}
+

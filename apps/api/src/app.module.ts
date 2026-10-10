@@ -11,8 +11,9 @@ import { SalesModule } from './contexts/sales/infrastructure/sales.module.js';
 import { PurchasingModule } from './contexts/purchasing/infrastructure/purchasing.module.js';
 import { InventoryModule } from './contexts/inventory/infrastructure/inventory.module.js';
 import { PayablesModule } from './contexts/payables/infrastructure/payables.module.js';
+import { AccountingModule } from './contexts/accounting/infrastructure/accounting.module.js';
 
 @Module({
-  imports: [ConfigModule, SharedModule, HealthModule, AccessModule, CompanyModule, CatalogModule, InventoryModule, PurchasingModule, SalesModule, ReceivablesModule, PayablesModule, ReportingModule],
+  imports: [ConfigModule, SharedModule, HealthModule, AccessModule, CompanyModule, CatalogModule, InventoryModule, PurchasingModule, SalesModule, ReceivablesModule, PayablesModule, AccountingModule, ReportingModule],
 })
 export class AppModule {}

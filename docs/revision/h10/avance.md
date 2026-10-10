@@ -37,4 +37,25 @@
   - `make verify`: 1/6 secrets verde, 2/6 lint verde, 3/6 typecheck verde, 4/6 unit verde, 5/6 contract verde, 6/6 e2e verde (527 passed).
 - **Estado**: Completada.
 
+### Fase 1 — Plan de cuentas y catalogo contable
+- **Objetivo**: Crear el modelo de datos de contabilidad (`Account`, `JournalEntry`, `JournalEntryLine`), las 16 cuentas por omision en `CompanySettings`, 4 en `Item` y 4 en `Category`, el catalogo canónico de 39 cuentas sembrado, el contexto hexagonal `accounting` para cuentas y la pantalla `/contabilidad/cuentas`.
+- **Archivos creados y adaptados**:
+  - `apps/api/prisma/schema.prisma` y migracion `20261014000000_create_accounting_context`: modelos contables con CHECK constraints en base de datos.
+  - `apps/api/prisma/seed.ts`: siembra de catalogo de 39 cuentas por omision para cada tenant y vinculacion en `CompanySettings`.
+  - `apps/api/src/contexts/accounting/domain/`: entidad `Account`, enum `AccountType`, errores de dominio `AccountingError`.
+  - `apps/api/src/contexts/accounting/application/`: puerto `AccountRepository`, use cases `CreateAccountUseCase`, `UpdateAccountUseCase`, `SearchAccountsUseCase`.
+  - `apps/api/src/contexts/accounting/infrastructure/`: `PrismaAccountRepository`, `InMemoryAccountRepository`, controladores HTTP con permisos y guards.
+  - `apps/api/src/contexts/accounting/accounting.module.ts`: registrado en `app.module.ts`.
+  - `apps/api/src/contexts/access/domain/role/permissions.catalog.ts`: permisos `accounting:accounts:read`, `accounting:accounts:create`, `accounting:accounts:update`.
+  - `apps/web/src/modules/accounting/`: cliente HTTP, tipos y helpers.
+  - `apps/web/src/sections/accounting/` y `apps/web/src/app/(app)/contabilidad/cuentas/`: arbol jerarquico de cuentas, buscador, panel de edicion (`useEditingDraft`), alta y cambio de estado.
+  - `apps/e2e/pages/accounting.page.ts` y `apps/e2e/tests/ui/accounting.spec.ts`: POM y pruebas de interfaz de usuario.
+  - `apps/e2e/support/isolation-matrix.ts`: casos de aislamiento multi-inquilino para las rutas de cuentas.
+- **Evidencias de verificacion**:
+  - `pnpm --filter api test`: 191 test files passed, 3932 tests passed.
+  - `DATABASE_URL=... pnpm --filter api test:integration`: 15 test files passed, 317 tests passed.
+  - `pnpm --filter web test`: 25 test files passed, 236 tests passed.
+  - `make verify`: 1/6 secrets verde, 2/6 lint verde, 3/6 typecheck verde, 4/6 unit verde, 5/6 contract verde, 6/6 e2e verde (532 passed).
+- **Estado**: Completada.
+
 ---

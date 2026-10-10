@@ -8,6 +8,7 @@ import {
   SALES_PERMISSIONS,
   RECEIVABLES_PERMISSIONS,
   PAYABLES_PERMISSIONS,
+  ACCOUNTING_PERMISSIONS,
   REPORTS_PERMISSIONS,
   SYSTEM_PERMISSIONS,
 } from './permissions.catalog.js';
@@ -64,6 +65,10 @@ describe('permissions catalog', () => {
     expect(code.startsWith('payables.')).toBe(true);
   });
 
+  it.each(ACCOUNTING_PERMISSIONS)('$code belongs to the accounting context', ({ code }) => {
+    expect(code.startsWith('accounting.')).toBe(true);
+  });
+
   it.each(REPORTS_PERMISSIONS)('$code belongs to the reports context', ({ code }) => {
     expect(code.startsWith('reports.')).toBe(true);
   });
@@ -78,6 +83,7 @@ describe('permissions catalog', () => {
       ...SALES_PERMISSIONS,
       ...RECEIVABLES_PERMISSIONS,
       ...PAYABLES_PERMISSIONS,
+      ...ACCOUNTING_PERMISSIONS,
       ...REPORTS_PERMISSIONS,
     ]);
   });
