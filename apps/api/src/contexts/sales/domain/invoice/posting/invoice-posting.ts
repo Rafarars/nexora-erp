@@ -8,6 +8,16 @@ import { Invoice, InvoiceId } from '../invoice.entity.js';
 
 export const INVOICE_POSTING = Symbol('InvoicePosting');
 
+export interface InvoicePostingResult {
+  invoice: Invoice;
+  order: SalesOrder;
+}
+
+export interface InvoiceCancelResult {
+  invoice: Invoice;
+  order: SalesOrder;
+}
+
 // Emitir bloquea el despacho, su pedido y el cliente, en ese orden, y lee ya bloqueados si el
 // despacho tiene factura y cuanto debe el cliente: dos emisiones del mismo despacho, o dos a
 // credito del mismo cliente, van en fila. La base respalda la primera regla con un indice unico
@@ -17,14 +27,18 @@ export interface InvoicePosting {
   // `decimals`: los de la empresa, con los que se redondea lo que debe cada factura.
   credit(tenantId: TenantId, customerId: CustomerId, today: SalesDate, decimals: number): Promise<CustomerCredit>;
   // `origin` es el despacho, o el pedido cuando la factura nace sin despacho porque todo lo que
-  // vende son servicios. El trabajo devuelve la factura y deja el pedido con lo facturado al dia.
+  // vende son servicios. El trabajo devuelve la factura y el pedido con lo facturado al dia.
   issue(
     tenantId: TenantId,
     origin: { dispatchId: DispatchId; orderId?: undefined } | { dispatchId?: undefined; orderId: SalesOrderId },
     today: SalesDate,
     decimals: number,
-    work: (dispatch: Dispatch | null, order: SalesOrder, alreadyInvoiced: boolean, credit: CustomerCredit) => Invoice,
+    work: (dispatch: Dispatch | null, order: SalesOrder, alreadyInvoiced: boolean, credit: CustomerCredit) => InvoicePostingResult,
   ): Promise<void>;
   // Anular bloquea la factura y su pedido: devolver lo facturado exige el pedido bloqueado.
-  cancel(tenantId: TenantId, invoiceId: InvoiceId, work: (invoice: Invoice, order: SalesOrder, paid: number) => Promise<void> | void): Promise<void>;
+  cancel(
+    tenantId: TenantId,
+    invoiceId: InvoiceId,
+    work: (invoice: Invoice, order: SalesOrder, paid: number) => Promise<InvoiceCancelResult> | InvoiceCancelResult,
+  ): Promise<void>;
 }

@@ -92,9 +92,9 @@ resolver antes de contabilizar nada:
 | Contexto | Cómo publica hoy | Qué hace falta |
 |---|---|---|
 | `purchasing` | Su puerto devuelve un resultado **declarativo** `{ recibo, orden, existencia }`, donde la existencia es una *instrucción* que el adaptador ejecuta | **Un campo más**: el asiento como otra instrucción |
-| `sales` | Su puerto devuelve **la entidad**; el efecto sobre el pedido se aplica mutando dentro del servicio | **Alinear con el patrón de compras**, o escribir el asiento en el adaptador |
+| `sales` | `DispatchPosting` ya devuelve un resultado declarativo `{ dispatch, order, stock }` desde H8, pero `InvoicePosting.issue` y `SalesOrderPosting` devuelven la entidad y el efecto sobre el pedido se aplica mutando en el servicio | **Alinear InvoicePosting y SalesOrderPosting con el patrón declarativo**, o escribir el asiento en el adaptador |
 
-**Recomendación: alinear ventas con compras**, y hacerlo como fase propia antes de contabilizar.
+**Recomendación: alinear ventas con compras**, y hacerlo como fase propia antes de contabilizar (Fase 0).
 Es refactor sobre código cubierto por pruebas, que es la clase de refactor barata, y deja los
 cuatro flujos con la misma forma. Escribir el asiento en el adaptador sería más rápido hoy y peor
 después: pondría una regla de negocio en infraestructura, justo lo que la convención prohíbe.
@@ -164,10 +164,11 @@ grupo y termina en la empresa.
 | **Gasto de compras** | Factura de compra de servicios o gastos, y la nota de crédito que la rebaja |
 | **Diferencia de precio pendiente** | La factura o `NCP` que deja la diferencia de precio, y la revaluación por importe que la reparte al aprobarse (H9 §3.3) |
 | **Diferencia en cambio** | Lo que separan dos tasas: factura de compra contra sus entradas, cobro y pago contra sus facturas (§2.8) |
+| **Patrimonio de apertura** | Asiento de apertura para cuadrar saldos vivos iniciales (§3.13) |
 
-*Las dos últimas se añadieron el 28-sep-2026, con H9 §3.3.*
+*Las tres últimas se añadieron tras H9 y la validación multiagente (§3.13 y H9 §3.3).*
 
-**Las cinco en negrita faltaban**, y su ausencia no era cosmética: §2.5 rechaza la operación cuando
+**Las ocho en negrita faltaban**, y su ausencia no era cosmética: §2.5 rechaza la operación cuando
 ninguna cuenta resuelve, así que el cobro por nota de crédito —que §3.6 ya nombraba— **habría sido
 imposible de registrar**.
 
@@ -463,11 +464,27 @@ al aprobarse. El evento dice cuál de los dos casos es y trae el reparto (§4.4)
 
 El mismo asiento con debe y haber intercambiados, citando al original (§2.6).
 
+### 3.13 Asiento de apertura a fecha de corte
+
+Generado por la fase 5b para empresas que arrancan con saldos vivos heredados de los hitos anteriores
+sin asientos contables previos:
+
+| | Cuenta | Importe |
+|---|---|---|
+| Debe | Inventario | Valuación del inventario en bodega al costo promedio |
+| Debe | Clientes por cobrar | Suma de saldos vivos de facturas por cobrar a sus tasas históricas |
+| Haber | Proveedores por pagar | Suma de saldos vivos de facturas de compra por pagar a sus tasas |
+| Haber o Debe | **Patrimonio de apertura** | El neto patrimonial que equilibra la ecuación contable (Activo − Pasivo = Patrimonio) |
+
+**Contrapartida patrimonial obligatoria.** Sin esta cuenta transitoria de patrimonio (estándar en
+Odoo y ERPNext como *Opening Balance Equity*), es imposible registrar los saldos iniciales porque
+los activos operativos heredados no igualan a los pasivos. La balanza cuadra exacto desde el día cero.
+
 ## 4. El esqueleto
 
 ### 4.1 Un contexto nuevo: `accounting`
 
-Con `domain/`, `application/` e `infrastructure/`, como los ocho que ya hay. **No importa los otros
+Con `domain/`, `application/` e `infrastructure/`, como los nueve que ya hay. **No importa los otros
 contextos**: recibe lo que necesita por sus puertos, igual que `reporting`.
 
 ### 4.2 Base de datos
@@ -486,7 +503,12 @@ model Account {
   parentId   String?     @map("parent_id") @db.Uuid
   isActive   Boolean     @default(true) @map("is_active")
 
+  parent   Account?  @relation("AccountTree", fields: [parentId], references: [id])
+  children Account[] @relation("AccountTree")
+  lines    JournalEntryLine[]
+
   @@unique([tenantId, code])
+  @@index([tenantId, parentId])
 }
 
 enum AccountType { asset liability equity income expense }
@@ -518,20 +540,28 @@ model JournalEntryLine {
   entryId   String  @map("entry_id") @db.Uuid
   accountId String  @map("account_id") @db.Uuid
   /// Uno de los dos es cero. Nunca los dos a la vez, nunca negativos.
+  /// Invariante dura en la migración SQL (ARCHITECTURE.md:247):
+  /// CHECK ((debit > 0 AND credit = 0) OR (credit > 0 AND debit = 0))
+  /// CHECK (debit >= 0 AND credit >= 0)
   debit     Decimal @db.Decimal(18, 4)
   credit    Decimal @db.Decimal(18, 4)
   label     String  @db.VarChar(200)
+
+  entry   JournalEntry @relation(fields: [entryId], references: [id], onDelete: Cascade)
+  account Account      @relation(fields: [accountId], references: [id])
+
+  @@index([tenantId, entryId])
+  @@index([tenantId, accountId])
 }
 ```
 
-**Y las cuentas por omisión de la empresa**, quince columnas nullable en la configuración que ya
+**Y las cuentas por omisión de la empresa**, dieciséis columnas nullable en la configuración que ya
 existe, **una por cada fila de §2.5**: inventario, costo de ventas, ingresos, impuesto por pagar,
 clientes, proveedores, caja, ajuste de inventario, notas de crédito por aplicar, notas de crédito de
 proveedor por aplicar, mercancía por facturar, diferencia de precio de compra, gasto de compras,
-**diferencia de precio pendiente y diferencia en cambio** (las dos últimas, añadidas el 28-sep-2026
-con H9 §3.3).
+diferencia de precio pendiente, diferencia en cambio y **patrimonio de apertura** (§3.13).
 
-**Corregido el 22-sep-2026: decía ocho**, las de la primera versión, y las cinco cuentas nuevas no
+**Corregido el 22-sep-2026: decía ocho**, las de la primera versión, y las cuentas nuevas no
 tenían dónde configurarse. Como §2.5 rechaza lo que no resuelve, **toda entrada de mercancía se
 habría rechazado**, porque su asiento necesita «Mercancía por facturar».
 
@@ -554,16 +584,42 @@ la precedencia no baja a buscarlas: no existe «clientes por cobrar» distinto p
 ```ts
 export const ACCOUNTING_POSTING = Symbol('AccountingPosting');
 
-// Los otros contextos no conocen cuentas: entregan lo que pasó y reciben una instrucción
-// que su propio adaptador escribe dentro de su transaccion.
+// La instruccion declarativa que contabilidad devuelve al contexto llamante para que
+// su propio adaptador la persista dentro de su transaccion (Fase 0).
+export type JournalInstruction = {
+  entry: {
+    code: string;
+    entryDate: ReportDate;
+    originType: string;
+    originId: string;
+    description: string;
+    currency: string;
+  };
+  lines: {
+    accountId: string;
+    debit: Money;
+    credit: Money;
+    label: string;
+  }[];
+};
+
 export interface AccountingPosting {
   entryFor(tenantId: TenantId, event: AccountingEvent): Promise<JournalInstruction>;
 }
 
 // Las lineas llevan el articulo: sin el, contabilidad no puede resolver la cuenta por precedencia.
+// Si es servicio o gasto libre sin articulo del catalogo (H9 §3.6), itemId es null y trae concept.
 export type CostedLine = { itemId: string; quantity: Quantity; unitCost: Money };
-export type PricedLine = { itemId: string; subtotal: Money; tax: Money };
+export type AdjustedStockLine = CostedLine & { direction: 'in' | 'out' };
+export type PricedLine = { itemId: string | null; concept?: string; subtotal: Money; tax: Money };
 export type ReturnedLine = CostedLine & { restoresMovementId: string | null };
+
+// Desglose de amortizaciones en cobros y pagos para saldar facturas y asentar diferencia en cambio (§3.5, §3.8).
+export type PaymentAllocation = {
+  invoiceId: string;
+  amount: Money;            // amortizado en moneda del cobro/pago
+  exchangeDifference: Money; // diferencia en cambio calculada vs tasa de origen de la factura
+};
 
 // Lo que sale de PurchasePriceDifference (H9 §5.3), igual en la factura y en la nota del proveedor.
 // Invariante: baseCost + priceDifference + exchangeDifference + servicios = subtotal, a sus tasas.
@@ -587,16 +643,17 @@ export type AccountingEvent =
   | { kind: 'goods-dispatched'; documentId: string; date: ReportDate; lines: CostedLine[] }
   | { kind: 'sales-invoice-issued'; documentId: string; date: ReportDate; customerId: string; lines: PricedLine[] }
   | { kind: 'purchase-invoice-confirmed'; documentId: string; date: ReportDate; supplierId: string; pricing: PurchasePricing }
-  | { kind: 'payment-received'; documentId: string; date: ReportDate; method: PaymentMethod; amount: Money }
-  | { kind: 'payment-made'; documentId: string; date: ReportDate; method: PaymentMethod; amount: Money }
+  | { kind: 'payment-received'; documentId: string; date: ReportDate; method: PaymentMethod; amount: Money; exchangeDifference: Money; allocations: PaymentAllocation[] }
+  | { kind: 'payment-made'; documentId: string; date: ReportDate; method: PaymentMethod; amount: Money; exchangeDifference: Money; allocations: PaymentAllocation[] }
   | { kind: 'customer-credit-note-issued'; documentId: string; date: ReportDate; customerId: string; lines: PricedLine[] }
   // Si acredita una devolucion, trae su costo; si rebaja el precio, no: el asiento es distinto (§3.9).
   | { kind: 'supplier-credit-note-issued'; documentId: string; date: ReportDate; supplierId: string; pricing: PurchasePricing; creditsReturn: { returnId: string; returnedCost: Money } | null }
   // Solo las lineas que movieron kardex: una devolucion scrap no publica nada (H8 §4.1).
   | { kind: 'goods-returned'; documentId: string; date: ReportDate; side: 'customer' | 'supplier'; lines: ReturnedLine[] }
-  | { kind: 'stock-adjusted'; documentId: string; date: ReportDate; reason: AdjustmentType; origin: 'manual'; lines: CostedLine[] }
+  | { kind: 'stock-adjusted'; documentId: string; date: ReportDate; reason: AdjustmentType; origin: 'manual'; lines: AdjustedStockLine[] }
   // Una linea por articulo: sin el articulo no se resuelve la cuenta de inventario (§2.5).
   | { kind: 'purchase-price-revalued'; documentId: string; date: ReportDate; lines: { itemId: string; split: RevaluationSplit }[] }
+  | { kind: 'opening-balance'; documentId: string; date: ReportDate; inventoryTotal: Money; receivablesTotal: Money; payablesTotal: Money; equityTotal: Money }
   | { kind: 'document-cancelled'; originType: string; originId: string; date: ReportDate };
 ```
 
@@ -636,8 +693,8 @@ debe no iguala la del haber, hay un defecto. Esa comprobación es una prueba, no
 ## 5. Fases
 
 - [ ] **0. Alinear ventas con el patrón declarativo de compras** (§2.3). Concretamente: que
-      `InvoicePosting.issue`, `DispatchPosting` y `SalesOrderPosting` dejen de devolver la entidad
-      y devuelvan un resultado con sus instrucciones, como hace `ReceiptPostingResult`. El efecto
+      `InvoicePosting.issue` y `SalesOrderPosting` dejen de devolver la entidad
+      y devuelvan un resultado con sus instrucciones, como ya hacen `ReceiptPostingResult` y `DispatchPostingResult`. El efecto
       sobre el pedido deja de aplicarse mutando dentro del servicio. **Refactor con las pruebas
       existentes como red; sin comportamiento nuevo.**
 - [ ] **1. Plan de cuentas** — entidad, reglas, API y pantalla. Un maestro más, como Categorías.
@@ -650,8 +707,9 @@ debe no iguala la del haber, hay un defecto. Esa comprobación es una prueba, no
 - [ ] **5. Balanza de comprobación** — con la prueba de que el total cuadra.
 - [ ] **5b. Asientos de apertura** — el sistema lleva nueve hitos de operaciones **sin asiento**:
       inventario en bodega, facturas por cobrar, facturas por pagar. Sin esto la balanza arranca
-      describiendo una empresa que no existe. Una operación que genera el asiento de apertura por
-      cada saldo vivo a una fecha de corte, y **la decisión de desde cuándo se contabiliza**. Los
+      describiendo una empresa que no existe. La operación §3.13 genera el asiento de apertura mediante
+      el evento `opening-balance` (§4.4) por cada saldo vivo a una fecha de corte, equilibrando
+      activos y pasivos contra la cuenta **Patrimonio de apertura** (§2.5). Los
       saldos se leen por los puertos que ya los calculan en un solo sitio —`RECEIVABLE_BALANCES`
       (H6), `PAYABLE_BALANCES` (H9 §5.3) y la valuación del kardex—: recalcularlos aquí sería la
       segunda resta que H9 prohíbe.
@@ -673,7 +731,7 @@ debe no iguala la del haber, hay un defecto. Esa comprobación es una prueba, no
 | §2.4.1 | **Facturar antes de despachar**: la factura lleva sólo ingreso, y el despacho posterior lleva el costo. Entre las dos, ni se pierde ni se duplica |
 | §2.4.1 | Una factura de sólo servicios lleva asiento de ingreso y **ninguno** de costo |
 | §3.1 y §3.4 | Recibir y luego facturar deja **«Mercancía por facturar» en cero** |
-| §3.4 | Factura **más cara** y **más barata** que el costo de entrada: la puente queda en cero **con la factura**, y la «Diferencia de precio pendiente» queda en cero **al aprobar** la revaluación, con la mercancía en bodega, vendida y repartida entre las dos: los seis casos cuadran |
+| §3.4 | Factura **más cara** y **más barata** que el costo de entrada: la puente queda en cero **con la factura**, y la «Diferencia de precio pendiente» queda en cero **al aprobar** la revaluación, en la matriz completa de seis casos (más cara / más barata × bodega / vendida / repartida): los seis casos cuadran |
 | §3.4 y §3.11 | 10 a 100, factura 110, se venden 6 antes de aprobar: la aprobación lleva 40 a Inventario y 60 a Diferencia de precio de compra |
 | §2.8 | Una factura de compra, un cobro y un pago a tasa distinta del documento que saldan: la diferencia va a «Diferencia en cambio» y la cuenta del tercero queda en cero |
 | §3.4 | Una factura de sólo servicios sin cuenta de gasto en el artículo ni en la categoría resuelve la de la empresa |
@@ -686,6 +744,7 @@ debe no iguala la del haber, hay un defecto. Esa comprobación es una prueba, no
 | §2.5 | Con la cuenta en el artículo gana el artículo; sin ella gana la categoría; sin ninguna, la empresa; sin nada, **se rechaza la operación** |
 | §2.6 | Anular genera un reverso y el original **sigue ahí**; no se puede revertir dos veces |
 | §3.6 | Un cobro con forma `credit_note` **no toca caja** |
+| §3.13 | **Asiento de apertura**: saldos vivos de inventario, cuentas por cobrar y por pagar cuadran al centavo contra Patrimonio de apertura sin descuadre en la balanza |
 | §4.5 | La balanza cuadra después de una tanda de operaciones de todos los tipos |
 
 ---

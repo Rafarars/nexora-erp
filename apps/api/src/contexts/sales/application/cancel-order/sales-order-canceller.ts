@@ -13,6 +13,9 @@ export class SalesOrderCanceller {
   async run(request: { tenantId: string; orderId: string }): Promise<void> {
     const now = this.clock.now();
 
-    await this.posting.post(TenantId.of(request.tenantId), SalesOrderId.of(request.orderId), (order) => order.cancel(now));
+    await this.posting.post(TenantId.of(request.tenantId), SalesOrderId.of(request.orderId), (order) => {
+      order.cancel(now);
+      return order;
+    });
   }
 }

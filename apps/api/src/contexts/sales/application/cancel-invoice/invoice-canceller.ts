@@ -26,7 +26,7 @@ export class InvoiceCanceller {
       const returnsCount = await this.returnsOfInvoice.countConfirmedReturnsOf(tenantId, orderLineIds);
       if (returnsCount > 0) throw new InvoiceWithReturnsError(request.invoiceId);
 
-      this.issuance.cancel(invoice, order, paid, now);
+      return this.issuance.cancel(invoice, order, paid, now);
     });
   }
 }

@@ -9,7 +9,7 @@ import { Dispatch, DispatchId } from '../../domain/dispatch/dispatch.entity.js';
 import { CustomerNotFoundError, DispatchAlreadyInvoicedError, InvoiceNotFoundError } from '../../domain/errors/sales.errors.js';
 import { CustomerCredit } from '../../domain/invoice/credit/customer-credit.js';
 import { Invoice, InvoiceId } from '../../domain/invoice/invoice.entity.js';
-import { InvoicePosting } from '../../domain/invoice/posting/invoice-posting.js';
+import { InvoiceCancelResult, InvoicePosting, InvoicePostingResult } from '../../domain/invoice/posting/invoice-posting.js';
 import { SalesOrder, SalesOrderId } from '../../domain/order/sales-order.entity.js';
 import { SalesDate } from '../../domain/shared/sales-date.vo.js';
 import { TenantId } from '../../domain/shared/tenant-id.vo.js';
@@ -34,7 +34,7 @@ export class PrismaInvoicePosting implements InvoicePosting {
     origin: { dispatchId?: DispatchId; orderId?: SalesOrderId },
     today: SalesDate,
     decimals: number,
-    work: (dispatch: Dispatch | null, order: SalesOrder, alreadyInvoiced: boolean, credit: CustomerCredit) => Invoice,
+    work: (dispatch: Dispatch | null, order: SalesOrder, alreadyInvoiced: boolean, credit: CustomerCredit) => InvoicePostingResult,
   ): Promise<void> {
     const tenant = tenantId.value;
 
@@ -44,13 +44,14 @@ export class PrismaInvoicePosting implements InvoicePosting {
         const locked = origin.dispatchId ? await lockDispatch(tx, tenant, origin.dispatchId.value) : null;
         const order = await lockOrder(tx, tenant, locked ? locked.dispatch.orderId.value : origin.orderId!.value);
         const credit = await this.creditOf(tx, tenant, order.customerId().value, today.value, decimals, true);
-        const { lines, issueDate, dueDate, ...row } = work(locked?.dispatch ?? null, order, locked?.invoiced ?? false, credit).toPrimitives();
+        const result = work(locked?.dispatch ?? null, order, locked?.invoiced ?? false, credit);
+        const { lines, issueDate, dueDate, ...row } = result.invoice.toPrimitives();
 
         await tx.invoice.create({ data: { ...row, issueDate: asDate(issueDate), dueDate: asDate(dueDate) } });
         await tx.invoiceLine.createMany({ data: lines.map((line) => ({ ...line, tenantId: tenant, invoiceId: row.id })) });
 
         // Emitir consume saldo del pedido: lo facturado sube en cada linea que entro a la factura.
-        for (const line of order.toPrimitives().lines) {
+        for (const line of result.order.toPrimitives().lines) {
           await tx.salesOrderLine.update({
             where: { tenantId_id: { tenantId: tenant, id: line.id } },
             data: { invoicedQuantity: line.invoicedQuantity },
@@ -70,7 +71,7 @@ export class PrismaInvoicePosting implements InvoicePosting {
   async cancel(
     tenantId: TenantId,
     invoiceId: InvoiceId,
-    work: (invoice: Invoice, order: SalesOrder, paid: number) => Promise<void> | void,
+    work: (invoice: Invoice, order: SalesOrder, paid: number) => Promise<InvoiceCancelResult> | InvoiceCancelResult,
   ): Promise<void> {
     const tenant = tenantId.value;
 
@@ -85,13 +86,13 @@ export class PrismaInvoicePosting implements InvoicePosting {
       const order = await lockOrder(tx, tenant, invoice.orderId().value);
 
       // Un cobro que se confirma bloquea sus facturas: con esta bloqueada, lo cobrado no cambia.
-      await work(invoice, order, await this.balances.paidOf(tx, tenant, invoiceId.value));
+      const result = await work(invoice, order, await this.balances.paidOf(tx, tenant, invoiceId.value));
 
-      const { status, cancelledAt, updatedAt } = invoice.toPrimitives();
+      const { status, cancelledAt, updatedAt } = result.invoice.toPrimitives();
 
       await tx.invoice.update({ where: { tenantId_id: { tenantId: tenant, id: invoiceId.value } }, data: { status, cancelledAt, updatedAt } });
 
-      for (const line of order.toPrimitives().lines) {
+      for (const line of result.order.toPrimitives().lines) {
         await tx.salesOrderLine.update({
           where: { tenantId_id: { tenantId: tenant, id: line.id } },
           data: { invoicedQuantity: line.invoicedQuantity },

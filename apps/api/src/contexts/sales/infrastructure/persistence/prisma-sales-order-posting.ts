@@ -22,7 +22,7 @@ export class PrismaSalesOrderPosting implements SalesOrderPosting {
     @Inject(DOCUMENT_STOCK_POSTING) private readonly stock: DocumentStockPosting,
   ) {}
 
-  async post(tenantId: TenantId, orderId: SalesOrderId, work: (order: SalesOrder, availability: StockAvailability) => void): Promise<void> {
+  async post(tenantId: TenantId, orderId: SalesOrderId, work: (order: SalesOrder, availability: StockAvailability) => SalesOrder): Promise<void> {
     const tenant = tenantId.value;
 
     await this.prisma.$transaction(async (tx) => {
@@ -56,7 +56,7 @@ export class PrismaSalesOrderPosting implements SalesOrderPosting {
         return row ? Quantity.fromUnits(BigInt(row.units)) : Quantity.zero();
       };
 
-      work(order, {
+      const updatedOrder = work(order, {
         onHand: (itemId) => Quantity.of(Math.max(0, onHand.get(`${itemId.value}|${warehouseId}`) ?? 0)),
         reservedByOthers: (itemId) => reservedOf(itemId.value),
         item: (itemId) => {
@@ -66,7 +66,7 @@ export class PrismaSalesOrderPosting implements SalesOrderPosting {
         },
       });
 
-      await writeOrderState(tx, order);
+      await writeOrderState(tx, updatedOrder);
     });
   }
 }

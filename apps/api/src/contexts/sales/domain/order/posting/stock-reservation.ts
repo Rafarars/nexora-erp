@@ -11,7 +11,7 @@ import { StockAvailability } from './stock-availability.js';
 // Confirmar un pedido reserva lo que pide. Disponible es lo que hay menos lo que ya reservaron
 // otros pedidos; varias lineas del mismo articulo se suman. Si algo no cabe, no se confirma nada.
 export class StockReservation {
-  confirm(order: SalesOrder, availability: StockAvailability, now: Date): void {
+  confirm(order: SalesOrder, availability: StockAvailability, now: Date): SalesOrder {
     ensureLinesMatchCatalog(order, availability);
 
     for (const [itemId, required] of order.reservedByItem()) {
@@ -26,6 +26,7 @@ export class StockReservation {
     }
 
     order.confirm(now);
+    return order;
   }
 }
 

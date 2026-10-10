@@ -249,7 +249,7 @@ export class InMemorySalesStore {
 
           if (!order) throw new SalesOrderNotFoundError(orderId.value);
 
-          work(order, {
+          const updatedOrder = work(order, {
             onHand: (itemId, warehouseId) => Quantity.of(Math.max(0, this.stockOf(tenantId.value, itemId.value, warehouseId.value))),
             reservedByOthers: (itemId, warehouseId) =>
               [...this.orderRows.values()]
@@ -269,7 +269,7 @@ export class InMemorySalesStore {
                 : null;
             },
           });
-          this.orderRows.set(order.id.value, structuredClone(order.toPrimitives()));
+          this.orderRows.set(updatedOrder.id.value, structuredClone(updatedOrder.toPrimitives()));
         }),
     };
   }
@@ -356,11 +356,11 @@ export class InMemorySalesStore {
           const orderId = dispatch ? dispatch.orderId.value : origin.orderId!.value;
           const order = this.loadOrder(tenantId, orderId) as SalesOrder;
           const credit = await this.credit(tenantId, order.customerId().value, today.value, decimals);
-          const invoice = work(dispatch, order, dispatch ? this.invoiced(tenantId.value, dispatch.id.value) : false, credit);
+          const result = work(dispatch, order, dispatch ? this.invoiced(tenantId.value, dispatch.id.value) : false, credit);
 
-          this.invoiceRows.set(invoice.id.value, invoice.toPrimitives());
+          this.invoiceRows.set(result.invoice.id.value, result.invoice.toPrimitives());
           // Emitir consume saldo del pedido, como en la base.
-          this.orderRows.set(order.id.value, order.toPrimitives());
+          this.orderRows.set(result.order.id.value, result.order.toPrimitives());
         }),
       cancel: (tenantId, invoiceId, work) =>
         this.serial(async () => {
@@ -370,9 +370,9 @@ export class InMemorySalesStore {
 
           const order = this.loadOrder(tenantId, invoice.orderId().value) as SalesOrder;
 
-          await work(invoice, order, this.paid.get(invoice.id.value) ?? 0);
-          this.invoiceRows.set(invoice.id.value, invoice.toPrimitives());
-          this.orderRows.set(order.id.value, order.toPrimitives());
+          const result = await work(invoice, order, this.paid.get(invoice.id.value) ?? 0);
+          this.invoiceRows.set(result.invoice.id.value, result.invoice.toPrimitives());
+          this.orderRows.set(result.order.id.value, result.order.toPrimitives());
         }),
     };
   }

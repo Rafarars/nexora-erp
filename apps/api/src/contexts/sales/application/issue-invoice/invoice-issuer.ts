@@ -80,7 +80,7 @@ export class InvoiceIssuer {
       }, now, today.value);
 
       // Emitir consume saldo del pedido: sin eso, un servicio se cobraria en cada despacho.
-      return this.issuance.apply(invoice, currentOrder, current, now).invoice;
+      return this.issuance.apply(invoice, currentOrder, current, now);
     };
 
     issue(salesCode('FAC', 0), dispatch, order.copy(), dispatch ? await this.invoices.issuedForDispatch(tenantId, dispatch.id) : false);

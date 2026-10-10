@@ -19,8 +19,9 @@ export class InvoiceIssuance {
 
   // Anular devuelve lo facturado a cada linea del pedido: sin eso, un servicio de una factura
   // anulada no se podria volver a cobrar nunca.
-  cancel(invoice: Invoice, order: SalesOrder, paid: number, now: Date): void {
+  cancel(invoice: Invoice, order: SalesOrder, paid: number, now: Date): { invoice: Invoice; order: SalesOrder } {
     invoice.cancel(now, paid);
     order.uninvoiceLines(invoice.invoicedLines(), now);
+    return { invoice, order };
   }
 }

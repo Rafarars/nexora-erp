@@ -8,5 +8,5 @@ export const SALES_ORDER_POSTING = Symbol('SalesOrderPosting');
 // existencias de sus articulos en su bodega. Dos pedidos que reservan el mismo articulo esperan
 // en fila y el segundo ve lo que el primero reservo. `work` es sincrono y puro.
 export interface SalesOrderPosting {
-  post(tenantId: TenantId, orderId: SalesOrderId, work: (order: SalesOrder, availability: StockAvailability) => void): Promise<void>;
+  post(tenantId: TenantId, orderId: SalesOrderId, work: (order: SalesOrder, availability: StockAvailability) => SalesOrder): Promise<void>;
 }

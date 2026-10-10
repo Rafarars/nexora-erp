@@ -22,6 +22,7 @@ import {
   SalesReturnNotEditableError,
 } from '../domain/errors/sales.errors.js';
 import { Invoice, InvoiceId } from '../domain/invoice/invoice.entity.js';
+import { InvoiceIssuance } from '../domain/invoice/posting/invoice-issuance.js';
 import { StockReservation } from '../domain/order/posting/stock-reservation.js';
 import { SalesOrderLine } from '../domain/order/sales-order-line.js';
 import { SalesOrder, SalesOrderId } from '../domain/order/sales-order.entity.js';
@@ -109,8 +110,8 @@ export function describeSalesPortsContract(implementation: string, createHarness
     const confirmDispatch = (id: DispatchId) => ports.dispatchPosting.post(tenant, id, (d, o) => new DispatchConfirmation().apply(d, o, NOW));
     const cancelDispatch = (id: DispatchId) => ports.dispatchPosting.post(tenant, id, (d, o, invoiced) => new DispatchCancellation().apply(d, o, invoiced, NOW));
     const issue = (id: DispatchId, date = TODAY) =>
-      ports.invoicePosting.issue(tenant, { dispatchId: id }, SalesDate.of(TODAY), 2, (dispatch, order, alreadyInvoiced, credit) =>
-        Invoice.issue(InvoiceId.of(`5f000000-0000-4000-8000-${next()}`), tenant, `FAC${next().slice(-6)}`, {
+      ports.invoicePosting.issue(tenant, { dispatchId: id }, SalesDate.of(TODAY), 2, (dispatch, order, alreadyInvoiced, credit) => {
+        const invoice = Invoice.issue(InvoiceId.of(`5f000000-0000-4000-8000-${next()}`), tenant, `FAC${next().slice(-6)}`, {
           dispatch,
           order,
           currency: aDocumentCurrency(),
@@ -120,8 +121,9 @@ export function describeSalesPortsContract(implementation: string, createHarness
           date: SalesDate.of(date),
           notes: null,
           lineIds: () => `5f100000-0000-4000-8000-${next()}`,
-        }, NOW, TODAY),
-      );
+        }, NOW, TODAY);
+        return new InvoiceIssuance().apply(invoice, order, dispatch, NOW);
+      });
 
     async function draftReturn(
       dispatch: Dispatch,
@@ -307,7 +309,10 @@ export function describeSalesPortsContract(implementation: string, createHarness
         // Quedan 8 en bodega y 4 reservados: caben 4.
         const fits = await draftOrder([pieces(4)]);
         await confirmOrder(fits);
-        await ports.orderPosting.post(tenant, fits, (order) => order.cancel(NOW));
+        await ports.orderPosting.post(tenant, fits, (order) => {
+          order.cancel(NOW);
+          return order;
+        });
 
         await expect(confirmOrder(await draftOrder([pieces(4)]))).resolves.toBeUndefined();
       });
@@ -413,7 +418,10 @@ export function describeSalesPortsContract(implementation: string, createHarness
         expect(await ports.invoices.issuedForDispatch(tenant, id)).toBe(true);
         await expect(cancelDispatch(id)).rejects.toThrow(DispatchInvoicedError);
 
-        await ports.invoicePosting.cancel(tenant, invoice.id, (found, _order, paid) => found.cancel(NOW, paid));
+        await ports.invoicePosting.cancel(tenant, invoice.id, (found, order, paid) => {
+          found.cancel(NOW, paid);
+          return { invoice: found, order };
+        });
         expect(await ports.invoices.issuedForDispatch(tenant, id)).toBe(false);
         await expect(cancelDispatch(id)).resolves.toBeUndefined();
       });
@@ -482,7 +490,12 @@ export function describeSalesPortsContract(implementation: string, createHarness
 
         await harness.pay(invoice.id.value, CUSTOMER, 1);
 
-        await expect(ports.invoicePosting.cancel(tenant, invoice.id, (found, _order, paid) => found.cancel(NOW, paid))).rejects.toThrow(InvoiceWithPaymentsError);
+        await expect(
+          ports.invoicePosting.cancel(tenant, invoice.id, (found, order, paid) => {
+            found.cancel(NOW, paid);
+            return { invoice: found, order };
+          }),
+        ).rejects.toThrow(InvoiceWithPaymentsError);
         expect((await ports.invoices.find(tenant, invoice.id))?.currentStatus()).toBe('issued');
       });
     });
