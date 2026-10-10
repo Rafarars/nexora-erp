@@ -506,15 +506,17 @@ export class PrismaSupplierCreditNotePosting implements SupplierCreditNotePostin
       const totalInBase = isBase ? note.total() : Number((note.total() * noteRate).toFixed(2));
       const taxInBase = isBase ? note.tax() : Number((note.tax() * noteRate).toFixed(2));
 
-      const serviceLines = note
-        .lines()
-        .filter((l) => !l.invoiceLineId)
-        .map((l) => ({
-          itemId: l.itemId,
-          subtotal: isBase ? l.subtotal : Number((l.subtotal * noteRate).toFixed(2)),
-          tax: isBase ? l.tax : Number((l.tax * noteRate).toFixed(2)),
-          concept: l.itemName ?? l.itemSku ?? 'Servicio',
-        }));
+      const serviceLines = note.purchaseReturnId()
+        ? []
+        : note
+            .lines()
+            .filter((l) => !l.invoiceLineId && !l.itemId)
+            .map((l) => ({
+              itemId: l.itemId,
+              subtotal: isBase ? l.subtotal : Number((l.subtotal * noteRate).toFixed(2)),
+              tax: isBase ? l.tax : Number((l.tax * noteRate).toFixed(2)),
+              concept: l.itemName ?? l.itemSku ?? 'Servicio',
+            }));
 
       const creditsReturn = note.purchaseReturnId()
         ? {
@@ -522,6 +524,10 @@ export class PrismaSupplierCreditNotePosting implements SupplierCreditNotePostin
             returnedCost: returnedCostBase,
           }
         : null;
+
+      const postingPriceDifference = note.purchaseReturnId()
+        ? Number((totalInBase - taxInBase - returnedCostBase).toFixed(2))
+        : totalPriceDifference;
 
       await this.accounting.post(tx, tenant, {
         kind: 'supplier-credit-note-issued',
@@ -531,7 +537,7 @@ export class PrismaSupplierCreditNotePosting implements SupplierCreditNotePostin
         currency: notePrimitives.currency,
         pricing: {
           baseCost: 0,
-          priceDifference: totalPriceDifference,
+          priceDifference: postingPriceDifference,
           exchangeDifference: totalExchangeDifference,
           serviceLines,
           tax: taxInBase,

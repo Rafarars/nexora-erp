@@ -2,7 +2,7 @@ import { DOCUMENT_RATES } from '../../../shared/domain/ports/document-rates.js';
 import type { DocumentRates } from '../../../shared/domain/ports/document-rates.js';
 import { BUSINESS_CALENDAR } from '../../../shared/domain/ports/business-calendar.js';
 import type { BusinessCalendar } from '../../../shared/domain/ports/business-calendar.js';
-import { forwardRef, Module } from '@nestjs/common';
+import { Module } from '@nestjs/common';
 import type { Clock } from '../../../shared/domain/ports/clock.js';
 import { CLOCK } from '../../../shared/domain/ports/clock.js';
 import type { IdGenerator } from '../../../shared/domain/ports/id-generator.js';
@@ -66,7 +66,7 @@ import { PrismaCreditNotePosting } from './persistence/prisma-credit-note-postin
 // El cableado de cuentas por cobrar. No importa ventas: lee sus tablas por su propio adaptador.
 // Exporta RECEIVABLE_BALANCES, lo que ventas necesita para facturar a credito y anular.
 @Module({
-  imports: [PrismaModule, SharedModule, CompanyModule, forwardRef(() => AccountingModule)],
+  imports: [PrismaModule, SharedModule, CompanyModule, AccountingModule],
   controllers: [
     SearchPaymentsGetController,
     CreatePaymentPostController,

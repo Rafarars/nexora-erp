@@ -1,4 +1,4 @@
-import { forwardRef, Module } from '@nestjs/common';
+import { Module } from '@nestjs/common';
 import { BUSINESS_CALENDAR, type BusinessCalendar } from '../../../shared/domain/ports/business-calendar.js';
 import { DOCUMENT_RATES, type DocumentRates } from '../../../shared/domain/ports/document-rates.js';
 import { ID_GENERATOR, type IdGenerator } from '../../../shared/domain/ports/id-generator.js';
@@ -6,8 +6,6 @@ import { SharedModule } from '../../../shared/infrastructure/shared.module.js';
 import { PrismaModule } from '../../../shared/prisma/prisma.module.js';
 import { PrismaService } from '../../../shared/prisma/prisma.service.js';
 import { CompanyModule } from '../../company/infrastructure/company.module.js';
-import { PayablesModule } from '../../payables/infrastructure/payables.module.js';
-import { ReceivablesModule } from '../../receivables/infrastructure/receivables.module.js';
 import { CreateAccountUseCase } from '../application/create-account/create-account.use-case.js';
 import { GenerateOpeningBalanceUseCase } from '../application/generate-opening-balance/generate-opening-balance.use-case.js';
 import { GetJournalEntryUseCase } from '../application/get-journal-entry/get-journal-entry.use-case.js';
@@ -37,8 +35,6 @@ import { PrismaOpeningBalanceReader } from './persistence/prisma-opening-balance
     SharedModule,
     PrismaModule,
     CompanyModule,
-    forwardRef(() => PayablesModule),
-    forwardRef(() => ReceivablesModule),
   ],
   controllers: [
     CreateAccountPostController,

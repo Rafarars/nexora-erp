@@ -37,7 +37,7 @@ describe('Asiento de Apertura Contable (§3.13) - Integration', () => {
   const payablesLedger = new PrismaPayablesLedger(prisma);
   const payableBalances = new PrismaPayableBalances(payablesLedger, calendar, rates);
   const receivableBalances = new PrismaReceivableBalances();
-  const reader = new PrismaOpeningBalanceReader(prisma, receivableBalances, payableBalances);
+  const reader = new PrismaOpeningBalanceReader(prisma);
   const readModel = new PrismaReportingReadModel(prisma, payableBalances);
 
   const useCase = new GenerateOpeningBalanceUseCase(
