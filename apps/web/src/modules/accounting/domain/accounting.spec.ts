@@ -28,6 +28,13 @@ describe('accounting domain and web helpers', () => {
     ).toBe('La cuenta seleccionada es una cuenta de grupo y no acepta asientos directos.');
 
     expect(
+      readableAccountingError(
+        AccessError.fromStatus(400, { code: 'JournalEntryUnbalancedError' }),
+        'error',
+      ),
+    ).toBe('El asiento contable está descuadrado: la suma del debe no coincide con el haber.');
+
+    expect(
       readableAccountingError(new Error('something went wrong'), 'Error inesperado'),
     ).toBe('Error inesperado');
   });
@@ -43,15 +50,23 @@ describe('accounting domain and web helpers', () => {
       permissions: [],
       availableTenants: [],
     };
-    expect(visibleAccountingSections(adminSession)).toHaveLength(1);
+    expect(visibleAccountingSections(adminSession)).toHaveLength(2);
 
-    const withPermission = {
+    const withOnlyAccounts = {
       ...adminSession,
       grantsAll: false,
       permissions: ['accounting.accounts.search'],
     };
-    expect(visibleAccountingSections(withPermission)).toHaveLength(1);
-    expect(visibleAccountingSections(withPermission)[0].href).toBe('/contabilidad/cuentas');
+    expect(visibleAccountingSections(withOnlyAccounts)).toHaveLength(1);
+    expect(visibleAccountingSections(withOnlyAccounts)[0].href).toBe('/contabilidad/cuentas');
+
+    const withOnlyEntries = {
+      ...adminSession,
+      grantsAll: false,
+      permissions: ['accounting.entries.search'],
+    };
+    expect(visibleAccountingSections(withOnlyEntries)).toHaveLength(1);
+    expect(visibleAccountingSections(withOnlyEntries)[0].href).toBe('/contabilidad/asientos');
 
     const withoutPermission = {
       ...adminSession,

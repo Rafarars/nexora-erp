@@ -56,4 +56,13 @@ test.describe('The chart of accounts, from the screen', () => {
     await page.getByTestId(`btn-toggle-status-${newCode}`).click();
     await expect(page.getByTestId(`account-row-${newCode}`)).toContainText('Activa');
   });
+
+  test('navigates to journal entries table and inspects journal entries view', async ({ page }) => {
+    const accounting = new AccountingPage(page);
+    await accounting.open('asientos');
+
+    await expect(page.getByTestId('journal-entries-table')).toBeVisible();
+    await expect(page.getByTestId('search-entries-input')).toBeVisible();
+    await expect(page.getByTestId('filter-origin')).toBeVisible();
+  });
 });

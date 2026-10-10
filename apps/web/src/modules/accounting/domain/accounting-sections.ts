@@ -10,6 +10,7 @@ export interface AccountingSection {
 
 export const ACCOUNTING_SECTIONS: AccountingSection[] = [
   { href: '/contabilidad/cuentas', label: 'Plan de cuentas', testId: 'accounting-cuentas', permission: 'accounting.accounts.search' },
+  { href: '/contabilidad/asientos', label: 'Asientos contables', testId: 'accounting-asientos', permission: 'accounting.entries.search' },
 ];
 
 export function visibleAccountingSections(session: Session): AccountingSection[] {

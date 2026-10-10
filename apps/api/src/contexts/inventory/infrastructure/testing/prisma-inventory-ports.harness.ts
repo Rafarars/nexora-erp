@@ -35,6 +35,8 @@ export class PrismaInventoryPortsHarness implements InventoryPortsHarness {
   }
 
   async reset(): Promise<void> {
+    await this.prisma.journalEntryLine.deleteMany();
+    await this.prisma.journalEntry.deleteMany();
     await this.prisma.supplierPaymentAllocation.deleteMany();
     await this.prisma.paymentAllocation.deleteMany();
     await this.prisma.supplierCreditNote.updateMany({ data: { issuePaymentId: null } });

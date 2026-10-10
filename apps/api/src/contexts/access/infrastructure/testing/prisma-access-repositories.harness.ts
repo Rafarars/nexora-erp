@@ -45,11 +45,19 @@ export class PrismaAccessRepositoriesHarness implements AccessRepositoriesHarnes
     // Borrar una empresa arrastra en cascada su catalogo e inventario, pero las claves que
     // los unen son RESTRICT y PostgreSQL las comprueba fila a fila: la cascada falla si una
     // unidad o un movimiento revertido sigue referenciado. Se vacian antes, en orden. Sin
+    await this.prisma.journalEntryLine.deleteMany();
+    await this.prisma.journalEntry.deleteMany();
+    await this.prisma.supplierPaymentAllocation.deleteMany();
     await this.prisma.paymentAllocation.deleteMany();
+    await this.prisma.supplierCreditNote.updateMany({ data: { issuePaymentId: null } });
     await this.prisma.customerCreditNote.updateMany({ data: { issuePaymentId: null } });
+    await this.prisma.supplierPayment.updateMany({ data: { creditSourceId: null } });
     await this.prisma.customerPayment.updateMany({ data: { creditSourceId: null } });
+    await this.prisma.supplierCreditNoteLine.deleteMany();
+    await this.prisma.supplierCreditNote.deleteMany();
     await this.prisma.customerCreditNoteLine.deleteMany();
     await this.prisma.customerCreditNote.deleteMany();
+    await this.prisma.supplierPayment.deleteMany();
     await this.prisma.salesReturnLine.deleteMany();
     await this.prisma.salesReturn.deleteMany();
     await this.prisma.purchaseReturnLine.deleteMany();

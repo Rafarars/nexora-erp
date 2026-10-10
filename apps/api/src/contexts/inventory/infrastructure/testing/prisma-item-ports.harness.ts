@@ -147,6 +147,8 @@ export class PrismaItemPortsHarness implements ItemPortsHarness {
   // Vacia en el orden de las claves ajenas y garantiza que las dos empresas existen: sin ellas,
   // la base rechazaria cada fila.
   async reset(): Promise<void> {
+    await this.prisma.journalEntryLine.deleteMany();
+    await this.prisma.journalEntry.deleteMany();
     await this.prisma.supplierPaymentAllocation.deleteMany();
     await this.prisma.paymentAllocation.deleteMany();
     await this.prisma.supplierCreditNote.updateMany({ data: { issuePaymentId: null } });

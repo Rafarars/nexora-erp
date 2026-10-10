@@ -57,3 +57,8 @@ export async function changeAccountStatus(_state: FormState, form: FormData): Pr
     accountingApi().changeAccountStatus(token, id, isActive),
   );
 }
+
+export async function getEntryDetail(id: string) {
+  const { token } = await requireSession();
+  return accountingApi().getEntry(token, id);
+}

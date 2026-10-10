@@ -508,6 +508,8 @@ export class PrismaPayablesPortsHarness implements PayablesPortsHarness {
   async setAmountDecimals(_tenantId: string, _decimals: number): Promise<void> {}
 
   async reset(): Promise<void> {
+    await this.prisma.journalEntryLine.deleteMany();
+    await this.prisma.journalEntry.deleteMany();
     await this.prisma.paymentAllocation.deleteMany();
     await this.prisma.supplierPaymentAllocation.deleteMany();
     await this.prisma.supplierCreditNote.updateMany({ data: { issuePaymentId: null } });

@@ -165,6 +165,8 @@ export const ACCOUNTING_PERMISSIONS: PermissionDefinition[] = [
   { code: 'accounting.accounts.create', description: 'Crear cuentas en el plan de cuentas' },
   { code: 'accounting.accounts.update', description: 'Editar cuentas en el plan de cuentas' },
   { code: 'accounting.accounts.deactivate', description: 'Desactivar y reactivar cuentas' },
+  { code: 'accounting.entries.search', description: 'Consultar asientos contables' },
+  { code: 'accounting.entries.read', description: 'Ver detalle de asientos contables' },
 ];
 
 export const REPORTS_PERMISSIONS: PermissionDefinition[] = [

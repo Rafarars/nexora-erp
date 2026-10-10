@@ -39,6 +39,7 @@ export const GLOBEX = {
   draftSupplierCreditNoteId: 'fd000000-0000-4000-8000-000000000101',
   confirmedSupplierCreditNoteId: 'fd000000-0000-4000-8000-000000000102',
   accountId: 'd27ecf7f-a81c-492e-af31-1dfb9aaff063',
+  journalEntryId: 'fe000000-0000-4000-8000-000000000101',
 };
 
 export const ACME = {
@@ -880,6 +881,12 @@ export const ISOLATION_CASES: IsolationCase[] = [
     method: 'put',
     path: `/api/v1/accounting/accounts/${GLOBEX.accountId}/status`,
     body: { isActive: false },
+  },
+  {
+    route: 'GET /api/v1/accounting/entries/:id',
+    title: 'read a journal entry of another tenant',
+    method: 'get',
+    path: `/api/v1/accounting/entries/${GLOBEX.journalEntryId}`,
   },
 ];
 

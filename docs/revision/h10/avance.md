@@ -58,4 +58,36 @@
   - `make verify`: 1/6 secrets verde, 2/6 lint verde, 3/6 typecheck verde, 4/6 unit verde, 5/6 contract verde, 6/6 e2e verde (532 passed).
 - **Estado**: Completada.
 
+### Fase 2 — Asiento contable, balance y determinacion de cuentas
+- **Objetivo**: Implementar la entidad inmutable `JournalEntry` con su invariante absoluta del constructor (`debit === credit` al centavo exacto, lineas `debit > 0 ^ credit > 0`), el reversor automatico de asientos (`entry.reverse()`), el resolvedor puro de cuentas con precedencia Articulo → Categoria → Empresa (`AccountResolver`), el constructor puro de asientos para las trece operaciones de negocio (`EntryBuilder`), secuencia de codigos `AST-`, repositorios en memoria y Prisma con sus contratos de puerto e integracion en PostgreSQL real, casos de uso de busqueda y consulta de asientos, endpoints HTTP `GET /api/v1/accounting/entries` y `GET /api/v1/accounting/entries/:id` protegidos por permisos y aislados por empresa, pantalla web `/contabilidad/asientos` con buscador, selector de origen y modal de detalle con balance cuadrado visible, y pruebas E2E de UI y multi-inquilino.
+- **Archivos creados y adaptados**:
+  - `apps/api/src/contexts/accounting/domain/journal/journal-entry-line.entity.ts`: lineas con invariante `debit > 0 ^ credit > 0`.
+  - `apps/api/src/contexts/accounting/domain/journal/journal-entry.entity.ts`: entidad `JournalEntry` con validacion estricta al centavo, inmutabilidad y metodo `reverse()`.
+  - `apps/api/src/contexts/accounting/domain/journal/journal-entry.repository.ts`: puerto de persistencia y lectura.
+  - `apps/api/src/contexts/accounting/domain/journal/accounting-code-sequence.ts`: puerto para codigos `AST-000001`.
+  - `apps/api/src/contexts/accounting/domain/journal/entry-builder.ts`: factory puro para las trece operaciones contables (§3.1 a §3.13).
+  - `apps/api/src/contexts/accounting/domain/determination/account-resolver.ts`: motor puro de determinacion de cuentas segun jerarquia (§2.5).
+  - Pruebas unitarias de dominio: `journal-entry.entity.spec.ts` (9 tests), `account-resolver.spec.ts` (6 tests), `entry-builder.spec.ts` (12 tests).
+  - `apps/api/src/contexts/accounting/infrastructure/persistence/`: `PrismaJournalEntryRepository` y `PrismaAccountingCodeSequence`.
+  - `apps/api/src/contexts/accounting/infrastructure/testing/`: `InMemoryJournalEntryRepository`, `InMemoryAccountingCodeSequence`, arneses de pruebas y contrato.
+  - Pruebas de contrato: `in-memory-journal-entry-repository.contract.spec.ts` (4 tests) y `prisma-journal-entry-repository.contract.integration.spec.ts` (4 tests contra Postgres).
+  - `apps/api/src/contexts/accounting/application/`: `SearchJournalEntriesUseCase` y `GetJournalEntryUseCase` con sus pruebas unitarias.
+  - Controladores HTTP: `SearchJournalEntriesGetController` y `GetJournalEntryGetController` con DTOs de validacion y decoradores de permisos.
+  - `apps/api/src/contexts/access/domain/role/permissions.catalog.ts` y `apps/api/prisma/seed.ts`: permisos `accounting.entries.search` y `accounting.entries.read`.
+  - Frontend web: `apps/web/src/modules/accounting/domain/accounting.ts`, `apps/web/src/modules/accounting/infrastructure/http-accounting-api.ts`, `apps/web/src/sections/accounting/journal-entries-table.tsx`, `apps/web/src/app/(app)/contabilidad/asientos/page.tsx`, `apps/web/src/app/(app)/contabilidad/actions.ts`.
+  - Pruebas E2E: `apps/e2e/pages/accounting.page.ts`, `apps/e2e/tests/ui/accounting.spec.ts`, `apps/e2e/support/isolation-matrix.ts`.
+- **Investigacion y correccion de incidencias (Regla 2 y Regla 3)**:
+  - *Incidencia en `make test-contract`*: Al correr la suite de integracion con PostgreSQL real, se produjo una falla en `prisma-catalog-repositories.contract.integration.spec.ts` (`Foreign key constraint violated on the constraint: supplier_credit_notes_tenant_id_purchase_return_id_fkey`) y consecuentemente en `prisma-company-ports.contract.integration.spec.ts`.
+  - *Causa raiz*: En H9 se crearon tablas de cuentas por pagar (`supplierCreditNote`, `supplierCreditNoteLine`, `supplierPaymentAllocation`, `supplierPayment`) con restricciones de clave ajena `RESTRICT` hacia `purchaseReturn`. Varios arneses de prueba de contratos antiguos (`catalog`, `access`, `company`, `receivables`, `reporting`) realizaban `this.prisma.purchaseReturn.deleteMany()` en su metodo `reset()` sin vaciar previamente las tablas dependientes de proveedores, ni las tablas de contabilidad de H10 (`journalEntryLine`, `journalEntry`). Al ejecutarse la suite secuencialmente sobre la misma base de datos compartida, un test previo dejaba filas de proveedores y el reset del siguiente fallaba.
+  - *Solucion*: Se estandarizo el orden de limpieza en cascada en todos los arneses de PostgreSQL (`prisma-catalog-repositories.harness.ts`, `prisma-access-repositories.harness.ts`, `prisma-company-ports.harness.ts`, `prisma-receivables-ports.harness.ts`, `prisma-reporting-read-model.harness.ts`, `prisma-sales-ports.harness.ts`, `prisma-payables-ports.harness.ts`, `prisma-item-ports.harness.ts`, `prisma-inventory-ports.harness.ts`), vaciando primero `journalEntryLine` y `journalEntry`, luego asignaciones y pagos de proveedores y clientes, lineas y notas de credito, antes de las devoluciones y facturas.
+- **Evidencias de verificacion**:
+  - `pnpm --filter api test`: 197 test files passed, 3988 tests passed.
+  - `pnpm --filter web test`: 25 test files passed, 236 tests passed.
+  - `make test-contract`: 16 test files passed, 321 tests passed contra PostgreSQL real.
+  - `pnpm --filter e2e test tests/ui/accounting.spec.ts`: 2 passed.
+  - `pnpm --filter e2e test tests/isolation/`: 240 passed (cobertura total y aislamiento multi-tenant).
+  - `make verify`: 1/6 secrets verde, 2/6 lint verde, 3/6 typecheck verde, 4/6 unit verde, 5/6 contract verde, 6/6 e2e verde (535 passed).
+- **Estado**: Completada.
+
 ---
+

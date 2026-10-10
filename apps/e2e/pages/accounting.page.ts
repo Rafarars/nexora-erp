@@ -1,7 +1,7 @@
 import { expect } from '@playwright/test';
 import type { Page } from '@playwright/test';
 
-type Section = 'cuentas';
+type Section = 'cuentas' | 'asientos';
 
 export class AccountingPage {
   constructor(private readonly page: Page) {}

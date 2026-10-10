@@ -526,6 +526,9 @@ async function upsertRoles(prisma: PrismaClient): Promise<void> {
         'payables.balances.search',
         'payables.statements.search',
         'payables.creditnotes.search',
+        'accounting.accounts.search',
+        'accounting.entries.search',
+        'accounting.entries.read',
         // Sin la valuacion del inventario: muestra costos.
         'reports.dashboard.search',
         'reports.receivables.search',

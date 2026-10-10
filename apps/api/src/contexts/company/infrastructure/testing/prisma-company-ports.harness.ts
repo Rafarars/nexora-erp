@@ -49,6 +49,36 @@ export class PrismaCompanyPortsHarness implements CompanyPortsHarness {
   async reset(): Promise<void> {
     const tenants = [TENANT_A, TENANT_B];
 
+    await this.prisma.journalEntryLine.deleteMany({ where: { tenantId: { in: tenants } } });
+    await this.prisma.journalEntry.deleteMany({ where: { tenantId: { in: tenants } } });
+    await this.prisma.supplierPaymentAllocation.deleteMany({ where: { tenantId: { in: tenants } } });
+    await this.prisma.paymentAllocation.deleteMany({ where: { tenantId: { in: tenants } } });
+    await this.prisma.supplierCreditNote.updateMany({ where: { tenantId: { in: tenants } }, data: { issuePaymentId: null } });
+    await this.prisma.customerCreditNote.updateMany({ where: { tenantId: { in: tenants } }, data: { issuePaymentId: null } });
+    await this.prisma.supplierPayment.updateMany({ where: { tenantId: { in: tenants } }, data: { creditSourceId: null } });
+    await this.prisma.customerPayment.updateMany({ where: { tenantId: { in: tenants } }, data: { creditSourceId: null } });
+    await this.prisma.supplierCreditNoteLine.deleteMany({ where: { tenantId: { in: tenants } } });
+    await this.prisma.supplierCreditNote.deleteMany({ where: { tenantId: { in: tenants } } });
+    await this.prisma.customerCreditNoteLine.deleteMany({ where: { tenantId: { in: tenants } } });
+    await this.prisma.customerCreditNote.deleteMany({ where: { tenantId: { in: tenants } } });
+    await this.prisma.supplierPayment.deleteMany({ where: { tenantId: { in: tenants } } });
+    await this.prisma.customerPayment.deleteMany({ where: { tenantId: { in: tenants } } });
+    await this.prisma.salesReturnLine.deleteMany({ where: { tenantId: { in: tenants } } });
+    await this.prisma.salesReturn.deleteMany({ where: { tenantId: { in: tenants } } });
+    await this.prisma.purchaseReturnLine.deleteMany({ where: { tenantId: { in: tenants } } });
+    await this.prisma.purchaseReturn.deleteMany({ where: { tenantId: { in: tenants } } });
+    await this.prisma.purchaseInvoiceLine.deleteMany({ where: { tenantId: { in: tenants } } });
+    await this.prisma.purchaseInvoice.deleteMany({ where: { tenantId: { in: tenants } } });
+    await this.prisma.invoiceLine.deleteMany({ where: { tenantId: { in: tenants } } });
+    await this.prisma.invoice.deleteMany({ where: { tenantId: { in: tenants } } });
+    await this.prisma.dispatchLine.deleteMany({ where: { tenantId: { in: tenants } } });
+    await this.prisma.dispatch.deleteMany({ where: { tenantId: { in: tenants } } });
+    await this.prisma.salesOrderLine.deleteMany({ where: { tenantId: { in: tenants } } });
+    await this.prisma.salesOrder.deleteMany({ where: { tenantId: { in: tenants } } });
+    await this.prisma.goodsReceiptLine.deleteMany({ where: { tenantId: { in: tenants } } });
+    await this.prisma.goodsReceipt.deleteMany({ where: { tenantId: { in: tenants } } });
+    await this.prisma.purchaseOrderLine.deleteMany({ where: { tenantId: { in: tenants } } });
+    await this.prisma.purchaseOrder.deleteMany({ where: { tenantId: { in: tenants } } });
     await this.prisma.adjustmentLine.deleteMany({ where: { tenantId: { in: tenants } } });
     await this.prisma.adjustment.deleteMany({ where: { tenantId: { in: tenants } } });
     await this.prisma.inventoryMovement.updateMany({ where: { tenantId: { in: tenants } }, data: { reversalOfId: null, restoresMovementId: null } });
