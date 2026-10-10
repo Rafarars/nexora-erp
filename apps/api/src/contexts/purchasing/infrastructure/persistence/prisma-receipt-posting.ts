@@ -1,6 +1,8 @@
 import { Inject, Injectable } from '@nestjs/common';
 import { DOCUMENT_STOCK_POSTING } from '../../../../shared/prisma/document-stock-posting.js';
 import type { DocumentStockPosting } from '../../../../shared/prisma/document-stock-posting.js';
+import { DOCUMENT_ACCOUNTING_POSTING } from '../../../../shared/prisma/document-accounting-posting.js';
+import type { DocumentAccountingPosting } from '../../../../shared/prisma/document-accounting-posting.js';
 import { PrismaService } from '../../../../shared/prisma/prisma.service.js';
 import {
   GoodsReceiptHasConfirmedInvoicesError,
@@ -24,6 +26,7 @@ export class PrismaReceiptPosting implements ReceiptPosting {
   constructor(
     private readonly prisma: PrismaService,
     @Inject(DOCUMENT_STOCK_POSTING) private readonly stock: DocumentStockPosting,
+    @Inject(DOCUMENT_ACCOUNTING_POSTING) private readonly accounting: DocumentAccountingPosting,
   ) {}
 
   async post(
@@ -66,6 +69,19 @@ export class PrismaReceiptPosting implements ReceiptPosting {
         }));
 
         await moveStock(() => this.stock.receive(tx, tenant, document, entries, now), header.id);
+
+        await this.accounting.post(tx, tenant, {
+          kind: 'goods-received',
+          documentId: header.id,
+          date: header.receiptDate,
+          currency: header.currency,
+          lines: entries.map((e) => ({
+            itemId: e.itemId,
+            quantity: e.quantity,
+            unitCost: e.unitCost,
+            amount: Number((e.quantity * e.unitCost).toFixed(2)),
+          })),
+        });
       } else if (result.stock.kind === 'reverse') {
         const receiptLineIds = receipt.lines().map((l) => l.id.value);
         if (receiptLineIds.length > 0) {
@@ -86,6 +102,13 @@ export class PrismaReceiptPosting implements ReceiptPosting {
         }
 
         await moveStock(() => this.stock.reverse(tx, tenant, document, now), header.id);
+
+        await this.accounting.post(tx, tenant, {
+          kind: 'document-cancelled',
+          originType: 'goods_receipt',
+          originId: header.id,
+          date: now,
+        });
       }
     });
   }

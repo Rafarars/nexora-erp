@@ -29,6 +29,8 @@ import {
 import { TenantId } from '../../domain/shared/tenant-id.vo.js';
 import { PURCHASE_INVOICE_INCLUDE, purchaseInvoiceFromRow } from './purchasing-rows.js';
 import { BUSINESS_CALENDAR, type BusinessCalendar } from '../../../../shared/domain/ports/business-calendar.js';
+import { DOCUMENT_ACCOUNTING_POSTING } from '../../../../shared/prisma/document-accounting-posting.js';
+import type { DocumentAccountingPosting } from '../../../../shared/prisma/document-accounting-posting.js';
 
 @Injectable()
 export class PrismaPurchaseInvoicePosting implements PurchaseInvoicePosting {
@@ -36,6 +38,7 @@ export class PrismaPurchaseInvoicePosting implements PurchaseInvoicePosting {
     private readonly prisma: PrismaService,
     @Inject(INVOICE_REVALUATION_POSTING) private readonly revaluationPosting: InvoiceRevaluationPosting,
     @Inject(BUSINESS_CALENDAR) private readonly calendar: BusinessCalendar,
+    @Inject(DOCUMENT_ACCOUNTING_POSTING) private readonly accounting: DocumentAccountingPosting,
   ) {}
 
   async confirm(tenantId: TenantId, invoiceId: PurchaseInvoiceId, now: Date, userId?: string): Promise<PurchaseInvoice> {
@@ -265,6 +268,7 @@ export class PrismaPurchaseInvoicePosting implements PurchaseInvoicePosting {
       const orderLineDeltas = new Map<string, number>();
       let totalPriceDifference = 0;
       let totalExchangeDifference = 0;
+      let totalReceiptBaseCost = 0;
       const revaluationsByWarehouse = new Map<string, InvoiceRevaluationLineData[]>();
 
       for (const line of lines) {
@@ -309,6 +313,8 @@ export class PrismaPurchaseInvoicePosting implements PurchaseInvoicePosting {
           );
           const receiptCost = receiptLine.unitCost;
           const receiptRate = receiptRateMap.get(receiptLine.receiptId) ?? 1;
+
+          totalReceiptBaseCost += Number((lineQty * receiptCost * receiptRate).toFixed(2));
 
           const diff = calculatePurchasePriceDifference([
             {
@@ -402,6 +408,41 @@ export class PrismaPurchaseInvoicePosting implements PurchaseInvoicePosting {
           tx,
         );
       }
+
+      const isBase = primitives.currency === primitives.baseCurrency;
+      const invoicedRate = effectiveRateToBase(
+        primitives.currency,
+        primitives.baseCurrency,
+        primitives.exchangeRate,
+        primitives.baseExchangeRate,
+      );
+      const totalInBase = isBase ? primitives.total : Number((primitives.total * invoicedRate).toFixed(2));
+      const taxInBase = isBase ? primitives.tax : Number((primitives.tax * invoicedRate).toFixed(2));
+
+      const serviceLines = primitives.lines
+        .filter((l) => !l.receiptLineId)
+        .map((l) => ({
+          itemId: l.itemId,
+          subtotal: isBase ? l.subtotal : Number((l.subtotal * invoicedRate).toFixed(2)),
+          tax: isBase ? l.tax : Number((l.tax * invoicedRate).toFixed(2)),
+          concept: l.itemName ?? l.itemSku ?? 'Servicio',
+        }));
+
+      await this.accounting.post(tx, tenant, {
+        kind: 'purchase-invoice-confirmed',
+        documentId: invoice.id.value,
+        date: primitives.issueDate,
+        supplierId: invoice.supplierId.value,
+        currency: primitives.currency,
+        pricing: {
+          baseCost: Number(totalReceiptBaseCost.toFixed(2)),
+          priceDifference: totalPriceDifference,
+          exchangeDifference: totalExchangeDifference,
+          serviceLines,
+          tax: taxInBase,
+          total: totalInBase,
+        },
+      });
 
       return invoice;
     });
@@ -544,6 +585,13 @@ export class PrismaPurchaseInvoicePosting implements PurchaseInvoicePosting {
         userId,
         tx,
       );
+
+      await this.accounting.post(tx, tenant, {
+        kind: 'document-cancelled',
+        originType: 'purchase_invoice',
+        originId: invoice.id.value,
+        date: now,
+      });
 
       return invoice;
     });

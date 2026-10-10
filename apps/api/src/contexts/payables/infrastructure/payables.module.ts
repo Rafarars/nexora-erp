@@ -10,6 +10,7 @@ import type { IdGenerator } from '../../../shared/domain/ports/id-generator.js';
 import { CompanyModule } from '../../company/infrastructure/company.module.js';
 import { SharedModule } from '../../../shared/infrastructure/shared.module.js';
 import { PrismaModule } from '../../../shared/prisma/prisma.module.js';
+import { AccountingModule } from '../../accounting/infrastructure/accounting.module.js';
 
 import { CancelPaymentPutController } from './http/cancel-payment-put.controller.js';
 import { ConfirmPaymentPutController } from './http/confirm-payment-put.controller.js';
@@ -69,7 +70,7 @@ import { PAYABLE_BALANCES } from '../../../shared/prisma/payable-balances.js';
 import { PrismaPayableBalances } from './persistence/prisma-payable-balances.js';
 
 @Module({
-  imports: [PrismaModule, SharedModule, CompanyModule, InventoryModule],
+  imports: [PrismaModule, SharedModule, CompanyModule, InventoryModule, AccountingModule],
   controllers: [
     SearchPaymentsGetController,
     CreatePaymentPostController,

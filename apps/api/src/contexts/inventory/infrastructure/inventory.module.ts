@@ -9,6 +9,7 @@ import { DOCUMENT_STOCK_POSTING } from '../../../shared/prisma/document-stock-po
 import { CompanyModule } from '../../company/infrastructure/company.module.js';
 import { SharedModule } from '../../../shared/infrastructure/shared.module.js';
 import { PrismaModule } from '../../../shared/prisma/prisma.module.js';
+import { AccountingModule } from '../../accounting/infrastructure/accounting.module.js';
 import { AdjustmentCanceller } from '../application/cancel-adjustment/adjustment-canceller.js';
 import { AdjustmentConfirmer } from '../application/confirm-adjustment/adjustment-confirmer.js';
 import { AdjustmentCreator } from '../application/create-adjustment/adjustment-creator.js';
@@ -84,7 +85,7 @@ import { PrismaStockRepository } from './persistence/prisma-stock.repository.js'
 // articulos, las existencias, el kardex y los ajustes. Exporta solo la publicacion de documentos:
 // es lo unico que otro contexto puede pedirle.
 @Module({
-  imports: [PrismaModule, SharedModule, CompanyModule],
+  imports: [PrismaModule, SharedModule, CompanyModule, AccountingModule],
   controllers: [
     SearchItemsGetController,
     CreateItemPostController,

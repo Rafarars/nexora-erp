@@ -11,6 +11,7 @@ import { CompanyModule } from '../../company/infrastructure/company.module.js';
 import { SharedModule } from '../../../shared/infrastructure/shared.module.js';
 import { PrismaModule } from '../../../shared/prisma/prisma.module.js';
 import { InventoryModule } from '../../inventory/infrastructure/inventory.module.js';
+import { AccountingModule } from '../../accounting/infrastructure/accounting.module.js';
 import { PurchaseOrderCanceller } from '../application/cancel-order/purchase-order-canceller.js';
 import { GoodsReceiptCanceller } from '../application/cancel-receipt/goods-receipt-canceller.js';
 import { SupplierStatusChanger } from '../application/change-supplier-status/supplier-status-changer.js';
@@ -118,7 +119,7 @@ import { PurchaseInvoiceReferences } from '../domain/invoice/lines/purchase-invo
 // publicacion de documentos que mueve existencia (DOCUMENT_STOCK_POSTING); y el de la empresa, por
 // el calendario y las tasas de un documento. Es composicion, no dependencia de su codigo.
 @Module({
-  imports: [PrismaModule, SharedModule, CompanyModule, InventoryModule],
+  imports: [PrismaModule, SharedModule, CompanyModule, InventoryModule, AccountingModule],
   controllers: [
     SearchSuppliersGetController,
     CreateSupplierPostController,

@@ -21,6 +21,8 @@ import { PrismaReceiptPosting } from '../persistence/prisma-receipt-posting.js';
 import { PrismaSupplierRepository } from '../persistence/prisma-supplier.repository.js';
 import { ClockBusinessCalendar } from '../../../../shared/infrastructure/testing/clock-business-calendar.js';
 import { SystemClock } from '../../../../shared/infrastructure/system-clock.js';
+import { PrismaDocumentAccountingPosting } from '../../../accounting/infrastructure/persistence/prisma-document-accounting-posting.js';
+import { seedAccountingForTenant } from '../../../accounting/infrastructure/testing/accounting-seed.helper.js';
 
 function connectionString(): string {
   const url = process.env.DATABASE_URL;
@@ -43,6 +45,7 @@ export class PrismaPurchasingPortsHarness implements PurchasingPortsHarness {
     );
 
     const calendar = new ClockBusinessCalendar(new SystemClock());
+    const accounting = new PrismaDocumentAccountingPosting();
 
     return {
       suppliers: new PrismaSupplierRepository(this.prisma),
@@ -51,9 +54,9 @@ export class PrismaPurchasingPortsHarness implements PurchasingPortsHarness {
       returns: new PrismaPurchaseReturnRepository(this.prisma),
       invoices: new PrismaPurchaseInvoiceRepository(this.prisma),
       orderPosting: new PrismaPurchaseOrderPosting(this.prisma),
-      receiptPosting: new PrismaReceiptPosting(this.prisma, stockPosting),
-      returnPosting: new PrismaPurchaseReturnPosting(this.prisma, stockPosting),
-      invoicePosting: new PrismaPurchaseInvoicePosting(this.prisma, revaluationPosting, calendar),
+      receiptPosting: new PrismaReceiptPosting(this.prisma, stockPosting, accounting),
+      returnPosting: new PrismaPurchaseReturnPosting(this.prisma, stockPosting, accounting),
+      invoicePosting: new PrismaPurchaseInvoicePosting(this.prisma, revaluationPosting, calendar, accounting),
       revaluations: revaluationPosting,
       codes: new PrismaPurchasingCodeSequence(this.prisma),
     };
@@ -161,6 +164,7 @@ export class PrismaPurchasingPortsHarness implements PurchasingPortsHarness {
       [TENANT_B, 'contract-purchasing-b'],
     ]) {
       await this.prisma.tenant.upsert({ where: { id }, create: { id, name: slug, slug }, update: {} });
+      await seedAccountingForTenant(this.prisma, id);
     }
 
     const unit = (id: string, code: string, name: string, abbreviation: string) =>

@@ -1,5 +1,8 @@
-import { Injectable } from '@nestjs/common';
+import { Inject, Injectable } from '@nestjs/common';
 import { PrismaService } from '../../../../shared/prisma/prisma.service.js';
+import { DOCUMENT_ACCOUNTING_POSTING } from '../../../../shared/prisma/document-accounting-posting.js';
+import type { DocumentAccountingPosting } from '../../../../shared/prisma/document-accounting-posting.js';
+import { effectiveRateToBase } from '../../../../shared/domain/purchase-price-difference.js';
 import { ConcurrentModificationError } from '../../../../shared/domain/concurrent-modification.error.js';
 import {
   CreditNoteCurrencyMismatchError,
@@ -20,7 +23,10 @@ import { queryAppliedPaymentsSum } from './credit-note-applied-query.js';
 // Bloqueo determinista (nota -> pago -> facturas) para evitar deadlocks
 @Injectable()
 export class PrismaSupplierPaymentPosting implements SupplierPaymentPosting {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    @Inject(DOCUMENT_ACCOUNTING_POSTING) private readonly accounting: DocumentAccountingPosting,
+  ) {}
 
   async post(tenantId: TenantId, paymentId: PaymentId, work: (payment: SupplierPayment, invoices: PayableInvoice[]) => void): Promise<void> {
     const tenant = tenantId.value;
@@ -103,6 +109,38 @@ export class PrismaSupplierPaymentPosting implements SupplierPaymentPosting {
 
       for (const allocation of allocations) {
         await tx.supplierPaymentAllocation.update({ where: { id: allocation.id }, data: { exchangeRate: allocation.exchangeRate, exchangeDifference: allocation.exchangeDifference } });
+      }
+
+      if (status === 'confirmed') {
+        const isBaseCurrency = currency === baseCurrency;
+        const rate = effectiveRateToBase(currency, baseCurrency, exchangeRate, baseExchangeRate);
+        const amountInBase = isBaseCurrency ? amount : Number((amount * rate).toFixed(2));
+        const diffInBase = allocations.reduce((sum, a) => sum + (a.exchangeDifference ?? 0), 0);
+        const allocatedInBase = Number((amountInBase - diffInBase).toFixed(2));
+
+        await this.accounting.post(tx, tenant, {
+          kind: 'payment-made',
+          documentId: paymentId.value,
+          date: payment.toPrimitives().paymentDate,
+          method: payment.toPrimitives().method,
+          amount: amountInBase,
+          allocatedAmount: allocatedInBase,
+          exchangeDifference: diffInBase,
+          currency: payment.toPrimitives().currency,
+          creditSourceId: payment.toPrimitives().creditSourceId,
+          allocations: allocations.map((a) => ({
+            invoiceId: a.invoiceId,
+            amount: isBaseCurrency ? a.amount : Number((a.amount * rate).toFixed(2)),
+            exchangeDifference: a.exchangeDifference ?? 0,
+          })),
+        });
+      } else if (status === 'cancelled') {
+        await this.accounting.post(tx, tenant, {
+          kind: 'document-cancelled',
+          originType: payment.toPrimitives().creditSourceId ? 'supplier_payment_credit_note' : 'supplier_payment',
+          originId: paymentId.value,
+          date: cancelledAt ?? updatedAt,
+        });
       }
     });
   }

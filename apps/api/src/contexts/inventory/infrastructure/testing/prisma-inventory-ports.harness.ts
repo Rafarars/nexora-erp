@@ -8,6 +8,8 @@ import { PrismaAdjustmentPosting } from '../persistence/prisma-adjustment-postin
 import { PrismaAdjustmentRepository } from '../persistence/prisma-adjustment.repository.js';
 import { PrismaInventoryCodeSequence } from '../persistence/prisma-inventory-code-sequence.js';
 import { PrismaStockRepository } from '../persistence/prisma-stock.repository.js';
+import { PrismaDocumentAccountingPosting } from '../../../accounting/infrastructure/persistence/prisma-document-accounting-posting.js';
+import { seedAccountingForTenant } from '../../../accounting/infrastructure/testing/accounting-seed.helper.js';
 
 function connectionString(): string {
   const url = process.env.DATABASE_URL;
@@ -25,10 +27,12 @@ export class PrismaInventoryPortsHarness implements InventoryPortsHarness {
   }
 
   ports(): InventoryPorts {
+    const accounting = new PrismaDocumentAccountingPosting();
+
     return {
       adjustments: new PrismaAdjustmentRepository(this.prisma),
       stocks: new PrismaStockRepository(this.prisma),
-      posting: new PrismaAdjustmentPosting(this.prisma),
+      posting: new PrismaAdjustmentPosting(this.prisma, accounting),
       authors: new PrismaDocumentAuthors(this.prisma),
       codes: new PrismaInventoryCodeSequence(this.prisma),
     };
@@ -79,6 +83,7 @@ export class PrismaInventoryPortsHarness implements InventoryPortsHarness {
       [TENANT_B, 'contract-inventory-b'],
     ]) {
       await this.prisma.tenant.upsert({ where: { id }, create: { id, name: slug, slug }, update: {} });
+      await seedAccountingForTenant(this.prisma, id);
     }
 
     // Las personas que firman los documentos, cada una con su membresia: el puerto de autores

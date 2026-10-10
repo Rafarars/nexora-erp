@@ -1,6 +1,8 @@
 import { Inject, Injectable } from '@nestjs/common';
 import { DOCUMENT_STOCK_POSTING } from '../../../../shared/prisma/document-stock-posting.js';
 import type { DocumentStockPosting } from '../../../../shared/prisma/document-stock-posting.js';
+import { DOCUMENT_ACCOUNTING_POSTING } from '../../../../shared/prisma/document-accounting-posting.js';
+import type { DocumentAccountingPosting } from '../../../../shared/prisma/document-accounting-posting.js';
 import { PrismaService } from '../../../../shared/prisma/prisma.service.js';
 import {
   InactivePurchaseItemError,
@@ -27,6 +29,7 @@ export class PrismaPurchaseReturnPosting implements PurchaseReturnPosting {
   constructor(
     private readonly prisma: PrismaService,
     @Inject(DOCUMENT_STOCK_POSTING) private readonly stock: DocumentStockPosting,
+    @Inject(DOCUMENT_ACCOUNTING_POSTING) private readonly accounting: DocumentAccountingPosting,
   ) {}
 
   async confirm(tenantId: TenantId, returnId: PurchaseReturnId, now: Date): Promise<PurchaseReturn> {
@@ -194,6 +197,24 @@ export class PrismaPurchaseReturnPosting implements PurchaseReturnPosting {
         }
       }
 
+      const movements = await tx.inventoryMovement.findMany({
+        where: { tenantId: tenant, originType: 'purchase_return', originId: returnDoc.id.value },
+        select: { itemId: true, quantity: true, unitCost: true, restoresMovementId: true },
+      });
+      await this.accounting.post(tx, tenant, {
+        kind: 'goods-returned',
+        documentId: returnDoc.id.value,
+        date: returnDoc.returnDate().value,
+        side: 'supplier',
+        lines: movements.map((m) => ({
+          itemId: m.itemId,
+          quantity: Number(m.quantity),
+          unitCost: Number(m.unitCost),
+          amount: Number((Number(m.quantity) * Number(m.unitCost)).toFixed(2)),
+          restoresMovementId: m.restoresMovementId ?? null,
+        })),
+      });
+
       return returnDoc;
     });
   }
@@ -247,6 +268,15 @@ export class PrismaPurchaseReturnPosting implements PurchaseReturnPosting {
           updatedAt: now,
         },
       });
+
+      if (wasConfirmed) {
+        await this.accounting.post(tx, tenant, {
+          kind: 'document-cancelled',
+          originType: 'purchase_return',
+          originId: returnDoc.id.value,
+          date: now,
+        });
+      }
 
       return returnDoc;
     });

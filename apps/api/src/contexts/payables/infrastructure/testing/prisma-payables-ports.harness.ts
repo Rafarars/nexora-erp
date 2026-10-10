@@ -15,6 +15,8 @@ import { SystemClock } from '../../../../shared/infrastructure/system-clock.js';
 import { PrismaInvoiceRevaluationPosting } from '../../../inventory/infrastructure/persistence/prisma-invoice-revaluation-posting.js';
 import { PrismaInventoryCodeSequence } from '../../../inventory/infrastructure/persistence/prisma-inventory-code-sequence.js';
 import { TENANT_A, TENANT_B } from '../../domain/testing/payables.mother.js';
+import { PrismaDocumentAccountingPosting } from '../../../accounting/infrastructure/persistence/prisma-document-accounting-posting.js';
+import { seedAccountingForTenant } from '../../../accounting/infrastructure/testing/accounting-seed.helper.js';
 
 function connectionString(): string {
   const url = process.env.DATABASE_URL;
@@ -38,14 +40,15 @@ export class PrismaPayablesPortsHarness implements PayablesPortsHarness {
       this.prisma,
       new PrismaInventoryCodeSequence(this.prisma),
     );
+    const accounting = new PrismaDocumentAccountingPosting();
 
     return {
       payments: new PrismaSupplierPaymentRepository(this.prisma),
-      posting: new PrismaSupplierPaymentPosting(this.prisma),
+      posting: new PrismaSupplierPaymentPosting(this.prisma, accounting),
       ledger: new PrismaPayablesLedger(this.prisma),
       codes,
       creditNotes: new PrismaSupplierCreditNoteRepository(this.prisma),
-      creditNotePosting: new PrismaSupplierCreditNotePosting(this.prisma, codes, ids, revaluationPosting, calendar),
+      creditNotePosting: new PrismaSupplierCreditNotePosting(this.prisma, codes, ids, revaluationPosting, calendar, accounting),
     };
   }
 
@@ -549,6 +552,7 @@ export class PrismaPayablesPortsHarness implements PayablesPortsHarness {
       [TENANT_B, 'contract-payables-b'],
     ]) {
       await this.prisma.tenant.upsert({ where: { id }, create: { id, name: slug, slug }, update: {} });
+      await seedAccountingForTenant(this.prisma, id);
     }
   }
 

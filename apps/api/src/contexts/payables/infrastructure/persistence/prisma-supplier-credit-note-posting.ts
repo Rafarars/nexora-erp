@@ -33,7 +33,19 @@ import { PayableCreditQuota } from '../../domain/credit-note/credit-quota.servic
 import { SupplierPayment, PaymentId } from '../../domain/payment/supplier-payment.entity.js';
 import { PAYABLES_CODE_SEQUENCE, type PayablesCodeSequence, payablesCode } from '../../domain/shared/code-sequence.js';
 import { TenantId } from '../../domain/shared/tenant-id.vo.js';
-import { asDate, CREDIT_NOTE_INCLUDE, creditNoteFromRow, CreditNoteRow, invoiceFromRow, invoiceSelect, PAYMENT_INCLUDE, paymentFromRow, PaymentRow } from './payables-rows.js';
+import { DOCUMENT_ACCOUNTING_POSTING } from '../../../../shared/prisma/document-accounting-posting.js';
+import type { DocumentAccountingPosting } from '../../../../shared/prisma/document-accounting-posting.js';
+import {
+  CREDIT_NOTE_INCLUDE,
+  CreditNoteRow,
+  creditNoteFromRow,
+  PAYMENT_INCLUDE,
+  PaymentRow,
+  paymentFromRow,
+  asDate,
+  invoiceFromRow,
+  invoiceSelect,
+} from './payables-rows.js';
 
 @Injectable()
 export class PrismaSupplierCreditNotePosting implements SupplierCreditNotePosting {
@@ -43,6 +55,7 @@ export class PrismaSupplierCreditNotePosting implements SupplierCreditNotePostin
     @Inject(ID_GENERATOR) private readonly ids: IdGenerator,
     @Inject(INVOICE_REVALUATION_POSTING) private readonly revaluationPosting: InvoiceRevaluationPosting,
     @Inject(BUSINESS_CALENDAR) private readonly calendar: BusinessCalendar,
+    @Inject(DOCUMENT_ACCOUNTING_POSTING) private readonly accounting: DocumentAccountingPosting,
   ) {}
 
   async confirm(
@@ -470,6 +483,84 @@ export class PrismaSupplierCreditNotePosting implements SupplierCreditNotePostin
         },
       });
 
+      let returnedCostBase = 0;
+      if (note.purchaseReturnId()) {
+        const returnMovements = await tx.inventoryMovement.findMany({
+          where: { tenantId: tenant, originType: 'purchase_return', originId: note.purchaseReturnId()! },
+          select: { quantity: true, unitCost: true },
+        });
+        returnedCostBase = returnMovements.reduce(
+          (sum, m) => sum + Number((Number(m.quantity) * Number(m.unitCost)).toFixed(2)),
+          0,
+        );
+      }
+
+      const notePrimitives = note.toPrimitives();
+      const isBase = notePrimitives.currency === notePrimitives.baseCurrency;
+      const noteRate = effectiveRateToBase(
+        notePrimitives.currency,
+        notePrimitives.baseCurrency,
+        notePrimitives.exchangeRate,
+        notePrimitives.baseExchangeRate,
+      );
+      const totalInBase = isBase ? note.total() : Number((note.total() * noteRate).toFixed(2));
+      const taxInBase = isBase ? note.tax() : Number((note.tax() * noteRate).toFixed(2));
+
+      const serviceLines = note
+        .lines()
+        .filter((l) => !l.invoiceLineId)
+        .map((l) => ({
+          itemId: l.itemId,
+          subtotal: isBase ? l.subtotal : Number((l.subtotal * noteRate).toFixed(2)),
+          tax: isBase ? l.tax : Number((l.tax * noteRate).toFixed(2)),
+          concept: l.itemName ?? l.itemSku ?? 'Servicio',
+        }));
+
+      const creditsReturn = note.purchaseReturnId()
+        ? {
+            returnId: note.purchaseReturnId()!,
+            returnedCost: returnedCostBase,
+          }
+        : null;
+
+      await this.accounting.post(tx, tenant, {
+        kind: 'supplier-credit-note-issued',
+        documentId: note.id.value,
+        date: notePrimitives.issueDate,
+        supplierId: note.supplierId(),
+        currency: notePrimitives.currency,
+        pricing: {
+          baseCost: 0,
+          priceDifference: totalPriceDifference,
+          exchangeDifference: totalExchangeDifference,
+          serviceLines,
+          tax: taxInBase,
+          total: totalInBase,
+        },
+        creditsReturn,
+      });
+
+      if (issuePayment) {
+        const payAmount = issuePayment.toPrimitives().amount;
+        const paymentAmountInBase = isBase ? payAmount : Number((payAmount * noteRate).toFixed(2));
+        await this.accounting.post(tx, tenant, {
+          kind: 'payment-made',
+          documentId: issuePayment.id.value,
+          date: issuePayment.toPrimitives().paymentDate,
+          method: 'credit_note',
+          amount: paymentAmountInBase,
+          allocatedAmount: paymentAmountInBase,
+          exchangeDifference: 0,
+          currency: issuePayment.toPrimitives().currency,
+          creditSourceId: note.id.value,
+          allocations: issuePayment.toPrimitives().allocations.map((a) => ({
+            invoiceId: a.invoiceId,
+            amount: isBase ? a.amount : Number((a.amount * noteRate).toFixed(2)),
+            exchangeDifference: a.exchangeDifference ?? 0,
+          })),
+        });
+      }
+
       return { creditNote: note, issuePayment };
     });
   }
@@ -538,6 +629,13 @@ export class PrismaSupplierCreditNotePosting implements SupplierCreditNotePostin
               updatedAt: now,
             },
           });
+
+          await this.accounting.post(tx, tenant, {
+            kind: 'document-cancelled',
+            originType: 'supplier_payment_credit_note',
+            originId: issuePaymentId,
+            date: now,
+          });
         }
       }
 
@@ -562,6 +660,13 @@ export class PrismaSupplierCreditNotePosting implements SupplierCreditNotePostin
           cancelledAt: now,
           updatedAt: now,
         },
+      });
+
+      await this.accounting.post(tx, tenant, {
+        kind: 'document-cancelled',
+        originType: 'supplier_credit_note',
+        originId: note.id.value,
+        date: now,
       });
     });
   }
