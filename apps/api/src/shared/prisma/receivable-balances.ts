@@ -21,4 +21,7 @@ export interface ReceivableBalances {
   exposure(db: TransactionClient, tenantId: string, customerId: string, today: string, decimals: number): Promise<CustomerExposure>;
   // Lo aplicado a una factura por cobros confirmados. Quien llama ya bloqueo la factura.
   paidOf(tx: TransactionClient, tenantId: string, invoiceId: string): Promise<number>;
+  // Lo que todos los clientes deben de sus facturas emitidas, descontando los cobros confirmados,
+  // en la moneda de la empresa, con cada factura redondeada a sus decimales.
+  totalBalance(db: TransactionClient, tenantId: string, decimals: number): Promise<number>;
 }

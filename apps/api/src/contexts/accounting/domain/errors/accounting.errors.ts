@@ -119,3 +119,23 @@ export class JournalEntryAlreadyReversedError extends ConflictError {
     super(`Journal entry <${entryId}> has already been reversed.`, 'El asiento contable ya ha sido revertido previamente.');
   }
 }
+
+// ---------------------------------------------------------------- asiento de apertura (§3.13)
+
+export class OpeningBalanceAlreadyExistsError extends ConflictError {
+  constructor() {
+    super(
+      'An opening balance journal entry already exists for this tenant.',
+      'El asiento de apertura ya fue registrado para esta empresa.',
+    );
+  }
+}
+
+export class NoOpeningBalancesFoundError extends InvalidArgumentError {
+  constructor() {
+    super(
+      'No open balances found to generate opening balance entry.',
+      'No se encontraron saldos vivos iniciales para generar el asiento de apertura.',
+    );
+  }
+}

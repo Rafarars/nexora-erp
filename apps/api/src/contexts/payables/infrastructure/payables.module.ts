@@ -1,4 +1,4 @@
-import { Module } from '@nestjs/common';
+import { forwardRef, Module } from '@nestjs/common';
 import { BUSINESS_CALENDAR } from '../../../shared/domain/ports/business-calendar.js';
 import type { BusinessCalendar } from '../../../shared/domain/ports/business-calendar.js';
 import { CLOCK } from '../../../shared/domain/ports/clock.js';
@@ -70,7 +70,7 @@ import { PAYABLE_BALANCES } from '../../../shared/prisma/payable-balances.js';
 import { PrismaPayableBalances } from './persistence/prisma-payable-balances.js';
 
 @Module({
-  imports: [PrismaModule, SharedModule, CompanyModule, InventoryModule, AccountingModule],
+  imports: [PrismaModule, SharedModule, CompanyModule, InventoryModule, forwardRef(() => AccountingModule)],
   controllers: [
     SearchPaymentsGetController,
     CreatePaymentPostController,

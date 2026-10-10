@@ -1,8 +1,15 @@
-import { Module } from '@nestjs/common';
+import { forwardRef, Module } from '@nestjs/common';
+import { BUSINESS_CALENDAR, type BusinessCalendar } from '../../../shared/domain/ports/business-calendar.js';
+import { DOCUMENT_RATES, type DocumentRates } from '../../../shared/domain/ports/document-rates.js';
 import { ID_GENERATOR, type IdGenerator } from '../../../shared/domain/ports/id-generator.js';
 import { SharedModule } from '../../../shared/infrastructure/shared.module.js';
 import { PrismaModule } from '../../../shared/prisma/prisma.module.js';
+import { PrismaService } from '../../../shared/prisma/prisma.service.js';
+import { CompanyModule } from '../../company/infrastructure/company.module.js';
+import { PayablesModule } from '../../payables/infrastructure/payables.module.js';
+import { ReceivablesModule } from '../../receivables/infrastructure/receivables.module.js';
 import { CreateAccountUseCase } from '../application/create-account/create-account.use-case.js';
+import { GenerateOpeningBalanceUseCase } from '../application/generate-opening-balance/generate-opening-balance.use-case.js';
 import { GetJournalEntryUseCase } from '../application/get-journal-entry/get-journal-entry.use-case.js';
 import { SearchAccountsUseCase } from '../application/search-accounts/search-accounts.use-case.js';
 import { SearchJournalEntriesUseCase } from '../application/search-journal-entries/search-journal-entries.use-case.js';
@@ -10,20 +17,29 @@ import { UpdateAccountUseCase } from '../application/update-account/update-accou
 import { ACCOUNT_REPOSITORY, type AccountRepository } from '../domain/account/account.repository.js';
 import { ACCOUNTING_CODE_SEQUENCE } from '../domain/journal/accounting-code-sequence.js';
 import { JOURNAL_ENTRY_REPOSITORY, type JournalEntryRepository } from '../domain/journal/journal-entry.repository.js';
+import { OPENING_BALANCE_READER, type OpeningBalanceReader } from '../domain/opening-balance/opening-balance-reader.js';
 import { ChangeAccountStatusPutController } from './http/change-account-status-put.controller.js';
 import { CreateAccountPostController } from './http/create-account-post.controller.js';
+import { GenerateOpeningBalancePostController } from './http/generate-opening-balance-post.controller.js';
 import { GetJournalEntryGetController } from './http/get-journal-entry-get.controller.js';
 import { SearchAccountsGetController } from './http/search-accounts-get.controller.js';
 import { SearchJournalEntriesGetController } from './http/search-journal-entries-get.controller.js';
 import { UpdateAccountPutController } from './http/update-account-put.controller.js';
-import { DOCUMENT_ACCOUNTING_POSTING } from '../../../shared/prisma/document-accounting-posting.js';
+import { DOCUMENT_ACCOUNTING_POSTING, type DocumentAccountingPosting } from '../../../shared/prisma/document-accounting-posting.js';
 import { PrismaAccountRepository } from './persistence/prisma-account.repository.js';
 import { PrismaAccountingCodeSequence } from './persistence/prisma-accounting-code-sequence.js';
 import { PrismaDocumentAccountingPosting } from './persistence/prisma-document-accounting-posting.js';
 import { PrismaJournalEntryRepository } from './persistence/prisma-journal-entry.repository.js';
+import { PrismaOpeningBalanceReader } from './persistence/prisma-opening-balance-reader.js';
 
 @Module({
-  imports: [SharedModule, PrismaModule],
+  imports: [
+    SharedModule,
+    PrismaModule,
+    CompanyModule,
+    forwardRef(() => PayablesModule),
+    forwardRef(() => ReceivablesModule),
+  ],
   controllers: [
     CreateAccountPostController,
     UpdateAccountPutController,
@@ -31,6 +47,7 @@ import { PrismaJournalEntryRepository } from './persistence/prisma-journal-entry
     SearchAccountsGetController,
     SearchJournalEntriesGetController,
     GetJournalEntryGetController,
+    GenerateOpeningBalancePostController,
   ],
   providers: [
     {
@@ -48,6 +65,10 @@ import { PrismaJournalEntryRepository } from './persistence/prisma-journal-entry
     {
       provide: DOCUMENT_ACCOUNTING_POSTING,
       useClass: PrismaDocumentAccountingPosting,
+    },
+    {
+      provide: OPENING_BALANCE_READER,
+      useClass: PrismaOpeningBalanceReader,
     },
     {
       provide: CreateAccountUseCase,
@@ -75,6 +96,25 @@ import { PrismaJournalEntryRepository } from './persistence/prisma-journal-entry
         new GetJournalEntryUseCase(entries, accounts),
       inject: [JOURNAL_ENTRY_REPOSITORY, ACCOUNT_REPOSITORY],
     },
+    {
+      provide: GenerateOpeningBalanceUseCase,
+      useFactory: (
+        reader: OpeningBalanceReader,
+        posting: DocumentAccountingPosting,
+        rates: DocumentRates,
+        cal: BusinessCalendar,
+        idGen: IdGenerator,
+        prisma: PrismaService,
+      ) => new GenerateOpeningBalanceUseCase(reader, posting, rates, cal, idGen, prisma),
+      inject: [
+        OPENING_BALANCE_READER,
+        DOCUMENT_ACCOUNTING_POSTING,
+        DOCUMENT_RATES,
+        BUSINESS_CALENDAR,
+        ID_GENERATOR,
+        PrismaService,
+      ],
+    },
   ],
   exports: [
     ACCOUNT_REPOSITORY,
@@ -86,6 +126,7 @@ import { PrismaJournalEntryRepository } from './persistence/prisma-journal-entry
     SearchAccountsUseCase,
     SearchJournalEntriesUseCase,
     GetJournalEntryUseCase,
+    GenerateOpeningBalanceUseCase,
   ],
 })
 export class AccountingModule {}
