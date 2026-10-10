@@ -7,6 +7,7 @@ import { InventoryValuationResponse } from '../inventory-valuation/inventory-val
 import { PayablesAgingResponse } from '../payables-aging/payables-aging-report.js';
 import { ReceivablesAgingResponse } from '../receivables-aging/receivables-aging-report.js';
 import { SalesByCustomerResponse } from '../sales-by-customer/sales-by-customer-report.js';
+import { TrialBalanceResponse } from '../trial-balance/trial-balance-report.js';
 
 const BUCKET_LABELS: Record<AgingBucket, string> = {
   current: 'Por vencer',
@@ -118,5 +119,36 @@ export function inventoryValuationDocument(report: InventoryValuationResponse, c
     ],
     rows: report.rows.map((row) => ({ warehouse: row.warehouse.name, sku: row.item.sku, item: row.item.name, unit: row.baseUnit, quantity: row.quantity, averageCost: row.averageCost, value: row.value })),
     totals: { warehouse: 'Total', sku: null, item: null, unit: null, quantity: null, averageCost: null, value: report.totalValue },
+  };
+}
+
+export function trialBalanceDocument(report: TrialBalanceResponse, company: string): ReportDocument {
+  const periodText = report.from && report.to ? `Del ${report.from} al ${report.to}` : report.to ? `Al ${report.to}` : 'Al día';
+  return {
+    fileName: `balanza-de-comprobacion-${report.to ?? 'actual'}`,
+    title: 'Balanza de comprobación',
+    subtitle: [company, `${periodText} · ${amountsIn(report.currency)}`],
+    decimals: report.decimals,
+    columns: [
+      { key: 'code', label: 'Cuenta', kind: 'text' },
+      { key: 'name', label: 'Nombre', kind: 'text' },
+      { key: 'debit', label: 'Debe', kind: 'amount' },
+      { key: 'credit', label: 'Haber', kind: 'amount' },
+      { key: 'balance', label: 'Saldo', kind: 'amount' },
+    ],
+    rows: report.rows.map((row) => ({
+      code: row.account.code,
+      name: row.account.name,
+      debit: row.debit,
+      credit: row.credit,
+      balance: row.balance,
+    })),
+    totals: {
+      code: 'Total',
+      name: null,
+      debit: report.totals.debit,
+      credit: report.totals.credit,
+      balance: null,
+    },
   };
 }

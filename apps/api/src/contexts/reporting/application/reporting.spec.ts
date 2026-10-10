@@ -3,7 +3,7 @@ import { InvalidUuidError } from '../../../shared/domain/uuid.vo.js';
 import { InvalidPageError, ReportCustomerNotFoundError, ReportPeriodTooLongError, ReportWarehouseNotFoundError } from '../domain/errors/reporting.errors.js';
 import { DELTA, EMPTY, MAIN, NORTH, OMEGA, TENANT_A, TENANT_B, aCustomer, aStock, anInvoice } from '../domain/testing/reporting.mother.js';
 import { InMemoryInvoice } from '../infrastructure/testing/in-memory-reporting-read-model.js';
-import { companyHeader, customerStatementDocument, inventoryValuationDocument, payablesAgingDocument, receivablesAgingDocument, salesByCustomerDocument } from './documents/report-documents.js';
+import { companyHeader, customerStatementDocument, inventoryValuationDocument, payablesAgingDocument, receivablesAgingDocument, salesByCustomerDocument, trialBalanceDocument } from './documents/report-documents.js';
 import { stockValueUnits } from '../domain/shared/money.js';
 import { aReportingScenario } from './testing/reporting-scenario.js';
 
@@ -287,3 +287,33 @@ describe('companyHeader', () => {
     expect(companyHeader({ name: 'Acme Industrial', fiscalId: null })).toBe('Acme Industrial');
   });
 });
+
+describe('trialBalanceDocument', () => {
+  it('formats trial balance with columns, balanced totals, and subtitle', () => {
+    const doc = trialBalanceDocument(
+      {
+        from: '2026-01-01',
+        to: '2026-10-10',
+        currency: 'USD',
+        decimals: 2,
+        page: { total: 1, limit: 50, offset: 0, rows: 1, hasMore: false },
+        rows: [
+          {
+            account: { id: 'acc-1', code: '1.1.01.001', name: 'Caja y bancos', type: 'asset' },
+            debit: 500,
+            credit: 0,
+            balance: 500,
+          },
+        ],
+        totals: { debit: 500, credit: 500, difference: 0, isBalanced: true },
+      },
+      'Acme Industrial, C.A.',
+    );
+
+    expect(doc.title).toBe('Balanza de comprobación');
+    expect(doc.columns.map((c) => c.key)).toEqual(['code', 'name', 'debit', 'credit', 'balance']);
+    expect(doc.totals?.debit).toBe(500);
+    expect(doc.totals?.credit).toBe(500);
+  });
+});
+

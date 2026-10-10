@@ -8,6 +8,7 @@ import { InventoryValuationReport } from '../inventory-valuation/inventory-valua
 import { PayablesAgingReport } from '../payables-aging/payables-aging-report.js';
 import { ReceivablesAgingReport } from '../receivables-aging/receivables-aging-report.js';
 import { SalesByCustomerReport } from '../sales-by-customer/sales-by-customer-report.js';
+import { TrialBalanceReport } from '../trial-balance/trial-balance-report.js';
 import { DashboardSearcher } from '../search-dashboard/dashboard-searcher.js';
 
 export function aReportingScenario() {
@@ -27,5 +28,6 @@ export function aReportingScenario() {
     customerStatement: new CustomerStatementReport(readModel, calendar, rates),
     salesByCustomer: new SalesByCustomerReport(readModel, rates),
     inventoryValuation: new InventoryValuationReport(readModel, rates),
+    trialBalance: new TrialBalanceReport(readModel, rates),
   };
 }

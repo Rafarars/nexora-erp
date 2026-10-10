@@ -21,6 +21,9 @@ describe('report downloads', () => {
       '/api/v1/reports/sales-by-customer/export?format=pdf&from=2026-09-01&to=2026-09-14',
     );
     expect(exportPath(query(downloadHref('valuacion-inventario', 'xlsx', { bodega: 'w-1' })))).toBe('/api/v1/reports/inventory-valuation/export?format=xlsx&warehouseId=w-1');
+    expect(exportPath(query(downloadHref('balanza-comprobacion', 'pdf', { desde: '2026-01-01', hasta: '2026-10-10' })))).toBe(
+      '/api/v1/reports/trial-balance/export?format=pdf&from=2026-01-01&to=2026-10-10',
+    );
   });
 
   // La ruta de descarga no es un tunel hacia la API.
@@ -37,8 +40,10 @@ describe('report downloads', () => {
 
   it('shows only the reports the role can read', () => {
     const session = { permissions: ['reports.sales.search'], grantsAll: false } as unknown as Session;
-
     expect(visibleReportSections(session).map((section) => section.label)).toEqual(['Ventas por cliente']);
+
+    const accountingSession = { permissions: ['accounting.entries.search'], grantsAll: false } as unknown as Session;
+    expect(visibleReportSections(accountingSession).map((section) => section.label)).toEqual(['Balanza de comprobación']);
   });
 });
 

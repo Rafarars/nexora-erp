@@ -14,6 +14,7 @@ import {
   ReportStatementEntry,
   ReportStock,
   ReportSupplier,
+  ReportTrialBalanceRow,
   ReportingReadModel,
 } from '../../domain/read-model/reporting-read-model.js';
 import { TenantId } from '../../domain/shared/tenant-id.vo.js';
@@ -238,6 +239,42 @@ export class PrismaReportingReadModel implements ReportingReadModel {
       baseUnit: row.base_unit ?? '',
       quantity: num(row.quantity),
       averageCost: num(row.average_cost),
+    }));
+  }
+
+  async trialBalance(tenantId: TenantId, from?: string, to?: string): Promise<ReportTrialBalanceRow[]> {
+    const rows = await this.prisma.$queryRaw<{
+      account_id: string;
+      code: string;
+      name: string;
+      type: string;
+      debit: string;
+      credit: string;
+    }[]>`
+      SELECT
+        a.id AS account_id,
+        a.code,
+        a.name,
+        a.type::text AS type,
+        COALESCE(SUM(CASE WHEN e.id IS NOT NULL THEN l.debit ELSE 0 END), 0)::text AS debit,
+        COALESCE(SUM(CASE WHEN e.id IS NOT NULL THEN l.credit ELSE 0 END), 0)::text AS credit
+      FROM accounts a
+      LEFT JOIN journal_entry_lines l ON l.account_id = a.id
+      LEFT JOIN journal_entries e ON e.id = l.entry_id AND e.tenant_id = a.tenant_id
+        AND (${from ?? null}::date IS NULL OR e.entry_date >= ${from ?? null}::date)
+        AND (${to ?? null}::date IS NULL OR e.entry_date <= ${to ?? null}::date)
+      WHERE a.tenant_id = ${tenantId.value}::uuid
+        AND a.accepts_entries = true
+      GROUP BY a.id, a.code, a.name, a.type
+      ORDER BY a.code ASC`;
+
+    return rows.map((r) => ({
+      accountId: r.account_id,
+      code: r.code,
+      name: r.name,
+      type: r.type,
+      debit: num(r.debit),
+      credit: num(r.credit),
     }));
   }
 }

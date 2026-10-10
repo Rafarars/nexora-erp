@@ -22,6 +22,8 @@ import { CustomerStatementGetController } from './http/customer-statement-get.co
 import { ExportCustomerStatementGetController } from './http/export-customer-statement-get.controller.js';
 import { InventoryValuationGetController } from './http/inventory-valuation-get.controller.js';
 import { ExportInventoryValuationGetController } from './http/export-inventory-valuation-get.controller.js';
+import { TrialBalanceGetController } from './http/trial-balance-get.controller.js';
+import { ExportTrialBalanceGetController } from './http/export-trial-balance-get.controller.js';
 import { ReceivablesAgingGetController } from './http/receivables-aging-get.controller.js';
 import { ExportReceivablesAgingGetController } from './http/export-receivables-aging-get.controller.js';
 import { PayablesAgingGetController } from './http/payables-aging-get.controller.js';
@@ -31,6 +33,7 @@ import { ExportSalesByCustomerGetController } from './http/export-sales-by-custo
 import { SearchDashboardGetController } from './http/search-dashboard-get.controller.js';
 import { PrismaReportingReadModel } from './persistence/prisma-reporting-read-model.js';
 import { PdfExcelReportRenderer } from './rendering/report-renderer.js';
+import { TrialBalanceReport } from '../application/trial-balance/trial-balance-report.js';
 
 // El cableado de los reportes. Importa PayablesModule para saldos de cuentas por pagar
 // (PAYABLE_BALANCES) y CompanyModule para calendario y tasas. Proyecta agregados de solo lectura.
@@ -48,6 +51,8 @@ import { PdfExcelReportRenderer } from './rendering/report-renderer.js';
     ExportSalesByCustomerGetController,
     InventoryValuationGetController,
     ExportInventoryValuationGetController,
+    TrialBalanceGetController,
+    ExportTrialBalanceGetController,
   ],
   providers: [
     { provide: REPORTING_READ_MODEL, useClass: PrismaReportingReadModel },
@@ -74,11 +79,12 @@ import { PdfExcelReportRenderer } from './rendering/report-renderer.js';
     },
     { provide: SalesByCustomerReport, useFactory: (r: ReportingReadModel, dr: DocumentRates) => new SalesByCustomerReport(r, dr), inject: [REPORTING_READ_MODEL, DOCUMENT_RATES] },
     { provide: InventoryValuationReport, useFactory: (r: ReportingReadModel, dr: DocumentRates) => new InventoryValuationReport(r, dr), inject: [REPORTING_READ_MODEL, DOCUMENT_RATES] },
+    { provide: TrialBalanceReport, useFactory: (r: ReportingReadModel, dr: DocumentRates) => new TrialBalanceReport(r, dr), inject: [REPORTING_READ_MODEL, DOCUMENT_RATES] },
     {
       provide: ReportExports,
-      useFactory: (a: ReceivablesAgingReport, pa: PayablesAgingReport, c: CustomerStatementReport, s: SalesByCustomerReport, v: InventoryValuationReport, r: ReportingReadModel, w: ReportRenderer, cal: BusinessCalendar) =>
-        new ReportExports(a, pa, c, s, v, r, w, cal),
-      inject: [ReceivablesAgingReport, PayablesAgingReport, CustomerStatementReport, SalesByCustomerReport, InventoryValuationReport, REPORTING_READ_MODEL, REPORT_RENDERER, BUSINESS_CALENDAR],
+      useFactory: (a: ReceivablesAgingReport, pa: PayablesAgingReport, c: CustomerStatementReport, s: SalesByCustomerReport, v: InventoryValuationReport, tb: TrialBalanceReport, r: ReportingReadModel, w: ReportRenderer, cal: BusinessCalendar) =>
+        new ReportExports(a, pa, c, s, v, tb, r, w, cal),
+      inject: [ReceivablesAgingReport, PayablesAgingReport, CustomerStatementReport, SalesByCustomerReport, InventoryValuationReport, TrialBalanceReport, REPORTING_READ_MODEL, REPORT_RENDERER, BUSINESS_CALENDAR],
     },
   ],
 })

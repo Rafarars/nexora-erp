@@ -7,7 +7,8 @@ import { InventoryValuationReport } from '../inventory-valuation/inventory-valua
 import { PayablesAgingReport } from '../payables-aging/payables-aging-report.js';
 import { ReceivablesAgingReport } from '../receivables-aging/receivables-aging-report.js';
 import { SalesByCustomerReport } from '../sales-by-customer/sales-by-customer-report.js';
-import { customerStatementDocument, inventoryValuationDocument, payablesAgingDocument, receivablesAgingDocument, salesByCustomerDocument, companyHeader } from './report-documents.js';
+import { TrialBalanceReport } from '../trial-balance/trial-balance-report.js';
+import { customerStatementDocument, inventoryValuationDocument, payablesAgingDocument, receivablesAgingDocument, salesByCustomerDocument, trialBalanceDocument, companyHeader } from './report-documents.js';
 
 // Exportar es correr el mismo reporte de la pantalla, convertirlo en documento y escribirlo. El
 // formato se valida antes de consultar nada.
@@ -18,6 +19,7 @@ export class ReportExports {
     private readonly statement: CustomerStatementReport,
     private readonly sales: SalesByCustomerReport,
     private readonly valuation: InventoryValuationReport,
+    private readonly trialBalanceReport: TrialBalanceReport,
     private readonly readModel: ReportingReadModel,
     private readonly renderer: ReportRenderer,
     private readonly calendar: BusinessCalendar,
@@ -55,6 +57,12 @@ export class ReportExports {
 
       return inventoryValuationDocument(report, company, await this.calendar.today(request.tenantId));
     });
+  }
+
+  async trialBalance(request: { tenantId: string; from?: string; to?: string }, format: string | undefined): Promise<RenderedReport> {
+    const chosen = exportFormat(format);
+
+    return this.write(chosen, request.tenantId, async (company) => trialBalanceDocument(await this.trialBalanceReport.run(request), company));
   }
 
   private async write(format: ExportFormat, tenantId: string, build: (company: string) => Promise<Parameters<ReportRenderer['render']>[0]>): Promise<RenderedReport> {

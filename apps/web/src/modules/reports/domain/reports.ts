@@ -63,6 +63,26 @@ export interface ValuationReport {
   totalValue: number;
 }
 
+export interface TrialBalanceReport {
+  from: string | null;
+  to: string | null;
+  currency: string;
+  decimals: number;
+  page: ReportPage;
+  rows: {
+    account: { id: string; code: string; name: string; type: string };
+    debit: number;
+    credit: number;
+    balance: number;
+  }[];
+  totals: {
+    debit: number;
+    credit: number;
+    difference: number;
+    isBalanced: boolean;
+  };
+}
+
 // Que rotulo lleva el pie de un listado paginado, y si hay que pintarlo. Se pinta tambien cuando
 // el desplazamiento se paso del total: ahi no hay filas y sin el no queda ningun enlace para
 // volver. El rango va acotado al total, que si no salia "201-120 de 120".
@@ -80,7 +100,7 @@ export function formatReportAmount(value: number, decimals: number): string {
   return value.toLocaleString('es-VE', { minimumFractionDigits: decimals, maximumFractionDigits: decimals });
 }
 
-export type ReportName = 'antiguedad' | 'estado-de-cuenta' | 'ventas-por-cliente' | 'valuacion-inventario' | 'antiguedad-por-pagar';
+export type ReportName = 'antiguedad' | 'estado-de-cuenta' | 'ventas-por-cliente' | 'valuacion-inventario' | 'antiguedad-por-pagar' | 'balanza-comprobacion';
 export type ReportFormat = 'pdf' | 'xlsx';
 
 // Del primer dia del mes hasta hoy: lo que se pregunta casi siempre.
@@ -125,6 +145,11 @@ export function exportPath(query: URLSearchParams): string | null {
       if (query.get('bodega')) params.set('warehouseId', query.get('bodega') ?? '');
 
       return `/api/v1/reports/inventory-valuation/export?${params}`;
+    case 'balanza-comprobacion':
+      if (query.get('desde')) params.set('from', query.get('desde') ?? '');
+      if (query.get('hasta')) params.set('to', query.get('hasta') ?? '');
+
+      return `/api/v1/reports/trial-balance/export?${params}`;
     default:
       return null;
   }

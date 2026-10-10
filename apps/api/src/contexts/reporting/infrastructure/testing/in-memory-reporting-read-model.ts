@@ -8,6 +8,7 @@ import {
   ReportStatementEntry,
   ReportStock,
   ReportSupplier,
+  ReportTrialBalanceRow,
   ReportingReadModel,
 } from '../../domain/read-model/reporting-read-model.js';
 import { DocumentCurrency, DocumentCurrencyPrimitives } from '../../../../shared/domain/document-currency.js';
@@ -214,6 +215,16 @@ export class InMemoryReportingReadModel implements ReportingReadModel {
 
   async stock(tenantId: { value: string }, warehouseId?: string): Promise<ReportStock[]> {
     return this.of(this.stockRows, tenantId.value).filter((row) => row.quantity !== 0 && (!warehouseId || row.warehouseId === warehouseId));
+  }
+
+  private readonly trialBalanceAccountRows: Tenant<ReportTrialBalanceRow>[] = [];
+
+  trialBalanceRow(tenantId: string, row: ReportTrialBalanceRow): void {
+    this.trialBalanceAccountRows.push({ ...row, tenantId });
+  }
+
+  async trialBalance(tenantId: { value: string }, _from?: string, _to?: string): Promise<ReportTrialBalanceRow[]> {
+    return this.of(this.trialBalanceAccountRows, tenantId.value);
   }
 
   private invoicesIn(tenantId: string, period: ReportPeriod): InMemoryInvoice[] {

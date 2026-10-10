@@ -1,5 +1,5 @@
 import { AccessError } from '../../access/domain/access-error';
-import type { AgingReport, Dashboard, SalesByCustomerReport, StatementReport, ValuationReport } from '../domain/reports';
+import type { AgingReport, Dashboard, SalesByCustomerReport, StatementReport, TrialBalanceReport, ValuationReport } from '../domain/reports';
 
 const BASE = '/api/v1/reports';
 
@@ -34,6 +34,13 @@ export class HttpReportsApi {
 
   valuation(token: string, warehouseId?: string, offset = 0): Promise<ValuationReport> {
     return this.json(`${BASE}/inventory-valuation${paged(warehouseId ? { warehouseId } : {}, offset)}`, token);
+  }
+
+  trialBalance(token: string, from?: string, to?: string, offset = 0): Promise<TrialBalanceReport> {
+    const params: Record<string, string> = {};
+    if (from) params.from = from;
+    if (to) params.to = to;
+    return this.json(`${BASE}/trial-balance${paged(params, offset)}`, token);
   }
 
   // La descarga se reenvia tal cual: cabeceras de tipo y nombre de archivo incluidas.

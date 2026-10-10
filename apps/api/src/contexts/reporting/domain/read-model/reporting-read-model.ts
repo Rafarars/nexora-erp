@@ -108,4 +108,15 @@ export interface ReportingReadModel {
   // Existencias distintas de cero, filtro opcional por bodega. El costo promedio ya esta en la
   // moneda de la empresa: no se convierte.
   stock(tenantId: TenantId, warehouseId?: string): Promise<ReportStock[]>;
+  // Balanza de comprobacion de cuentas contables que reciben asientos, con debe y haber acumulados.
+  trialBalance(tenantId: TenantId, from?: string, to?: string): Promise<ReportTrialBalanceRow[]>;
+}
+
+export interface ReportTrialBalanceRow {
+  accountId: string;
+  code: string;
+  name: string;
+  type: string;
+  debit: number;
+  credit: number;
 }

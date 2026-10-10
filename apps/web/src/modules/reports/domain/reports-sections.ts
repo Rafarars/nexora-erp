@@ -6,6 +6,7 @@ export const REPORT_SECTIONS = [
   { href: '/reportes/estado-de-cuenta', label: 'Estado de cuenta', testId: 'reports-estado-de-cuenta', permission: 'reports.receivables.search' },
   { href: '/reportes/ventas-por-cliente', label: 'Ventas por cliente', testId: 'reports-ventas-por-cliente', permission: 'reports.sales.search' },
   { href: '/reportes/valuacion-inventario', label: 'Valuación del inventario', testId: 'reports-valuacion-inventario', permission: 'reports.inventory.search' },
+  { href: '/reportes/balanza-comprobacion', label: 'Balanza de comprobación', testId: 'reports-balanza-comprobacion', permission: 'accounting.entries.search' },
 ];
 
 export function visibleReportSections(session: Session) {
